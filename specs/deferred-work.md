@@ -199,3 +199,23 @@ Full record: `specs/stories/oxp-2-derived-office-xp-calculation.md` → Senior D
   without a real malformed document to test against risks its own subtle bug. Revisit if this
   collection is ever hand-edited outside the route (Mongo Compass, a migration script) in a way that
   could produce a `dots`-less document.
+
+## Deferred from: code review of oxp-11-office-purchase-seat-keying (2026-08-13, external Codex review)
+
+Full record: `specs/stories/oxp-11-office-purchase-seat-keying.md` → Senior Developer Review.
+
+- **No runtime dual-schema read compatibility between the old category-keyed and new seat-keyed
+  purchase collections during the deploy/migration window** (High, accepted rather than built
+  around). Once `oxp-11`'s server code deploys, `GET`/`PUT /api/office_merit_dots` and
+  `/api/office_manoeuvre_rank` read and write ONLY seat-keyed documents — the old `:category` routes
+  are gone entirely. If the migration script has not yet run, the two existing real documents
+  (Enforcer, Head of State) appear unpurchased, and an ST editing either during that gap creates a
+  fresh seat-keyed document that the later migration run will then see as already-migrated and leave
+  alone, permanently stranding whatever the pre-migration value actually was. Addressed for now with
+  an explicit, prominent operational warning in `server/scripts/migrate-office-purchases-to-seats.mjs`'s
+  own header (run the migration with `--apply` immediately after deploying, before any ST touches the
+  affected tab sections) rather than code, because both live documents this migration would move
+  currently hold nothing but `{ "Safe Place": 0 }` — the entire real stakes of getting the order wrong
+  right now is re-typing two zeroes by hand. Revisit properly (read-both-schemas compatibility, or a
+  server-side migration trigger on deploy) if either collection ever holds genuine purchase data
+  before a future migration of this same shape (category-to-something-else re-keying).

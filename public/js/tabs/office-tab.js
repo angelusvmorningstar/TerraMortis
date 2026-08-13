@@ -170,8 +170,7 @@ export function renderOfficeTab(el, char, chars = [], viewCategory) {
   h += `</div>`;
   el.innerHTML = h;
   _wireCategoryPicker(el, char, chars);
-  _wireMeritDots(el, category, data.merits);
-  _wireManoeuvreRank(el, category, data.manoeuvres, isOwnOffice);
+  _wirePurchaseState(el, char, category, data, isOwnOffice);
 
   if (category === 'Head of State' && isOwnOffice) {
     _wireHosActions(el, char, chars);
@@ -189,25 +188,160 @@ function _wireCategoryPicker(el, char, chars) {
   });
 }
 
-/** Fetches current merit dots for every office category and renders this
- *  category's merit suite with real dot ratings. STs (and dev, which is
- *  treated as ST everywhere per this codebase's own equivalence) get +/-
- *  stepper controls; everyone else sees a read-only dot display. Mirrors
- *  _wireHosActions's own fetch-then-render-into-mount pattern below. */
-async function _wireMeritDots(el, category, meritNames) {
+// oxp.11: what an office's purchase state is keyed by, and the three states the
+// tab can end up in when it tries to work that out.
+//
+// Both purchase collections are keyed by SEAT now, not by office category, so
+// the tab has to resolve WHICH seat it is showing before it can read or write
+// anything. `office_seats.holder_id` is the only signal available for that, and
+// nothing in this codebase maintains it yet (oxp.1's one-off seed script is its
+// only writer; oxp.5, which would update it on a handover, is unbuilt). So the
+// holder match can go stale, and a deterministic fallback plus an honest
+// on-screen label is what makes that survivable rather than dangerous.
+const SEATLESS_MSG    = 'This office has no seat on record, so there is no purchase state to show.';
+const SEATS_FAILED_MSG = 'Could not load office seats.';
+
+/**
+ * The single async entry point for an office's purchase state.
+ *
+ * `GET /api/office_seats` is fetched ONCE here, per render pass, and the seat
+ * it resolves is handed to both wiring functions. Neither of them fetches seats
+ * for itself: two independent fetches could resolve two different seats for the
+ * same view if a write landed between them.
+ *
+ * The render-generation counter is captured here, before this function's first
+ * await, and passed down. That is deliberate: the seat fetch is now the first
+ * await in the whole chain, so the guard has to start here or a late seat fetch
+ * could paint the previous category's state into the one now on screen.
+ */
+async function _wirePurchaseState(el, char, category, data, isOwnOffice) {
+  if (typeof el.querySelector !== 'function') return; // plain-object test mocks have no real DOM
+
+  const gen = el._officeManoeuvreGen;
+
+  let seats = null;
+  try { seats = await apiGet('/api/office_seats'); } catch { seats = null; }
+  if (gen !== el._officeManoeuvreGen) return;
+
+  let outcome;
+  if (!Array.isArray(seats)) {
+    outcome = { status: 'unavailable', seatId: null, note: null };
+  } else {
+    const forCategory = seats.filter(s => s && s.office_category === category);
+    if (forCategory.length === 0) {
+      outcome = { status: 'no-seat', seatId: null, note: null };
+    } else {
+      // AC5: the viewer's OWN office resolves by holder. A seat's holder_id and
+      // a character's _id are both stringified at the JSON boundary, so this is
+      // a plain string comparison.
+      const held = isOwnOffice
+        ? forCategory.find(s => s.holder_id != null && String(s.holder_id) === String(char._id))
+        : null;
+      const seat = held || _fallbackSeat(forCategory);
+      // Codex review, oxp.11: a single-seat category has exactly one candidate,
+      // so the fallback is provably that seat regardless of whether holder_id
+      // matched — nothing was ever ambiguous there. A multi-seat category with
+      // no holder match is genuinely uncertain: office_seats.holder_id is not
+      // kept current by anything yet (oxp.5's job), so an own-office view can
+      // silently fall back to a DIFFERENT holder's seat. `confirmed` is what
+      // tells the manoeuvre list whether it is safe to present as the viewer's
+      // own progress — see _wireManoeuvreRank.
+      const confirmed = held != null || forCategory.length === 1;
+      outcome = {
+        status: 'ok',
+        seatId: String(seat._id),
+        confirmed,
+        // AC6: only disclose when there is genuinely something to disclose. For
+        // a single-seat office the fallback cannot be wrong, so a label would
+        // be noise; for a multi-seat one it is the difference between an ST
+        // knowing which Primogen they are editing and not.
+        note: forCategory.length > 1 ? _seatNote(seat, isOwnOffice && !confirmed) : null,
+      };
+    }
+  }
+
+  _wireMeritDots(el, outcome, data.merits, gen);
+  _wireManoeuvreRank(el, outcome, data.manoeuvres, isOwnOffice, gen);
+}
+
+/** AC6: the deterministic fallback when no seat matches by holder — a
+ *  reference view, or a stale holder_id after an untracked handover. Ascending
+ *  created_at, then ascending _id as the tie-break, so the same viewer always
+ *  lands on the same seat and two viewers agree. */
+function _fallbackSeat(seats) {
+  return [...seats].sort((a, b) => {
+    const ca = String(a.created_at ?? '');
+    const cb = String(b.created_at ?? '');
+    if (ca !== cb) return ca < cb ? -1 : 1;
+    const ia = String(a._id ?? '');
+    const ib = String(b._id ?? '');
+    return ia < ib ? -1 : ia > ib ? 1 : 0;
+  })[0];
+}
+
+/** AC6: names the seat whose purchase state is on screen. A label if the seat
+ *  has one (Socialite's two do: 'Harpy' and "People's Harpy"), otherwise a
+ *  short form of its id, because Primogen's two seats have neither a label nor
+ *  any other distinguishing field.
+ *
+ *  Codex review, oxp.11: `unconfirmedOwn` is true only for an own-office view
+ *  that could not match the viewer's own character by holder_id, in a
+ *  multi-seat category — the case where the resolved seat may genuinely NOT be
+ *  the viewer's. The wording says so plainly, because the manoeuvre list is no
+ *  longer muted as "yours" in that case (see _wireManoeuvreRank) but the merit
+ *  suite and any edit control still act on the seat named here, own or not. */
+function _seatNote(seat, unconfirmedOwn) {
+  const label = seat.seat_label ? String(seat.seat_label) : `seat ${String(seat._id).slice(-6)}`;
+  if (unconfirmedOwn) {
+    return `Could not confirm which of this office's seats is yours. Showing: ${label}. `
+      + 'Any edit here affects that seat, which may not be your own.';
+  }
+  return `This office has more than one seat. Showing: ${label}.`;
+}
+
+/** AC6: a short, non-interactive line. Choosing a different seat is oxp.6's
+ *  job; this only says which one you are looking at. Reuses the tab's existing
+ *  informational-line class rather than inventing styling. */
+function _seatNoteHtml(note) {
+  return note ? `<div class="office-reference-banner">${esc(note)}</div>` : '';
+}
+
+/** Fetches current merit dots for every office seat and renders this seat's
+ *  merit suite with real dot ratings. STs (and dev, which is treated as ST
+ *  everywhere per this codebase's own equivalence) get +/- stepper controls;
+ *  everyone else sees a read-only dot display. Mirrors _wireHosActions's own
+ *  fetch-then-render-into-mount pattern below.
+ *
+ *  oxp.11: takes the resolved seat OUTCOME rather than an office category.
+ *  Note this is NOT gated on isOwnOffice: merit dots render for every viewer in
+ *  every view, so the seat disclosure note applies to reference viewers too. */
+async function _wireMeritDots(el, outcome, meritNames, gen) {
   if (typeof el.querySelector !== 'function') return; // plain-object test mocks have no real DOM
   const mount = el.querySelector('[data-office-merit-mount]');
   if (!mount) return;
+  const stale = () => gen !== el._officeManoeuvreGen;
 
-  let dotsByCategory;
-  try {
-    dotsByCategory = await apiGet('/api/office_merit_dots');
-  } catch {
-    mount.innerHTML = '<p class="dtl-empty">Could not load merit dots.</p>';
+  // No seat means no purchase state can be read or written. Saying so is more
+  // honest than rendering a plausible row of zeros, which an ST would then be
+  // able to step into a document keyed by nothing.
+  if (outcome.status !== 'ok') {
+    if (stale()) return;
+    const msg = outcome.status === 'no-seat' ? SEATLESS_MSG : SEATS_FAILED_MSG;
+    mount.innerHTML = `<p class="dtl-empty">${esc(msg)}</p>`;
     return;
   }
 
-  const dots = dotsByCategory[category] || {};
+  let dotsBySeat;
+  try {
+    dotsBySeat = await apiGet('/api/office_merit_dots');
+  } catch {
+    if (stale()) return;
+    mount.innerHTML = '<p class="dtl-empty">Could not load merit dots.</p>';
+    return;
+  }
+  if (stale()) return;
+
+  const dots = dotsBySeat[outcome.seatId] || {};
   const isST = _isST();
 
   const rowsHtml = meritNames.map((merit) => {
@@ -227,49 +361,56 @@ async function _wireMeritDots(el, category, meritNames) {
     return row;
   }).join('');
 
-  mount.innerHTML = rowsHtml;
+  mount.innerHTML = _seatNoteHtml(outcome.note) + rowsHtml;
 
   if (isST) {
     mount.querySelectorAll('[data-merit-up]').forEach((btn) => {
-      btn.addEventListener('click', () => _adjustMeritDots(el, category, meritNames, btn.dataset.meritUp, 1));
+      btn.addEventListener('click', () => _adjustMeritDots(el, outcome, meritNames, btn.dataset.meritUp, 1));
     });
     mount.querySelectorAll('[data-merit-down]').forEach((btn) => {
-      btn.addEventListener('click', () => _adjustMeritDots(el, category, meritNames, btn.dataset.meritDown, -1));
+      btn.addEventListener('click', () => _adjustMeritDots(el, outcome, meritNames, btn.dataset.meritDown, -1));
     });
   }
 }
 
-async function _adjustMeritDots(el, category, meritNames, merit, delta) {
+async function _adjustMeritDots(el, outcome, meritNames, merit, delta) {
+  const gen = el._officeManoeuvreGen;
   // Re-fetch fresh rather than trusting DOM state — another ST could have
   // changed this since the row was last rendered.
-  let dotsByCategory;
-  try { dotsByCategory = await apiGet('/api/office_merit_dots'); } catch { return; }
-  const current = (dotsByCategory[category] || {})[merit] || 0;
+  let dotsBySeat;
+  try { dotsBySeat = await apiGet('/api/office_merit_dots'); } catch { return; }
+  const current = (dotsBySeat[outcome.seatId] || {})[merit] || 0;
   const cap = MERIT_DOT_CAPS[merit] || 5;
   const next = Math.max(0, Math.min(cap, current + delta));
   if (next === current) return;
 
   try {
-    await apiPut(`/api/office_merit_dots/${encodeURIComponent(category)}`, { merit, dots: next });
+    await apiPut(`/api/office_merit_dots/${encodeURIComponent(outcome.seatId)}`, { merit, dots: next });
   } catch {
     return; // silent no-op on failure — the displayed value simply stays put
   }
-  await _wireMeritDots(el, category, meritNames);
+  // The viewer may have switched category while the write was in flight;
+  // re-rendering now would paint this seat's dots into another office's markup.
+  if (gen !== el._officeManoeuvreGen) return;
+  await _wireMeritDots(el, outcome, meritNames, gen);
 }
 
-/** oxp.3: fetches this office's current manoeuvre rank, mutes the manoeuvres
+/** oxp.3: fetches this seat's current manoeuvre rank, mutes the manoeuvres
  *  above it (own-office view only), and renders the rank readout plus the
  *  ST/dev-only stepper. Mirrors _wireMeritDots's fetch-then-render-into-mount
  *  pattern, and like it is deliberately NOT gated on isOwnOffice for the ST —
  *  an ST needs to set an office's purchase state while browsing it as
- *  reference, before anyone even holds it. */
-async function _wireManoeuvreRank(el, category, manoeuvres, isOwnOffice) {
+ *  reference, before anyone even holds it.
+ *
+ *  oxp.11: takes the resolved seat OUTCOME rather than an office category, and
+ *  the render generation captured by _wirePurchaseState before ITS first await
+ *  rather than capturing its own (the seat fetch now precedes this one). */
+async function _wireManoeuvreRank(el, outcome, manoeuvres, isOwnOffice, gen) {
   if (typeof el.querySelector !== 'function') return; // plain-object test mocks have no real DOM
 
-  // Captured before the first await. If a later render (a category switch)
-  // bumps the counter while this fetch is in flight, every DOM write below is
-  // abandoned rather than applied to markup that now belongs to another office.
-  const gen   = el._officeManoeuvreGen;
+  // If a later render (a category switch) bumps the counter while a fetch is in
+  // flight, every DOM write below is abandoned rather than applied to markup
+  // that now belongs to another office.
   const stale = () => gen !== el._officeManoeuvreGen;
 
   const mount  = el.querySelector('[data-office-manoeuvre-rank-mount]');
@@ -278,12 +419,26 @@ async function _wireManoeuvreRank(el, category, manoeuvres, isOwnOffice) {
 
   const isST = _isST();
   // A non-ST browsing someone else's office is entitled to nothing but the
-  // plain summary (AC2), so there is no reason to fetch purchase state at all.
+  // plain summary (oxp.3 AC2), so there is no reason to fetch purchase state at
+  // all. This early return sits above EVERY write below, including oxp.11's
+  // seat messages and disclosure note, so that boundary survives unchanged: a
+  // reference viewer's DOM still carries no purchase state of any kind.
   if (!isOwnOffice && !isST) return;
 
-  let ranksByCategory;
+  // oxp.11: no seat, or seats unavailable. Same shape as the rank-fetch
+  // failure below — do not leave the optimistic first render up, and attempt
+  // no write.
+  if (outcome.status !== 'ok') {
+    if (stale()) return;
+    const msg = outcome.status === 'no-seat' ? SEATLESS_MSG : SEATS_FAILED_MSG;
+    if (isOwnOffice && listEl) listEl.innerHTML = `<p class="dtl-empty">${esc(msg)}</p>`;
+    if (mount) mount.innerHTML = `<span class="dtl-empty">${esc(msg)}</span>`;
+    return;
+  }
+
+  let ranksBySeat;
   try {
-    ranksByCategory = await apiGet('/api/office_manoeuvre_rank');
+    ranksBySeat = await apiGet('/api/office_manoeuvre_rank');
   } catch {
     if (stale()) return;
     // Do not leave the list in its optimistic first-render state. That render
@@ -300,28 +455,38 @@ async function _wireManoeuvreRank(el, category, manoeuvres, isOwnOffice) {
   if (stale()) return;
 
   const count = manoeuvres.length;
-  const rank  = Math.max(0, Math.min(count, Number(ranksByCategory[category]) || 0));
+  const rank  = Math.max(0, Math.min(count, Number(ranksBySeat[outcome.seatId]) || 0));
 
   // Muting is own-office only — the reference view's markup never gains the
   // class, whatever the stored rank.
-  if (isOwnOffice && listEl) {
+  //
+  // Codex review, oxp.11: also requires outcome.confirmed. Muting presents the
+  // list as the viewer's OWN purchased progress. When the own-office holder
+  // match failed and the resolved seat is only a deterministic fallback (a
+  // multi-seat category with no confirmed holder), that presentation would be
+  // a real lie, not just an unhelpful one — it could be a different holder's
+  // seat entirely. Leaving the list at its unmuted first-render markup (see
+  // renderOfficeTab, which passes a null rank there) is the same safe state a
+  // reference viewer already sees, and _seatNote's unconfirmedOwn wording
+  // (rendered into the mount below regardless) is what discloses the gap.
+  if (isOwnOffice && outcome.confirmed && listEl) {
     listEl.innerHTML = manoeuvreListHtml(manoeuvres, rank, true);
   }
 
   if (!mount) return;
-  mount.innerHTML = manoeuvreRankHtml(rank, count, isST);
+  mount.innerHTML = _seatNoteHtml(outcome.note) + manoeuvreRankHtml(rank, count, isST);
 
   if (isST) {
     mount.querySelectorAll('[data-manoeuvre-rank-up]').forEach((btn) => {
-      btn.addEventListener('click', () => _adjustManoeuvreRank(el, category, manoeuvres, isOwnOffice, 1));
+      btn.addEventListener('click', () => _adjustManoeuvreRank(el, outcome, manoeuvres, isOwnOffice, 1));
     });
     mount.querySelectorAll('[data-manoeuvre-rank-down]').forEach((btn) => {
-      btn.addEventListener('click', () => _adjustManoeuvreRank(el, category, manoeuvres, isOwnOffice, -1));
+      btn.addEventListener('click', () => _adjustManoeuvreRank(el, outcome, manoeuvres, isOwnOffice, -1));
     });
   }
 }
 
-async function _adjustManoeuvreRank(el, category, manoeuvres, isOwnOffice, delta) {
+async function _adjustManoeuvreRank(el, outcome, manoeuvres, isOwnOffice, delta) {
   // Send the STEP, never a computed absolute value. Reading the rank here and
   // PUTting `current + delta` looks safe but is a read-then-write race: two
   // overlapping adjustments both read the same starting rank and both write the
@@ -330,14 +495,14 @@ async function _adjustManoeuvreRank(el, category, manoeuvres, isOwnOffice, delta
   const gen = el._officeManoeuvreGen;
 
   try {
-    await apiPut(`/api/office_manoeuvre_rank/${encodeURIComponent(category)}/step`, { delta });
+    await apiPut(`/api/office_manoeuvre_rank/${encodeURIComponent(outcome.seatId)}/step`, { delta });
   } catch {
     return; // silent no-op on failure — the displayed value simply stays put
   }
   // The viewer may have switched category while the write was in flight;
-  // re-rendering now would paint this office's rank into that one's markup.
+  // re-rendering now would paint this seat's rank into another office's markup.
   if (gen !== el._officeManoeuvreGen) return;
-  await _wireManoeuvreRank(el, category, manoeuvres, isOwnOffice);
+  await _wireManoeuvreRank(el, outcome, manoeuvres, isOwnOffice, gen);
 }
 
 async function _wireHosActions(el, char, chars) {

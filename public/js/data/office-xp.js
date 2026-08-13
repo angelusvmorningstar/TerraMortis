@@ -149,10 +149,14 @@ export function officeXpEarned(seat, now) {
  * `{ rank: n }`). They are unambiguous — a raw document's `dots` is an object,
  * where an API-shaped map's values are all numbers.
  *
- * NOTE ON SCOPE: this is a CATEGORY total, not a seat total, because both
- * collections are keyed by `office_category` alone with no seat or holder
- * reference. For an office with more than one seat that total cannot be split
- * between them — see `officeSpendKnownByCategory`.
+ * NOTE ON SCOPE, UPDATED BY oxp.11 (2026-08-13): this used to be unavoidably a
+ * CATEGORY total, because both purchase collections were keyed by
+ * `office_category` alone, one document per office, with no seat reference
+ * anywhere. oxp.11 re-keyed both collections by SEAT, so that limitation is
+ * gone. A caller should now pass the SEAT's own purchase documents — the ones
+ * stored under that seat's `office_seats._id` — which after oxp.11 is the only
+ * shape that exists. The function itself is unchanged: it derives a total from
+ * whatever documents it is handed, and it never cared which key they came from.
  *
  * @param {object|undefined|null} meritDotsDoc
  * @param {number|object|undefined|null} manoeuvreRankDoc
@@ -187,11 +191,24 @@ export function officeXpSpentForCategory(meritDotsDoc, manoeuvreRankDoc) {
  * Per office category, can spend be attributed to an INDIVIDUAL seat? (AC4)
  *
  * True only when the category has exactly one seat document. Two or more and
- * the answer is false, because `office_merit_dots` / `office_manoeuvre_ranks`
- * are keyed by category alone: there is no field anywhere saying which of the
- * seats a purchase belongs to. Live today that means Primogen (2 seats) and
- * Socialite (2 seats) are unattributable, while Head of State, Enforcer and
- * Administrator are fine.
+ * the answer is false.
+ *
+ * WHY THIS EXISTED, AND WHY IT IS NOW OBSOLETE IN SUBSTANCE (oxp.11,
+ * 2026-08-13). When oxp.2 wrote this, `office_merit_dots` and
+ * `office_manoeuvre_ranks` were keyed by category alone: there was no field
+ * anywhere saying which of an office's seats a purchase belonged to, so
+ * Primogen (2 seats) and Socialite (2 seats) genuinely were unattributable.
+ * oxp.11 migrated both collections to seat-keying and closed that gap. Spend
+ * IS attributable per seat now, for every office.
+ *
+ * The flag is nevertheless RETAINED, unchanged, for two reasons. It fails
+ * SAFE: an over-cautious `false` makes a caller say "cannot tell" when it
+ * could in fact tell, which is a wasted opportunity and never a wrong number.
+ * And it has no consumer yet — nothing reads it. Retiring it belongs with the
+ * first real consumer, oxp.6 (purchase markers) or oxp.7 (sheet section),
+ * which will know what they want rendered in its place. Flipping its behaviour
+ * here would also rewrite oxp.2's own AC8 tests, which assert that Primogen
+ * and Socialite resolve `spendKnown: false`, from inside a different story.
  *
  * Vacancy is irrelevant. Two seats create the same structural ambiguity
  * whether or not anyone is sitting in them, so this counts SEATS and never
@@ -200,11 +217,7 @@ export function officeXpSpentForCategory(meritDotsDoc, manoeuvreRankDoc) {
  * This is deliberately a first-class value rather than something a caller
  * infers. "Spend is 0" and "we cannot tell whose spend this is" are different
  * facts that happen to look identical in a rendered number, and conflating
- * them is exactly the bug this story was scoped around. The proper fix is to
- * migrate both purchase collections to seat-keying; that is real, known work,
- * deferred deliberately (see oxp.1 and this story's "What this story is NOT").
- * Until then this flag is how a UI knows to render "N/A, pending seat-level
- * purchase tracking" instead of a number that looks real and is not.
+ * them is exactly the bug oxp.2 was scoped around.
  *
  * @param {Array<{ office_category: string }>} allSeats - the full seats array
  * @returns {{ [category: string]: boolean }}
@@ -230,8 +243,11 @@ export function officeSpendKnownByCategory(allSeats) {
  *   this seat's category can be established (see `officeSpendKnownByCategory`).
  *   `seat` should be one of `allSeats`; if it genuinely is not, `spendKnown`
  *   is forced `false` rather than trusting a possibly-incomplete count.
- * @param {object|undefined|null} meritDotsDoc - this CATEGORY's merit dots
- * @param {number|object|undefined|null} manoeuvreRankDoc - this CATEGORY's rank
+ * @param {object|undefined|null} meritDotsDoc - this SEAT's merit dots. Before
+ *   oxp.11 the only thing that existed was the category's shared document;
+ *   after it, purchase documents are keyed by `office_seats._id` and this seat's
+ *   own document is what a caller should pass.
+ * @param {number|object|undefined|null} manoeuvreRankDoc - this SEAT's rank
  * @param {string|Date} now - caller-supplied evaluation date
  * @returns {{ earned: number, spent: number, left: number, spendKnown: boolean }}
  *
@@ -240,11 +256,11 @@ export function officeSpendKnownByCategory(allSeats) {
  * created in different months correctly differ.
  *
  * `spent` and `left` are always real numbers so no caller crashes on
- * undefined, BUT when `spendKnown` is false they are the CATEGORY's shared
- * total and are NOT attributable to this seat. A caller must check
- * `spendKnown` before treating either as this seat's own figure — the check
- * guards against believing a number, not against a missing one. Never
- * simplify this away by defaulting `spendKnown` to true.
+ * undefined. `spendKnown` is retained from oxp.2 and still reports `false` for
+ * a multi-seat office, even though oxp.11's seat-keying means spend genuinely
+ * IS attributable now. It fails safe in that direction, it has no consumer, and
+ * its retirement belongs with the first one (oxp.6 or oxp.7). Never simplify it
+ * away by defaulting it to true.
  *
  * `left` is allowed to go negative. Both purchase collections are direct
  * ST-set state with no budget check (oxp.9 would add one), so an office can

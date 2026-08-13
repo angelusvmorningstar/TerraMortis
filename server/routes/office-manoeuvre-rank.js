@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { getCollection } from '../db.js';
 import { requireRole } from '../middleware/auth.js';
-import { OFFICE_DATA } from '../../public/js/tabs/office-data.js';
+import { resolveOfficeSeat } from '../lib/office-seat-resolve.js';
 
 const router = Router();
 const col = () => getCollection('office_manoeuvre_ranks');
@@ -9,41 +9,49 @@ const col = () => getCollection('office_manoeuvre_ranks');
 // GET /api/office_manoeuvre_rank
 // Reference info, open to any authenticated user — the same posture as
 // office-merit-dots.js's own GET / (open read, ST-gated write). Returns
-// { [category]: rank } for every office category that has a document; a
-// category nobody has purchased into yet simply has no key here, and the
-// client treats a missing entry as rank 0 (nothing purchased).
+// { [seatId]: rank } for every office SEAT that has a document; a seat nobody
+// has purchased into yet simply has no key here, and the client treats a
+// missing entry as rank 0 (nothing purchased).
 router.get('/', async (req, res) => {
   const docs = await col().find({}).toArray();
   const out = {};
+  // oxp.11: `doc._id` is the seat id, not the office category. Only the key
+  // changed; the value is the same bare integer it always was.
   for (const doc of docs) out[doc._id] = doc.rank || 0;
   res.json(out);
 });
 
-// PUT /api/office_manoeuvre_rank/:category
-// ST-only. Body: { rank }. Sets how many of this office's ranked manoeuvres
-// are currently purchased, as one graduated integer: 0 means none, and the
-// office's own manoeuvre count means all of them. Rank order IS the order of
-// OFFICE_DATA[category].manoeuvres, which already matches the resolved rank
-// table in content/rules/office-powers.md.
+// PUT /api/office_manoeuvre_rank/:seatId
+// ST-only. Body: { rank }. Sets how many of this SEAT's office's ranked
+// manoeuvres are currently purchased, as one graduated integer: 0 means none,
+// and the office's own manoeuvre count means all of them. Rank order IS the
+// order of OFFICE_DATA[category].manoeuvres, which already matches the resolved
+// rank table in content/rules/office-powers.md.
 //
-// The upper bound is read from the office's own manoeuvres array rather than
-// hardcoded, so an office authored later with a different number of
-// manoeuvres (Administrator, oxp.8) validates correctly without a code change
-// here.
+// The upper bound is read from the resolved seat's own office's manoeuvres
+// array rather than hardcoded, so an office authored later with a different
+// number of manoeuvres (Administrator, oxp.8) validates correctly without a
+// code change here.
+//
+// oxp.11 re-keyed this from office category to seat. Two offices carry more
+// than one concurrent seat (Primogen, Socialite), and under category-keying
+// their single shared document could not record that one seat had climbed the
+// ladder and the other had not. That mattered most for oxp.5, which must reset
+// ONE seat's rank on a handover without destroying the other's.
 //
 // Minimal-scope note (oxp.3, 2026-08-13): this mirrors the office-merit-dots
 // stopgap exactly — direct ST-set purchase state, not Epic OXP's full
-// accrual/spend economy (oxp.1/oxp.2 still backlog). No XP bookkeeping, no
-// approval-queue routing (oxp.9 — there is no spend event here to approve),
-// and no handover reset (oxp.5 — there is no spent XP to destroy yet).
-router.put('/:category', requireRole('st'), async (req, res) => {
-  const { category } = req.params;
+// accrual/spend economy. No XP bookkeeping, no approval-queue routing (oxp.9 —
+// there is no spend event here to approve), and no handover reset (oxp.5).
+router.put('/:seatId', requireRole('st'), async (req, res) => {
+  const resolved = await resolveOfficeSeat(req.params.seatId);
+  if (resolved.error) return res.status(resolved.error.status).json(resolved.error.body);
+  const { seatId, category, officeEntry } = resolved;
+
+  if (!Array.isArray(officeEntry.manoeuvres))
+    return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'This seat\'s office has no manoeuvres' });
+
   const { rank } = req.body;
-
-  const officeEntry = OFFICE_DATA[category];
-  if (!officeEntry || !Array.isArray(officeEntry.manoeuvres))
-    return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'Unknown office category' });
-
   const max = officeEntry.manoeuvres.length;
   // Accept a numeric string (office-merit-dots accepts one too) but never
   // coerce null/undefined/''/[]/booleans, all of which Number() would happily
@@ -53,14 +61,14 @@ router.put('/:category', requireRole('st'), async (req, res) => {
     return res.status(400).json({ error: 'VALIDATION_ERROR', message: `Rank must be an integer between 0 and ${max}` });
 
   const result = await col().findOneAndUpdate(
-    { _id: category },
-    { $set: { rank: n, updated_at: new Date().toISOString() } },
+    { _id: seatId },
+    { $set: { rank: n, office_category: category, updated_at: new Date().toISOString() } },
     { upsert: true, returnDocument: 'after' },
   );
   res.json(result);
 });
 
-// PUT /api/office_manoeuvre_rank/:category/step
+// PUT /api/office_manoeuvre_rank/:seatId/step
 // ST-only. Body: { delta }. Moves the rank by a relative step and returns the
 // resulting document.
 //
@@ -79,28 +87,38 @@ router.put('/:category', requireRole('st'), async (req, res) => {
 // never push the rank outside the office's own bounds, and `$ifNull` makes the
 // upsert path (no document yet, i.e. rank 0) behave the same as an existing one.
 //
-// The absolute-set PUT /:category above is deliberately kept: it is the route
+// oxp.11: the seat lookup that resolves `:seatId` happens BEFORE the update and
+// is a separate read, but it reads `office_seats`, not this collection, so the
+// atomicity above is untouched. Nothing about the rank is read before it is
+// written.
+//
+// The absolute-set PUT /:seatId above is deliberately kept: it is the route
 // for setting a known rank directly, and its own semantics are correct (last
 // writer wins is what "set it to exactly this" means). Only the stepper needed
 // the relative form.
-router.put('/:category/step', requireRole('st'), async (req, res) => {
-  const { category } = req.params;
+router.put('/:seatId/step', requireRole('st'), async (req, res) => {
+  const resolved = await resolveOfficeSeat(req.params.seatId);
+  if (resolved.error) return res.status(resolved.error.status).json(resolved.error.body);
+  const { seatId, category, officeEntry } = resolved;
+
+  if (!Array.isArray(officeEntry.manoeuvres))
+    return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'This seat\'s office has no manoeuvres' });
+
   const { delta } = req.body;
-
-  const officeEntry = OFFICE_DATA[category];
-  if (!officeEntry || !Array.isArray(officeEntry.manoeuvres))
-    return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'Unknown office category' });
-
   const d = typeof delta === 'string' && delta.trim() !== '' ? Number(delta) : delta;
   if (!Number.isInteger(d) || d === 0)
     return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'Delta must be a non-zero integer' });
 
   const max = officeEntry.manoeuvres.length;
   const result = await col().findOneAndUpdate(
-    { _id: category },
+    { _id: seatId },
     [
       { $set: { rank: { $min: [max, { $max: [0, { $add: [{ $ifNull: ['$rank', 0] }, d] }] }] } } },
-      { $set: { updated_at: new Date().toISOString() } },
+      // oxp.11's denormalised category rides in the existing second stage. In
+      // an aggregation-pipeline update a bare string would be read as a field
+      // path if it began with '$', so `$literal` states plainly that this is a
+      // value and not a reference, whatever a future office is named.
+      { $set: { office_category: { $literal: category }, updated_at: new Date().toISOString() } },
     ],
     { upsert: true, returnDocument: 'after' },
   );
