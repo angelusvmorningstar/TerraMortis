@@ -26,17 +26,20 @@
  * in `afterAll` regardless of pass/fail, so no other suite ever sees it.
  */
 
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, afterEach } from 'vitest';
 
 describe('issue-1141 — office-tab.js render-level regressions', () => {
   let renderOfficeTab;
+  let manoeuvreListHtml;
+  let manoeuvreRankHtml;
   const hadLocation = 'location' in globalThis;
 
   beforeAll(async () => {
     if (!hadLocation) {
       globalThis.location = { hostname: 'test', pathname: '/' };
     }
-    ({ renderOfficeTab } = await import('../../public/js/tabs/office-tab.js'));
+    ({ renderOfficeTab, manoeuvreListHtml, manoeuvreRankHtml } =
+      await import('../../public/js/tabs/office-tab.js'));
   });
 
   afterAll(() => {
@@ -221,6 +224,356 @@ describe('issue-1141 — office-tab.js render-level regressions', () => {
       expect(el.innerHTML).toContain('office-reference-banner');
       expect(el.innerHTML).toContain('Due Diligence'); // a real Head of State manoeuvre
       expect(el.innerHTML).not.toContain('People Talk');
+    });
+  });
+
+  // ───────────────────────────────────────────────────────────────────────
+  // oxp.3 — manoeuvre purchase state (graduated rank, muted-when-unpurchased)
+  //
+  // `manoeuvreListHtml` and `manoeuvreRankHtml` are pure markup builders,
+  // exported precisely so the rank-dependent rendering is testable without a
+  // browser harness (this project has no jsdom — see this file's own header).
+  // The async wiring that feeds them real values is covered by the
+  // source-contract block in oxp-3-office-manoeuvre-rank.test.js.
+  // ───────────────────────────────────────────────────────────────────────
+  describe('oxp.3 — manoeuvre purchase state', () => {
+    const MUTED = 'office-manoeuvre-unpurchased';
+    // Five stand-ins, one per rank, so position is unambiguous in assertions.
+    const FIVE = [1, 2, 3, 4, 5].map(n => ({ name: `Rank ${n}`, effect: `Effect ${n}` }));
+
+    /** The class attribute of each rendered .office-manoeuvre BLOCK, in order.
+     *  Deliberately not `office-manoeuvre[^"]*` — that would also swallow the
+     *  inner .office-manoeuvre-name / -effect divs. */
+    function blockClasses(html) {
+      return [...html.matchAll(/<div class="(office-manoeuvre(?: [\w-]+)*)">/g)].map(m => m[1]);
+    }
+
+    it('AC1: own-office view at rank 2 of 5 mutes only ranks 3-5, never 1-2', () => {
+      const classes = blockClasses(manoeuvreListHtml(FIVE, 2, true));
+      expect(classes).toHaveLength(5);
+      expect(classes[0]).not.toContain(MUTED);
+      expect(classes[1]).not.toContain(MUTED);
+      expect(classes[2]).toContain(MUTED);
+      expect(classes[3]).toContain(MUTED);
+      expect(classes[4]).toContain(MUTED);
+    });
+
+    it('AC1: rank 0 (no document / nothing purchased) mutes all five', () => {
+      const classes = blockClasses(manoeuvreListHtml(FIVE, 0, true));
+      expect(classes).toHaveLength(5);
+      for (const c of classes) expect(c).toContain(MUTED);
+    });
+
+    it('AC1: rank 5 (everything purchased) mutes none', () => {
+      const classes = blockClasses(manoeuvreListHtml(FIVE, 5, true));
+      expect(classes).toHaveLength(5);
+      for (const c of classes) expect(c).not.toContain(MUTED);
+    });
+
+    it('AC1: all five are still listed in fixed rank order whatever the rank — muting never hides one', () => {
+      for (const rank of [0, 1, 2, 3, 4, 5]) {
+        const html = manoeuvreListHtml(FIVE, rank, true);
+        for (const m of FIVE) expect(html).toContain(m.name);
+        expect(blockClasses(html)).toHaveLength(5);
+      }
+    });
+
+    it('AC2, the structural boundary: the reference view never carries the muted class, whatever the stored rank', () => {
+      // Not "visually suppressed" — genuinely absent from the markup, so a
+      // reference viewer reading the DOM learns nothing about purchase state.
+      for (const rank of [0, 1, 2, 3, 4, 5]) {
+        const html = manoeuvreListHtml(FIVE, rank, false);
+        expect(html).not.toContain(MUTED);
+        for (const c of blockClasses(html)) expect(c).toBe('office-manoeuvre');
+      }
+    });
+
+    it('AC1: an unknown rank (null — the synchronous first render, before the fetch resolves) mutes nothing', () => {
+      expect(manoeuvreListHtml(FIVE, null, true)).not.toContain(MUTED);
+      expect(manoeuvreListHtml(FIVE, undefined, true)).not.toContain(MUTED);
+    });
+
+    it('AC2/AC8: renderOfficeTab\'s reference view emits the manoeuvre list with no purchase state at all', () => {
+      const yusuf = { _id: 'yusuf', name: 'Yusuf Kalusicj', court_category: 'Primogen', court_title: 'Primogen' };
+      const html = render(yusuf, [yusuf], 'Head of State');
+
+      expect(html).toContain('Due Diligence'); // the reference summary is intact
+      expect(html).toContain('Executive Order');
+      expect(html).not.toContain(MUTED);
+    });
+
+    it('AC6: the rank readout is a graduated dot display, filled to the rank and hollow beyond it', () => {
+      expect(manoeuvreRankHtml(0, 5, false)).toContain('○○○○○');
+      expect(manoeuvreRankHtml(2, 5, false)).toContain('●●○○○');
+      expect(manoeuvreRankHtml(5, 5, false)).toContain('●●●●●');
+    });
+
+    it('AC6: the +/- stepper renders for an ST/dev viewer and never for anyone else', () => {
+      const stHtml     = manoeuvreRankHtml(2, 5, true);
+      const playerHtml = manoeuvreRankHtml(2, 5, false);
+
+      expect(stHtml).toContain('cs-step-btn');
+      expect(stHtml).toContain('data-manoeuvre-rank-up');
+      expect(stHtml).toContain('data-manoeuvre-rank-down');
+
+      expect(playerHtml).not.toContain('cs-step-btn');
+      expect(playerHtml).not.toContain('data-manoeuvre-rank-up');
+      expect(playerHtml).not.toContain('data-manoeuvre-rank-down');
+      // A non-ST still sees the readout itself, just no controls.
+      expect(playerHtml).toContain('●●○○○');
+    });
+
+    it('the exported builder clamps a rank from outside [0, count] rather than throwing (Codex review, Pass 1, Low)', () => {
+      // manoeuvreRankHtml is exported, and '●'.repeat(-1) throws a RangeError.
+      // The only current caller clamps first, so this is a boundary-robustness
+      // fix for whatever calls it next, not a live UI path today.
+      expect(() => manoeuvreRankHtml(-1, 5, false)).not.toThrow();
+      expect(manoeuvreRankHtml(-1, 5, false)).toContain('○○○○○');
+      expect(manoeuvreRankHtml(7, 5, false)).toContain('●●●●●');
+      expect(manoeuvreRankHtml(2.7, 5, false)).toContain('●●○○○');
+      expect(manoeuvreRankHtml(NaN, 5, false)).toContain('○○○○○');
+      // The stepper's disabled states follow the clamped value, not the raw one.
+      expect(manoeuvreRankHtml(-1, 5, true)).toMatch(/data-manoeuvre-rank-down disabled/);
+      expect(manoeuvreRankHtml(-1, 5, true)).not.toMatch(/data-manoeuvre-rank-up disabled/);
+      expect(manoeuvreRankHtml(7, 5, true)).toMatch(/data-manoeuvre-rank-up disabled/);
+      expect(manoeuvreRankHtml(7, 5, true)).not.toMatch(/data-manoeuvre-rank-down disabled/);
+    });
+
+    it('AC6: the stepper disables up at the cap and down at zero, matching the merit stepper\'s pattern', () => {
+      const atMax = manoeuvreRankHtml(5, 5, true);
+      expect(atMax).toMatch(/data-manoeuvre-rank-up disabled/);
+      expect(atMax).not.toMatch(/data-manoeuvre-rank-down disabled/);
+
+      const atZero = manoeuvreRankHtml(0, 5, true);
+      expect(atZero).toMatch(/data-manoeuvre-rank-down disabled/);
+      expect(atZero).not.toMatch(/data-manoeuvre-rank-up disabled/);
+
+      const middle = manoeuvreRankHtml(3, 5, true);
+      expect(middle).not.toMatch(/disabled/);
+    });
+
+    it('AC6: the readout mount is present in the Manoeuvres section but carries no rank until the fetch resolves', () => {
+      const yusuf = { _id: 'yusuf', name: 'Yusuf Kalusicj', court_category: 'Primogen', court_title: 'Primogen' };
+      const own = render(yusuf, [yusuf], 'Primogen');
+
+      expect(own).toContain('data-office-manoeuvre-rank-mount');
+      // Empty on the synchronous render — the rank is not known yet, and an
+      // empty mount leaks nothing to a reference viewer who never gets one filled.
+      expect(own).not.toContain('●');
+      expect(own).not.toContain('cs-step-btn');
+    });
+
+    it('AC8: the Administrator pending fallback still renders no manoeuvre markup at all', () => {
+      const ivana = { _id: 'ivana', name: 'Ivana Horvat', court_category: 'Administrator', court_title: 'Seneschal' };
+      const html = render(ivana);
+
+      expect(html).toContain('Office details for this role are pending.');
+      expect(html).not.toContain('office-manoeuvre');
+      expect(html).not.toContain('data-office-manoeuvre-rank-mount');
+    });
+  });
+
+  // ───────────────────────────────────────────────────────────────────────
+  // oxp.3 review round (external Codex review, 2026-08-13): the ASYNC wiring.
+  //
+  // The pure builders above cannot say anything about what _wireManoeuvreRank
+  // and _adjustManoeuvreRank do with their results, and both of the Medium
+  // findings this round patched live entirely in that layer: a rank-fetch
+  // failure leaving the holder's list looking fully purchased, and an
+  // adjustment resolving after a category switch repainting the wrong office.
+  //
+  // So these tests drive the real wiring against a hand-rolled fake DOM, the
+  // same technique the picker test above already established for its fake
+  // <select> (this project has no jsdom). Two globals the wiring reaches for
+  // are stubbed the way this file's header stubs `location`: `localStorage`
+  // (discord.js's getRole, and api.js's auth header) and `fetch` (api.js).
+  // ───────────────────────────────────────────────────────────────────────
+  describe('oxp.3: async rank wiring', () => {
+    const MUTED = 'office-manoeuvre-unpurchased';
+    const YUSUF = { _id: 'yusuf', name: 'Yusuf Kalusicj', court_category: 'Primogen', court_title: 'Primogen' };
+    const hadLocalStorage = 'localStorage' in globalThis;
+    let realFetch;
+
+    beforeAll(() => {
+      if (!hadLocalStorage) {
+        const store = new Map();
+        globalThis.localStorage = {
+          getItem: k => (store.has(k) ? store.get(k) : null),
+          setItem: (k, v) => store.set(k, String(v)),
+          removeItem: k => store.delete(k),
+        };
+      }
+      realFetch = globalThis.fetch;
+    });
+
+    afterEach(() => { globalThis.fetch = realFetch; });
+
+    afterAll(() => {
+      if (!hadLocalStorage) delete globalThis.localStorage;
+      globalThis.fetch = realFetch;
+    });
+
+    function setRole(role) {
+      globalThis.localStorage.setItem('tm_auth_user', JSON.stringify({ role }));
+    }
+
+    const jsonRes = (body, ok = true) => ({ ok, status: ok ? 200 : 500, json: async () => body });
+
+    /** Drain queued microtasks/timers. The wiring is fire-and-forget, so there
+     *  is no promise to await from the caller's side. */
+    async function flush(turns = 10) {
+      for (let i = 0; i < turns; i++) await new Promise(r => setTimeout(r, 0));
+    }
+
+    function fakeButton() {
+      const listeners = [];
+      return {
+        addEventListener(evt, fn) { if (evt === 'click') listeners.push(fn); },
+        click() { listeners.forEach(fn => fn()); },
+      };
+    }
+
+    function fakeMount() {
+      return {
+        _html: '',
+        _btns: {},
+        get innerHTML() { return this._html; },
+        set innerHTML(v) {
+          this._html = v;
+          this._btns = {
+            '[data-manoeuvre-rank-up]':   v.includes('data-manoeuvre-rank-up')   ? [fakeButton()] : [],
+            '[data-manoeuvre-rank-down]': v.includes('data-manoeuvre-rank-down') ? [fakeButton()] : [],
+          };
+        },
+        querySelectorAll(sel) { return this._btns[sel] || []; },
+      };
+    }
+
+    /** A fake office-tab root. Assigning innerHTML discards every previous
+     *  child node, exactly as a real element does. That is precisely what makes
+     *  a late async write land on the wrong category's nodes, so the fake has
+     *  to model it rather than hand back the same objects every time. */
+    function fakeRoot() {
+      const el = {
+        _html: '',
+        _nodes: {},
+        get innerHTML() { return this._html; },
+        set innerHTML(v) {
+          this._html = v;
+          // The manoeuvre list's own inner markup, anchored on the section
+          // boundary that follows it (the Merit Suite section) so the lazy
+          // match cannot stop early inside a manoeuvre block.
+          const m = v.match(/<div class="office-manoeuvre-list">([\s\S]*?)<\/div><\/div><div class="office-section">/);
+          this._nodes = {
+            '[data-office-manoeuvre-rank-mount]': fakeMount(),
+            '.office-manoeuvre-list':             { innerHTML: m ? m[1] : '' },
+            '[data-office-merit-mount]':          { innerHTML: '', querySelectorAll: () => [] },
+          };
+        },
+        querySelector(sel) { return this._nodes[sel] ?? null; },
+      };
+      el.innerHTML = '';
+      return el;
+    }
+
+    it('a rejected rank fetch must not leave the holder\'s list looking fully purchased (Codex Pass 1, Medium)', async () => {
+      setRole('player');
+      globalThis.fetch = async (url) => {
+        if (String(url).includes('/api/office_manoeuvre_rank')) return jsonRes({ message: 'nope' }, false);
+        return jsonRes({});
+      };
+
+      const el = fakeRoot();
+      renderOfficeTab(el, YUSUF, [YUSUF], 'Primogen'); // Yusuf's own office
+      const list = el.querySelector('.office-manoeuvre-list');
+      // The synchronous render is deliberately optimistic: rank not known yet,
+      // so nothing is muted. That is correct only while the fetch is pending.
+      expect(list.innerHTML).toContain('People Talk');
+      expect(list.innerHTML).not.toContain(MUTED);
+
+      await flush();
+
+      // The rank never arrived. Leaving the optimistic list up would silently
+      // tell the holder all five manoeuvres are theirs.
+      expect(list.innerHTML).not.toContain('People Talk');
+      expect(list.innerHTML).toContain('Could not load purchase state.');
+      expect(el.querySelector('[data-office-manoeuvre-rank-mount]').innerHTML)
+        .toContain('Could not load manoeuvre rank.');
+    });
+
+    it('an adjustment resolving after a category switch must not repaint the new category (Codex Pass 1, Medium)', async () => {
+      setRole('st');
+      let releasePut;
+      const putGate = new Promise(r => { releasePut = r; });
+
+      globalThis.fetch = async (url, opts) => {
+        const u = String(url);
+        if (opts && opts.method === 'PUT' && u.includes('/api/office_manoeuvre_rank/')) {
+          await putGate;
+          return jsonRes({ _id: 'Primogen', rank: 3 });
+        }
+        if (u.includes('/api/office_manoeuvre_rank')) return jsonRes({ Primogen: 2, Enforcer: 5 });
+        return jsonRes({});
+      };
+
+      const el = fakeRoot();
+      renderOfficeTab(el, YUSUF, [YUSUF], 'Primogen'); // own office, ST viewer
+      await flush();
+
+      const mountA = el.querySelector('[data-office-manoeuvre-rank-mount]');
+      expect(mountA.innerHTML).toContain('●●○○○'); // Primogen sits at rank 2
+      const up = mountA.querySelectorAll('[data-manoeuvre-rank-up]')[0];
+      expect(up).toBeTruthy();
+
+      up.click();   // _adjustManoeuvreRank starts and blocks on the write
+      await flush();
+
+      // The ST switches office before that write comes back.
+      renderOfficeTab(el, YUSUF, [YUSUF], 'Enforcer');
+      await flush();
+
+      const mountB = el.querySelector('[data-office-manoeuvre-rank-mount]');
+      const listB  = el.querySelector('.office-manoeuvre-list');
+      expect(mountB).not.toBe(mountA);              // a real re-render replaced the nodes
+      expect(mountB.innerHTML).toContain('●●●●●');  // Enforcer's own stored rank
+
+      releasePut();
+      await flush();
+
+      // Primogen's rank, manoeuvres and muting must not have landed here.
+      expect(mountB.innerHTML).toContain('●●●●●');
+      expect(mountB.innerHTML).not.toContain('●●○○○');
+      expect(listB.innerHTML).not.toContain('People Talk'); // a Primogen manoeuvre
+      expect(listB.innerHTML).toContain('Perimeter');       // an Enforcer manoeuvre
+      expect(listB.innerHTML).not.toContain(MUTED);         // reference view stays plain
+    });
+
+    it('AC7: the stepper sends a relative step to the server, never a locally computed absolute rank', async () => {
+      setRole('st');
+      const calls = [];
+      globalThis.fetch = async (url, opts) => {
+        const u = String(url);
+        if (opts && opts.method === 'PUT') {
+          calls.push({ url: u, body: JSON.parse(opts.body) });
+          return jsonRes({ _id: 'Primogen', rank: 3 });
+        }
+        if (u.includes('/api/office_manoeuvre_rank')) return jsonRes({ Primogen: 2 });
+        return jsonRes({});
+      };
+
+      const el = fakeRoot();
+      renderOfficeTab(el, YUSUF, [YUSUF], 'Primogen');
+      await flush();
+
+      el.querySelector('[data-office-manoeuvre-rank-mount]')
+        .querySelectorAll('[data-manoeuvre-rank-up]')[0].click();
+      await flush();
+
+      expect(calls).toHaveLength(1);
+      expect(calls[0].url).toContain('/api/office_manoeuvre_rank/Primogen/step');
+      expect(calls[0].body).toEqual({ delta: 1 });
+      // The absolute value is the server's to work out, atomically.
+      expect(calls[0].body).not.toHaveProperty('rank');
     });
   });
 });
