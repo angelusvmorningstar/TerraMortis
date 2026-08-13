@@ -58,10 +58,10 @@ describe('#871 — downtime-form.js wires the catalogue dropdown', () => {
     expect(src).toMatch(/<select id="dt-equipment_\$\{n\}_catalogue_id"/);
   });
 
-  it('emits optgroups per bucket (weapon / armour / equipment / asset)', () => {
-    // The render iterates ['weapon', 'armour', 'equipment', 'asset'] and emits <optgroup label="...">
-    expect(src).toMatch(/for\s*\(\s*const\s+bucket\s+of\s+\[\s*['"]weapon['"]\s*,\s*['"]armour['"]\s*,\s*['"]equipment['"]\s*,\s*['"]asset['"]\s*\]/);
-    expect(src).toMatch(/<optgroup label="\$\{esc\(bucket\)\}">/);
+  it('emits optgroups per bucket (combat_gear / skill_gear / tool_utility / narrative / container — EQC-1 #1152)', () => {
+    // The render iterates the new five-value taxonomy and emits <optgroup label="...">
+    expect(src).toMatch(/for\s*\(\s*const\s+bucket\s+of\s+\[\s*['"]combat_gear['"]\s*,\s*['"]skill_gear['"]\s*,\s*['"]tool_utility['"]\s*,\s*['"]narrative['"]\s*,\s*['"]container['"]\s*\]/);
+    expect(src).toMatch(/<optgroup label="\$\{esc\(EQUIPMENT_BUCKET_LABELS\[bucket\] \|\| bucket\)\}">/);
   });
 
   it('option value is the 24-hex `_id` (not the legacy slug)', () => {

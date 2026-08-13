@@ -91,8 +91,9 @@ describe('#879 — equipment-derivation.js module shape', () => {
     expect(src).not.toMatch(/item\.state\s*===\s*['"]stashed['"]/);
   });
 
-  it('filters by bucket === \'armour\'', () => {
-    expect(src).toMatch(/entry\.bucket\s*!==\s*['"]armour['"]/);
+  it('filters by bucket === \'combat_gear\' AND armour_value != null (EQC-1 #1152: armour merged into combat_gear, distinguished by populated stat fields)', () => {
+    expect(src).toMatch(/entry\.bucket\s*!==\s*['"]combat_gear['"]/);
+    expect(src).toMatch(/entry\.armour_value\s*==\s*null/);
   });
 });
 
@@ -243,8 +244,8 @@ describe('#879 — armourDefencePenalty behaviour (D1 + D2)', () => {
     if (typeof globalThis.location === 'undefined') globalThis.location = { hostname: '' };
     const mod = await import('../../public/js/data/equipment-derivation.js');
     const items = [
-      { _id: 'aaa1', bucket: 'armour', defence_penalty: 2 },
-      { _id: 'aaa2', bucket: 'armour', defence_penalty: 3 },
+      { _id: 'aaa1', bucket: 'combat_gear', armour_value: 1, defence_penalty: 2 },
+      { _id: 'aaa2', bucket: 'combat_gear', armour_value: 1, defence_penalty: 3 },
     ];
     const c = mkChar({ equipment: [
       { catalogue_id: 'aaa1', state: 'carried' },
@@ -253,12 +254,12 @@ describe('#879 — armourDefencePenalty behaviour (D1 + D2)', () => {
     expect(mod.armourDefencePenalty(c, mkLookup(items))).toBe(0);
   });
 
-  it('D1: filters by bucket === \'armour\' — ignores worn non-armour items', async () => {
+  it('D1: filters by bucket === \'combat_gear\' with armour_value != null — ignores worn non-armour items', async () => {
     if (typeof globalThis.location === 'undefined') globalThis.location = { hostname: '' };
     const mod = await import('../../public/js/data/equipment-derivation.js');
     const items = [
-      { _id: 'wep1', bucket: 'weapon', defence_penalty: 5 },   // not armour, ignored
-      { _id: 'arm1', bucket: 'armour', defence_penalty: 2 },
+      { _id: 'wep1', bucket: 'combat_gear', weapon_type: 'melee', armour_value: null, defence_penalty: 5 },   // weapon-shaped combat_gear (armour_value null), ignored despite matching bucket AND a populated defence_penalty
+      { _id: 'arm1', bucket: 'combat_gear', armour_value: 1, defence_penalty: 2 },
     ];
     const c = mkChar({ equipment: [
       { catalogue_id: 'wep1', state: 'worn' },
@@ -267,13 +268,23 @@ describe('#879 — armourDefencePenalty behaviour (D1 + D2)', () => {
     expect(mod.armourDefencePenalty(c, mkLookup(items))).toBe(2);
   });
 
+  it('EQC-1 (#1152): a non-combat_gear bucket is ignored even with armour_value populated', async () => {
+    if (typeof globalThis.location === 'undefined') globalThis.location = { hostname: '' };
+    const mod = await import('../../public/js/data/equipment-derivation.js');
+    const items = [
+      { _id: 'x1', bucket: 'narrative', armour_value: 3, defence_penalty: 9 },
+    ];
+    const c = mkChar({ equipment: [{ catalogue_id: 'x1', state: 'worn' }] });
+    expect(mod.armourDefencePenalty(c, mkLookup(items))).toBe(0);
+  });
+
   it('D2: returns the MAX defence_penalty across multiple worn armour items (worst-case stacking)', async () => {
     if (typeof globalThis.location === 'undefined') globalThis.location = { hostname: '' };
     const mod = await import('../../public/js/data/equipment-derivation.js');
     const items = [
-      { _id: 'arm1', bucket: 'armour', defence_penalty: 1 },
-      { _id: 'arm2', bucket: 'armour', defence_penalty: 3 },
-      { _id: 'arm3', bucket: 'armour', defence_penalty: 2 },
+      { _id: 'arm1', bucket: 'combat_gear', armour_value: 1, defence_penalty: 1 },
+      { _id: 'arm2', bucket: 'combat_gear', armour_value: 1, defence_penalty: 3 },
+      { _id: 'arm3', bucket: 'combat_gear', armour_value: 1, defence_penalty: 2 },
     ];
     const c = mkChar({ equipment: [
       { catalogue_id: 'arm1', state: 'worn' },
@@ -287,9 +298,9 @@ describe('#879 — armourDefencePenalty behaviour (D1 + D2)', () => {
     if (typeof globalThis.location === 'undefined') globalThis.location = { hostname: '' };
     const mod = await import('../../public/js/data/equipment-derivation.js');
     const items = [
-      { _id: 'a1', bucket: 'armour', defence_penalty: null },
-      { _id: 'a2', bucket: 'armour', defence_penalty: undefined },
-      { _id: 'a3', bucket: 'armour', defence_penalty: 'bad' },
+      { _id: 'a1', bucket: 'combat_gear', armour_value: 1, defence_penalty: null },
+      { _id: 'a2', bucket: 'combat_gear', armour_value: 1, defence_penalty: undefined },
+      { _id: 'a3', bucket: 'combat_gear', armour_value: 1, defence_penalty: 'bad' },
     ];
     const c = mkChar({ equipment: items.map(it => ({ catalogue_id: it._id, state: 'worn' })) });
     expect(mod.armourDefencePenalty(c, mkLookup(items))).toBe(0);
@@ -308,8 +319,8 @@ describe('#879 — wornArmourCount (drives the editor hint)', () => {
     if (typeof globalThis.location === 'undefined') globalThis.location = { hostname: '' };
     const mod = await import('../../public/js/data/equipment-derivation.js');
     const items = [
-      { _id: 'a1', bucket: 'armour' }, { _id: 'a2', bucket: 'armour' },
-      { _id: 'a3', bucket: 'armour' }, { _id: 'w1', bucket: 'weapon' },
+      { _id: 'a1', bucket: 'combat_gear', armour_value: 1 }, { _id: 'a2', bucket: 'combat_gear', armour_value: 1 },
+      { _id: 'a3', bucket: 'combat_gear', armour_value: 1 }, { _id: 'w1', bucket: 'combat_gear', weapon_type: 'melee', armour_value: null },
     ];
     const c = mkChar({ equipment: [
       { catalogue_id: 'a1', state: 'worn' },
@@ -328,7 +339,7 @@ describe('#879 — materialiseDerivedDefence (D3 + D4)', () => {
     const accessors = await import('../../public/js/data/accessors.js');
     // calcDefence on the mkChar fixture: min(Dex=3, Wits=3) + Athletics=2 + discBonus=0 = 5.
     const c = mkChar({ equipment: [{ catalogue_id: 'arm1', state: 'worn' }] });
-    const items = [{ _id: 'arm1', bucket: 'armour', defence_penalty: 2 }];
+    const items = [{ _id: 'arm1', bucket: 'combat_gear', armour_value: 1, defence_penalty: 2 }];
     const result = mod.materialiseDerivedDefence(c, mkLookup(items));
     expect(result).toBe(accessors.calcDefence(c) - 2);
     expect(c.derived.defence).toBe(result);
@@ -343,7 +354,7 @@ describe('#879 — materialiseDerivedDefence (D3 + D4)', () => {
       skills: {},
       equipment: [{ catalogue_id: 'arm1', state: 'worn' }],
     });
-    const items = [{ _id: 'arm1', bucket: 'armour', defence_penalty: 5 }];
+    const items = [{ _id: 'arm1', bucket: 'combat_gear', armour_value: 1, defence_penalty: 5 }];
     expect(mod.materialiseDerivedDefence(tinyChar, mkLookup(items))).toBe(0);
   });
 });
@@ -394,7 +405,7 @@ describe('#879 — defenceMechanicalBase (export-site helper)', () => {
       equipment: [{ catalogue_id: 'arm1', state: 'worn' }],
       derived: { defence: 99 },   // overlay-modded; should be ignored
     });
-    const items = [{ _id: 'arm1', bucket: 'armour', defence_penalty: 2 }];
+    const items = [{ _id: 'arm1', bucket: 'combat_gear', armour_value: 1, defence_penalty: 2 }];
     const result = mod.defenceMechanicalBase(c, mkLookup(items));
     expect(result).toBe(Math.max(0, accessors.calcDefence(c) - 2));
     expect(result).not.toBe(99);

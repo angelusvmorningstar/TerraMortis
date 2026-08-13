@@ -5,8 +5,15 @@
  * array without an ADR" gate. ADR-006 specifies:
  *
  *   D1: armourDefencePenalty(c, catalogueLookup?) reads c.equipment[] filtered
- *       by state === 'worn' + bucket === 'armour'; injectable catalogue
- *       lookup (default: the ECM-5 cache reader).
+ *       by state === 'worn' + bucket === 'combat_gear' with armour_value != null;
+ *       injectable catalogue lookup (default: the ECM-5 cache reader).
+ *
+ *       EQC-1 (issue #1152, epic #1038, 2026-08-13): the old `armour` bucket
+ *       merged into `combat_gear` (which also covers weapons). "Armour-shaped"
+ *       is identified by `entry.armour_value != null` rather than by bucket
+ *       alone — the epic's own "distinct stat fields" distinction within the
+ *       single combat_gear bucket. A weapon-shaped combat_gear entry has
+ *       `armour_value: null` and is correctly excluded.
  *   D2: worst-case math — Math.max(...penalties). The editor surfaces a soft
  *       hint when >1 armour is worn (wording is concern #8 below).
  *   D2-FLOOR: floor at 0 lives ONLY at the helper composition site. STM overlay
@@ -58,7 +65,7 @@ export function armourDefencePenalty(c, catalogueLookup = getCatalogueEntry) {
   for (const item of c.equipment) {
     if (!item || item.state !== 'worn') continue;
     const entry = catalogueLookup(item.catalogue_id);
-    if (!entry || entry.bucket !== 'armour') continue;
+    if (!entry || entry.bucket !== 'combat_gear' || entry.armour_value == null) continue;
     const p = Number.isInteger(entry.defence_penalty) ? entry.defence_penalty : 0;
     if (p > 0) penalties.push(p);
   }
@@ -81,7 +88,7 @@ export function wornArmourCount(c, catalogueLookup = getCatalogueEntry) {
   for (const item of c.equipment) {
     if (!item || item.state !== 'worn') continue;
     const entry = catalogueLookup(item.catalogue_id);
-    if (entry?.bucket === 'armour') n++;
+    if (entry?.bucket === 'combat_gear' && entry.armour_value != null) n++;
   }
   return n;
 }

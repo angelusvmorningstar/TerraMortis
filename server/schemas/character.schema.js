@@ -315,6 +315,23 @@ export const characterSchema = {
     // specs/epic-ecm-equipment-catalogue-migration.md and Khepri's ECM-3
     // dispatch for the rationale (the coercion is canonical Express+Mongo
     // hygiene, not transitional kludge — it stays after ECM-4/5 ship).
+    //
+    // `container_id` (EQC-1, issue #1152, epic #1038) — null/absent means
+    // this item is loose (carried on the character, not stored inside
+    // anything). When set, it is the `catalogue_id` of ANOTHER entry in this
+    // SAME character's `equipment[]` array whose catalogue bucket is
+    // `container` (a haven, vehicle, safe, etc.) — "a property contains a
+    // security system... never a bonus on the asset". Single-level only for
+    // v1 (a container's own contents are never themselves container-eligible
+    // targets) — the epic's own examples (a safe inside a haven) are all
+    // single-level, and recursive containment is real added complexity with
+    // no stated requirement yet; a future story can lift this if actually
+    // needed. Not validated as a REFERENCE here (schema has no cross-item
+    // lookup) — the write route is responsible for confirming the referenced
+    // entry exists in the same array and resolves to a container-bucket
+    // catalogue item; an unresolvable/stale container_id is display-inert
+    // (renders as loose) rather than a write-time hard failure, matching
+    // this schema's existing catalogue_id-is-a-lean-ref philosophy.
     equipment: {
       type: 'array',
       default: [],
@@ -326,6 +343,7 @@ export const characterSchema = {
           state:           { type: 'string', enum: ['carried', 'worn', 'stashed', 'lost', 'active'] },
           acquired_cycle:  { type: 'integer', minimum: 0 },
           notes:           { type: ['string', 'null'] },
+          container_id:    { type: ['string', 'null'], pattern: '^[a-f0-9]{24}$' },
         },
         additionalProperties: false,
       },

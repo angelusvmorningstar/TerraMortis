@@ -2565,9 +2565,19 @@ export function shRenderManoeuvres(c, editMode) {
 }
 
 // ── Equipment renderer (EQ-2, issue #656) ────────────────────────────────────
-// Renders catalogue-ref equipment[]. All four buckets (weapon/armour/equipment/asset)
-// flow through the same array as of 2026-06-19 (character.assets[] retired).
+// Renders catalogue-ref equipment[]. All buckets flow through the same array
+// as of 2026-06-19 (character.assets[] retired).
 // Edit mode shows the same view -- equipment is managed via the ST CRUD API (EQ-1).
+//
+// EQC-1 (issue #1152, epic #1038, 2026-08-13): re-partitioned from the old
+// four buckets (weapon/armour/equipment/asset) to five (combat_gear/
+// skill_gear/tool_utility/narrative/container). combat_gear merges the old
+// weapon+armour buckets -- the Weapons/Armour section split below is now
+// driven by which stat fields are POPULATED on the item (weapon_type/
+// damage_mod = weapon-shaped; armour_value/defence_penalty = armour-shaped),
+// not by a bucket comparison, since both shapes now share one bucket value.
+// An item with neither shape populated (an ST entry with no stats filled in
+// yet) falls to "Other Combat Gear" rather than being silently dropped.
 export function shRenderEquipment(c, editMode) {
   const equip  = c.equipment || [];
   if (!editMode && !equip.length) return '';
@@ -2581,18 +2591,27 @@ export function shRenderEquipment(c, editMode) {
   let h = '<div class="sh-sec"><div class="sh-sec-title">Equipment</div><div class="merit-list">';
 
   // Group equipment items by bucket, preserving flat-array index for remove buttons
-  const byBucket = { weapon: [], armour: [], equipment: [], asset: [] };
+  const byBucket = { combat_gear: [], skill_gear: [], tool_utility: [], narrative: [], container: [] };
   for (let i = 0; i < equip.length; i++) {
     const item   = equip[i];
     const entry  = getCatalogueEntry(item.catalogue_id) || {};
-    const bucket = (entry.bucket && byBucket[entry.bucket]) ? entry.bucket : 'equipment';
+    const bucket = (entry.bucket && byBucket[entry.bucket]) ? entry.bucket : 'skill_gear';
     byBucket[bucket].push({ item, entry, idx: i });
   }
 
+  // combat_gear sub-split by populated stat fields, not bucket (both shapes
+  // now share the combat_gear bucket). An item matching neither shape (no
+  // stats filled in) still renders, under "Other Combat Gear".
+  const isWeaponShaped = e => e.weapon_type != null || e.damage_mod != null || e.damage_type != null;
+  const isArmourShaped = e => e.armour_value != null || e.defence_penalty != null;
+  const combatWeapons = byBucket.combat_gear.filter(x => isWeaponShaped(x.entry));
+  const combatArmour  = byBucket.combat_gear.filter(x => !isWeaponShaped(x.entry) && isArmourShaped(x.entry));
+  const combatOther   = byBucket.combat_gear.filter(x => !isWeaponShaped(x.entry) && !isArmourShaped(x.entry));
+
   // ── Weapons ──
-  if (byBucket.weapon.length) {
+  if (combatWeapons.length) {
     h += '<div class="sh-sub-title">Weapons</div>';
-    for (const { item, entry, idx } of byBucket.weapon) {
+    for (const { item, entry, idx } of combatWeapons) {
       const name  = entry.name || item.catalogue_id;
       // #896: per-character effective availability (raw - Fixer reduction).
       const eff = entry.availability != null ? effectiveAvailability(entry, c) : null;
@@ -2612,7 +2631,7 @@ export function shRenderEquipment(c, editMode) {
   }
 
   // ── Armour ──
-  if (byBucket.armour.length) {
+  if (combatArmour.length) {
     h += '<div class="sh-sub-title">Armour</div>';
     // Issue #879 (ADR-006 D2 + Concern #8): soft non-blocking hint when
     // multiple armour items are in state==='worn'. Stacking rule is
@@ -2623,7 +2642,7 @@ export function shRenderEquipment(c, editMode) {
       h += '<div class="sh-armour-hint" style="font-size:0.85em;opacity:0.75;margin-bottom:6px;">Only one armour applies; highest defence_penalty wins.</div>';
     }
     const baseDefence = calcDefence(c);
-    for (const { item, entry, idx } of byBucket.armour) {
+    for (const { item, entry, idx } of combatArmour) {
       const name  = entry.name || item.catalogue_id;
       // #896: per-character effective availability (raw - Fixer reduction).
       const eff = entry.availability != null ? effectiveAvailability(entry, c) : null;
@@ -2641,10 +2660,26 @@ export function shRenderEquipment(c, editMode) {
     }
   }
 
-  // ── Equipment (tools / tech) ──
-  if (byBucket.equipment.length) {
-    h += '<div class="sh-sub-title">Equipment</div>';
-    for (const { item, entry, idx } of byBucket.equipment) {
+  // ── Other Combat Gear (combat_gear bucket, neither weapon- nor armour-shaped
+  // — e.g. an ST entry with no stat fields filled in yet) ──
+  if (combatOther.length) {
+    h += '<div class="sh-sub-title">Other Combat Gear</div>';
+    for (const { item, entry, idx } of combatOther) {
+      const name  = entry.name || item.catalogue_id;
+      const eff   = entry.availability != null ? effectiveAvailability(entry, c) : null;
+      const qual  = eff != null ? `avail ${eff}` : '';
+      const rmBtn = editMode ? `<button class="sk-spec-rm" style="float:right;margin-top:2px" onclick="shRemoveEquip(${idx})" title="Remove">× Remove</button>` : '';
+      h += `<div class="merit-plain"><div class="trait-row">` +
+        `<div class="trait-main"><span class="trait-name">${esc(name)}</span><div class="trait-right">${stateChip(item.state)}${rmBtn}</div></div>` +
+        (qual || item.notes ? `<div class="trait-sub">${qual ? `<span class="trait-qual">${esc(qual)}</span>` : ''}${item.notes ? `<span class="trait-qual dim">${esc(item.notes)}</span>` : ''}</div>` : '') +
+        `</div></div>`;
+    }
+  }
+
+  // ── Skill Gear (old "Equipment" bucket, unchanged meaning) ──
+  if (byBucket.skill_gear.length) {
+    h += '<div class="sh-sub-title">Skill Gear</div>';
+    for (const { item, entry, idx } of byBucket.skill_gear) {
       const name  = entry.name || item.catalogue_id;
       const pool  = (entry.skill_domain && entry.bonus_dice != null)
         ? `${entry.skill_domain} +${entry.bonus_dice} dice` : '';
@@ -2663,10 +2698,39 @@ export function shRenderEquipment(c, editMode) {
     }
   }
 
-  // ── Assets (catalogue-backed since 2026-06-19) ──
-  if (byBucket.asset.length) {
-    h += '<div class="sh-sub-title">Assets</div>';
-    for (const { item, entry, idx } of byBucket.asset) {
+  // ── Tools / Utility (NEW bucket — "does a thing, no bonus") ──
+  if (byBucket.tool_utility.length) {
+    h += '<div class="sh-sub-title">Tools / Utility</div>';
+    for (const { item, entry, idx } of byBucket.tool_utility) {
+      const name  = entry.name || item.catalogue_id;
+      const eff   = entry.availability != null ? effectiveAvailability(entry, c) : null;
+      const parts = [entry.mechanical_effect || null, eff != null ? `avail ${eff}` : null].filter(Boolean);
+      const qual  = parts.join(' · ');
+      const rmBtn = editMode ? `<button class="sk-spec-rm" style="float:right;margin-top:2px" onclick="shRemoveEquip(${idx})" title="Remove">× Remove</button>` : '';
+      h += `<div class="merit-plain"><div class="trait-row">` +
+        `<div class="trait-main"><span class="trait-name">${esc(name)}</span><div class="trait-right">${stateChip(item.state)}${rmBtn}</div></div>` +
+        (qual || item.notes ? `<div class="trait-sub">${qual ? `<span class="trait-qual">${esc(qual)}</span>` : ''}${item.notes ? `<span class="trait-qual dim">${esc(item.notes)}</span>` : ''}</div>` : '') +
+        `</div></div>`;
+    }
+  }
+
+  // ── Narrative (NEW bucket — purely descriptive, no stat fields) ──
+  if (byBucket.narrative.length) {
+    h += '<div class="sh-sub-title">Narrative</div>';
+    for (const { item, entry, idx } of byBucket.narrative) {
+      const name  = entry.name || item.catalogue_id;
+      const rmBtn = editMode ? `<button class="sk-spec-rm" style="float:right;margin-top:2px" onclick="shRemoveEquip(${idx})" title="Remove">× Remove</button>` : '';
+      h += `<div class="merit-plain"><div class="trait-row">` +
+        `<div class="trait-main"><span class="trait-name">${esc(name)}</span><div class="trait-right">${stateChip(item.state)}${rmBtn}</div></div>` +
+        (entry.description || item.notes ? `<div class="trait-sub">${entry.description ? `<span class="trait-qual">${esc(entry.description)}</span>` : ''}${item.notes ? `<span class="trait-qual dim">${esc(item.notes)}</span>` : ''}</div>` : '') +
+        `</div></div>`;
+    }
+  }
+
+  // ── Containers (old "Assets" bucket — catalogue-backed since 2026-06-19) ──
+  if (byBucket.container.length) {
+    h += '<div class="sh-sub-title">Containers</div>';
+    for (const { item, entry, idx } of byBucket.container) {
       const name  = entry.name || item.catalogue_id;
       const eff   = entry.availability != null ? effectiveAvailability(entry, c) : null;
       const parts = [
@@ -2685,19 +2749,26 @@ export function shRenderEquipment(c, editMode) {
   }
 
   // ── Edit-mode add form ──
-  // 2026-06-19: single add form covers all four buckets (weapon/armour/equipment/asset).
-  // Asset is now in the bucket dropdown; the separate free-text "Add Asset" form is gone
-  // along with character.assets[] — catalogue-ref is the single canonical storage shape.
+  // 2026-06-19: single add form covers all buckets. Asset (now "container") is
+  // in the bucket dropdown; the separate free-text "Add Asset" form is gone
+  // along with character.assets[] — catalogue-ref is the single canonical
+  // storage shape. EQC-1 (#1152, 2026-08-13): dropdown values updated to the
+  // new five-bucket taxonomy; labels use BUCKET_LABELS rather than a bare
+  // capitalise (combat_gear/skill_gear/tool_utility need real spacing).
   if (editMode) {
     const STATES   = ['carried', 'worn', 'stashed', 'active', 'lost'];
-    const BUCKETS  = ['weapon', 'armour', 'equipment', 'asset'];
+    const BUCKETS  = ['combat_gear', 'skill_gear', 'tool_utility', 'narrative', 'container'];
+    const BUCKET_LABELS = {
+      combat_gear: 'Combat Gear', skill_gear: 'Skill Gear', tool_utility: 'Tools / Utility',
+      narrative: 'Narrative', container: 'Container',
+    };
     const defCycle = state.activeCycleNum ?? 0;
 
     h += '<div class="sh-sub-title" style="margin-top:10px">Add Equipment Item</div>';
     h += '<div class="dev-add-row" style="display:flex;flex-wrap:wrap;gap:4px;align-items:center;padding:4px 0">'
       + '<select id="eq-add-bucket" class="dev-add-btn" onchange="shEquipBucketFilter()">'
       + '<option value="">Bucket…</option>'
-      + BUCKETS.map(b => `<option value="${b}">${b.charAt(0).toUpperCase() + b.slice(1)}</option>`).join('')
+      + BUCKETS.map(b => `<option value="${b}">${BUCKET_LABELS[b]}</option>`).join('')
       + '</select>'
       + '<select id="eq-add-item" class="dev-add-btn"><option value="">-- select bucket first --</option></select>'
       + '<select id="eq-add-state" class="dev-add-btn">'

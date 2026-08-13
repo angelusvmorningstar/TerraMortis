@@ -5541,10 +5541,18 @@ function renderEquipmentRow(n, saved) {
   if (legacyName && !selectedId) {
     h += `<option value="" disabled>(legacy: ${esc(legacyName)} \u2014 please reselect)</option>`;
   }
-  for (const bucket of ['weapon', 'armour', 'equipment', 'asset']) {
+  // EQC-1 (#1152, epic #1038, 2026-08-13): re-partitioned from the old four
+  // buckets (weapon/armour/equipment/asset) to five; labels use
+  // EQUIPMENT_BUCKET_LABELS rather than the bare bucket value (combat_gear/
+  // skill_gear/tool_utility need real spacing, not a raw enum string).
+  const EQUIPMENT_BUCKET_LABELS = {
+    combat_gear: 'Combat Gear', skill_gear: 'Skill Gear', tool_utility: 'Tools / Utility',
+    narrative: 'Narrative', container: 'Container',
+  };
+  for (const bucket of ['combat_gear', 'skill_gear', 'tool_utility', 'narrative', 'container']) {
     const arr = byBucket.get(bucket);
     if (!arr || !arr.length) continue;
-    h += `<optgroup label="${esc(bucket)}">`;
+    h += `<optgroup label="${esc(EQUIPMENT_BUCKET_LABELS[bucket] || bucket)}">`;
     for (const it of arr) {
       const sel       = String(it._id) === selectedId ? ' selected' : '';
       const eff       = effectiveAvailability(it, currentChar);

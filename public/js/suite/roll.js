@@ -141,7 +141,8 @@ export function updPool() {
       // #752: 'active' is the strongest in-use state — treat it identically
       // to carried/worn for chip eligibility (Khepri's option (a) — preserves
       // 'active' as a semantically-stronger marker an ST may have already used).
-      return entry && entry.bucket === 'equipment' &&
+      // EQC-1 (#1152): old 'equipment' bucket -> 'skill_gear', unchanged meaning.
+      return entry && entry.bucket === 'skill_gear' &&
              entry.bonus_dice > 0 &&
              entry.skill_domain === pi.skill &&
              (item.state === 'carried' || item.state === 'worn' || item.state === 'active');
@@ -231,7 +232,9 @@ export function updWeaponRef() {
     // #752: 'active' is the strongest in-use state — include it in weapon-ref
     // eligibility (matches the chip predicate above).
     const entry = getCatalogueEntry(item.catalogue_id);
-    return entry && entry.bucket === 'weapon' &&
+    // EQC-1 (#1152): 'weapon' bucket merged into 'combat_gear'; weapon-shaped
+    // is identified by weapon_type presence (armour-shaped entries leave it null).
+    return entry && entry.bucket === 'combat_gear' && entry.weapon_type != null &&
            (item.state === 'carried' || item.state === 'worn' || item.state === 'active');
   });
   if (!weapons.length) {
