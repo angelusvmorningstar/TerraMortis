@@ -1,0 +1,925 @@
+diff --git a/public/js/data/office-xp.js b/public/js/data/office-xp.js
+new file mode 100644
+index 00000000..c4a1e40a
+--- /dev/null
++++ b/public/js/data/office-xp.js
+@@ -0,0 +1,252 @@
++/**
++ * Derived office XP (Epic OXP, story oxp.2).
++ *
++ * Pure functions only. Everything here takes already-fetched data as an
++ * argument and derives a number from it — no fetch, no cache, no DOM, no
++ * clock read. That is deliberately the same shape as `public/js/editor/xp.js`
++ * (`xpEarned`/`xpSpent`/`xpLeft` take the character object and derive), rather
++ * than `public/js/data/game-xp.js`'s shape (which is the fetch-and-cache half
++ * of the same pattern). The fetch-and-cache half for offices is not written
++ * yet on purpose: nothing consumes these numbers until oxp.6 (purchase
++ * markers) or oxp.7 (sheet section), and each will shape its own read pattern
++ * from its own real requirements.
++ *
++ * THE RULING THIS IMPLEMENTS (do not re-derive it here — it is settled):
++ * `content/rules/office-powers.md` §"Office XP", Angelus 2026-08-11.
++ *
++ *   - An office accrues 1 XP per month from creation, whether or not anyone
++ *     holds it. A vacant seat still earns. The pool belongs to the OFFICE,
++ *     never to the holder, and never mixes with personal XP in either
++ *     direction.
++ *   - Spend is 1 XP per dot, at "the standard merit rate", for the fixed merit
++ *     suite (`office_merit_dots`) and for the graduated manoeuvre ladder
++ *     (`office_manoeuvre_ranks`) alike.
++ *   - The balance is total accrued since creation minus everything ever spent,
++ *     including manoeuvre spend that a handover has since destroyed. This
++ *     module reads whatever is stored today; it does not implement the
++ *     handover reset (that is oxp.5).
++ *
++ * Nothing here is ever stored. Office XP is a derived value like health, vitae
++ * and character XP, computed at render time from `created_at` plus the two
++ * purchase collections, per this project's standing "derived stats are never
++ * stored" rule.
++ */
++
++/**
++ * The flat accrual rate from the ruling: one point per calendar month.
++ * Named rather than inlined so a future rate change is one edit, and so a
++ * reader can see the multiplication is a rate and not a coincidence.
++ */
++export const OFFICE_XP_PER_MONTH = 1;
++
++/**
++ * Pull the calendar year and month out of a value that is either an ISO date
++ * string ('2026-02-21' or '2026-02-21T09:30:00.000Z') or a Date object.
++ *
++ * A Date is read with LOCAL getters, because a Date used as "now" means the
++ * reader's wall clock. A string is read by its own characters and never goes
++ * through Date parsing at all, so no timezone can shift '2026-02-01' back into
++ * January on a machine west of UTC.
++ *
++ * Throws on anything unparseable. That is deliberate: the ISO pattern on
++ * `created_at` in `server/schemas/office_seat.schema.js` exists precisely
++ * because a malformed date reaching this arithmetic would otherwise produce a
++ * wrong-but-plausible number rather than a visible failure.
++ *
++ * @param {string|Date} value
++ * @param {string} label - which argument this is, for the error message
++ * @returns {{ year: number, month: number }} month is 1-12
++ */
++function yearMonthOf(value, label) {
++  if (value instanceof Date) {
++    if (Number.isNaN(value.getTime())) {
++      throw new Error(`office-xp: ${label} is an Invalid Date`);
++    }
++    return { year: value.getFullYear(), month: value.getMonth() + 1 };
++  }
++
++  if (typeof value === 'string') {
++    const m = /^(\d{4})-(0[1-9]|1[0-2])/.exec(value);
++    if (m) return { year: Number(m[1]), month: Number(m[2]) };
++  }
++
++  throw new Error(
++    `office-xp: ${label} '${value}' is not an ISO date (YYYY-MM-DD) or a Date. ` +
++    'Refusing to derive a months-since-creation figure from it.'
++  );
++}
++
++/**
++ * How many calendar months a seat has been accruing for, INCLUSIVE of the
++ * month it was created in (AC1).
++ *
++ * This is a named-month count, not a day difference and not a 30-day bucket.
++ * Day-of-month never enters it. The ruling's own worked example is the pin:
++ * a seat created February 2026, read in August 2026, has accrued 7 — which is
++ * what `(nowYear*12 + nowMonth) - (createdYear*12 + createdMonth) + 1` gives,
++ * on any day of August. A day-based implementation would give 5 or 6 for most
++ * of that month and is the easy wrong answer here.
++ *
++ * `now` is a REQUIRED parameter and the clock is never read inside this
++ * module, so every result is deterministic and testable. That matches the
++ * convention `server/scripts/seed-office-seats.mjs` already set for this
++ * epic's calendar arithmetic.
++ *
++ * @param {string|Date} createdAt - the seat's own `created_at`
++ * @param {string|Date} now - caller-supplied evaluation date
++ * @returns {number} months accrued, never negative
++ */
++export function officeMonthsAccrued(createdAt, now) {
++  const from = yearMonthOf(createdAt, 'created_at');
++  const to = yearMonthOf(now, 'now');
++
++  const months = (to.year * 12 + to.month) - (from.year * 12 + from.month) + 1;
++  // A "now" earlier than the creation month means the office does not exist
++  // yet, which is zero accrual — never a negative balance.
++  return Math.max(0, months);
++}
++
++/**
++ * Total XP a seat has EARNED since it was created (AC2).
++ *
++ * Reads `created_at` and nothing else. It deliberately does not look at
++ * `holder_id`: a vacant seat accrues exactly as a filled one does, because the
++ * pool belongs to the office. "A long-dormant office is a prize" in the
++ * ruling's own words — whoever is appointed to it inherits every point banked
++ * since creation.
++ *
++ * @param {{ created_at: string }} seat - one `office_seats` document
++ * @param {string|Date} now - caller-supplied evaluation date
++ * @returns {number}
++ */
++export function officeXpEarned(seat, now) {
++  return officeMonthsAccrued(seat.created_at, now) * OFFICE_XP_PER_MONTH;
++}
++
++/**
++ * Total XP SPENT against one office category (AC3).
++ *
++ * Both purchase collections are counted at the flat 1 XP per dot the ruling
++ * sets: every merit dot in `office_merit_dots`, plus the graduated manoeuvre
++ * ladder's current rank in `office_manoeuvre_ranks` (rank 3 means ranks 1, 2
++ * and 3 are bought, so the rank IS the dot count).
++ *
++ * A missing document counts as 0, never as an error. That is not defensive
++ * padding: it is the sibling routes' own established convention. `GET
++ * /api/office_merit_dots` and `GET /api/office_manoeuvre_rank` both omit a
++ * never-purchased category from the response entirely, and as of 2026-08-13
++ * that is MOST offices — office_merit_dots holds two documents and
++ * office_manoeuvre_ranks holds none at all.
++ *
++ * Two input shapes are accepted for each argument, so no caller has to reshape
++ * first: the API response shape (`{ [meritName]: dots }` and a bare rank
++ * number) and the raw MongoDB document shape (`{ dots: {...} }` and
++ * `{ rank: n }`). They are unambiguous — a raw document's `dots` is an object,
++ * where an API-shaped map's values are all numbers.
++ *
++ * NOTE ON SCOPE: this is a CATEGORY total, not a seat total, because both
++ * collections are keyed by `office_category` alone with no seat or holder
++ * reference. For an office with more than one seat that total cannot be split
++ * between them — see `officeSpendKnownByCategory`.
++ *
++ * @param {object|undefined|null} meritDotsDoc
++ * @param {number|object|undefined|null} manoeuvreRankDoc
++ * @returns {number}
++ */
++export function officeXpSpentForCategory(meritDotsDoc, manoeuvreRankDoc) {
++  const dots = (meritDotsDoc && typeof meritDotsDoc.dots === 'object' && meritDotsDoc.dots !== null)
++    ? meritDotsDoc.dots
++    : meritDotsDoc;
++
++  let meritXp = 0;
++  if (dots && typeof dots === 'object') {
++    for (const value of Object.values(dots)) {
++      // A non-numeric value is skipped rather than coerced. `Number(null)` is
++      // 0 and `Number('three')` is NaN; the first is a lie and the second
++      // poisons the whole total.
++      if (typeof value === 'number' && Number.isFinite(value)) meritXp += value;
++    }
++  }
++
++  let rankXp = 0;
++  if (typeof manoeuvreRankDoc === 'number' && Number.isFinite(manoeuvreRankDoc)) {
++    rankXp = manoeuvreRankDoc;
++  } else if (manoeuvreRankDoc && typeof manoeuvreRankDoc.rank === 'number' && Number.isFinite(manoeuvreRankDoc.rank)) {
++    rankXp = manoeuvreRankDoc.rank;
++  }
++
++  return meritXp + rankXp;
++}
++
++/**
++ * Per office category, can spend be attributed to an INDIVIDUAL seat? (AC4)
++ *
++ * True only when the category has exactly one seat document. Two or more and
++ * the answer is false, because `office_merit_dots` / `office_manoeuvre_ranks`
++ * are keyed by category alone: there is no field anywhere saying which of the
++ * seats a purchase belongs to. Live today that means Primogen (2 seats) and
++ * Socialite (2 seats) are unattributable, while Head of State, Enforcer and
++ * Administrator are fine.
++ *
++ * Vacancy is irrelevant. Two seats create the same structural ambiguity
++ * whether or not anyone is sitting in them, so this counts SEATS and never
++ * looks at `holder_id`.
++ *
++ * This is deliberately a first-class value rather than something a caller
++ * infers. "Spend is 0" and "we cannot tell whose spend this is" are different
++ * facts that happen to look identical in a rendered number, and conflating
++ * them is exactly the bug this story was scoped around. The proper fix is to
++ * migrate both purchase collections to seat-keying; that is real, known work,
++ * deferred deliberately (see oxp.1 and this story's "What this story is NOT").
++ * Until then this flag is how a UI knows to render "N/A, pending seat-level
++ * purchase tracking" instead of a number that looks real and is not.
++ *
++ * @param {Array<{ office_category: string }>} allSeats - the full seats array
++ * @returns {{ [category: string]: boolean }}
++ */
++export function officeSpendKnownByCategory(allSeats) {
++  const counts = new Map();
++  for (const s of Array.isArray(allSeats) ? allSeats : []) {
++    const cat = s && s.office_category;
++    if (!cat) continue;
++    counts.set(cat, (counts.get(cat) || 0) + 1);
++  }
++
++  const out = {};
++  for (const [cat, n] of counts) out[cat] = n === 1;
++  return out;
++}
++
++/**
++ * The combined per-seat XP position (AC5).
++ *
++ * @param {object} seat - one `office_seats` document
++ * @param {Array<object>} allSeats - every seat document, so the seat count for
++ *   this seat's category can be established (see `officeSpendKnownByCategory`)
++ * @param {object|undefined|null} meritDotsDoc - this CATEGORY's merit dots
++ * @param {number|object|undefined|null} manoeuvreRankDoc - this CATEGORY's rank
++ * @param {string|Date} now - caller-supplied evaluation date
++ * @returns {{ earned: number, spent: number, left: number, spendKnown: boolean }}
++ *
++ * `earned` is always this seat's own, exact figure: it derives from this
++ * seat's `created_at` and nothing else, so two seats in the same office
++ * created in different months correctly differ.
++ *
++ * `spent` and `left` are always real numbers so no caller crashes on
++ * undefined, BUT when `spendKnown` is false they are the CATEGORY's shared
++ * total and are NOT attributable to this seat. A caller must check
++ * `spendKnown` before treating either as this seat's own figure — the check
++ * guards against believing a number, not against a missing one. Never
++ * simplify this away by defaulting `spendKnown` to true.
++ *
++ * `left` is allowed to go negative. Both purchase collections are direct
++ * ST-set state with no budget check (oxp.9 would add one), so an office can
++ * genuinely show more purchased than earned; clamping to 0 would hide that.
++ */
++export function officeSeatXp(seat, allSeats, meritDotsDoc, manoeuvreRankDoc, now) {
++  const earned = officeXpEarned(seat, now);
++  const spent = officeXpSpentForCategory(meritDotsDoc, manoeuvreRankDoc);
++  const spendKnown = officeSpendKnownByCategory(allSeats)[seat.office_category] === true;
++
++  return { earned, spent, left: earned - spent, spendKnown };
++}
+diff --git a/server/index.js b/server/index.js
+index b8404cdc..77289127 100644
+--- a/server/index.js
++++ b/server/index.js
+@@ -29,6 +29,7 @@ import rulesRouter from './routes/rules.js';
+ import officeActionsRouter from './routes/office-actions.js';
+ import officeMeritDotsRouter from './routes/office-merit-dots.js';
+ import officeManoeuvreRankRouter from './routes/office-manoeuvre-rank.js';
++import officeSeatsRouter from './routes/office-seats.js';
+ import {
+   grantRouter, specialityGrantRouter, skillBonusRouter, nineAgainRouter, rulesAggregateRouter,
+   discAttrRouter, derivedStatModRouter, tierBudgetRouter, statusFloorRouter,
+@@ -187,6 +188,9 @@ app.use('/api/devlog',         requireAuth, noCache(), devlogRouter);
+ app.use('/api/office_actions', requireAuth, noCache(), officeActionsRouter);
+ app.use('/api/office_merit_dots', requireAuth, noCache(), officeMeritDotsRouter);
+ app.use('/api/office_manoeuvre_rank', requireAuth, noCache(), officeManoeuvreRankRouter);
++// oxp.2: office seats, read-only. Open read like its two siblings above; the
++// XP derivation from these seats happens client-side in office-xp.js.
++app.use('/api/office_seats', requireAuth, noCache(), officeSeatsRouter);
+ app.use('/api/chapters',       requireAuth, noCache(), chaptersRouter);
+ 
+ // Start server first, then attempt DB connection
+diff --git a/server/routes/office-seats.js b/server/routes/office-seats.js
+new file mode 100644
+index 00000000..f34f3e15
+--- /dev/null
++++ b/server/routes/office-seats.js
+@@ -0,0 +1,37 @@
++import { Router } from 'express';
++import { getCollection } from '../db.js';
++
++const router = Router();
++const col = () => getCollection('office_seats');
++
++// GET /api/office_seats
++// Reference info, open to any authenticated user — the same posture as
++// office-merit-dots.js and office-manoeuvre-rank.js, whose own GET / handlers
++// are open reads with ST-gated writes. There is no write verb here at all:
++// oxp.2 only needs to READ seats in order to derive office XP from them. Seat
++// creation and handover belong to other stories (oxp.5 and beyond), and the
++// only writer today is the manual seed script oxp.1 shipped.
++//
++// Returns the full array of seat documents exactly as stored — no aggregation,
++// no derived field. The XP arithmetic happens CLIENT-side in
++// public/js/data/office-xp.js, from this array plus the two existing purchase
++// routes, mirroring how office-tab.js already fetches office_merit_dots and
++// office_manoeuvre_rank and computes from them. Derived values are never
++// stored and, here, not even computed server-side, so there is exactly one
++// implementation of the accrual rule and one place to test it.
++//
++// `_id` and `holder_id` are real BSON ObjectIds in storage and are serialised
++// to strings at the JSON boundary, matching office_seat.schema.js's own
++// documented convention (the schema validates the JSON-serialised form). A
++// VACANT seat's `holder_id` is null and must stay null — the string 'null'
++// would pass a truthiness check and silently point nowhere.
++router.get('/', async (req, res) => {
++  const docs = await col().find({}).toArray();
++  res.json(docs.map(d => ({
++    ...d,
++    _id: String(d._id),
++    holder_id: d.holder_id == null ? null : String(d.holder_id),
++  })));
++});
++
++export default router;
+diff --git a/server/tests/helpers/test-app.js b/server/tests/helpers/test-app.js
+index 7b0bf994..ab34eef3 100644
+--- a/server/tests/helpers/test-app.js
++++ b/server/tests/helpers/test-app.js
+@@ -35,6 +35,7 @@ import cyoaRouter from '../../routes/cyoa.js';
+ import officeActionsRouter from '../../routes/office-actions.js';
+ import officeMeritDotsRouter from '../../routes/office-merit-dots.js';
+ import officeManoeuvreRankRouter from '../../routes/office-manoeuvre-rank.js';
++import officeSeatsRouter from '../../routes/office-seats.js';
+ import contestedRollsRouter from '../../routes/contested-rolls.js';
+ 
+ /**
+@@ -124,6 +125,8 @@ export function createTestApp() {
+   app.use('/api/office_merit_dots', mockAuth, noCache(), officeMeritDotsRouter);
+   // oxp.3: office manoeuvre purchase rank (open read, ST-only write)
+   app.use('/api/office_manoeuvre_rank', mockAuth, noCache(), officeManoeuvreRankRouter);
++  // oxp.2: office seats, read-only (open read, no write verb at all)
++  app.use('/api/office_seats', mockAuth, noCache(), officeSeatsRouter);
+   // oaq.2 review: needed to test contested-rolls.js's request_type guard
+   // against status_action documents sharing the same collection.
+   app.use('/api/contested_roll_requests', mockAuth, noCache(), contestedRollsRouter);
+diff --git a/server/tests/oxp-2-derived-office-xp-calculation.test.js b/server/tests/oxp-2-derived-office-xp-calculation.test.js
+new file mode 100644
+index 00000000..d2740e8b
+--- /dev/null
++++ b/server/tests/oxp-2-derived-office-xp-calculation.test.js
+@@ -0,0 +1,575 @@
++/**
++ * oxp.2 (derived office XP) tests.
++ *
++ * Two halves, deliberately in one file:
++ *
++ *   1. PURE functions (AC1-AC5, AC8) — `public/js/data/office-xp.js`. Plain
++ *      fixture objects in, a derived number or flag out. No DB, no fetch, no
++ *      DOM. These mirror `public/js/editor/xp.js`'s shape: the caller supplies
++ *      already-fetched data, the function only derives from it.
++ *
++ *   2. The new `GET /api/office_seats` route (AC6, AC7), DB-backed against
++ *      `tm_suite_test` only, per this repo's `describe.skipIf(!dbAvailable)`
++ *      convention. A skip is NOT evidence the route works — read the summary
++ *      line, not just the exit code.
++ *
++ * The accrual formula under test is an already-settled ruling, not a design
++ * decision made here: `content/rules/office-powers.md` §"Office XP" (Angelus,
++ * 2026-08-11) — 1 XP per month from creation, accruing whether or not the seat
++ * is held, spent at 1 XP per dot on merits and on the manoeuvre ladder alike.
++ * The ruling contains its own worked example ("an office created at the start
++ * has accrued roughly seven points by August 2026", chronicle start being
++ * February 2026), which is what the Feb->Aug = 7 test below pins.
++ *
++ * The seven-seat fixture set is NOT re-invented here. It mirrors, value for
++ * value, the `OFFICE_SEATS` table in `server/scripts/seed-office-seats.mjs`
++ * that oxp.1 shipped and that seeded the live collection, so this file and
++ * `oxp-1-office-seats.test.js` describe the same reality.
++ *
++ * It is MIRRORED rather than imported for one specific reason, worth knowing
++ * before "tidying" it into an import: `seed-office-seats.mjs` opens with a
++ * `#!/usr/bin/env node` shebang, and vitest's transform of that file fails on
++ * it with a bare "SyntaxError: Invalid or unexpected token" and no location.
++ * That breakage is PRE-EXISTING on main (it takes down the whole of
++ * `oxp-1-office-seats.test.js`, which imports the script) and is not oxp.2's
++ * to fix — see this story's Dev Agent Record. Importing the seed script here
++ * would simply propagate that failure into this suite for a reason that has
++ * nothing to do with office XP.
++ */
++
++import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
++import request from 'supertest';
++import { ObjectId } from 'mongodb';
++
++import {
++  officeMonthsAccrued,
++  officeXpEarned,
++  officeXpSpentForCategory,
++  officeSpendKnownByCategory,
++  officeSeatXp,
++  OFFICE_XP_PER_MONTH,
++} from '../../public/js/data/office-xp.js';
++import { createTestApp, stUser, playerUser } from './helpers/test-app.js';
++import { setupDb, teardownDb, isDbAvailable } from './helpers/db-setup.js';
++import { getCollection } from '../db.js';
++
++const dbAvailable = await isDbAvailable();
++
++// Rene St. Dominique's Primogen seat creation date. `RENE_PRIMOGEN_SEAT_CREATED_AT`
++// deliberately ships null in source (oxp.1) so nobody can seed on a silent
++// default; the confirmed value is passed at run time. Confirmed 2026-08-13:
++// both live Primogen seats were created Game 1.
++const TEST_RENE_DATE = '2026-02-21';
++
++/**
++ * The seven real seats, value for value as `OFFICE_SEATS` in
++ * `server/scripts/seed-office-seats.mjs` records them (holder names kept in a
++ * trailing comment, as that table does, so a reader can check the pairings
++ * against oxp.1 without opening it). This is the live shape as seeded on
++ * 2026-08-13: Primogen and Socialite have two seats each, the other three
++ * offices one apiece.
++ */
++function sevenSeats() {
++  return [
++    { office_category: 'Head of State', holder_id: '69d73ea49162ece35897a488', seat_label: null,             created_at: '2026-02-21', notes: null }, // Eve Lockridge
++    { office_category: 'Primogen',      holder_id: '69d720427fdd1b1f9498b0d4', seat_label: null,             created_at: '2026-02-21', notes: null }, // Yusuf Kalusicj
++    { office_category: 'Primogen',      holder_id: '69d73ea49162ece35897a496', seat_label: null,             created_at: TEST_RENE_DATE, notes: null }, // Rene St. Dominique
++    { office_category: 'Enforcer',      holder_id: '69d73ea49162ece35897a487', seat_label: null,             created_at: '2026-02-21', notes: null }, // Einar Solveig
++    { office_category: 'Socialite',     holder_id: '69d73ea49162ece35897a47e', seat_label: 'Harpy',          created_at: '2026-02-21', notes: null }, // Brandy LaRoux
++    { office_category: 'Socialite',     holder_id: '69d73ea49162ece35897a47f', seat_label: "People's Harpy", created_at: '2026-07-18', notes: null }, // Carver
++    { office_category: 'Administrator', holder_id: '69d73ea49162ece35897a48b', seat_label: null,             created_at: '2026-06-20', notes: null }, // Ivana Horvat
++  ];
++}
++
++function seat(overrides = {}) {
++  return {
++    office_category: 'Enforcer',
++    holder_id: '69d73ea49162ece35897a487',
++    created_at: '2026-02-21',
++    seat_label: null,
++    notes: null,
++    ...overrides,
++  };
++}
++
++// ─────────────────────────────────────────────────────────────────────────────
++// AC1: calendar-month accrual
++// ─────────────────────────────────────────────────────────────────────────────
++
++describe('oxp.2 officeMonthsAccrued (AC1)', () => {
++  it('matches the ruling\'s own worked example: Feb 2026 -> Aug 2026 = 7', () => {
++    expect(officeMonthsAccrued('2026-02-21', '2026-08-13')).toBe(7);
++  });
++
++  it('is not day-of-month sensitive: ANY day in the same "now" month gives the same 7', () => {
++    // This is the distinction the story spells out. A day-difference or
++    // 30-day-bucket implementation would give 5 or 6 for early August and 7
++    // only near the end of it; a named-month count gives 7 all month.
++    for (const day of ['01', '02', '13', '20', '31']) {
++      expect(officeMonthsAccrued('2026-02-21', `2026-08-${day}`), day).toBe(7);
++    }
++    // Including a "now" day EARLIER in the month than the creation day, which
++    // is where a day-based implementation most visibly diverges.
++    expect(officeMonthsAccrued('2026-02-28', '2026-08-01')).toBe(7);
++  });
++
++  it('is inclusive of the creation month: a seat created this month has earned its first point', () => {
++    expect(officeMonthsAccrued('2026-08-01', '2026-08-01')).toBe(1);
++    expect(officeMonthsAccrued('2026-08-31', '2026-08-01')).toBe(1);
++  });
++
++  it('counts one extra per month elapsed, across a year boundary', () => {
++    expect(officeMonthsAccrued('2026-08-01', '2026-09-01')).toBe(2);
++    expect(officeMonthsAccrued('2026-12-01', '2027-01-01')).toBe(2);
++    expect(officeMonthsAccrued('2026-02-21', '2027-02-21')).toBe(13);
++  });
++
++  it('returns 0, never a negative number, for a "now" before the creation month', () => {
++    expect(officeMonthsAccrued('2026-08-01', '2026-07-31')).toBe(0);
++    expect(officeMonthsAccrued('2026-08-01', '2020-01-01')).toBe(0);
++  });
++
++  it('accepts a full ISO timestamp as well as a bare date', () => {
++    expect(officeMonthsAccrued('2026-02-21T09:30:00.000Z', '2026-08-13T23:59:59.999Z')).toBe(7);
++  });
++
++  it('accepts a Date object for "now", reading it as wall-clock local time', () => {
++    // Built with the local-time constructor rather than parsed from a string,
++    // so the assertion is timezone-independent.
++    expect(officeMonthsAccrued('2026-02-21', new Date(2026, 7, 13))).toBe(7);
++  });
++
++  it('never reads the clock itself — the same inputs always give the same answer', () => {
++    const src = officeMonthsAccrued.toString();
++    expect(src).not.toMatch(/Date\.now|new Date\(\s*\)/);
++  });
++
++  it('throws on an unparseable created_at rather than returning a silent NaN', () => {
++    // The whole reason office_seat.schema.js patterns `created_at` is that a
++    // value like '21 February 2026' would otherwise reach this arithmetic and
++    // produce a wrong-but-plausible number. Loud beats silent here.
++    for (const bad of ['21 February 2026', '', null, undefined, 'sometime in Game 1']) {
++      expect(() => officeMonthsAccrued(bad, '2026-08-13'), String(bad)).toThrow();
++    }
++  });
++});
++
++// ─────────────────────────────────────────────────────────────────────────────
++// AC2: earned XP
++// ─────────────────────────────────────────────────────────────────────────────
++
++describe('oxp.2 officeXpEarned (AC2)', () => {
++  it('is months accrued at the flat 1 XP per month rate', () => {
++    expect(OFFICE_XP_PER_MONTH).toBe(1);
++    expect(officeXpEarned(seat({ created_at: '2026-02-21' }), '2026-08-13')).toBe(7);
++  });
++
++  it('earns identically for a VACANT seat — the XP belongs to the office, not the holder', () => {
++    const filled = seat({ created_at: '2026-02-21', holder_id: '69d73ea49162ece35897a487' });
++    const vacant = seat({ created_at: '2026-02-21', holder_id: null });
++    expect(officeXpEarned(vacant, '2026-08-13')).toBe(officeXpEarned(filled, '2026-08-13'));
++    expect(officeXpEarned(vacant, '2026-08-13')).toBe(7);
++  });
++
++  it('never reads holder_id at all', () => {
++    expect(officeXpEarned.toString()).not.toMatch(/holder_id/);
++  });
++
++  it('gives the two later-created real seats their own smaller totals', () => {
++    // Age is advantage, per the ruling. Ivana's Administrator seat (Game 5)
++    // and Carver's People's Harpy seat (Game 6) are genuinely behind.
++    expect(officeXpEarned(seat({ created_at: '2026-06-20' }), '2026-08-13')).toBe(3);
++    expect(officeXpEarned(seat({ created_at: '2026-07-18' }), '2026-08-13')).toBe(2);
++  });
++});
++
++// ─────────────────────────────────────────────────────────────────────────────
++// AC3: spend, at 1 XP per dot, for one office category
++// ─────────────────────────────────────────────────────────────────────────────
++
++describe('oxp.2 officeXpSpentForCategory (AC3)', () => {
++  it('sums every merit dot at 1 XP each', () => {
++    // The ruling's own worked figure: three merits at three dots = 9 XP.
++    expect(officeXpSpentForCategory({ 'Safe Place': 3, Contacts: 3, Resources: 3 }, 0)).toBe(9);
++  });
++
++  it('adds the manoeuvre rank at the same 1 XP per dot rate', () => {
++    // A full five-rank ladder is 5 XP; with the 9-XP merit suite that is the
++    // ruling's "a working office = 14".
++    expect(officeXpSpentForCategory({ 'Safe Place': 3, Contacts: 3, Resources: 3 }, 5)).toBe(14);
++    expect(officeXpSpentForCategory({}, 5)).toBe(5);
++  });
++
++  it('treats a category with NO documents as 0 spend, not as an error', () => {
++    // Both sibling GET routes omit a never-purchased category from their
++    // response entirely, so `meritDots[category]` and `ranks[category]` are
++    // both undefined for most offices today. That must read as 0.
++    expect(officeXpSpentForCategory(undefined, undefined)).toBe(0);
++    expect(officeXpSpentForCategory(null, null)).toBe(0);
++    expect(officeXpSpentForCategory({}, 0)).toBe(0);
++  });
++
++  it('handles one document present and the other missing', () => {
++    // This is the live state right now: office_merit_dots has Enforcer and
++    // Head of State, office_manoeuvre_ranks has nothing at all.
++    expect(officeXpSpentForCategory({ 'Safe Place': 2 }, undefined)).toBe(2);
++    expect(officeXpSpentForCategory(undefined, 3)).toBe(3);
++  });
++
++  it('accepts the raw MongoDB document shape as well as the API response shape', () => {
++    // The GET routes hand the client { [merit]: dots } and a bare rank number;
++    // a caller reading the collections directly has { dots: {...} } and
++    // { rank: n }. Both are accepted so no caller has to reshape first.
++    expect(officeXpSpentForCategory({ dots: { 'Safe Place': 2, 'Trained Observer': 1 } }, { rank: 2 })).toBe(5);
++    expect(officeXpSpentForCategory({ _id: 'Enforcer', dots: { 'Safe Place': 4 } }, { _id: 'Enforcer', rank: 1 })).toBe(5);
++  });
++
++  it('ignores non-numeric dot values rather than producing NaN', () => {
++    expect(officeXpSpentForCategory({ 'Safe Place': 2, Broken: null, AlsoBroken: 'three' }, 0)).toBe(2);
++  });
++
++  it('never reads a seat, a holder or a character — spend is category-level today', () => {
++    const src = officeXpSpentForCategory.toString();
++    expect(src).not.toMatch(/holder_id|character/);
++  });
++});
++
++// ─────────────────────────────────────────────────────────────────────────────
++// AC4: is spend attributable to an individual seat?
++// ─────────────────────────────────────────────────────────────────────────────
++
++describe('oxp.2 officeSpendKnownByCategory (AC4)', () => {
++  it('is true for a category with exactly one seat, false for two or more', () => {
++    const known = officeSpendKnownByCategory(sevenSeats());
++    expect(known['Head of State']).toBe(true);
++    expect(known.Enforcer).toBe(true);
++    expect(known.Administrator).toBe(true);
++    expect(known.Primogen).toBe(false);
++    expect(known.Socialite).toBe(false);
++  });
++
++  it('turns false as soon as a second seat appears in a previously single-seat office', () => {
++    const seats = sevenSeats();
++    expect(officeSpendKnownByCategory(seats).Enforcer).toBe(true);
++    seats.push({ office_category: 'Enforcer', holder_id: null, created_at: '2026-08-01', seat_label: 'Deputy', notes: null });
++    expect(officeSpendKnownByCategory(seats).Enforcer).toBe(false);
++  });
++
++  it('is about seat COUNT, never about whether the seats are held', () => {
++    // A vacant second seat creates exactly the same ambiguity as a filled one:
++    // there is still no data saying which seat a shared purchase belongs to.
++    const twoVacant = [
++      { office_category: 'Socialite', holder_id: null, created_at: '2026-02-21' },
++      { office_category: 'Socialite', holder_id: null, created_at: '2026-07-18' },
++    ];
++    expect(officeSpendKnownByCategory(twoVacant).Socialite).toBe(false);
++
++    const oneVacant = [{ office_category: 'Socialite', holder_id: null, created_at: '2026-02-21' }];
++    expect(officeSpendKnownByCategory(oneVacant).Socialite).toBe(true);
++  });
++
++  it('reports nothing for a category with no seats at all', () => {
++    const known = officeSpendKnownByCategory([]);
++    expect(known.Primogen).toBeUndefined();
++    expect(Object.keys(known)).toHaveLength(0);
++  });
++
++  it('tolerates a missing or non-array argument without throwing', () => {
++    expect(officeSpendKnownByCategory(undefined)).toEqual({});
++    expect(officeSpendKnownByCategory(null)).toEqual({});
++  });
++});
++
++// ─────────────────────────────────────────────────────────────────────────────
++// AC5: the combined per-seat balance
++// ─────────────────────────────────────────────────────────────────────────────
++
++describe('oxp.2 officeSeatXp (AC5)', () => {
++  const NOW = '2026-08-13';
++
++  it('returns earned, spent, left and spendKnown for a single-seat office', () => {
++    const seats = sevenSeats();
++    const enforcer = seats.find(s => s.office_category === 'Enforcer');
++    // Live shape: Enforcer is one of the two offices that really has merit
++    // dots today.
++    const result = officeSeatXp(enforcer, seats, { 'Safe Place': 2, 'Trained Observer': 1 }, undefined, NOW);
++
++    expect(result).toEqual({ earned: 7, spent: 3, left: 4, spendKnown: true });
++  });
++
++  it('always returns real numbers, never undefined, even when nothing is purchased', () => {
++    const seats = sevenSeats();
++    const hos = seats.find(s => s.office_category === 'Head of State');
++    const result = officeSeatXp(hos, seats, undefined, undefined, NOW);
++
++    expect(result.earned).toBe(7);
++    expect(result.spent).toBe(0);
++    expect(result.left).toBe(7);
++    expect(Number.isFinite(result.left)).toBe(true);
++  });
++
++  it('0 spend on a single-seat office is still spendKnown true — the flag is about seat COUNT, not spend VALUE', () => {
++    // The exact confusion the flag exists to prevent. A caller must never infer
++    // "we cannot tell whose spend this is" from "the spend happens to be 0".
++    const seats = sevenSeats();
++    const admin = seats.find(s => s.office_category === 'Administrator');
++    const result = officeSeatXp(admin, seats, {}, 0, NOW);
++
++    expect(result.spent).toBe(0);
++    expect(result.spendKnown).toBe(true);
++  });
++
++  it('reports spendKnown false for each of the two Primogen seats, while still earning correctly', () => {
++    const seats = sevenSeats();
++    const primogen = seats.filter(s => s.office_category === 'Primogen');
++    expect(primogen).toHaveLength(2);
++
++    for (const s of primogen) {
++      const result = officeSeatXp(s, seats, { Contacts: 2 }, 1, NOW);
++      // Earned is a per-seat fact and stays exact.
++      expect(result.earned).toBe(7);
++      // Spent/left are the category's shared total, present so nothing crashes
++      // on undefined, but NOT attributable to this seat.
++      expect(result.spent).toBe(3);
++      expect(result.left).toBe(4);
++      expect(result.spendKnown).toBe(false);
++    }
++  });
++
++  it('gives the two Socialite seats DIFFERENT earned totals, so seat identity is never pooled', () => {
++    // Brandy's seat is from Game 1, Carver's from Game 6. If earned XP were
++    // pooled or looked up by category, these two would wrongly match.
++    const seats = sevenSeats();
++    const brandy = seats.find(s => s.holder_id === '69d73ea49162ece35897a47e');
++    const carver = seats.find(s => s.holder_id === '69d73ea49162ece35897a47f');
++
++    expect(officeSeatXp(brandy, seats, undefined, undefined, NOW).earned).toBe(7);
++    expect(officeSeatXp(carver, seats, undefined, undefined, NOW).earned).toBe(2);
++    expect(officeSeatXp(brandy, seats, undefined, undefined, NOW).spendKnown).toBe(false);
++    expect(officeSeatXp(carver, seats, undefined, undefined, NOW).spendKnown).toBe(false);
++  });
++
++  it('lets a balance go negative rather than clamping a genuine overspend to 0', () => {
++    // Not hypothetical: office_merit_dots and office_manoeuvre_ranks are direct
++    // ST-set state with no budget check anywhere (oxp.9 is the story that would
++    // add one), so a young office can already show more purchased than earned.
++    // Clamping would hide a real data problem behind a plausible 0.
++    const seats = sevenSeats();
++    const carver = seats.find(s => s.holder_id === '69d73ea49162ece35897a47f');
++    const result = officeSeatXp(carver, seats, { Contacts: 3, Fame: 3 }, 2, NOW);
++
++    expect(result.earned).toBe(2);
++    expect(result.spent).toBe(8);
++    expect(result.left).toBe(-6);
++  });
++});
++
++// ─────────────────────────────────────────────────────────────────────────────
++// AC8: the real live seven-seat shape, confirmed during this story's scoping
++// ─────────────────────────────────────────────────────────────────────────────
++
++describe('oxp.2 against the real seven-seat shape (AC8)', () => {
++  it('resolves spendKnown false for Primogen and Socialite, true for the other three', () => {
++    const seats = sevenSeats();
++    const bySeat = seats.map(s => [
++      s.office_category,
++      officeSeatXp(s, seats, undefined, undefined, '2026-08-13').spendKnown,
++    ]);
++
++    expect(bySeat.filter(([cat]) => cat === 'Primogen').every(([, k]) => k === false)).toBe(true);
++    expect(bySeat.filter(([cat]) => cat === 'Socialite').every(([, k]) => k === false)).toBe(true);
++    for (const cat of ['Head of State', 'Enforcer', 'Administrator']) {
++      const rows = bySeat.filter(([c]) => c === cat);
++      expect(rows, cat).toHaveLength(1);
++      expect(rows.every(([, k]) => k === true), cat).toBe(true);
++    }
++  });
++
++  it('matches the live purchase state: only Enforcer and Head of State have any spend at all', () => {
++    // office_merit_dots had exactly two documents on 2026-08-13 and
++    // office_manoeuvre_ranks had none. Everything else must derive 0 spend with
++    // a full earned balance, not a blank.
++    const seats = sevenSeats();
++    const liveMeritDots = {
++      Enforcer: { 'Safe Place': 2 },
++      'Head of State': { Contacts: 1 },
++    };
++    const liveRanks = {};
++
++    for (const s of seats) {
++      const cat = s.office_category;
++      const r = officeSeatXp(s, seats, liveMeritDots[cat], liveRanks[cat], '2026-08-13');
++      expect(r.earned, cat).toBeGreaterThan(0);
++      if (cat === 'Enforcer') expect(r.spent).toBe(2);
++      else if (cat === 'Head of State') expect(r.spent).toBe(1);
++      else expect(r.spent, cat).toBe(0);
++    }
++  });
++
++  it('the two offices that DO have live spend are both single-seat, so both are attributable', () => {
++    const known = officeSpendKnownByCategory(sevenSeats());
++    expect(known.Enforcer).toBe(true);
++    expect(known['Head of State']).toBe(true);
++  });
++});
++
++// ─────────────────────────────────────────────────────────────────────────────
++// AC6 / AC7: GET /api/office_seats. DB-backed, tm_suite_test only.
++// ─────────────────────────────────────────────────────────────────────────────
++
++const COLLECTION = 'office_seats';
++
++let app;
++
++beforeAll(async () => {
++  if (!dbAvailable) return;
++  await setupDb();
++  app = createTestApp();
++});
++
++beforeEach(async () => {
++  if (!dbAvailable) return;
++  await getCollection(COLLECTION).deleteMany({});
++});
++
++afterAll(async () => {
++  if (!dbAvailable) return;
++  await getCollection(COLLECTION).deleteMany({});
++  await teardownDb();
++});
++
++/** Insert the seven mirrored seats as they are really stored: ObjectId holders. */
++async function insertSevenSeats() {
++  const docs = sevenSeats().map(s => ({
++    ...s,
++    holder_id: s.holder_id === null ? null : new ObjectId(s.holder_id),
++  }));
++  await getCollection(COLLECTION).insertMany(docs);
++  return docs;
++}
++
++describe.skipIf(!dbAvailable)('oxp.2 GET /api/office_seats (AC6, AC7)', () => {
++  it('returns an empty array when the collection is empty', async () => {
++    const res = await request(app).get('/api/office_seats').set('X-Test-User', stUser());
++    expect(res.status).toBe(200);
++    expect(res.body).toEqual([]);
++  });
++
++  it('returns every stored seat, field for field, with no aggregation or derivation', async () => {
++    await insertSevenSeats();
++    const res = await request(app).get('/api/office_seats').set('X-Test-User', stUser());
++
++    expect(res.status).toBe(200);
++    expect(res.body).toHaveLength(7);
++
++    const pairs = res.body.map(d => `${d.office_category}|${d.holder_id}`).sort();
++    expect(pairs).toEqual([
++      'Administrator|69d73ea49162ece35897a48b',
++      'Enforcer|69d73ea49162ece35897a487',
++      'Head of State|69d73ea49162ece35897a488',
++      'Primogen|69d720427fdd1b1f9498b0d4',
++      'Primogen|69d73ea49162ece35897a496',
++      'Socialite|69d73ea49162ece35897a47e',
++      'Socialite|69d73ea49162ece35897a47f',
++    ].sort());
++
++    // Exactly the stored fields, nothing computed server-side. The deriving is
++    // the client's job (this module), from this data plus the two existing
++    // purchase routes.
++    for (const d of res.body) {
++      expect(Object.keys(d).sort()).toEqual(
++        ['_id', 'created_at', 'holder_id', 'notes', 'office_category', 'seat_label'].sort()
++      );
++      expect(d.earned).toBeUndefined();
++      expect(d.spent).toBeUndefined();
++    }
++
++    // created_at and seat_label survive verbatim, so the derivation upstream of
++    // them is working from real stored values.
++    const carver = res.body.find(d => d.holder_id === '69d73ea49162ece35897a47f');
++    expect(carver.created_at).toBe('2026-07-18');
++    expect(carver.seat_label).toBe("People's Harpy");
++  });
++
++  it('serialises _id and holder_id as strings at the JSON boundary', async () => {
++    await insertSevenSeats();
++    const res = await request(app).get('/api/office_seats').set('X-Test-User', stUser());
++
++    for (const d of res.body) {
++      expect(typeof d._id).toBe('string');
++      expect(d._id).toMatch(/^[a-f0-9]{24}$/);
++      expect(typeof d.holder_id).toBe('string');
++      expect(d.holder_id).toMatch(/^[a-f0-9]{24}$/);
++    }
++    expect(new Set(res.body.map(d => d._id)).size).toBe(7);
++  });
++
++  it('a VACANT seat survives as null, never as the string "null"', async () => {
++    await getCollection(COLLECTION).insertMany([
++      { office_category: 'Enforcer', holder_id: new ObjectId('69d73ea49162ece35897a487'), created_at: '2026-02-21', seat_label: null, notes: null },
++      { office_category: 'Enforcer', holder_id: null, created_at: '2026-02-21', seat_label: 'Deputy', notes: 'Never filled.' },
++    ]);
++
++    const res = await request(app).get('/api/office_seats').set('X-Test-User', stUser());
++    const vacant = res.body.find(d => d.seat_label === 'Deputy');
++
++    expect(vacant.holder_id).toBeNull();
++    expect(vacant.holder_id).not.toBe('null');
++    // And the vacant seat still earns, which is the whole point of it being
++    // readable at all.
++    expect(officeXpEarned(vacant, '2026-08-13')).toBe(7);
++  });
++
++  it('feeds the pure functions end to end: the route\'s own output derives the right balances', async () => {
++    await insertSevenSeats();
++    const res = await request(app).get('/api/office_seats').set('X-Test-User', stUser());
++    const seats = res.body;
++
++    const enforcer = seats.find(s => s.office_category === 'Enforcer');
++    expect(officeSeatXp(enforcer, seats, { 'Safe Place': 2 }, undefined, '2026-08-13'))
++      .toEqual({ earned: 7, spent: 2, left: 5, spendKnown: true });
++
++    for (const s of seats.filter(s => s.office_category === 'Primogen')) {
++      expect(officeSeatXp(s, seats, undefined, undefined, '2026-08-13').spendKnown).toBe(false);
++    }
++  });
++
++  it('is readable by a player, not just an ST — same posture as the sibling office routes', async () => {
++    await insertSevenSeats();
++    const res = await request(app).get('/api/office_seats')
++      .set('X-Test-User', playerUser(['000000000000000000000001']));
++    expect(res.status).toBe(200);
++    expect(res.body).toHaveLength(7);
++  });
++
++  it('requires authentication', async () => {
++    const res = await request(app).get('/api/office_seats');
++    expect(res.status).toBe(401);
++  });
++
++  it('touches no other collection', async () => {
++    // A read route has no business writing anywhere. Both purchase collections
++    // are checked because those are the two this story reads alongside seats.
++    await insertSevenSeats();
++    const before = {
++      merits: await getCollection('office_merit_dots').countDocuments({}),
++      ranks: await getCollection('office_manoeuvre_ranks').countDocuments({}),
++      seats: await getCollection(COLLECTION).countDocuments({}),
++    };
++
++    await request(app).get('/api/office_seats').set('X-Test-User', stUser());
++
++    expect(await getCollection('office_merit_dots').countDocuments({})).toBe(before.merits);
++    expect(await getCollection('office_manoeuvre_ranks').countDocuments({})).toBe(before.ranks);
++    expect(await getCollection(COLLECTION).countDocuments({})).toBe(before.seats);
++  });
++
++  it('exposes no write verb — this story adds a GET and nothing else', async () => {
++    // oxp.2 derives a number from data that already exists. Seat creation,
++    // handover and deletion are other stories' work (oxp.5 and beyond).
++    for (const method of ['post', 'put', 'patch', 'delete']) {
++      const res = await request(app)[method]('/api/office_seats').set('X-Test-User', stUser()).send({});
++      expect(res.status, method).toBe(404);
++    }
++  });
++});

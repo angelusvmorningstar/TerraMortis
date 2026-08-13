@@ -29,6 +29,7 @@ import rulesRouter from './routes/rules.js';
 import officeActionsRouter from './routes/office-actions.js';
 import officeMeritDotsRouter from './routes/office-merit-dots.js';
 import officeManoeuvreRankRouter from './routes/office-manoeuvre-rank.js';
+import officeSeatsRouter from './routes/office-seats.js';
 import {
   grantRouter, specialityGrantRouter, skillBonusRouter, nineAgainRouter, rulesAggregateRouter,
   discAttrRouter, derivedStatModRouter, tierBudgetRouter, statusFloorRouter,
@@ -187,6 +188,9 @@ app.use('/api/devlog',         requireAuth, noCache(), devlogRouter);
 app.use('/api/office_actions', requireAuth, noCache(), officeActionsRouter);
 app.use('/api/office_merit_dots', requireAuth, noCache(), officeMeritDotsRouter);
 app.use('/api/office_manoeuvre_rank', requireAuth, noCache(), officeManoeuvreRankRouter);
+// oxp.2: office seats, read-only. Open read like its two siblings above; the
+// XP derivation from these seats happens client-side in office-xp.js.
+app.use('/api/office_seats', requireAuth, noCache(), officeSeatsRouter);
 app.use('/api/chapters',       requireAuth, noCache(), chaptersRouter);
 
 // Start server first, then attempt DB connection
