@@ -547,7 +547,7 @@ describe('#1154 EQC-3 — equipmentContainerLabel', () => {
     const item = { catalogue_id: 'knife1', container_id: 'haven1' };
     const allEquipment = [item, { catalogue_id: 'haven1', state: 'active' }];
     const lookup = id => (id === 'haven1' ? haven : undefined);
-    expect(mod.equipmentContainerLabel(item, allEquipment, lookup)).toBe('in: Test Haven');
+    expect(mod.equipmentContainerLabel(item, allEquipment, lookup)).toBe('(in: Test Haven)');
   });
 
   it('AC #4: returns null (renders as loose) when the referenced container is no longer owned — a dangling container_id after the container row was removed', async () => {
@@ -577,5 +577,25 @@ describe('#1154 EQC-3 — equipmentContainerLabel', () => {
     const item = { catalogue_id: 'x1', container_id: 'x1' };
     const lookup = () => ({ name: 'Should not resolve' });
     expect(mod.equipmentContainerLabel(item, [item], lookup)).toBeNull();
+  });
+
+  it('returns the parenthesised "(in: X)" form per AC #4\'s literal text', async () => {
+    if (typeof globalThis.location === 'undefined') globalThis.location = { hostname: '' };
+    const mod = await import('../../public/js/data/equipment-derivation.js');
+    const haven = { name: 'Test Haven' };
+    const item = { catalogue_id: 'knife1', container_id: 'haven1' };
+    const allEquipment = [item, { catalogue_id: 'haven1' }];
+    expect(mod.equipmentContainerLabel(item, allEquipment, () => haven)).toBe('(in: Test Haven)');
+  });
+});
+
+describe('#1154 EQC-3 review patch — containedLabel wired into the Containers section too', () => {
+  it('editor/sheet.js\'s Containers render block calls containedLabel(item) — a container-bucket item can itself be contained (Codex external review Medium finding: this was the only one of seven sections missing it)', () => {
+    const src = read('public/js/editor/sheet.js');
+    const sectionStart = src.indexOf('Containers (old "Assets" bucket');
+    expect(sectionStart).toBeGreaterThan(-1);
+    const sectionEnd = src.indexOf('Edit-mode add form', sectionStart);
+    const sectionBody = src.slice(sectionStart, sectionEnd > -1 ? sectionEnd : sectionStart + 2000);
+    expect(sectionBody).toMatch(/containedLabel\(item\)/);
   });
 });

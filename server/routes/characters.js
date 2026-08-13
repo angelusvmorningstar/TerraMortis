@@ -42,6 +42,71 @@ function parseId(id) {
 }
 
 /**
+ * EQC-3 review patch (issue #1154, Codex external review Medium finding):
+ * `container_id` validation was originally added ONLY to
+ * `POST /:id/equipment`. `PUT /:id` (the main admin Save-to-DB path,
+ * `public/js/admin.js`'s `buildSaveBody()`) and the two character-create
+ * routes (`POST /wizard`, `POST /`) all accept a full `equipment[]` array
+ * with zero container_id validation - the review found this meant
+ * enforcement depended entirely on which endpoint a caller used, and a full
+ * character save could silently persist a dangling, self-referencing, or
+ * non-container `container_id` that the single-item endpoint would have
+ * rejected. Extracted as ONE shared validator every equipment-array write
+ * path calls, so the rule can never drift out of sync between them again -
+ * the same lesson EQC-1's own review already taught this epic once.
+ *
+ * Validates the WHOLE array's container_id references against EACH OTHER
+ * (not against a separately-fetched "existing" state), which also lets this
+ * same function serve `POST /:id/equipment` (validate existing + the one new
+ * item, combined) and `PUT /:id` (validate the incoming array as submitted)
+ * with identical logic.
+ *
+ * Additionally enforces the single-level containment rule EQC-1's own
+ * schema comment establishes but this story's first version never actually
+ * checked: a `container_id` target must not ITSELF already be contained
+ * (have its own `container_id` set) - otherwise nesting depth would be
+ * unbounded rather than the documented single level.
+ *
+ * @param {object[]} equipment - the full candidate equipment array to validate
+ * @returns {Promise<string|null>} an error message, or null if valid
+ */
+async function validateEquipmentContainerRefs(equipment) {
+  if (!Array.isArray(equipment)) return null;
+  const containerRefs = equipment.filter(e => e && e.container_id != null);
+  if (!containerRefs.length) return null;
+
+  const referencedIds = [...new Set(containerRefs.map(e => e.container_id))];
+  const validRefIds = referencedIds.filter(id => typeof id === 'string' && ObjectId.isValid(id) && String(new ObjectId(id)) === id);
+  const catalogueDocs = validRefIds.length
+    ? await getCollection('equipment_catalogue').find(
+        { _id: { $in: validRefIds.map(id => new ObjectId(id)) } },
+        { projection: { bucket: 1 } },
+      ).toArray()
+    : [];
+  const bucketById = new Map(catalogueDocs.map(d => [String(d._id), d.bucket]));
+
+  for (const item of containerRefs) {
+    const cid = item.container_id;
+    if (typeof cid !== 'string' || !ObjectId.isValid(cid) || String(new ObjectId(cid)) !== cid) {
+      return `container_id must be a 24-hex ObjectId string or null; got '${cid}'`;
+    }
+    const targetRows = equipment.filter(e => e && e !== item && String(e.catalogue_id) === cid);
+    if (!targetRows.length) {
+      return `container_id does not reference an item this character already owns: ${cid}`;
+    }
+    const bucket = bucketById.get(cid);
+    if (bucket !== 'container') {
+      return `container_id must reference a container-bucket catalogue item; got bucket '${bucket ?? '(unknown)'}'`;
+    }
+    // Single-level: none of the matching target rows may themselves be contained.
+    if (targetRows.some(row => row.container_id != null)) {
+      return `container_id references a container that is itself contained (single-level containment only): ${cid}`;
+    }
+  }
+  return null;
+}
+
+/**
  * NPCR.4: validate that every id in touchstone_edge_ids[] points to an
  * active relationship edge with kind='touchstone' and the character on
  * one endpoint. Returns null on success, or an error message string.
@@ -423,6 +488,17 @@ router.post('/wizard', requireRole('player'), stripEphemeral, validateCharacter,
   doc.retired = false;
   doc.created_at = new Date().toISOString();
 
+  // EQC-3 review patch (issue #1154, Codex external review Medium finding):
+  // same shared validator every other equipment-array write path calls —
+  // chargen doesn't typically arrive with pre-populated containment, but
+  // enforcement must not depend on which endpoint happens to be used.
+  if (Array.isArray(doc.equipment)) {
+    const containerErr = await validateEquipmentContainerRefs(doc.equipment);
+    if (containerErr) {
+      return res.status(400).json({ error: 'VALIDATION_ERROR', message: containerErr });
+    }
+  }
+
   const result = await col().insertOne(doc);
   const created = await col().findOne({ _id: result.insertedId });
 
@@ -439,6 +515,15 @@ router.post('/wizard', requireRole('player'), stripEphemeral, validateCharacter,
 router.post('/', requireRole('st'), stripEphemeral, validateCharacter, normalizeMeritsMiddleware, validateWhiteAntsTerritoriesMiddleware, validateTrapDoorAnchorMiddleware, async (req, res) => {
   const doc = req.body;
   if (!doc || !doc.name) return res.status(400).json({ error: 'VALIDATION_ERROR', message: "Field 'name' is required" });
+
+  // EQC-3 review patch (issue #1154): same shared validator as every other
+  // equipment-array write path (see POST /wizard's own comment).
+  if (Array.isArray(doc.equipment)) {
+    const containerErr = await validateEquipmentContainerRefs(doc.equipment);
+    if (containerErr) {
+      return res.status(400).json({ error: 'VALIDATION_ERROR', message: containerErr });
+    }
+  }
 
   const result = await col().insertOne(doc);
   const created = await col().findOne({ _id: result.insertedId });
@@ -477,6 +562,22 @@ router.put('/:id', requireRole('st'), stripEphemeral, validateCharacterPartial, 
       }
     }
     updates.equipment = hydrated;
+
+    // EQC-3 review patch (issue #1154, epic #1038, Codex external review
+    // Medium finding): this is the main admin Save-to-DB path
+    // (public/js/admin.js's buildSaveBody() submits the FULL equipment
+    // array here) and originally had ZERO container_id validation — the
+    // single-item POST /:id/equipment endpoint's checks simply didn't run
+    // for a full-character save, so an invalid container_id rejected by
+    // one endpoint was silently accepted by this one. Same shared validator
+    // POST /:id/equipment now calls, run against the incoming array as
+    // submitted (this route replaces the whole equipment array, so there
+    // is no separate "existing rows" to merge in — updates.equipment IS
+    // the candidate final state).
+    const containerErr = await validateEquipmentContainerRefs(updates.equipment);
+    if (containerErr) {
+      return res.status(400).json({ error: 'VALIDATION_ERROR', message: containerErr });
+    }
   }
 
   // NPCR.4: if the save includes touchstones[], validate cap, humanity-in-range,
@@ -871,21 +972,6 @@ router.post('/:id/equipment', requireRole('st'), async (req, res) => {
   if (!Number.isInteger(item.acquired_cycle) || item.acquired_cycle < 0) {
     return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'acquired_cycle must be a non-negative integer' });
   }
-  // EQC-3 (issue #1154, epic #1038): container_id — optional, shape check
-  // only here (cheap, no DB round-trip). Existence + bucket-correctness are
-  // checked further down once `char` is fetched, per this story's own
-  // "malformed shape first, then existence, then bucket-correctness"
-  // ordering (Dev Notes). EQC-1 introduced this field on the schema but
-  // NEVER validated it anywhere - this route is the first real consumer.
-  const hasContainerId = item.container_id != null;
-  if (hasContainerId) {
-    if (typeof item.container_id !== 'string' || !ObjectId.isValid(item.container_id) || String(new ObjectId(item.container_id)) !== item.container_id) {
-      return res.status(400).json({
-        error: 'VALIDATION_ERROR',
-        message: `container_id must be a 24-hex ObjectId string or null; got '${item.container_id}'`,
-      });
-    }
-  }
 
   const catalogueOid = new ObjectId(item.catalogue_id);
   const catalogueDoc = await getCollection('equipment_catalogue').findOne(
@@ -897,38 +983,21 @@ router.post('/:id/equipment', requireRole('st'), async (req, res) => {
   }
 
   // EQC-3: widened from { _id: 1 } to also read `equipment` — needed to
-  // check the container_id existence claim below (does this character
-  // already own a row with this catalogue_id).
+  // validate the container_id claim below against what this character
+  // already owns.
   const char = await col().findOne({ _id: oid }, { projection: { equipment: 1 } });
   if (!char) return res.status(404).json({ error: 'NOT_FOUND', message: 'Character not found' });
 
-  if (hasContainerId) {
-    // Existence: the character must already own ANOTHER equipment row whose
-    // catalogue_id equals container_id. NOTE (known, documented limitation -
-    // see the story's own "Explicitly NOT this story"): this cannot
-    // distinguish two rows that happen to share the same catalogue_id (e.g.
-    // two identical havens) - "does this character own ONE such row" is all
-    // this check can prove.
-    const ownsContainerCatalogueId = (char.equipment || []).some(
-      e => e && String(e.catalogue_id) === item.container_id
-    );
-    if (!ownsContainerCatalogueId) {
-      return res.status(400).json({
-        error: 'VALIDATION_ERROR',
-        message: `container_id does not reference an item this character already owns: ${item.container_id}`,
-      });
-    }
-    // Bucket-correctness: that catalogue item must actually be a container.
-    const containerCatalogueDoc = await getCollection('equipment_catalogue').findOne(
-      { _id: new ObjectId(item.container_id) },
-      { projection: { bucket: 1 } }
-    );
-    if (!containerCatalogueDoc || containerCatalogueDoc.bucket !== 'container') {
-      return res.status(400).json({
-        error: 'VALIDATION_ERROR',
-        message: `container_id must reference a container-bucket catalogue item; got bucket '${containerCatalogueDoc?.bucket ?? '(unknown)'}'`,
-      });
-    }
+  // EQC-3 review patch (issue #1154, Codex external review Medium finding):
+  // validated via the SAME shared validator PUT /:id and the character-create
+  // routes now also call, against the WOULD-BE final array (existing rows +
+  // this one new item) — no separate, divergent inline copy of the same
+  // three rules any more (that divergence is exactly what let PUT /:id
+  // bypass this validation entirely in the first version of this story).
+  const candidateEquipment = [...(char.equipment || []), { catalogue_id: item.catalogue_id, container_id: item.container_id ?? null }];
+  const containerErr = await validateEquipmentContainerRefs(candidateEquipment);
+  if (containerErr) {
+    return res.status(400).json({ error: 'VALIDATION_ERROR', message: containerErr });
   }
 
   const cleanItem = {
@@ -941,7 +1010,7 @@ router.post('/:id/equipment', requireRole('st'), async (req, res) => {
     // field, not an ObjectId reference type, per EQC-1's own schema comment.
     // Coercing it here would create a type mismatch against the
     // string-comparison read sites (e.g. `e.catalogue_id === containerId`).
-    container_id:   hasContainerId ? item.container_id : null,
+    container_id:   item.container_id ?? null,
   };
   const result = await col().findOneAndUpdate(
     { _id: oid },

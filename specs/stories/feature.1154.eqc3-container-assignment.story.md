@@ -1,6 +1,6 @@
 # Story feature.1154: EQC-3 — Container Assignment (Write Path + Picker UI)
 
-## Status: review
+## Status: done
 
 ---
 issue: 1154
@@ -33,10 +33,20 @@ asset."* Two genuinely different things share this one sentence:
    an explicit, disclosed gap: *"NOT VALIDATED AS A REFERENCE ANYWHERE YET... Whoever builds the first
    `container_id` consumer MUST add real validation at that point."* This story is that consumer.
 
-**Investigation finding, this session**: `POST /api/characters/:id/equipment` (the only write path for
-adding a character's equipment) doesn't even ACCEPT `container_id` today — its `cleanItem` allowlist
-is `{catalogue_id, state, acquired_cycle, notes}` only. A client sending `container_id` today has it
-silently dropped, not merely unvalidated.
+**Investigation finding, this session**: `POST /api/characters/:id/equipment` doesn't even ACCEPT
+`container_id` today — its `cleanItem` allowlist is `{catalogue_id, state, acquired_cycle, notes}`
+only. A client sending `container_id` today has it silently dropped, not merely unvalidated.
+
+**Correction (Codex external review Medium finding, applied during this story, not deferred)**: the
+above investigation's claim that `POST /:id/equipment` is "the only write path for adding a
+character's equipment" was FALSE, and the first version of this story built container_id validation
+only there. `PUT /api/characters/:id` (the main admin Save-to-DB path — `public/js/admin.js`'s
+`buildSaveBody()` submits the character's COMPLETE `equipment[]` array through it on every normal
+save) and the two character-create routes (`POST /wizard`, `POST /`) all accept a full `equipment[]`
+array with ZERO container_id validation of their own. This meant enforcement depended entirely on
+which endpoint a caller used — invalid containment rejected by the single-item endpoint could be
+persisted wholesale through the character's own main save flow. Fixed by extracting ONE shared
+validator (`validateEquipmentContainerRefs`) all four write paths now call — see AC #1's amendment.
 
 **Scope decision (documented here, not asked again)**: there is no PATCH/edit endpoint for an
 EXISTING equipment row — only add (POST) and remove (DELETE). So "place inside a container" is scoped
@@ -66,20 +76,36 @@ real future work with no existing endpoint to hang it off — out of scope here,
   section same as before, with a small "(in: <container name>)" annotation — not nested/indented under
   their container. A real containment-aware layout is future UI work.
 - **No change to catalogue-level (`equipment_catalogue`) CRUD** — already done, EQC-1.
+- **`state: 'lost'` containers remain selectable and continue to count as "owned" for validation
+  purposes** (Codex external review Low finding, dispositioned during this story, not deferred
+  silently). "Owns" is defined structurally — does a row with this catalogue_id exist in the
+  character's own `equipment[]` — not by possession state. A lost haven (misplaced, not removed) can
+  still coherently hold items in the fiction ("my keys are in my lost satchel"); the write path and
+  display both treat row presence, not `state`, as the ownership signal. Deliberate, not an oversight
+  — changing this would be a real product-rules question (should a lost container's contents also
+  become "lost"?) that this story does not answer.
 
 ## Acceptance Criteria
 
-1. `POST /api/characters/:id/equipment` accepts an optional `container_id` in the request body.
+1. **Amended (Codex external review Medium finding)**: EVERY write path that can set a character's
+   `equipment[]` array — `POST /:id/equipment`, `PUT /:id`, `POST /wizard`, and `POST /` (ST
+   character-create) — validates `container_id` via one shared function
+   (`validateEquipmentContainerRefs`), not four independent copies. For each item carrying a
+   `container_id`:
    - `null`/absent: unchanged behaviour (loose item, as today).
    - Present: must be a 24-hex ObjectId string. `400 VALIDATION_ERROR` otherwise.
-   - Must reference a `catalogue_id` that appears on ANOTHER equipment row this SAME character already
-     owns (before this new item is added). `400 VALIDATION_ERROR` if no such row exists (fails
-     BEFORE the write — the whole request is rejected, not a partial write).
+   - Must reference a `catalogue_id` that appears on ANOTHER equipment row in the same candidate array
+     (existing rows + the new item, for the single-item endpoint; the submitted array as-is, for the
+     full-replace/create endpoints). `400 VALIDATION_ERROR` if no such row exists — fails BEFORE any
+     write, the whole request is rejected, never a partial write.
    - That referenced `catalogue_id` must resolve to an `equipment_catalogue` document whose `bucket`
      is `container`. `400 VALIDATION_ERROR` otherwise.
-   - On success, the stored equipment row includes `container_id` (coerced to a string on the wire,
-     matching `catalogue_id`'s own existing wire/disk convention — no need to hydrate to ObjectId on
-     disk, since the schema itself types it as a string pattern field, unlike `catalogue_id`).
+   - **Single-level containment, now actually enforced** (the first version of this story documented
+     the rule but never checked it): the referenced container row must NOT itself already carry a
+     `container_id`. `400 VALIDATION_ERROR` otherwise — a container that is itself contained cannot
+     hold further items.
+   - On success, the stored equipment row includes `container_id` (a plain string, not ObjectId-
+     coerced — matches its own schema type, unlike `catalogue_id`).
 2. `editor/sheet.js`'s "Add Equipment Item" form gains a "Place inside" dropdown, populated with the
    character's own current container-bucket equipment rows (name + catalogue_id). Shows "— none —" /
    no selection as the default (loose item, unchanged default behaviour). The dropdown does not offer
@@ -99,6 +125,12 @@ real future work with no existing endpoint to hang it off — out of scope here,
    dangling reference (by the correct, character-scoped definition) renders as loose — no error, no
    "(in: undefined)" — per EQC-1's own "display-inert" contract, now actually correct rather than only
    correct in the common case.
+   **Amended twice more, Codex external review Medium findings**: (a) the first version rendered the
+   bare text `in: Haven`, missing this AC's own literal parentheses — fixed to `(in: Haven)`; (b) the
+   label was wired into six of the seven equipment-render sections, omitting the Containers section
+   itself — meaning a container placed inside ANOTHER container (a Safe inside a Haven, exactly the
+   epic's own worked example) stored correctly but rendered with no visible indication of the nesting.
+   Fixed by wiring the same label into all seven sections.
 5. `npm test`: every equipment-related suite green; no new failures beyond the established
    pre-existing baseline.
 6. TM Wiki, TM Cockpit, and TM Herald are completely untouched — TM Suite-only.
@@ -121,13 +153,25 @@ real future work with no existing endpoint to hang it off — out of scope here,
   - [x] `equipmentContainerLabel` extracted as a pure, exported function in `equipment-derivation.js`
         (not a closure in sheet.js) — checks character-owned status, not just catalogue existence, per
         AC #4's dev-time resolution.
-  - [x] Sheet renderer wired into all 6 non-Container render sections.
-  - [x] Tests proving resolved, character-scoped-dangling, catalogue-scoped-dangling, and
-        self-reference cases; prove-discriminated.
+  - [x] Sheet renderer wired into ALL SEVEN render sections including Containers itself (review patch
+        — a container can be contained inside another container).
+  - [x] "(in: X)" parenthesised form, matching AC #4's literal text (review patch).
+  - [x] Tests proving resolved, character-scoped-dangling, catalogue-scoped-dangling, self-reference,
+        and the parenthesised-text cases; prove-discriminated.
 
 - [x] **Task 4 — Full regression** (AC #5, #6)
-  - [x] Every equipment-related vitest suite green (9 files, 196/196).
+  - [x] Every equipment-related vitest suite green (9 files, 204/204 post-review-patch).
   - [x] Confirm zero diff under TM Wiki, TM Cockpit, TM Herald.
+
+- [x] **Task 5 — Review patch: validation on every equipment-write path** (AC #1 amendment, Codex
+      external review Medium finding)
+  - [x] Extracted `validateEquipmentContainerRefs` as one shared validator.
+  - [x] Wired into `POST /:id/equipment` (replacing its own inline duplicate logic), `PUT /:id`,
+        `POST /wizard`, `POST /`.
+  - [x] Single-level containment now actually enforced (a container_id target must not itself be
+        contained) — previously documented but never checked.
+  - [x] Tests for all four write paths, including the single-level rejection case; prove-discriminated
+        (both the single-level check and the PUT-route wiring specifically).
 
 ## Dev Notes
 
@@ -208,9 +252,40 @@ Claude Sonnet 5.
 
 ### File List
 
-- `server/routes/characters.js` (modified - `POST /:id/equipment` container_id validation)
-- `server/tests/equipment.test.js` (modified - 2 new catalogue fixtures + 6 new tests)
-- `public/js/data/equipment-derivation.js` (modified - new `equipmentContainerLabel` export)
-- `public/js/editor/sheet.js` (modified - "Place inside" picker, `containedLabel` wired into 6 sections)
+- `server/routes/characters.js` (modified - `validateEquipmentContainerRefs` shared validator, wired
+  into `POST /:id/equipment`, `PUT /:id`, `POST /wizard`, `POST /`)
+- `server/tests/equipment.test.js` (modified - 2 new catalogue fixtures + 15 new tests across POST/PUT/create)
+- `public/js/data/equipment-derivation.js` (modified - `equipmentContainerLabel` export, `(in: X)` format)
+- `public/js/editor/sheet.js` (modified - "Place inside" picker, `containedLabel` wired into all 7 sections)
 - `public/js/editor/edit.js` (modified - `shAddEquip()` sends `container_id`)
-- `server/tests/issue-879-defence-penalty-wirein.test.js` (modified - new `#1154 EQC-3` describe block)
+- `server/tests/issue-879-defence-penalty-wirein.test.js` (modified - `#1154 EQC-3` describe blocks + wiring check)
+
+## Senior Developer Review (AI)
+
+**Reviewer**: Codex (external, CLI-direct via `codex exec`, `model_reasoning_effort=high`), invoked through the `codex-review` skill under `bmad-loop`, sandboxed to this dedicated worktree (`D:\Terra Mortis\TM Suite-eqc`) with explicit instructions never to touch the sibling `TM Suite` directory a concurrent session was using. Full prompt at `specs/stories/code-review/issue-1154-eqc3-codex-review.md`, full findings at `specs/stories/code-review/issue-1154-eqc3-codex-findings.md`.
+
+**Method**: 3-pass single-session review against the committed diff (base `f13c21cb`, head `de5d5278`), scoped to the 6 touched source/test files.
+
+**Ship assessment (Codex's own words)**: *"Needs patches before shipping. There is no blocking/High problem... The literal AC #4 display defects and inconsistent validation through full-character writes are Medium findings and should be fixed before acceptance."* All patched and verified before this story moved to `done`.
+
+### Findings and disposition
+
+- **[Medium, Pass 1] Uppercase 24-hex `container_id` rejected.** Pass 2 (same review, same session) independently checked `character.schema.js`'s own field pattern (`^[a-f0-9]{24}$`, lowercase only) and found the route's behaviour is CONSISTENT with the schema's real contract - the Pass 1 finding was a false positive, self-corrected by the review's own later pass. **NO ACTION** - already correctly resolved within the review itself.
+- **[Medium, Pass 2 + Pass 3a] Full-character write paths (`PUT /:id`, `POST /wizard`, `POST /`) bypassed container_id validation entirely.** VERIFIED TRUE and the most significant finding of this pass - `PUT /:id` is literally the main admin Save-to-DB path (`public/js/admin.js`'s `buildSaveBody()` submits the whole `equipment[]` array through it on every normal save), and it had zero container awareness. **PATCHED**: extracted `validateEquipmentContainerRefs` as one shared validator; wired into all four equipment-array write paths. Also closed a gap the original design never checked at all: single-level containment (a container_id target must not itself be contained) is now actually enforced, not just documented.
+- **[Medium, Pass 2 + Pass 3a] A container placed inside another container was stored correctly but invisible in the UI** (the Containers section never called `containedLabel`). VERIFIED TRUE. **PATCHED**: wired into all seven render sections, not six.
+- **[Medium, Pass 3a] AC #4's literal parenthesised text ("(in: X)") was violated** - the implementation rendered the bare `in: X`. VERIFIED TRUE. **PATCHED**.
+- **[Medium, Pass 3a] The story's Background claimed `POST /:id/equipment` was "the only write path for adding a character's equipment"** - false, and the false premise is WHY the validation-bypass finding above was possible. **PATCHED**: Background corrected in place, AC #1 amended to name all four write paths explicitly.
+- **[Low, Pass 1] Self-reference guard relies on object identity; the one test only exercises the favourable case.** Pass 2 (same review) traced the actual production call site and confirmed the current renderer always passes the same object reference, so this is not currently reachable - flagged as "brittle for future callers" only. **NO ACTION** - documented as a known limitation in the function's own comment (already present); not exploitable today.
+- **[Low, Pass 2] "Lost" containers remain selectable and count as owned regardless of state.** VERIFIED TRUE, and the review itself flagged this as a genuine design ambiguity ("the story may define 'owns' structurally as row presence rather than possession state") rather than an unambiguous bug. **DISPOSITIONED, not fixed**: "owns" is deliberately row-presence-based, not state-based - added to "Explicitly NOT this story" as an explicit, reasoned decision rather than a silent gap.
+- **[Low, Pass 1] Rejection tests didn't prove the "no partial write" property**, only the HTTP response shape. VERIFIED TRUE. **PATCHED**: all rejection tests now re-fetch the character and assert the equipment array is exactly what it was before the failed request.
+- **[Low, Pass 2] A narrow delete-race** (concurrent add + container removal could produce an immediately-dangling reference). Judged low likelihood for a single-ST-admin tool; matches the already-scoped-out "no cascade/orphan handling" decision. **NO ACTION** - accepted risk, consistent with existing scope boundary.
+- **[Low, Pass 3b] Two record-accuracy findings** (the "owns at least one container" Dev Agent Record claim not accounting for lost-state rows; the historical worktree-collision/sibling-repo claims being outside this review's own verifiable scope by its own ground rules). **NO ACTION on the second** (a disclosed reviewer-side scope limit, not a false claim); **first is the same lost-container disposition above**, already addressed by the "Explicitly NOT this story" addition.
+
+### Verification performed this pass
+
+- Re-ran the two directly-affected test files after every patch (81/81), then the full 9-file equipment suite (204/204, up from the pre-patch 196).
+- Prove-discrimination performed for both load-bearing new pieces: the shared validator's single-level containment check (disabled -> exactly 1 test failed -> restored) and the `PUT /:id` route's wiring specifically (disabled -> exactly the 2 PUT-specific rejection tests failed, POST-route tests unaffected -> restored).
+- `node --check` on `server/routes/characters.js` after the full patch set - clean.
+- Confirmed via `git diff` against the diff file that Codex's own review process left the working tree unmodified, and confirmed the sibling `D:\Terra Mortis\TM Suite` directory's checked-out branch was untouched throughout (the other session had independently moved on to its own next story in the meantime).
+
+**Status**: no unresolved High findings; every addressable Medium and most Low findings patched and verified; the two dispositioned-not-fixed items (lost-container semantics, the narrow delete race) are reasoned, documented decisions, not gaps -> `done`.

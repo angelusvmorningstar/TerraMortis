@@ -155,7 +155,10 @@ export function equipmentContainerLabel(item, allEquipment, catalogueLookup = ge
   const stillOwned = list.some(e => e && e !== item && String(e.catalogue_id) === item.container_id);
   if (!stillOwned) return null;
   const containerEntry = catalogueLookup(item.container_id);
-  return containerEntry ? `in: ${containerEntry.name || item.container_id}` : null;
+  // EQC-3 review patch (#1154, Codex external review Medium finding, Pass
+  // 3a): AC #4's literal text specifies the parenthesised form "(in: X)",
+  // not the bare "in: X" the first version rendered.
+  return containerEntry ? `(in: ${containerEntry.name || item.container_id})` : null;
 }
 
 /**

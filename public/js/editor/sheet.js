@@ -2762,6 +2762,17 @@ export function shRenderEquipment(c, editMode) {
         entry.mechanical_effect || null,
         eff != null ? `avail ${eff}` : null,
         cycleLabel(item.acquired_cycle),
+        // EQC-3 review patch (#1154, Codex external review Medium finding):
+        // a container-bucket item can itself be placed inside ANOTHER
+        // container (a Safe inside a Haven — the epic's own example).
+        // Single-level containment forbids a container's CONTENTS from
+        // themselves holding further items, but says nothing against a
+        // container being contained — the write path now enforces that
+        // distinction (validateEquipmentContainerRefs). This section had
+        // never called containedLabel at all, so a real, stored, ST-visible
+        // nesting relationship was invisible here — the only one of the
+        // seven render sections missing it.
+        containedLabel(item),
       ].filter(Boolean);
       const qual  = parts.join(' · ');
       const rmBtn = editMode ? `<button class="sk-spec-rm" style="float:right;margin-top:2px" onclick="shRemoveEquip(${idx})" title="Remove">× Remove</button>` : '';
