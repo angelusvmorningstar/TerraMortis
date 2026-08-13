@@ -70,6 +70,16 @@ export function planBucketMigration(doc) {
     return { touched: false, fromBucket: undefined, toBucket: undefined, reason: 'malformed document' };
   }
   const from = doc.bucket;
+  // EQC-1 review patch (#1152, Codex external review Low finding): a
+  // non-string `bucket` (e.g. `['weapon']`) would otherwise reach
+  // `BUCKET_MAP[from]` and JS's implicit property-key coercion would stringify
+  // it to `'weapon'`, silently normalising a malformed document instead of
+  // flagging it for human review per this function's own "flag rather than
+  // guess" policy. Reject any non-string bucket explicitly, before either
+  // lookup.
+  if (typeof from !== 'string') {
+    return { touched: false, fromBucket: from, toBucket: undefined, reason: `bucket is not a string (got ${Array.isArray(from) ? 'array' : typeof from})` };
+  }
   if (NEW_BUCKETS.has(from)) {
     return { touched: false, fromBucket: from, toBucket: from, reason: null };
   }
@@ -96,40 +106,65 @@ export async function migrate(opts = {}) {
   const totals = {
     scanned: docs.length,
     touched: 0,
+    written: 0,
     perMapping: Object.create(null),
     unrecognised: [],
+    failedAt: null,
   };
 
-  for (const doc of docs) {
-    const plan = planBucketMigration(doc);
-    if (plan.reason && !plan.touched) {
-      totals.unrecognised.push({ id: String(doc._id), name: doc.name || '(unnamed)', bucket: plan.fromBucket });
-      continue;
-    }
-    if (!plan.touched) continue;
+  // EQC-1 review patch (#1152, Codex external review Medium finding): the
+  // original version incremented `totals.touched` and logged the summary
+  // ONLY after the full loop completed, so a mid-loop `updateOne` failure
+  // (e.g. a transient Mongo disconnect) threw before an operator saw ANY
+  // record of what had already been written. `written` now tracks
+  // confirmed-successful writes separately from `touched` (planned writes),
+  // and the summary logs from inside a catch block too, so a partial-apply
+  // state is always visible even on failure.
+  try {
+    for (const doc of docs) {
+      const plan = planBucketMigration(doc);
+      if (plan.reason && !plan.touched) {
+        totals.unrecognised.push({ id: String(doc._id), name: doc.name || '(unnamed)', bucket: plan.fromBucket });
+        continue;
+      }
+      if (!plan.touched) continue;
 
-    const key = `${plan.fromBucket} → ${plan.toBucket}`;
-    totals.perMapping[key] = (totals.perMapping[key] || 0) + 1;
-    totals.touched += 1;
+      const key = `${plan.fromBucket} → ${plan.toBucket}`;
+      totals.perMapping[key] = (totals.perMapping[key] || 0) + 1;
+      totals.touched += 1;
 
-    if (!dryRun) {
-      await col.updateOne({ _id: doc._id }, { $set: { bucket: plan.toBucket, updated_at: new Date().toISOString() } });
+      if (!dryRun) {
+        await col.updateOne({ _id: doc._id }, { $set: { bucket: plan.toBucket, updated_at: new Date().toISOString() } });
+        totals.written += 1;
+      }
     }
+  } catch (err) {
+    totals.failedAt = { scannedSoFar: totals.touched, writtenSoFar: totals.written, error: String(err && err.message || err) };
+    if (log) logSummary(totals, dryRun);
+    throw err;
   }
 
-  if (log) {
-    const verb = dryRun ? '[DRY RUN] would touch' : 'touched';
-    console.log(`Scanned ${totals.scanned} catalogue item(s); ${verb} ${totals.touched}.`);
-    if (Object.keys(totals.perMapping).length) {
-      console.log('Per-mapping:');
-      for (const [k, n] of Object.entries(totals.perMapping)) console.log(`  ${k.padEnd(24)} ${n}`);
-    }
-    if (totals.unrecognised.length) {
-      console.log(`\nUNRECOGNISED bucket values (${totals.unrecognised.length}) — SKIPPED, need human review:`);
-      for (const u of totals.unrecognised) console.log(`  ${u.name} (${u.id}): bucket="${u.bucket}"`);
-    }
-  }
+  if (log) logSummary(totals, dryRun);
   return totals;
+}
+
+export function logSummary(totals, dryRun) {
+  const verb = dryRun ? '[DRY RUN] would touch' : 'touched';
+  console.log(`Scanned ${totals.scanned} catalogue item(s); ${verb} ${totals.touched}.`);
+  if (totals.failedAt) {
+    console.log(`\nFAILED mid-run: ${totals.failedAt.writtenSoFar} write(s) confirmed committed before the error; ` +
+      `${totals.failedAt.scannedSoFar - totals.failedAt.writtenSoFar} more were planned but not yet attempted or did not complete. ` +
+      `This script is idempotent — re-run it (dry-run first) to pick up where it left off, rather than assuming a full re-apply is needed.`);
+    console.log(`Error: ${totals.failedAt.error}`);
+  }
+  if (Object.keys(totals.perMapping).length) {
+    console.log('Per-mapping:');
+    for (const [k, n] of Object.entries(totals.perMapping)) console.log(`  ${k.padEnd(24)} ${n}`);
+  }
+  if (totals.unrecognised.length) {
+    console.log(`\nUNRECOGNISED bucket values (${totals.unrecognised.length}) — SKIPPED, need human review:`);
+    for (const u of totals.unrecognised) console.log(`  ${u.name} (${u.id}): bucket="${u.bucket}"`);
+  }
 }
 
 export async function main(argv = process.argv) {

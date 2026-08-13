@@ -93,3 +93,21 @@ is exposed — but the pre-existing gap is now more discoverable/likely to be st
 reviewed this trade-off and approved shipping otc.3 as scoped rather than gating it on this fix
 landing first; this entry's priority is unchanged (High) but this note records the increased
 practical exposure for whoever picks up #1143.
+
+## Deferred from: EQC-1 (issue #1152, Codex external review 2026-08-13)
+
+- **`container_id` reference/topology validation** (Medium) — nothing in `characters.js`'s write routes
+  (PUT /:id, POST /:id/equipment) validates a `container_id` against the same character's own
+  equipment array: a dangling reference, a self-reference, a reference to a non-container catalogue
+  item, or a multi-level containment chain are all accepted and stored as-is. Currently harmless
+  because no code anywhere reads `container_id` yet (no containment-aware UI exists — that's EQC-3's
+  job). Whoever builds the first reader MUST add real validation at that point, either at the write
+  route or defensively at the read site. See `character.schema.js`'s own comment on the `equipment[]`
+  field for the full disclosure.
+- **`container_id` cannot identify a container INSTANCE when a character owns two equipment rows
+  referencing the same catalogue item** (Medium) — e.g. two identical safes are indistinguishable by
+  `catalogue_id` alone, since `equipment[]` rows carry no per-instance identity. A future
+  container-assignment story will need to resolve this — likely by referencing the container's array
+  INDEX rather than continuing to key off `catalogue_id`, or by introducing a per-row instance id.
+  Real design decision, not a coding bug in EQC-1; deferred to whichever story first builds container
+  assignment UI (EQC-3 or later).

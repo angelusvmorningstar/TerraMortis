@@ -91,9 +91,16 @@ describe('#879 — equipment-derivation.js module shape', () => {
     expect(src).not.toMatch(/item\.state\s*===\s*['"]stashed['"]/);
   });
 
-  it('filters by bucket === \'combat_gear\' AND armour_value != null (EQC-1 #1152: armour merged into combat_gear, distinguished by populated stat fields)', () => {
+  it('filters by bucket === \'combat_gear\' AND isCombatGearArmourShaped(entry) (EQC-1 #1152: armour merged into combat_gear, distinguished by populated stat fields; review patch broadened the single-field check to an OR-of-fields shared predicate)', () => {
     expect(src).toMatch(/entry\.bucket\s*!==\s*['"]combat_gear['"]/);
-    expect(src).toMatch(/entry\.armour_value\s*==\s*null/);
+    expect(src).toMatch(/isCombatGearArmourShaped\(entry\)/);
+  });
+
+  it('isCombatGearArmourShaped/isCombatGearWeaponShaped are exported and OR across their respective fields, not a single-field check', () => {
+    expect(src).toMatch(/export\s+function\s+isCombatGearArmourShaped\b/);
+    expect(src).toMatch(/export\s+function\s+isCombatGearWeaponShaped\b/);
+    expect(src).toMatch(/armour_value\s*!=\s*null\s*\|\|\s*entry\.defence_penalty\s*!=\s*null/);
+    expect(src).toMatch(/weapon_type\s*!=\s*null\s*\|\|\s*entry\.damage_mod\s*!=\s*null\s*\|\|\s*entry\.damage_type\s*!=\s*null/);
   });
 });
 
@@ -254,11 +261,16 @@ describe('#879 — armourDefencePenalty behaviour (D1 + D2)', () => {
     expect(mod.armourDefencePenalty(c, mkLookup(items))).toBe(0);
   });
 
-  it('D1: filters by bucket === \'combat_gear\' with armour_value != null — ignores worn non-armour items', async () => {
+  it('D1: filters by bucket === \'combat_gear\' with isCombatGearArmourShaped(entry) — ignores worn non-combat_gear-shaped items', async () => {
     if (typeof globalThis.location === 'undefined') globalThis.location = { hostname: '' };
     const mod = await import('../../public/js/data/equipment-derivation.js');
     const items = [
-      { _id: 'wep1', bucket: 'combat_gear', weapon_type: 'melee', armour_value: null, defence_penalty: 5 },   // weapon-shaped combat_gear (armour_value null), ignored despite matching bucket AND a populated defence_penalty
+      // A weapon-shaped item with NO armour fields populated at all (the
+      // realistic "genuinely not armour" case - a real weapon never carries
+      // a defence_penalty). Combining weapon_type AND defence_penalty on one
+      // fixture, as an earlier version of this test did, is not a realistic
+      // data shape and is no longer how this predicate is proven correct.
+      { _id: 'wep1', bucket: 'combat_gear', weapon_type: 'melee', damage_mod: 2, armour_value: null, defence_penalty: null },
       { _id: 'arm1', bucket: 'combat_gear', armour_value: 1, defence_penalty: 2 },
     ];
     const c = mkChar({ equipment: [
@@ -266,6 +278,36 @@ describe('#879 — armourDefencePenalty behaviour (D1 + D2)', () => {
       { catalogue_id: 'arm1', state: 'worn' },
     ]});
     expect(mod.armourDefencePenalty(c, mkLookup(items))).toBe(2);
+  });
+
+  it('EQC-1 review patch (#1152, Codex external review HIGH finding): a legacy-migrated armour item with armour_value: null but defence_penalty populated still counts (single-field check was wrong)', async () => {
+    if (typeof globalThis.location === 'undefined') globalThis.location = { hostname: '' };
+    const mod = await import('../../public/js/data/equipment-derivation.js');
+    // Under the OLD (pre-EQC-1) schema, bucket-specific fields were
+    // independently nullable - a real legacy armour item could have set only
+    // defence_penalty and left armour_value unset. After migration to
+    // combat_gear, this item must STILL be recognised as armour-shaped.
+    const items = [{ _id: 'legacy-arm', bucket: 'combat_gear', armour_value: null, defence_penalty: 2 }];
+    const c = mkChar({ equipment: [{ catalogue_id: 'legacy-arm', state: 'worn' }] });
+    expect(mod.armourDefencePenalty(c, mkLookup(items))).toBe(2);
+  });
+
+  it('EQC-1 review patch (#1152): a legacy-migrated weapon with weapon_type: null but damage_mod populated is still weapon-shaped (isCombatGearWeaponShaped)', async () => {
+    if (typeof globalThis.location === 'undefined') globalThis.location = { hostname: '' };
+    const mod = await import('../../public/js/data/equipment-derivation.js');
+    expect(mod.isCombatGearWeaponShaped({ bucket: 'combat_gear', weapon_type: null, damage_mod: 2 })).toBe(true);
+    expect(mod.isCombatGearWeaponShaped({ bucket: 'combat_gear', weapon_type: null, damage_type: 'lethal' })).toBe(true);
+    expect(mod.isCombatGearWeaponShaped({ bucket: 'combat_gear', weapon_type: null, damage_mod: null, damage_type: null })).toBe(false);
+    expect(mod.isCombatGearWeaponShaped(null)).toBe(false);
+  });
+
+  it('EQC-1 review patch (#1152): isCombatGearArmourShaped mirrors the same OR-of-fields shape', async () => {
+    if (typeof globalThis.location === 'undefined') globalThis.location = { hostname: '' };
+    const mod = await import('../../public/js/data/equipment-derivation.js');
+    expect(mod.isCombatGearArmourShaped({ armour_value: null, defence_penalty: 1 })).toBe(true);
+    expect(mod.isCombatGearArmourShaped({ armour_value: 1, defence_penalty: null })).toBe(true);
+    expect(mod.isCombatGearArmourShaped({ armour_value: null, defence_penalty: null })).toBe(false);
+    expect(mod.isCombatGearArmourShaped(null)).toBe(false);
   });
 
   it('EQC-1 (#1152): a non-combat_gear bucket is ignored even with armour_value populated', async () => {

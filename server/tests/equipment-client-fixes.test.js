@@ -73,9 +73,11 @@ describe('#752 — roll.js predicates include the active state', () => {
 
   it('weapon-reference filter accepts state === active', () => {
     const src = read('public/js/suite/roll.js');
-    // EQC-1 (#1152): the old 'weapon' bucket merged into 'combat_gear',
-    // weapon-shaped items distinguished by weapon_type != null.
-    expect(src).toMatch(/bucket === 'combat_gear' && entry\.weapon_type != null[\s\S]{0,400}item\.state === 'active'/);
+    // EQC-1 (#1152): the old 'weapon' bucket merged into 'combat_gear'.
+    // Review patch: weapon-shaped items are distinguished via the shared
+    // isCombatGearWeaponShaped predicate (OR across weapon_type/damage_mod/
+    // damage_type), not a single-field inline check.
+    expect(src).toMatch(/bucket === 'combat_gear' && isCombatGearWeaponShaped\(entry\)[\s\S]{0,400}item\.state === 'active'/);
   });
 
   it('the legacy carried + worn states still appear in the same predicates (no accidental swap)', () => {

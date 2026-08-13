@@ -16,7 +16,7 @@ import { calcHealth, calcWillpowerMax, calcSize, calcSpeed, calcDefence } from '
 //
 // wornArmourCount drives the >1 worn armour editor hint (ADR-006 D2 + Concern
 // #8, wording locked).
-import { defenceForDisplay, wornArmourCount, effectiveAvailability } from '../data/equipment-derivation.js';
+import { defenceForDisplay, wornArmourCount, effectiveAvailability, isCombatGearWeaponShaped, isCombatGearArmourShaped } from '../data/equipment-derivation.js';
 import { xpToDots, xpEarned, xpSpent, xpLeft, xpStarting, xpHumanityDrop, xpOrdeals, xpGame, xpPT5, xpSpentAttrs, xpSpentSkills, xpSpentMerits, xpSpentPowers, xpSpentSpecial, setDevotionsDB, meritBdRow, meritRating } from './xp.js';
 // OATH-A (#1111): the pledge editor needs to know whether a merit is a
 // Swear By oath and what its requirement resolves to. edit-domain.js owns
@@ -2602,11 +2602,13 @@ export function shRenderEquipment(c, editMode) {
   // combat_gear sub-split by populated stat fields, not bucket (both shapes
   // now share the combat_gear bucket). An item matching neither shape (no
   // stats filled in) still renders, under "Other Combat Gear".
-  const isWeaponShaped = e => e.weapon_type != null || e.damage_mod != null || e.damage_type != null;
-  const isArmourShaped = e => e.armour_value != null || e.defence_penalty != null;
-  const combatWeapons = byBucket.combat_gear.filter(x => isWeaponShaped(x.entry));
-  const combatArmour  = byBucket.combat_gear.filter(x => !isWeaponShaped(x.entry) && isArmourShaped(x.entry));
-  const combatOther   = byBucket.combat_gear.filter(x => !isWeaponShaped(x.entry) && !isArmourShaped(x.entry));
+  // EQC-1 review patch (#1152): use the shared predicates from
+  // equipment-derivation.js rather than a locally re-derived copy, so the
+  // weapon/armour discriminator can never drift out of sync between this
+  // renderer and armourDefencePenalty/the roll calculators again.
+  const combatWeapons = byBucket.combat_gear.filter(x => isCombatGearWeaponShaped(x.entry));
+  const combatArmour  = byBucket.combat_gear.filter(x => !isCombatGearWeaponShaped(x.entry) && isCombatGearArmourShaped(x.entry));
+  const combatOther   = byBucket.combat_gear.filter(x => !isCombatGearWeaponShaped(x.entry) && !isCombatGearArmourShaped(x.entry));
 
   // ── Weapons ──
   if (combatWeapons.length) {

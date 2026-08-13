@@ -8,6 +8,7 @@ import { d10, mkDie, mkChain, rollPool, cntSuc } from '../shared/dice.js';
 import { skSpecs, skNineAgain } from '../data/accessors.js';
 import { hasAoE } from '../data/helpers.js';
 import { getCatalogueEntry } from '../data/equipment-catalogue-cache.js';
+import { isCombatGearWeaponShaped } from '../data/equipment-derivation.js';
 
 // ── Imports from other suite modules (will exist once extracted) ──
 // showResistSec / updResist live in shared/resist.js
@@ -233,8 +234,10 @@ export function updWeaponRef() {
     // eligibility (matches the chip predicate above).
     const entry = getCatalogueEntry(item.catalogue_id);
     // EQC-1 (#1152): 'weapon' bucket merged into 'combat_gear'; weapon-shaped
-    // is identified by weapon_type presence (armour-shaped entries leave it null).
-    return entry && entry.bucket === 'combat_gear' && entry.weapon_type != null &&
+    // is identified via the shared isCombatGearWeaponShaped predicate (review
+    // patch: a single-field check missed legacy weapons whose weapon_type was
+    // null but damage_mod/damage_type were populated).
+    return entry && entry.bucket === 'combat_gear' && isCombatGearWeaponShaped(entry) &&
            (item.state === 'carried' || item.state === 'worn' || item.state === 'active');
   });
   if (!weapons.length) {

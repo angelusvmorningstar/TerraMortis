@@ -11,7 +11,7 @@ import { describe, it, expect, beforeAll, afterAll, afterEach } from 'vitest';
 import 'dotenv/config';
 import { setupDb, teardownDb } from './helpers/db-setup.js';
 import { getCollection } from '../db.js';
-import { BUCKET_MAP, planBucketMigration, migrate } from '../scripts/migrate-eqc1-bucket-taxonomy.mjs';
+import { BUCKET_MAP, planBucketMigration, migrate, logSummary } from '../scripts/migrate-eqc1-bucket-taxonomy.mjs';
 
 describe('planBucketMigration (pure)', () => {
   it('maps weapon -> combat_gear', () => {
@@ -58,8 +58,54 @@ describe('planBucketMigration (pure)', () => {
     expect(planBucketMigration({}).touched).toBe(false);
   });
 
+  it('EQC-1 review patch (#1152, Codex external review Low finding): a non-string bucket (e.g. an array) is flagged, never coerced into a mapping-table key', () => {
+    // Before the patch, `BUCKET_MAP[['weapon']]` coerced the array key to the
+    // string 'weapon' via JS's implicit property-key stringification, so a
+    // malformed one-element-array bucket silently migrated as if it were the
+    // real value - exactly the "guess instead of flag" behaviour this
+    // function's own docstring disclaims.
+    const r = planBucketMigration({ bucket: ['weapon'] });
+    expect(r.touched).toBe(false);
+    expect(r.toBucket).toBeUndefined();
+    expect(r.reason).toMatch(/not a string/);
+  });
+
   it('BUCKET_MAP covers exactly the four old bucket values, nothing else', () => {
     expect(Object.keys(BUCKET_MAP).sort()).toEqual(['armour', 'asset', 'equipment', 'weapon']);
+  });
+});
+
+describe('logSummary (EQC-1 review patch, #1152 Codex external review Medium finding)', () => {
+  it('reports how many writes committed before a mid-run failure, and that the script is safe to re-run', () => {
+    const logs = [];
+    const spy = { call: (...args) => logs.push(args.join(' ')) };
+    const origLog = console.log;
+    console.log = spy.call;
+    try {
+      logSummary({
+        scanned: 10, touched: 6, perMapping: { 'weapon → combat_gear': 6 }, unrecognised: [],
+        failedAt: { scannedSoFar: 6, writtenSoFar: 4, error: 'MongoServerSelectionError: connection lost' },
+      }, false);
+    } finally {
+      console.log = origLog;
+    }
+    const joined = logs.join('\n');
+    expect(joined).toMatch(/FAILED mid-run/);
+    expect(joined).toMatch(/4 write\(s\) confirmed committed/);
+    expect(joined).toMatch(/idempotent.*re-run it/i);
+    expect(joined).toMatch(/MongoServerSelectionError: connection lost/);
+  });
+
+  it('says nothing about a failure when the run completed cleanly', () => {
+    const logs = [];
+    const origLog = console.log;
+    console.log = (...args) => logs.push(args.join(' '));
+    try {
+      logSummary({ scanned: 3, touched: 3, perMapping: { 'asset → container': 3 }, unrecognised: [], failedAt: null }, false);
+    } finally {
+      console.log = origLog;
+    }
+    expect(logs.join('\n')).not.toMatch(/FAILED mid-run/);
   });
 });
 
@@ -92,10 +138,15 @@ describe('migrate() — integration against tm_suite_test', () => {
 
   it('dry run makes no writes', async () => {
     const id = await seed('weapon', 'Dry Run Knife');
-    const totals = await migrate({ dryRun: true, log: false });
-    expect(totals.touched).toBeGreaterThanOrEqual(1);
+    await migrate({ dryRun: true, log: false });
     const doc = await getCollection('equipment_catalogue').findOne({ _id: id });
     expect(doc.bucket).toBe('weapon');
+    // EQC-1 review patch (#1152, Codex external review Low finding): pin the
+    // assertion to the SEEDED document's own plan, not the shared test
+    // collection's aggregate touched-count (which any other test's leftover
+    // fixtures could satisfy on its own, proving nothing about this fixture
+    // specifically).
+    expect(planBucketMigration(doc)).toEqual({ touched: true, fromBucket: 'weapon', toBucket: 'combat_gear', reason: null });
   });
 
   it('apply migrates every old-taxonomy document and is idempotent on re-run', async () => {

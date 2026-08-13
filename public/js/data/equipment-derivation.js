@@ -5,15 +5,16 @@
  * array without an ADR" gate. ADR-006 specifies:
  *
  *   D1: armourDefencePenalty(c, catalogueLookup?) reads c.equipment[] filtered
- *       by state === 'worn' + bucket === 'combat_gear' with armour_value != null;
+ *       by state === 'worn' + bucket === 'combat_gear' with isCombatGearArmourShaped(entry);
  *       injectable catalogue lookup (default: the ECM-5 cache reader).
  *
  *       EQC-1 (issue #1152, epic #1038, 2026-08-13): the old `armour` bucket
  *       merged into `combat_gear` (which also covers weapons). "Armour-shaped"
- *       is identified by `entry.armour_value != null` rather than by bucket
- *       alone — the epic's own "distinct stat fields" distinction within the
- *       single combat_gear bucket. A weapon-shaped combat_gear entry has
- *       `armour_value: null` and is correctly excluded.
+ *       is identified by `isCombatGearArmourShaped` (armour_value OR
+ *       defence_penalty populated - see that function's own comment for why
+ *       a single-field check was wrong) rather than by bucket alone — the
+ *       epic's own "distinct stat fields" distinction within the single
+ *       combat_gear bucket.
  *   D2: worst-case math — Math.max(...penalties). The editor surfaces a soft
  *       hint when >1 armour is worn (wording is concern #8 below).
  *   D2-FLOOR: floor at 0 lives ONLY at the helper composition site. STM overlay
@@ -42,6 +43,38 @@ import { getCatalogueEntry } from './equipment-catalogue-cache.js';
 import { meritEffectiveRating } from '../editor/domain.js';
 
 /**
+ * EQC-1 review patch (issue #1152, Codex external review, 2026-08-13,
+ * Pass 3b HIGH finding): the FIRST version of these predicates checked only
+ * `armour_value != null` / `weapon_type != null`. That is too narrow - under
+ * the OLD (pre-EQC-1) schema, bucket-specific fields were independently
+ * nullable and never required as a set (ECM-1's own Non-Goal: "no per-bucket
+ * schema validation"). A real legacy armour item could have `armour_value:
+ * null` while still carrying a populated `defence_penalty`, or a legacy
+ * weapon could have `weapon_type: null` while carrying `damage_mod`. A
+ * single-field check silently drops such an item from armour/weapon
+ * derivation the moment it is migrated to `combat_gear`, even though the
+ * migration script reports success - the exact defect the review caught by
+ * direct execution (`armour_value: null, defence_penalty: 2` -> penalty 0
+ * instead of 2 after migration).
+ *
+ * These two predicates are the SINGLE SOURCE OF TRUTH for "is this
+ * combat_gear entry armour-shaped / weapon-shaped" - every consumer
+ * (armourDefencePenalty/wornArmourCount below, roll.js, roll-v2.js,
+ * editor/sheet.js) imports and uses these rather than re-deriving its own
+ * copy, so the discriminator can never drift out of sync between consumers
+ * again the way it did in the first version of this story.
+ */
+export function isCombatGearArmourShaped(entry) {
+  if (!entry) return false;
+  return entry.armour_value != null || entry.defence_penalty != null;
+}
+
+export function isCombatGearWeaponShaped(entry) {
+  if (!entry) return false;
+  return entry.weapon_type != null || entry.damage_mod != null || entry.damage_type != null;
+}
+
+/**
  * Sum-by-worst-case of defence penalties from currently-worn armour.
  * Returns a non-negative integer (the magnitude — composition site subtracts).
  *
@@ -65,7 +98,7 @@ export function armourDefencePenalty(c, catalogueLookup = getCatalogueEntry) {
   for (const item of c.equipment) {
     if (!item || item.state !== 'worn') continue;
     const entry = catalogueLookup(item.catalogue_id);
-    if (!entry || entry.bucket !== 'combat_gear' || entry.armour_value == null) continue;
+    if (!entry || entry.bucket !== 'combat_gear' || !isCombatGearArmourShaped(entry)) continue;
     const p = Number.isInteger(entry.defence_penalty) ? entry.defence_penalty : 0;
     if (p > 0) penalties.push(p);
   }
@@ -88,7 +121,7 @@ export function wornArmourCount(c, catalogueLookup = getCatalogueEntry) {
   for (const item of c.equipment) {
     if (!item || item.state !== 'worn') continue;
     const entry = catalogueLookup(item.catalogue_id);
-    if (entry?.bucket === 'combat_gear' && entry.armour_value != null) n++;
+    if (entry?.bucket === 'combat_gear' && isCombatGearArmourShaped(entry)) n++;
   }
   return n;
 }
