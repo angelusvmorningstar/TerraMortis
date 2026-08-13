@@ -5,8 +5,16 @@
  * array without an ADR" gate. ADR-006 specifies:
  *
  *   D1: armourDefencePenalty(c, catalogueLookup?) reads c.equipment[] filtered
- *       by state === 'worn' + bucket === 'armour'; injectable catalogue
- *       lookup (default: the ECM-5 cache reader).
+ *       by state === 'worn' + bucket === 'combat_gear' with isCombatGearArmourShaped(entry);
+ *       injectable catalogue lookup (default: the ECM-5 cache reader).
+ *
+ *       EQC-1 (issue #1152, epic #1038, 2026-08-13): the old `armour` bucket
+ *       merged into `combat_gear` (which also covers weapons). "Armour-shaped"
+ *       is identified by `isCombatGearArmourShaped` (armour_value OR
+ *       defence_penalty populated - see that function's own comment for why
+ *       a single-field check was wrong) rather than by bucket alone — the
+ *       epic's own "distinct stat fields" distinction within the single
+ *       combat_gear bucket.
  *   D2: worst-case math — Math.max(...penalties). The editor surfaces a soft
  *       hint when >1 armour is worn (wording is concern #8 below).
  *   D2-FLOOR: floor at 0 lives ONLY at the helper composition site. STM overlay
@@ -35,6 +43,125 @@ import { getCatalogueEntry } from './equipment-catalogue-cache.js';
 import { meritEffectiveRating } from '../editor/domain.js';
 
 /**
+ * EQC-1 review patch (issue #1152, Codex external review, 2026-08-13,
+ * Pass 3b HIGH finding): the FIRST version of these predicates checked only
+ * `armour_value != null` / `weapon_type != null`. That is too narrow - under
+ * the OLD (pre-EQC-1) schema, bucket-specific fields were independently
+ * nullable and never required as a set (ECM-1's own Non-Goal: "no per-bucket
+ * schema validation"). A real legacy armour item could have `armour_value:
+ * null` while still carrying a populated `defence_penalty`, or a legacy
+ * weapon could have `weapon_type: null` while carrying `damage_mod`. A
+ * single-field check silently drops such an item from armour/weapon
+ * derivation the moment it is migrated to `combat_gear`, even though the
+ * migration script reports success - the exact defect the review caught by
+ * direct execution (`armour_value: null, defence_penalty: 2` -> penalty 0
+ * instead of 2 after migration).
+ *
+ * These two predicates are the SINGLE SOURCE OF TRUTH for "is this
+ * combat_gear entry armour-shaped / weapon-shaped" - every consumer
+ * (armourDefencePenalty/wornArmourCount below, roll.js, roll-v2.js,
+ * editor/sheet.js) imports and uses these rather than re-deriving its own
+ * copy, so the discriminator can never drift out of sync between consumers
+ * again the way it did in the first version of this story.
+ */
+export function isCombatGearArmourShaped(entry) {
+  if (!entry) return false;
+  return entry.armour_value != null || entry.defence_penalty != null;
+}
+
+export function isCombatGearWeaponShaped(entry) {
+  if (!entry) return false;
+  return entry.weapon_type != null || entry.damage_mod != null || entry.damage_type != null;
+}
+
+/**
+ * EQC-2 (issue #1153, epic #1038) - "on me" (bonus applies in game) vs
+ * "owned but elsewhere" (available in downtime only), per the epic's own
+ * display distinction. Derived from the EXISTING `state` field, not a new
+ * stored value - see the story's own Background for why a second
+ * independent field was rejected (same "two things that can disagree" class
+ * of bug the combat_gear shape check above needed fixing for).
+ *
+ * `carried`/`worn`/`active` = physically on the character = on me.
+ * `stashed` = owned but elsewhere. `lost` = neither (the item is gone).
+ *
+ * NOTE: "on me" (possession) is BROADER than "bonus currently active" for
+ * armour specifically, which additionally requires `state === 'worn'` (see
+ * armourDefencePenalty above) - a carried-but-unworn breastplate is on you
+ * but grants no AR. This predicate answers "is it near me right now", not
+ * "is every possible bonus from it firing" - callers that need the latter
+ * (armour) keep their own narrower check unchanged.
+ *
+ * Single source of truth for every consumer that previously re-derived this
+ * exact three-state check inline (roll.js, roll-v2.js) - see EQC-1's own
+ * isCombatGearArmourShaped/isCombatGearWeaponShaped for why duplicating this
+ * kind of check per-consumer is the mistake to avoid.
+ *
+ * @param {object} item - a character's equipment[] entry (has `state`)
+ * @returns {boolean}
+ */
+export function isEquipmentOnMe(item) {
+  if (!item) return false;
+  return item.state === 'carried' || item.state === 'worn' || item.state === 'active';
+}
+
+/**
+ * EQC-2 review patch (issue #1153, Codex external review Low finding):
+ * the player-facing "On you" / "Stored elsewhere" text label. The first
+ * version of this treated ANY non-'lost' state as "elsewhere", including a
+ * missing/malformed/unrecognised `state` value - a confident but
+ * unsupported location claim for bad data. Only `'stashed'` is a genuinely
+ * known "elsewhere" state; anything else that isn't on-me returns `null`
+ * (no label) rather than guessing.
+ *
+ * Extracted as its own exported pure function (not left inline in
+ * editor/sheet.js) so it is directly unit-testable, matching this module's
+ * own "single shared predicate, not duplicated/embedded inline" convention.
+ *
+ * @param {object} item - a character's equipment[] entry (has `state`)
+ * @returns {string|null} 'On you' | 'Stored elsewhere' | null
+ */
+export function equipmentLocationLabel(item) {
+  if (isEquipmentOnMe(item)) return 'On you';
+  if (item && item.state === 'stashed') return 'Stored elsewhere';
+  return null;
+}
+
+/**
+ * EQC-3 (issue #1154, epic #1038) - "(in: <container name>)" display label
+ * for a contained item. Checks the CHARACTER's own equipment array for
+ * another row still carrying this `container_id` as its `catalogue_id` -
+ * NOT just whether the catalogue item globally exists. A container removed
+ * from this character's own equipment (its row deleted via DELETE
+ * /:id/equipment/:itemIndex) must render its former contents as loose, even
+ * though the catalogue item itself may still exist for OTHER characters (the
+ * catalogue-admin delete guard only blocks deleting a CATALOGUE item while
+ * ANY character holds it - it does not know about container_id references
+ * at all). This is EQC-1's own "display-inert on dangling reference"
+ * contract, applied correctly.
+ *
+ * Extracted as its own exported pure function (not a closure inside
+ * editor/sheet.js's shRenderEquipment) so it is directly unit-testable,
+ * matching this module's established convention.
+ *
+ * @param {object} item - a character's equipment[] entry (has `container_id`)
+ * @param {object[]} allEquipment - the SAME character's full equipment[] array
+ * @param {function} [catalogueLookup] - (id) => catalogue entry | undefined
+ * @returns {string|null} `in: <name>` | null
+ */
+export function equipmentContainerLabel(item, allEquipment, catalogueLookup = getCatalogueEntry) {
+  if (!item || !item.container_id) return null;
+  const list = Array.isArray(allEquipment) ? allEquipment : [];
+  const stillOwned = list.some(e => e && e !== item && String(e.catalogue_id) === item.container_id);
+  if (!stillOwned) return null;
+  const containerEntry = catalogueLookup(item.container_id);
+  // EQC-3 review patch (#1154, Codex external review Medium finding, Pass
+  // 3a): AC #4's literal text specifies the parenthesised form "(in: X)",
+  // not the bare "in: X" the first version rendered.
+  return containerEntry ? `(in: ${containerEntry.name || item.container_id})` : null;
+}
+
+/**
  * Sum-by-worst-case of defence penalties from currently-worn armour.
  * Returns a non-negative integer (the magnitude — composition site subtracts).
  *
@@ -58,7 +185,7 @@ export function armourDefencePenalty(c, catalogueLookup = getCatalogueEntry) {
   for (const item of c.equipment) {
     if (!item || item.state !== 'worn') continue;
     const entry = catalogueLookup(item.catalogue_id);
-    if (!entry || entry.bucket !== 'armour') continue;
+    if (!entry || entry.bucket !== 'combat_gear' || !isCombatGearArmourShaped(entry)) continue;
     const p = Number.isInteger(entry.defence_penalty) ? entry.defence_penalty : 0;
     if (p > 0) penalties.push(p);
   }
@@ -81,7 +208,7 @@ export function wornArmourCount(c, catalogueLookup = getCatalogueEntry) {
   for (const item of c.equipment) {
     if (!item || item.state !== 'worn') continue;
     const entry = catalogueLookup(item.catalogue_id);
-    if (entry?.bucket === 'armour') n++;
+    if (entry?.bucket === 'combat_gear' && isCombatGearArmourShaped(entry)) n++;
   }
   return n;
 }
@@ -239,4 +366,60 @@ export function effectiveAvailability(item, c) {
  */
 export function isAffordable(item, c) {
   return effectiveAvailability(item, c) <= availabilityCap(c);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// EQC-4 (issue #1155, epic #1038) — stat-tweak request. "Tweakable" is the
+// bucket's ONE primary numeric bonus field, per Angelus's scope ruling: the
+// combat_gear weapon/armour split reuses isCombatGearWeaponShaped /
+// isCombatGearArmourShaped above (same single-source-of-truth discipline as
+// every other EQC story) rather than re-deriving the shape check a third
+// time. tool_utility/narrative/container have no numeric bonus field by
+// design and are never tweakable.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Which stat field a catalogue entry's one-step "+1" tweak request applies
+ * to, or null if the entry has no tweakable numeric bonus at all.
+ *
+ * @param {object} entry - catalogue entry
+ * @returns {'damage_mod'|'armour_value'|'bonus_dice'|null}
+ */
+export function equipmentTweakableField(entry) {
+  if (!entry) return null;
+  if (entry.bucket === 'combat_gear') {
+    // Review patch (#1155): the catalogue-admin form allows a single
+    // combat_gear entry to carry both a weapon-shape field and an
+    // armour-shape field at once (nothing in the schema forbids it). This
+    // story scopes a tweak request to exactly ONE stat per item, so a
+    // dual-shaped entry needs a tie-break; weapon wins, deliberately and
+    // arbitrarily (no design ruling favours one over the other) - documented
+    // here rather than left silent.
+    if (isCombatGearWeaponShaped(entry)) return 'damage_mod';
+    if (isCombatGearArmourShaped(entry)) return 'armour_value';
+    return null;
+  }
+  // Review patch (#1155): mirrors the combat_gear branch's populated-field
+  // guard - bonus_dice is nullable in both the schema and the catalogue-admin
+  // form (server/schemas/equipment_catalogue.schema.js), so a skill_gear
+  // entry with no bonus_dice set has no tweakable numeric bonus at all, same
+  // as this function's own docstring promises. The first version returned
+  // 'bonus_dice' for EVERY skill_gear entry regardless, offering a "+1
+  // bonus_dice" request on items with no such stat to raise.
+  if (entry.bucket === 'skill_gear' && entry.bonus_dice != null) return 'bonus_dice';
+  return null;
+}
+
+/**
+ * Availability cost of the tweaked variant: one dot of availability per
+ * shift (epic #1038 item 5). null when the entry isn't tweakable at all —
+ * there is no meaningful "tweaked cost" to report.
+ *
+ * @param {object} entry - catalogue entry
+ * @returns {number|null}
+ */
+export function tweakedAvailability(entry) {
+  if (!equipmentTweakableField(entry)) return null;
+  const base = Number.isInteger(entry.availability) ? entry.availability : 0;
+  return base + 1;
 }

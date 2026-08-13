@@ -349,10 +349,12 @@ export const DOWNTIME_SECTIONS = [
   // 7–9: Spheres, Contacts, Retainers — now rendered dynamically from character merits
   // (see downtime-form.js renderMeritSections)
 
-  // 10. Acquisitions — manual gate (anyone can attempt skill-based acquisitions)
+  // 10. Acquisitions — manual gate. EQC-5 (#1156): skill-based acquisition
+  // removed (shaking down a shopkeeper is now a Personal Project); only the
+  // Resources channel remains.
   {
     key: 'acquisitions',
-    title: 'Acquisition: Resources and Skills',
+    title: 'Acquisition: Resources',
     gate: 'has_acquisitions',
     intro: null,
     questions: [
@@ -362,13 +364,6 @@ export const DOWNTIME_SECTIONS = [
         type: 'textarea',
         required: false,
         desc: 'Character Resources Level:\nRelevant Merit:\nAcquisition Description:\nAvailability:\n\nExample: "Resources 3. Contacts (Antiques Dealer). Sourcing a pre-WWII grimoire of Theban scripture for Iseult. Availability: Rare."',
-      },
-      {
-        key: 'skill_acquisitions',
-        label: 'Skill Based Acquisitions',
-        type: 'textarea',
-        required: false,
-        desc: 'Limited to ONE skill-based acquisition per Downtime. Describe what you are attempting to obtain, the skill being used, and any relevant context.',
       },
     ],
   },
@@ -443,7 +438,7 @@ export const SUBMIT_FINAL_MODAL_QUESTIONS = [
 export const DOWNTIME_GATES = [
   {
     key: 'has_acquisitions',
-    label: 'Do you want to use Resources or Skills to attempt to acquire anything?',
+    label: 'Do you want to use Resources to attempt to acquire anything?',
     type: 'radio',
     options: [{ value: 'yes', label: 'Yes' }, { value: 'no', label: 'No' }],
   },

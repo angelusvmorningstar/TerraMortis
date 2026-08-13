@@ -94,6 +94,61 @@ reviewed this trade-off and approved shipping otc.3 as scoped rather than gating
 landing first; this entry's priority is unchanged (High) but this note records the increased
 practical exposure for whoever picks up #1143.
 
+## Deferred from: EQC-5 (issue #1156, dev-story implementation 2026-08-13)
+
+- **Two skill-acquisition Playwright specs have stale fixtures, unrelated to EQC-5** (Low, found not
+  caused) — `tests/fix-493-skill-acq-outcome-summary.spec.js` (4 of its 5 tests) and one of
+  `tests/fix-player-skill-acq-outcome.spec.js`'s 3 tests ("AC-1: skill acquisition outcome_summary
+  appears in player Resources group") fail on `main`/pre-EQC-5 exactly as they do after EQC-5's changes
+  (confirmed via `git stash` isolation during this story's implementation). Root cause: both files'
+  fixtures place skill-acquisition outcome data at `acquisitions_resolved[0]`, but fix.914 (a later
+  story) moved Skill Acquisition to slot `[1]` (Resources kept `[0]`) and these two files' fixtures were
+  never updated to match — `fix-491-skill-acquisition-outcome-card.spec.js` and
+  `fix-914-acquisition-outcome-field-slot.spec.js` DO use the correct post-fix.914 slot and are fully
+  green, confirming the underlying `downtime-story.js`/`downtime-views.js` read logic is correct; only
+  these two test files' own fixtures are stale. EQC-5 removed the skill-acquisition WRITE side only
+  (see its story's "stop writing, keep reading" shape) and explicitly did not touch either of these read
+  files, so fixing stale fixtures in tests for functionality this story doesn't modify is out of its
+  scope. Whoever next touches either spec should move the fixture's `acquisitions_resolved` entry from
+  index `[0]` to `[1]`.
+
+## Deferred from: EQC-4 (issue #1155, internal 3-layer review 2026-08-13)
+
+- **A tweak request on an availability-5 item computes a cost (6) the catalogue schema cannot
+  represent** (Medium) — `tweakedAvailability` returns `base + 1` unconditionally; the catalogue
+  schema caps `availability` at 5, so the story's own stated grant mechanism (the ST creates a
+  distinct catalogue entry at the requested cost) has no valid target for a tweak on an
+  already-maximum-availability item. The request still displays and can be submitted (informational
+  only, per AC #5 — doesn't block the draft), so nothing breaks mechanically; an ST reviewing such a
+  request will need to adjudicate down or deny it by judgement, same as any other over-cap request.
+  Not fixed in EQC-4 itself — enforcing or special-casing the boundary would mean either raising the
+  catalogue's global availability cap (a much larger, unrelated change) or silently capping/hiding the
+  display, both out of this story's scope. Revisit if this proves a real friction point in play.
+- **AC #6 names `npm test`, but that script is a no-op stub in this repo** (Low) — `package.json`'s
+  `test` script is `echo "Error: no test specified" && exit 1`; the actual regression command run for
+  every EQC story (this one included) is `npx vitest run server/tests`. Looks like boilerplate carried
+  across the whole EQC epic's story template rather than something specific to EQC-4 — worth fixing at
+  the template level (or wiring `npm test` to the real vitest invocation) next time any EQC-epic story
+  is created, rather than patched story-by-story.
+
+## Deferred from: EQC-1 (issue #1152, Codex external review 2026-08-13)
+
+- **`container_id` reference/topology validation** (Medium) — nothing in `characters.js`'s write routes
+  (PUT /:id, POST /:id/equipment) validates a `container_id` against the same character's own
+  equipment array: a dangling reference, a self-reference, a reference to a non-container catalogue
+  item, or a multi-level containment chain are all accepted and stored as-is. Currently harmless
+  because no code anywhere reads `container_id` yet (no containment-aware UI exists — that's EQC-3's
+  job). Whoever builds the first reader MUST add real validation at that point, either at the write
+  route or defensively at the read site. See `character.schema.js`'s own comment on the `equipment[]`
+  field for the full disclosure.
+- **`container_id` cannot identify a container INSTANCE when a character owns two equipment rows
+  referencing the same catalogue item** (Medium) — e.g. two identical safes are indistinguishable by
+  `catalogue_id` alone, since `equipment[]` rows carry no per-instance identity. A future
+  container-assignment story will need to resolve this — likely by referencing the container's array
+  INDEX rather than continuing to key off `catalogue_id`, or by introducing a per-row instance id.
+  Real design decision, not a coding bug in EQC-1; deferred to whichever story first builds container
+  assignment UI (EQC-3 or later).
+
 ## Deferred from: code review of oxp-3-manoeuvre-purchase-graduated-merit (2026-08-13, external Codex review)
 
 Full record: `specs/stories/oxp-3-manoeuvre-purchase-graduated-merit.md` → Senior Developer Review.
