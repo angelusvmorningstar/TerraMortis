@@ -1,0 +1,1032 @@
+diff --git a/public/js/data/office-xp.js b/public/js/data/office-xp.js
+index 2d0ef97e..58df59f3 100644
+--- a/public/js/data/office-xp.js
++++ b/public/js/data/office-xp.js
+@@ -182,6 +182,17 @@ export function officeXpSpentForCategory(meritDotsDoc, manoeuvreRankDoc) {
+     rankXp = manoeuvreRankDoc;
+   } else if (manoeuvreRankDoc && typeof manoeuvreRankDoc.rank === 'number' && Number.isFinite(manoeuvreRankDoc.rank)) {
+     rankXp = manoeuvreRankDoc.rank;
++    // oxp.6: fold in the destroyed-XP counter oxp.5's handover reset writes to
++    // the same document. Spend is DERIVED from the current rank, so resetting
++    // it without this would silently REFUND the destroyed XP the moment any
++    // balance renders — the precise opposite of office-powers.md's ruling
++    // ("the running balance is total accrued since creation, minus everything
++    // ever spent, INCLUDING THE SPEND THAT HAS SINCE BEEN LOST"). Only on the
++    // raw-document branch: a bare rank number has no way to also carry a
++    // destroyed count, so that branch above is deliberately untouched.
++    if (typeof manoeuvreRankDoc.manoeuvre_xp_destroyed === 'number' && Number.isFinite(manoeuvreRankDoc.manoeuvre_xp_destroyed)) {
++      rankXp += manoeuvreRankDoc.manoeuvre_xp_destroyed;
++    }
+   }
+ 
+   return meritXp + rankXp;
+diff --git a/public/js/tabs/office-tab.js b/public/js/tabs/office-tab.js
+index ff11ce33..46417494 100644
+--- a/public/js/tabs/office-tab.js
++++ b/public/js/tabs/office-tab.js
+@@ -1,11 +1,12 @@
+ import { OFFICE_DATA, MERIT_DOT_CAPS } from './office-data.js';
+-import { esc, displayName } from '../data/helpers.js';
++import { esc, displayName, shDotsWithBonus } from '../data/helpers.js';
+ import { apiGet, apiPost, apiPut } from '../data/api.js';
+ import { calcCityStatus } from '../data/accessors.js';
+ import { charPicker, setCharPickerSources } from '../components/character-picker.js';
+ import { getCycles } from '../downtime/db.js';
+ import { currentCycleInGamePhase } from '../downtime/cycle-phase.js';
+ import { getRole } from '../auth/discord.js';
++import { officeSeatXp } from '../data/office-xp.js';
+ 
+ // otc.3: the fixed order the picker lists offices in. All five Court
+ // Positions, even 'Administrator' (which has no OFFICE_DATA entry yet — it
+@@ -47,6 +48,97 @@ export function manoeuvreListHtml(manoeuvres, rank, isOwnOffice) {
+   }).join('');
+ }
+ 
++/**
++ * oxp.6: hollow dots with a per-dot `title` reason (why not bought yet).
++ *
++ * Deliberately NOT built via `shDotsWithBonus`'s `opts.hollowMod`: that
++ * mechanism is the ST-mod-overlay's own convention (`stm-modded-dot` class,
++ * gold-tinted styling in `components.css`), and reusing it here would visually
++ * present an unaffordable dot as an ST override, which it is not — a real
++ * correction against this story's own original plan to reuse it. Same
++ * `.pointed`/`.pointed.hollow` markup `shDots`/`shDotsWithBonus` emit, just
++ * with a bare `title` attribute instead of that unrelated class.
++ */
++function _dotsWithReasons(n, count, reasons) {
++  let out = '';
++  for (let i = 0; i < count; i++) {
++    if (i < n) { out += '<span class="pointed"></span>'; continue; }
++    const reason = reasons ? reasons[i] : null;
++    out += reason
++      ? `<span class="pointed hollow" title="${esc(reason)}"></span>`
++      : '<span class="pointed hollow"></span>';
++  }
++  return out;
++}
++
++/**
++ * oxp.6 AC6: per-manoeuvre-dot reason an unpurchased dot isn't bought yet.
++ * Pure, DOM-free, exported for direct testing — mirrors `city-views.js`'s
++ * `computeCourtChanges` in being a plain data decision kept out of the
++ * DOM-writing function that consumes it.
++ *
++ * Rank order is checked FIRST: a manoeuvre beyond the next purchasable one
++ * cannot be bought regardless of balance, so only the SINGLE next dot (index
++ * === the office's current rank) can ever carry an affordability reason —
++ * every dot beyond it is order-blocked no matter how much is left.
++ *
++ * @param {number} rank - the office's current purchased rank
++ * @param {number} count - total manoeuvres in the ladder
++ * @param {number} left - the seat's remaining office XP (`officeSeatXp().left`)
++ * @returns {Array<string|null>} one entry per manoeuvre index (0-based)
++ */
++export function manoeuvreDotReasons(rank, count, left) {
++  const r = Math.max(0, Math.min(count, Math.trunc(rank) || 0));
++  const known = Number.isFinite(left);
++  const reasons = [];
++  for (let i = 0; i < count; i++) {
++    if (i < r) { reasons.push(null); continue; }
++    if (i === r) {
++      reasons.push(known && left < 1 ? `Not enough office XP (${1 - left} short)` : null);
++      continue;
++    }
++    reasons.push(`Reach rank ${i} first`);
++  }
++  return reasons;
++}
++
++/**
++ * oxp.6 AC6: per-merit-dot reason an unpurchased dot isn't bought yet. No
++ * rank-order gate exists for merit dots (independently settable, unlike the
++ * manoeuvre ladder), so every unpurchased dot beyond `left` gets a reason; one
++ * within reach gets none — a plain hollow dot the ST could buy right now.
++ *
++ * @param {number} current - dots already bought on this merit
++ * @param {number} cap - this merit's dot cap (`MERIT_DOT_CAPS[merit]`)
++ * @param {number} left - the seat's remaining office XP
++ * @returns {Array<string|null>} one entry per dot index (0-based), length `cap`
++ */
++export function meritDotReasons(current, cap, left) {
++  const n = Math.max(0, Math.min(cap, Math.trunc(current) || 0));
++  const known = Number.isFinite(left);
++  const reasons = [];
++  for (let i = 0; i < cap; i++) {
++    if (i < n) { reasons.push(null); continue; }
++    const cost = (i - n) + 1; // XP needed to reach THIS dot from the current count
++    reasons.push(known && cost > left ? `Not enough office XP (${cost - left} short)` : null);
++  }
++  return reasons;
++}
++
++/** oxp.6 AC7: the shared seat balance line, holder-or-ST-only by construction
++ *  — every call site of this function already sits behind that gate (see
++ *  _wireManoeuvreRank's early return and _wireMeritDots's showReasons check),
++ *  so this function itself does not re-check who is viewing. `left` is
++ *  allowed to go negative (office-xp.js's own documented behaviour; both
++ *  purchase collections are direct ST-set state with no budget check until
++ *  oxp.9), rendered as "over budget" rather than a confusing negative number. */
++function _balanceLineHtml(balance) {
++  if (!balance) return '';
++  const { earned, spent, left } = balance;
++  const tail = left < 0 ? `${-left} over budget` : `${left} remaining`;
++  return `<p class="derived-note">${esc(String(spent))} of ${esc(String(earned))} office XP spent, ${esc(tail)}.</p>`;
++}
++
+ /**
+  * oxp.3: builds the graduated rank readout, plus the ST/dev-only +/- stepper.
+  *
+@@ -55,15 +147,21 @@ export function manoeuvreListHtml(manoeuvres, rank, isOwnOffice) {
+  * display and reuses its stepper classes verbatim.
+  *
+  * The rank is clamped here as well as at the only current call site. This is an
+- * exported function, and `'●'.repeat(n)` throws a RangeError on a negative
+- * count, so the safety cannot rest on every future caller remembering to clamp
+- * first (Codex review, 2026-08-13).
++ * exported function, and `shDotsWithBonus` throws a RangeError on a negative
++ * count (the same underlying `'●'.repeat(n)` guard this comment originally
++ * described), so the safety cannot rest on every future caller remembering to
++ * clamp first (Codex review, 2026-08-13).
++ *
++ * oxp.6: `reasons` is optional (from `manoeuvreDotReasons`) — when supplied,
++ * unpurchased dots carry a per-dot `title`; when omitted (the synchronous
++ * optimistic first render, before any balance is known), dots render via
++ * `shDotsWithBonus` exactly as the rest of the app's dot displays do.
+  */
+-export function manoeuvreRankHtml(rank, count, isST) {
++export function manoeuvreRankHtml(rank, count, isST, reasons) {
+   const n = Math.max(0, Math.min(count, Math.trunc(rank) || 0));
+-  const display = '●'.repeat(n) + '○'.repeat(Math.max(0, count - n));
++  const display = reasons ? _dotsWithReasons(n, count, reasons) : shDotsWithBonus(n, Math.max(0, count - n));
+   let html = `<span class="office-manoeuvre-rank-label">Purchased</span>`;
+-  html += `<span class="office-manoeuvre-rank-dots">${esc(display)}</span>`;
++  html += `<span class="office-manoeuvre-rank-dots">${display}</span>`;
+   if (isST) {
+     html += `<div class="cs-edit-stepper office-manoeuvre-rank-stepper">`;
+     html += `<button class="cs-step-btn" data-manoeuvre-rank-up${n >= count ? ' disabled' : ''}>▲</button>`;
+@@ -225,11 +323,11 @@ async function _wirePurchaseState(el, char, category, data, isOwnOffice) {
+ 
+   let outcome;
+   if (!Array.isArray(seats)) {
+-    outcome = { status: 'unavailable', seatId: null, note: null };
++    outcome = { status: 'unavailable', seatId: null, seat: null, allSeats: [], note: null };
+   } else {
+     const forCategory = seats.filter(s => s && s.office_category === category);
+     if (forCategory.length === 0) {
+-      outcome = { status: 'no-seat', seatId: null, note: null };
++      outcome = { status: 'no-seat', seatId: null, seat: null, allSeats: seats, note: null };
+     } else {
+       // AC5: the viewer's OWN office resolves by holder. A seat's holder_id and
+       // a character's _id are both stringified at the JSON boundary, so this is
+@@ -250,6 +348,8 @@ async function _wirePurchaseState(el, char, category, data, isOwnOffice) {
+       outcome = {
+         status: 'ok',
+         seatId: String(seat._id),
++        seat,          // oxp.6: officeSeatXp needs the whole document (created_at, office_category)
++        allSeats: seats, // oxp.6: officeSeatXp needs every seat to establish spendKnown per category
+         confirmed,
+         // AC6: only disclose when there is genuinely something to disclose. For
+         // a single-seat office the fallback cannot be wrong, so a label would
+@@ -260,8 +360,52 @@ async function _wirePurchaseState(el, char, category, data, isOwnOffice) {
+     }
+   }
+ 
+-  _wireMeritDots(el, outcome, data.merits, gen);
+-  _wireManoeuvreRank(el, outcome, data.manoeuvres, isOwnOffice, gen);
++  await _refreshPurchaseState(el, outcome, data, isOwnOffice, gen);
++}
++
++/**
++ * oxp.6: fetches `office_merit_dots` and `office_manoeuvre_rank` TOGETHER for
++ * the resolved seat, derives the seat's balance via `officeSeatXp`, and
++ * renders both purchase sections from that one fetch.
++ *
++ * Also the re-render target after a stepper click succeeds (`_adjustMeritDots`
++ * / `_adjustManoeuvreRank`), not just each function's own section — a merit
++ * purchase changes the SAME balance the manoeuvre section's affordability
++ * markers read, and vice versa (AC7: the holder decides the split, there is
++ * no separate per-section budget), so both must refresh together or one
++ * section's affordability markers go stale the moment the other is spent
++ * from.
++ */
++async function _refreshPurchaseState(el, outcome, data, isOwnOffice, gen) {
++  let dotsBySeat = null, ranksBySeat = null, fetchFailed = false;
++  if (outcome.status === 'ok') {
++    try {
++      [dotsBySeat, ranksBySeat] = await Promise.all([
++        apiGet('/api/office_merit_dots'),
++        apiGet('/api/office_manoeuvre_rank'),
++      ]);
++    } catch {
++      fetchFailed = true;
++    }
++  }
++  if (gen !== el._officeManoeuvreGen) return;
++
++  // Computed whenever the seat resolved, regardless of viewer — officeSeatXp
++  // is a pure computation, not a fetch, so there is no cost to deriving it
++  // here. AC7's owner-or-ST-only gate is enforced where it is RENDERED:
++  // `_wireManoeuvreRank`'s own existing early return for a non-owner non-ST
++  // viewer, and `_wireMeritDots`'s own `showReasons` check — both of which
++  // already call `_isST()` themselves, so it is deliberately NOT called again
++  // here as well.
++  let balance = null;
++  if (outcome.status === 'ok' && !fetchFailed) {
++    const meritDotsDoc = dotsBySeat[outcome.seatId];
++    const rankDoc = ranksBySeat[outcome.seatId];
++    balance = officeSeatXp(outcome.seat, outcome.allSeats, meritDotsDoc, rankDoc, new Date());
++  }
++
++  _wireMeritDots(el, outcome, data, dotsBySeat, fetchFailed, balance, isOwnOffice, gen);
++  _wireManoeuvreRank(el, outcome, data, ranksBySeat, fetchFailed, balance, isOwnOffice, gen);
+ }
+ 
+ /** AC6: the deterministic fallback when no seat matches by holder — a
+@@ -306,51 +450,54 @@ function _seatNoteHtml(note) {
+   return note ? `<div class="office-reference-banner">${esc(note)}</div>` : '';
+ }
+ 
+-/** Fetches current merit dots for every office seat and renders this seat's
+- *  merit suite with real dot ratings. STs (and dev, which is treated as ST
++/** Renders this seat's merit suite with real dot ratings, from data already
++ *  fetched by `_refreshPurchaseState`. STs (and dev, which is treated as ST
+  *  everywhere per this codebase's own equivalence) get +/- stepper controls;
+- *  everyone else sees a read-only dot display. Mirrors _wireHosActions's own
+- *  fetch-then-render-into-mount pattern below.
++ *  everyone else sees a read-only dot display.
+  *
+  *  oxp.11: takes the resolved seat OUTCOME rather than an office category.
+  *  Note this is NOT gated on isOwnOffice: merit dots render for every viewer in
+- *  every view, so the seat disclosure note applies to reference viewers too. */
+-async function _wireMeritDots(el, outcome, meritNames, gen) {
++ *  every view, so the seat disclosure note applies to reference viewers too.
++ *
++ *  oxp.6: `dotsBySeat`/`fetchFailed`/`balance` come from `_refreshPurchaseState`
++ *  rather than this function fetching its own — merit and manoeuvre purchases
++ *  now share one balance, so one shared fetch feeds both render calls. Per-dot
++ *  affordability REASONS (the `title` attribute) are holder-or-ST-only
++ *  (`showReasons`), same as the balance line itself — the dots themselves stay
++ *  visible to a reference viewer exactly as before, only the WHY is gated. */
++function _wireMeritDots(el, outcome, data, dotsBySeat, fetchFailed, balance, isOwnOffice, gen) {
+   if (typeof el.querySelector !== 'function') return; // plain-object test mocks have no real DOM
+   const mount = el.querySelector('[data-office-merit-mount]');
+   if (!mount) return;
+-  const stale = () => gen !== el._officeManoeuvreGen;
++  if (gen !== el._officeManoeuvreGen) return;
++
++  const meritNames = data.merits;
+ 
+   // No seat means no purchase state can be read or written. Saying so is more
+   // honest than rendering a plausible row of zeros, which an ST would then be
+   // able to step into a document keyed by nothing.
+   if (outcome.status !== 'ok') {
+-    if (stale()) return;
+     const msg = outcome.status === 'no-seat' ? SEATLESS_MSG : SEATS_FAILED_MSG;
+     mount.innerHTML = `<p class="dtl-empty">${esc(msg)}</p>`;
+     return;
+   }
+-
+-  let dotsBySeat;
+-  try {
+-    dotsBySeat = await apiGet('/api/office_merit_dots');
+-  } catch {
+-    if (stale()) return;
++  if (fetchFailed || !dotsBySeat) {
+     mount.innerHTML = '<p class="dtl-empty">Could not load merit dots.</p>';
+     return;
+   }
+-  if (stale()) return;
+ 
+   const dots = dotsBySeat[outcome.seatId] || {};
+   const isST = _isST();
++  const showReasons = isOwnOffice || isST;
+ 
+   const rowsHtml = meritNames.map((merit) => {
+     const n = dots[merit] || 0;
+     const cap = MERIT_DOT_CAPS[merit] || 5;
+-    const dotsDisplay = '●'.repeat(n) + '○'.repeat(Math.max(0, cap - n));
++    const reasons = showReasons && balance ? meritDotReasons(n, cap, balance.left) : null;
++    const dotsDisplay = _dotsWithReasons(n, cap, reasons);
+     let row = `<div class="office-merit-row">`;
+     row += `<span class="office-merit-chip">${esc(merit)}</span>`;
+-    row += `<span class="office-merit-dots">${esc(dotsDisplay)}</span>`;
++    row += `<span class="office-merit-dots">${dotsDisplay}</span>`;
+     if (isST) {
+       row += `<div class="cs-edit-stepper office-merit-stepper">`;
+       row += `<button class="cs-step-btn" data-merit-up="${esc(merit)}"${n >= cap ? ' disabled' : ''}>▲</button>`;
+@@ -365,15 +512,15 @@ async function _wireMeritDots(el, outcome, meritNames, gen) {
+ 
+   if (isST) {
+     mount.querySelectorAll('[data-merit-up]').forEach((btn) => {
+-      btn.addEventListener('click', () => _adjustMeritDots(el, outcome, meritNames, btn.dataset.meritUp, 1));
++      btn.addEventListener('click', () => _adjustMeritDots(el, outcome, data, isOwnOffice, btn.dataset.meritUp, 1));
+     });
+     mount.querySelectorAll('[data-merit-down]').forEach((btn) => {
+-      btn.addEventListener('click', () => _adjustMeritDots(el, outcome, meritNames, btn.dataset.meritDown, -1));
++      btn.addEventListener('click', () => _adjustMeritDots(el, outcome, data, isOwnOffice, btn.dataset.meritDown, -1));
+     });
+   }
+ }
+ 
+-async function _adjustMeritDots(el, outcome, meritNames, merit, delta) {
++async function _adjustMeritDots(el, outcome, data, isOwnOffice, merit, delta) {
+   const gen = el._officeManoeuvreGen;
+   // Re-fetch fresh rather than trusting DOM state — another ST could have
+   // changed this since the row was last rendered.
+@@ -392,55 +539,57 @@ async function _adjustMeritDots(el, outcome, meritNames, merit, delta) {
+   // The viewer may have switched category while the write was in flight;
+   // re-rendering now would paint this seat's dots into another office's markup.
+   if (gen !== el._officeManoeuvreGen) return;
+-  await _wireMeritDots(el, outcome, meritNames, gen);
++  // oxp.6: refreshes BOTH sections, not just this one — a merit purchase
++  // changes the shared balance the manoeuvre section's affordability markers
++  // read too.
++  await _refreshPurchaseState(el, outcome, data, isOwnOffice, gen);
+ }
+ 
+-/** oxp.3: fetches this seat's current manoeuvre rank, mutes the manoeuvres
+- *  above it (own-office view only), and renders the rank readout plus the
+- *  ST/dev-only stepper. Mirrors _wireMeritDots's fetch-then-render-into-mount
+- *  pattern, and like it is deliberately NOT gated on isOwnOffice for the ST —
+- *  an ST needs to set an office's purchase state while browsing it as
+- *  reference, before anyone even holds it.
++/** oxp.3: renders this seat's manoeuvre rank readout, mutes the manoeuvres
++ *  above it (own-office view only), and the ST/dev-only stepper — from data
++ *  already fetched by `_refreshPurchaseState`, like `_wireMeritDots`. Like it,
++ *  deliberately NOT gated on isOwnOffice for the ST — an ST needs to set an
++ *  office's purchase state while browsing it as reference, before anyone even
++ *  holds it.
+  *
+  *  oxp.11: takes the resolved seat OUTCOME rather than an office category, and
+  *  the render generation captured by _wirePurchaseState before ITS first await
+- *  rather than capturing its own (the seat fetch now precedes this one). */
+-async function _wireManoeuvreRank(el, outcome, manoeuvres, isOwnOffice, gen) {
++ *  rather than capturing its own (the seat fetch now precedes this one).
++ *
++ *  oxp.6: `ranksBySeat`/`fetchFailed`/`balance` come from `_refreshPurchaseState`
++ *  (see `_wireMeritDots`'s own note — one shared fetch feeds both). The AC7
++ *  balance line renders here, near the Manoeuvres section header, because this
++ *  function's early return below (line "if (!isOwnOffice && !isST) return")
++ *  already IS the owner-or-ST-only gate the balance line needs — no second
++ *  gate is introduced. */
++function _wireManoeuvreRank(el, outcome, data, ranksBySeat, fetchFailed, balance, isOwnOffice, gen) {
+   if (typeof el.querySelector !== 'function') return; // plain-object test mocks have no real DOM
++  if (gen !== el._officeManoeuvreGen) return;
+ 
+-  // If a later render (a category switch) bumps the counter while a fetch is in
+-  // flight, every DOM write below is abandoned rather than applied to markup
+-  // that now belongs to another office.
+-  const stale = () => gen !== el._officeManoeuvreGen;
+-
++  const manoeuvres = data.manoeuvres;
+   const mount  = el.querySelector('[data-office-manoeuvre-rank-mount]');
+   const listEl = el.querySelector('.office-manoeuvre-list');
+   if (!mount && !listEl) return;
+ 
+   const isST = _isST();
+   // A non-ST browsing someone else's office is entitled to nothing but the
+-  // plain summary (oxp.3 AC2), so there is no reason to fetch purchase state at
++  // plain summary (oxp.3 AC2), so there is no reason to show purchase state at
+   // all. This early return sits above EVERY write below, including oxp.11's
+-  // seat messages and disclosure note, so that boundary survives unchanged: a
+-  // reference viewer's DOM still carries no purchase state of any kind.
++  // seat messages and disclosure note and oxp.6's balance line, so that
++  // boundary survives unchanged: a reference viewer's DOM still carries no
++  // purchase state of any kind.
+   if (!isOwnOffice && !isST) return;
+ 
+   // oxp.11: no seat, or seats unavailable. Same shape as the rank-fetch
+   // failure below — do not leave the optimistic first render up, and attempt
+   // no write.
+   if (outcome.status !== 'ok') {
+-    if (stale()) return;
+     const msg = outcome.status === 'no-seat' ? SEATLESS_MSG : SEATS_FAILED_MSG;
+     if (isOwnOffice && listEl) listEl.innerHTML = `<p class="dtl-empty">${esc(msg)}</p>`;
+     if (mount) mount.innerHTML = `<span class="dtl-empty">${esc(msg)}</span>`;
+     return;
+   }
+-
+-  let ranksBySeat;
+-  try {
+-    ranksBySeat = await apiGet('/api/office_manoeuvre_rank');
+-  } catch {
+-    if (stale()) return;
++  if (fetchFailed || !ranksBySeat) {
+     // Do not leave the list in its optimistic first-render state. That render
+     // passes rank null, which mutes nothing, so a silent failure would show the
+     // holder five active-looking manoeuvres while the real rank is unknown and
+@@ -452,10 +601,10 @@ async function _wireManoeuvreRank(el, outcome, manoeuvres, isOwnOffice, gen) {
+     if (mount) mount.innerHTML = '<span class="dtl-empty">Could not load manoeuvre rank.</span>';
+     return;
+   }
+-  if (stale()) return;
+ 
+   const count = manoeuvres.length;
+-  const rank  = Math.max(0, Math.min(count, Number(ranksBySeat[outcome.seatId]) || 0));
++  const rankDoc = ranksBySeat[outcome.seatId];
++  const rank = Math.max(0, Math.min(count, (rankDoc && rankDoc.rank) || 0));
+ 
+   // Muting is own-office only — the reference view's markup never gains the
+   // class, whatever the stored rank.
+@@ -474,19 +623,20 @@ async function _wireManoeuvreRank(el, outcome, manoeuvres, isOwnOffice, gen) {
+   }
+ 
+   if (!mount) return;
+-  mount.innerHTML = _seatNoteHtml(outcome.note) + manoeuvreRankHtml(rank, count, isST);
++  const reasons = balance ? manoeuvreDotReasons(rank, count, balance.left) : null;
++  mount.innerHTML = _seatNoteHtml(outcome.note) + _balanceLineHtml(balance) + manoeuvreRankHtml(rank, count, isST, reasons);
+ 
+   if (isST) {
+     mount.querySelectorAll('[data-manoeuvre-rank-up]').forEach((btn) => {
+-      btn.addEventListener('click', () => _adjustManoeuvreRank(el, outcome, manoeuvres, isOwnOffice, 1));
++      btn.addEventListener('click', () => _adjustManoeuvreRank(el, outcome, data, isOwnOffice, 1));
+     });
+     mount.querySelectorAll('[data-manoeuvre-rank-down]').forEach((btn) => {
+-      btn.addEventListener('click', () => _adjustManoeuvreRank(el, outcome, manoeuvres, isOwnOffice, -1));
++      btn.addEventListener('click', () => _adjustManoeuvreRank(el, outcome, data, isOwnOffice, -1));
+     });
+   }
+ }
+ 
+-async function _adjustManoeuvreRank(el, outcome, manoeuvres, isOwnOffice, delta) {
++async function _adjustManoeuvreRank(el, outcome, data, isOwnOffice, delta) {
+   // Send the STEP, never a computed absolute value. Reading the rank here and
+   // PUTting `current + delta` looks safe but is a read-then-write race: two
+   // overlapping adjustments both read the same starting rank and both write the
+@@ -502,7 +652,10 @@ async function _adjustManoeuvreRank(el, outcome, manoeuvres, isOwnOffice, delta)
+   // The viewer may have switched category while the write was in flight;
+   // re-rendering now would paint this seat's rank into another office's markup.
+   if (gen !== el._officeManoeuvreGen) return;
+-  await _wireManoeuvreRank(el, outcome, manoeuvres, isOwnOffice, gen);
++  // oxp.6: refreshes BOTH sections, not just this one — a manoeuvre step
++  // changes the shared balance the merit section's affordability markers read
++  // too.
++  await _refreshPurchaseState(el, outcome, data, isOwnOffice, gen);
+ }
+ 
+ async function _wireHosActions(el, char, chars) {
+diff --git a/server/routes/office-manoeuvre-rank.js b/server/routes/office-manoeuvre-rank.js
+index d01c6e73..8c527acc 100644
+--- a/server/routes/office-manoeuvre-rank.js
++++ b/server/routes/office-manoeuvre-rank.js
+@@ -9,15 +9,25 @@ const col = () => getCollection('office_manoeuvre_ranks');
+ // GET /api/office_manoeuvre_rank
+ // Reference info, open to any authenticated user — the same posture as
+ // office-merit-dots.js's own GET / (open read, ST-gated write). Returns
+-// { [seatId]: rank } for every office SEAT that has a document; a seat nobody
+-// has purchased into yet simply has no key here, and the client treats a
+-// missing entry as rank 0 (nothing purchased).
++// { [seatId]: { rank, manoeuvre_xp_destroyed } } for every office SEAT that
++// has a document; a seat nobody has purchased into yet simply has no key
++// here, and the client treats a missing entry as rank 0 (nothing purchased).
++//
++// oxp.6: the value used to be a bare integer (just `rank`). This is the ONLY
++// route `manoeuvre_xp_destroyed` (written by oxp.5's handover reset, on this
++// same document) can reach the client through, so office-xp.js's
++// officeXpSpentForCategory can fold it into spend before any balance is
++// rendered — without it, a handover's destroyed XP silently reappears as a
++// refund the moment anything shows a balance (see office-xp.js's own header
++// comment). Changing the value's shape is a breaking change for this route's
++// one consumer, office-tab.js's _wireManoeuvreRank, updated in the same story.
+ router.get('/', async (req, res) => {
+   const docs = await col().find({}).toArray();
+   const out = {};
+-  // oxp.11: `doc._id` is the seat id, not the office category. Only the key
+-  // changed; the value is the same bare integer it always was.
+-  for (const doc of docs) out[doc._id] = doc.rank || 0;
++  // oxp.11: `doc._id` is the seat id, not the office category.
++  for (const doc of docs) {
++    out[doc._id] = { rank: doc.rank || 0, manoeuvre_xp_destroyed: doc.manoeuvre_xp_destroyed || 0 };
++  }
+   res.json(out);
+ });
+ 
+diff --git a/server/tests/issue-1141-office-tab-render.test.js b/server/tests/issue-1141-office-tab-render.test.js
+index dd812135..88268317 100644
+--- a/server/tests/issue-1141-office-tab-render.test.js
++++ b/server/tests/issue-1141-office-tab-render.test.js
+@@ -32,13 +32,15 @@ describe('issue-1141 — office-tab.js render-level regressions', () => {
+   let renderOfficeTab;
+   let manoeuvreListHtml;
+   let manoeuvreRankHtml;
++  let manoeuvreDotReasons;
++  let meritDotReasons;
+   const hadLocation = 'location' in globalThis;
+ 
+   beforeAll(async () => {
+     if (!hadLocation) {
+       globalThis.location = { hostname: 'test', pathname: '/' };
+     }
+-    ({ renderOfficeTab, manoeuvreListHtml, manoeuvreRankHtml } =
++    ({ renderOfficeTab, manoeuvreListHtml, manoeuvreRankHtml, manoeuvreDotReasons, meritDotReasons } =
+       await import('../../public/js/tabs/office-tab.js'));
+   });
+ 
+@@ -54,6 +56,27 @@ describe('issue-1141 — office-tab.js render-level regressions', () => {
+     return el.innerHTML;
+   }
+ 
++  /** oxp.6: dots render as `.pointed`/`.pointed.hollow` spans now, not raw
++   *  Unicode ●/○ (components.css's own comment on those classes explains why:
++   *  Unicode dots render at different sizes per platform, iOS Safari included).
++   *  Counts filled vs hollow spans rather than matching a literal string, so
++   *  these assertions test the WIRING (how many of each) without re-deriving
++   *  shDots/shDotsWithBonus's own markup by hand. */
++  function pointedCounts(html) {
++    const filled = (html.match(/class="pointed"/g) || []).length;
++    const hollow = (html.match(/class="pointed hollow"/g) || []).length;
++    return { filled, hollow };
++  }
++
++  /** For markup that can contain MORE THAN ONE dot run (e.g. the merit mount,
++   *  one run per merit) — pointedCounts would sum across every row. This
++   *  builds the exact run shDotsWithBonus(filled, hollow) produces, so a
++   *  single row's run can be matched as a substring, the same way the
++   *  original Unicode assertions did with `'●'.repeat(n) + '○'.repeat(...)`. */
++  function dotsSpan(filled, hollow) {
++    return '<span class="pointed"></span>'.repeat(filled) + '<span class="pointed hollow"></span>'.repeat(hollow);
++  }
++
+   it('AC6: two characters both holding court_category "Socialite" render independently, no collision', () => {
+     const brandy = { _id: 'brandy', name: 'Brandy LaRoux', court_category: 'Socialite', court_title: 'Harpy' };
+     const carver = { _id: 'carver', name: 'Carver', court_category: 'Socialite', court_title: "People's Harpy" };
+@@ -303,9 +326,9 @@ describe('issue-1141 — office-tab.js render-level regressions', () => {
+     });
+ 
+     it('AC6: the rank readout is a graduated dot display, filled to the rank and hollow beyond it', () => {
+-      expect(manoeuvreRankHtml(0, 5, false)).toContain('○○○○○');
+-      expect(manoeuvreRankHtml(2, 5, false)).toContain('●●○○○');
+-      expect(manoeuvreRankHtml(5, 5, false)).toContain('●●●●●');
++      expect(pointedCounts(manoeuvreRankHtml(0, 5, false))).toEqual({ filled: 0, hollow: 5 });
++      expect(pointedCounts(manoeuvreRankHtml(2, 5, false))).toEqual({ filled: 2, hollow: 3 });
++      expect(pointedCounts(manoeuvreRankHtml(5, 5, false))).toEqual({ filled: 5, hollow: 0 });
+     });
+ 
+     it('AC6: the +/- stepper renders for an ST/dev viewer and never for anyone else', () => {
+@@ -320,18 +343,20 @@ describe('issue-1141 — office-tab.js render-level regressions', () => {
+       expect(playerHtml).not.toContain('data-manoeuvre-rank-up');
+       expect(playerHtml).not.toContain('data-manoeuvre-rank-down');
+       // A non-ST still sees the readout itself, just no controls.
+-      expect(playerHtml).toContain('●●○○○');
++      expect(pointedCounts(playerHtml)).toEqual({ filled: 2, hollow: 3 });
+     });
+ 
+     it('the exported builder clamps a rank from outside [0, count] rather than throwing (Codex review, Pass 1, Low)', () => {
+-      // manoeuvreRankHtml is exported, and '●'.repeat(-1) throws a RangeError.
+-      // The only current caller clamps first, so this is a boundary-robustness
+-      // fix for whatever calls it next, not a live UI path today.
++      // manoeuvreRankHtml is exported, and shDotsWithBonus throws on a negative
++      // count (same underlying '●'.repeat(-1)-style RangeError this guard was
++      // originally written against). The only current caller clamps first, so
++      // this is a boundary-robustness fix for whatever calls it next, not a
++      // live UI path today.
+       expect(() => manoeuvreRankHtml(-1, 5, false)).not.toThrow();
+-      expect(manoeuvreRankHtml(-1, 5, false)).toContain('○○○○○');
+-      expect(manoeuvreRankHtml(7, 5, false)).toContain('●●●●●');
+-      expect(manoeuvreRankHtml(2.7, 5, false)).toContain('●●○○○');
+-      expect(manoeuvreRankHtml(NaN, 5, false)).toContain('○○○○○');
++      expect(pointedCounts(manoeuvreRankHtml(-1, 5, false))).toEqual({ filled: 0, hollow: 5 });
++      expect(pointedCounts(manoeuvreRankHtml(7, 5, false))).toEqual({ filled: 5, hollow: 0 });
++      expect(pointedCounts(manoeuvreRankHtml(2.7, 5, false))).toEqual({ filled: 2, hollow: 3 });
++      expect(pointedCounts(manoeuvreRankHtml(NaN, 5, false))).toEqual({ filled: 0, hollow: 5 });
+       // The stepper's disabled states follow the clamped value, not the raw one.
+       expect(manoeuvreRankHtml(-1, 5, true)).toMatch(/data-manoeuvre-rank-down disabled/);
+       expect(manoeuvreRankHtml(-1, 5, true)).not.toMatch(/data-manoeuvre-rank-up disabled/);
+@@ -359,7 +384,7 @@ describe('issue-1141 — office-tab.js render-level regressions', () => {
+       expect(own).toContain('data-office-manoeuvre-rank-mount');
+       // Empty on the synchronous render — the rank is not known yet, and an
+       // empty mount leaks nothing to a reference viewer who never gets one filled.
+-      expect(own).not.toContain('●');
++      expect(own).not.toContain('class="pointed"');
+       expect(own).not.toContain('cs-step-btn');
+     });
+ 
+@@ -373,6 +398,94 @@ describe('issue-1141 — office-tab.js render-level regressions', () => {
+     });
+   });
+ 
++  // ───────────────────────────────────────────────────────────────────────
++  // oxp.6 AC6: per-dot affordability/rank-order reasons. Pure, DOM-free,
++  // exported specifically so they can be tested directly rather than only
++  // pinned by source-contract regex — the lesson oxp.5's own review round
++  // had to learn the expensive way (a real High-severity bug in an
++  // analogous pure function, courtSlotOptions in city-views.js, went
++  // undetected until external review because nothing called it directly).
++  // ───────────────────────────────────────────────────────────────────────
++  describe('oxp.6 manoeuvreDotReasons', () => {
++    it('purchased dots (below rank) carry no reason', () => {
++      const reasons = manoeuvreDotReasons(3, 5, 10);
++      expect(reasons.slice(0, 3)).toEqual([null, null, null]);
++    });
++
++    it('the single NEXT purchasable dot (index === rank) is unblocked when affordable', () => {
++      const reasons = manoeuvreDotReasons(2, 5, 5); // plenty of XP left
++      expect(reasons[2]).toBeNull();
++    });
++
++    it('the single NEXT purchasable dot carries an affordability reason when left < 1', () => {
++      expect(manoeuvreDotReasons(2, 5, 0)[2]).toBe('Not enough office XP (1 short)');
++      expect(manoeuvreDotReasons(2, 5, -2)[2]).toBe('Not enough office XP (3 short)');
++    });
++
++    it('dots beyond the next one are ALWAYS order-blocked, regardless of balance', () => {
++      // A huge balance cannot skip the ladder — rank order is checked first.
++      const reasons = manoeuvreDotReasons(1, 5, 999);
++      expect(reasons[2]).toBe('Reach rank 2 first');
++      expect(reasons[3]).toBe('Reach rank 3 first');
++      expect(reasons[4]).toBe('Reach rank 4 first');
++    });
++
++    it('an unknown balance (left not finite) never asserts an affordability reason', () => {
++      expect(manoeuvreDotReasons(2, 5, undefined)[2]).toBeNull();
++      expect(manoeuvreDotReasons(2, 5, NaN)[2]).toBeNull();
++    });
++
++    it('a fully-purchased ladder has no reasons at all', () => {
++      expect(manoeuvreDotReasons(5, 5, 0)).toEqual([null, null, null, null, null]);
++    });
++  });
++
++  describe('oxp.6 meritDotReasons', () => {
++    it('purchased dots carry no reason', () => {
++      expect(meritDotReasons(3, 5, 10).slice(0, 3)).toEqual([null, null, null]);
++    });
++
++    it('no rank-order gate: every unpurchased dot within reach is unblocked, not just the next one', () => {
++      // Unlike manoeuvres, all three remaining dots are independently
++      // reachable if the balance covers their cumulative cost.
++      const reasons = meritDotReasons(0, 3, 3);
++      expect(reasons).toEqual([null, null, null]);
++    });
++
++    it('dots beyond what the balance covers carry an increasing affordability reason', () => {
++      const reasons = meritDotReasons(0, 3, 1); // one dot affordable, two are not
++      expect(reasons[0]).toBeNull();
++      expect(reasons[1]).toBe('Not enough office XP (1 short)');
++      expect(reasons[2]).toBe('Not enough office XP (2 short)');
++    });
++
++    it('an unknown balance never asserts an affordability reason', () => {
++      expect(meritDotReasons(0, 3, undefined)).toEqual([null, null, null]);
++    });
++
++    it('a fully-purchased merit has no reasons at all', () => {
++      expect(meritDotReasons(5, 5, 0)).toEqual([null, null, null, null, null]);
++    });
++  });
++
++  describe('oxp.6 manoeuvreRankHtml with reasons', () => {
++    it('attaches a title to the blocked dots and none to the purchased ones', () => {
++      const html = manoeuvreRankHtml(2, 5, false, manoeuvreDotReasons(2, 5, 0));
++      expect(pointedCounts(html)).toEqual({ filled: 2, hollow: 3 });
++      expect(html).toContain('title="Not enough office XP (1 short)"');
++      expect(html).toContain('title="Reach rank 3 first"');
++      expect(html).toContain('title="Reach rank 4 first"');
++      // No stm-modded-dot class — this is not an ST-mod overlay marker.
++      expect(html).not.toContain('stm-modded-dot');
++    });
++
++    it('with reasons omitted, behaves exactly as before (plain shDotsWithBonus, no titles)', () => {
++      const html = manoeuvreRankHtml(2, 5, false);
++      expect(pointedCounts(html)).toEqual({ filled: 2, hollow: 3 });
++      expect(html).not.toContain('title=');
++    });
++  });
++
+   // ───────────────────────────────────────────────────────────────────────
+   // oxp.3 review round (external Codex review, 2026-08-13): the ASYNC wiring.
+   //
+@@ -416,8 +529,12 @@ describe('issue-1141 — office-tab.js render-level regressions', () => {
+       { _id: SEAT_ENFORCER,   office_category: 'Enforcer', holder_id: null,    created_at: '2026-02-21', seat_label: null },
+     ];
+     // Yusuf's own Primogen seat sits at rank 2; the other Primogen seat has no
+-    // document at all, which is the client's "missing means 0".
+-    const RANKS = { [SEAT_P_YUSUF]: 2, [SEAT_ENFORCER]: 5 };
++    // document at all, which is the client's "missing means 0". oxp.6: the
++    // value shape gained manoeuvre_xp_destroyed alongside rank.
++    const RANKS = {
++      [SEAT_P_YUSUF]:  { rank: 2, manoeuvre_xp_destroyed: 0 },
++      [SEAT_ENFORCER]: { rank: 5, manoeuvre_xp_destroyed: 0 },
++    };
+ 
+     const hadLocalStorage = 'localStorage' in globalThis;
+     let realFetch;
+@@ -552,7 +669,7 @@ describe('issue-1141 — office-tab.js render-level regressions', () => {
+       await flush();
+ 
+       const mountA = el.querySelector('[data-office-manoeuvre-rank-mount]');
+-      expect(mountA.innerHTML).toContain('●●○○○'); // Primogen sits at rank 2
++      expect(pointedCounts(mountA.innerHTML)).toEqual({ filled: 2, hollow: 3 }); // Primogen sits at rank 2
+       const up = mountA.querySelectorAll('[data-manoeuvre-rank-up]')[0];
+       expect(up).toBeTruthy();
+ 
+@@ -566,14 +683,13 @@ describe('issue-1141 — office-tab.js render-level regressions', () => {
+       const mountB = el.querySelector('[data-office-manoeuvre-rank-mount]');
+       const listB  = el.querySelector('.office-manoeuvre-list');
+       expect(mountB).not.toBe(mountA);              // a real re-render replaced the nodes
+-      expect(mountB.innerHTML).toContain('●●●●●');  // Enforcer's own stored rank
++      expect(pointedCounts(mountB.innerHTML)).toEqual({ filled: 5, hollow: 0 }); // Enforcer's own stored rank
+ 
+       releasePut();
+       await flush();
+ 
+       // Primogen's rank, manoeuvres and muting must not have landed here.
+-      expect(mountB.innerHTML).toContain('●●●●●');
+-      expect(mountB.innerHTML).not.toContain('●●○○○');
++      expect(pointedCounts(mountB.innerHTML)).toEqual({ filled: 5, hollow: 0 });
+       expect(listB.innerHTML).not.toContain('People Talk'); // a Primogen manoeuvre
+       expect(listB.innerHTML).toContain('Perimeter');       // an Enforcer manoeuvre
+       expect(listB.innerHTML).not.toContain(MUTED);         // reference view stays plain
+@@ -641,9 +757,43 @@ describe('issue-1141 — office-tab.js render-level regressions', () => {
+       await flush();
+ 
+       // Rank 2 is seat B's; seat A has no rank document at all (0).
+-      expect(el.querySelector('[data-office-manoeuvre-rank-mount]').innerHTML).toContain('●●○○○');
+-      // And the merit dots are seat B's 3, not seat A's 5.
+-      expect(el.querySelector('[data-office-merit-mount]').innerHTML).toContain('●●●○○');
++      expect(pointedCounts(el.querySelector('[data-office-manoeuvre-rank-mount]').innerHTML))
++        .toEqual({ filled: 2, hollow: 3 });
++      // And the merit dots are seat B's 3, not seat A's 5 (Resources caps at 5).
++      expect(el.querySelector('[data-office-merit-mount]').innerHTML).toContain(dotsSpan(3, 2));
++    });
++
++    it('oxp.6 AC7: the balance line renders for the holder, near the Manoeuvres header', async () => {
++      setRole('player'); // the holder, not an ST — still entitled per AC7
++      stubFetch({ dots: { [SEAT_P_YUSUF]: { Resources: 3 } } });
++
++      const el = fakeRoot();
++      renderOfficeTab(el, YUSUF, [YUSUF], 'Primogen'); // Yusuf's own office
++      await flush();
++
++      // Not pinning an exact number: earned is derived from the real clock
++      // (officeSeatXp's own `now` parameter), which this fake-DOM harness does
++      // not inject, so the exact figure would drift as real time passes. The
++      // shape and class are what this test proves.
++      const mount = el.querySelector('[data-office-manoeuvre-rank-mount]').innerHTML;
++      expect(mount).toMatch(/<p class="derived-note">\d+ of \d+ office XP spent, (\d+ remaining|\d+ over budget)\.<\/p>/);
++    });
++
++    it('oxp.6 AC7: the balance line is absent for a reference viewer (holder-or-ST-only)', async () => {
++      setRole('player');
++      stubFetch();
++      const bystander = { _id: 'bystander', name: 'A Bystander', court_category: null, court_title: null };
++
++      const el = fakeRoot();
++      // A player browsing Primogen, which they do not hold, and are not ST for.
++      renderOfficeTab(el, bystander, [bystander], 'Primogen');
++      await flush();
++
++      // _wireManoeuvreRank's own early return fires before ANY write, so the
++      // mount never gets a new innerHTML at all — it stays at the synchronous
++      // first render's empty content.
++      const mount = el.querySelector('[data-office-manoeuvre-rank-mount]').innerHTML;
++      expect(mount).not.toContain('derived-note');
+     });
+ 
+     it('AC6: with no holder match, the fallback picks the first seat by created_at then _id', async () => {
+@@ -656,8 +806,9 @@ describe('issue-1141 — office-tab.js render-level regressions', () => {
+       await flush();
+ 
+       // Seat A's state, not Yusuf's seat B.
+-      expect(el.querySelector('[data-office-manoeuvre-rank-mount]').innerHTML).toContain('○○○○○');
+-      expect(el.querySelector('[data-office-merit-mount]').innerHTML).toContain('●●●●●');
++      expect(pointedCounts(el.querySelector('[data-office-manoeuvre-rank-mount]').innerHTML))
++        .toEqual({ filled: 0, hollow: 5 });
++      expect(el.querySelector('[data-office-merit-mount]').innerHTML).toContain(dotsSpan(5, 0));
+     });
+ 
+     it('AC6: a multi-seat office names the seat on screen, in both purchase mounts', async () => {
+diff --git a/server/tests/oxp-11-office-purchase-seat-keying.test.js b/server/tests/oxp-11-office-purchase-seat-keying.test.js
+index 1e8559ae..bd074f44 100644
+--- a/server/tests/oxp-11-office-purchase-seat-keying.test.js
++++ b/server/tests/oxp-11-office-purchase-seat-keying.test.js
+@@ -178,8 +178,8 @@ describe.skipIf(!dbAvailable)('oxp.11 AC8 — two seats of one office are indepe
+       .send({ delta: 1 }).expect(200);
+ 
+     const res = await request(app).get('/api/office_manoeuvre_rank').set('X-Test-User', stUser());
+-    expect(res.body[P_A]).toBe(4);
+-    expect(res.body[P_B]).toBe(1);
++    expect(res.body[P_A].rank).toBe(4);
++    expect(res.body[P_B].rank).toBe(1);
+ 
+     const reReadA = await getCollection('office_manoeuvre_ranks').findOne({ _id: P_A });
+     expect(reReadA).toEqual(storedA);
+@@ -201,8 +201,8 @@ describe.skipIf(!dbAvailable)('oxp.11 AC8 — two seats of one office are indepe
+       .send({ rank: 0 }).expect(200);
+ 
+     const res = await request(app).get('/api/office_manoeuvre_rank').set('X-Test-User', stUser());
+-    expect(res.body[P_A]).toBe(0);
+-    expect(res.body[P_B]).toBe(5);
++    expect(res.body[P_A].rank).toBe(0);
++    expect(res.body[P_B].rank).toBe(5);
+     expect(await getCollection('office_manoeuvre_ranks').findOne({ _id: P_B })).toEqual(storedB);
+   });
+ 
+@@ -224,8 +224,8 @@ describe.skipIf(!dbAvailable)('oxp.11 AC8 — two seats of one office are indepe
+     const ranks = await request(app).get('/api/office_manoeuvre_rank').set('X-Test-User', stUser());
+     expect(dots.body[S_A]['Cacophony Savvy']).toBe(3);
+     expect(dots.body[S_B]['Cacophony Savvy']).toBe(1);
+-    expect(ranks.body[S_A]).toBe(2);
+-    expect(ranks.body[S_B]).toBe(5);
++    expect(ranks.body[S_A].rank).toBe(2);
++    expect(ranks.body[S_B].rank).toBe(5);
+ 
+     expect(await getCollection('office_merit_dots').findOne({ _id: S_A })).toEqual(dotsA);
+     expect(await getCollection('office_manoeuvre_ranks').findOne({ _id: S_A })).toEqual(rankA);
+diff --git a/server/tests/oxp-2-derived-office-xp-calculation.test.js b/server/tests/oxp-2-derived-office-xp-calculation.test.js
+index 25486aaf..c0f6d292 100644
+--- a/server/tests/oxp-2-derived-office-xp-calculation.test.js
++++ b/server/tests/oxp-2-derived-office-xp-calculation.test.js
+@@ -249,6 +249,30 @@ describe('oxp.2 officeXpSpentForCategory (AC3)', () => {
+     const src = officeXpSpentForCategory.toString();
+     expect(src).not.toMatch(/holder_id|character/);
+   });
++
++  // oxp.6: office_manoeuvre_ranks.manoeuvre_xp_destroyed (written by oxp.5's
++  // handover reset) must be folded into spend, or a handover's destroyed XP
++  // silently reappears as a refund the moment any balance renders — the
++  // precise opposite of content/rules/office-powers.md's ruling.
++  it('oxp.6: a raw manoeuvreRankDoc with manoeuvre_xp_destroyed adds it to spend', () => {
++    expect(officeXpSpentForCategory({}, { rank: 2, manoeuvre_xp_destroyed: 3 })).toBe(5);
++    // Merits combine too, at the same 1 XP per dot rate.
++    expect(officeXpSpentForCategory({ 'Safe Place': 3 }, { rank: 2, manoeuvre_xp_destroyed: 3 })).toBe(8);
++  });
++
++  it('oxp.6: a raw manoeuvreRankDoc with NO manoeuvre_xp_destroyed key at all is unaffected — the shape every document that predates oxp.5 still has', () => {
++    // This is the regression case that matters most: it is the shape of every
++    // real office_manoeuvre_ranks document in tm_suite today.
++    expect(officeXpSpentForCategory({}, { rank: 2 })).toBe(2);
++    expect(officeXpSpentForCategory({ _id: 'Enforcer', dots: { 'Safe Place': 4 } }, { _id: 'Enforcer', rank: 1 })).toBe(5);
++  });
++
++  it('oxp.6: a bare-number manoeuvreRankDoc is provably unaffected by the destroyed-XP change', () => {
++    // A caller passing a bare rank has no way to also supply a destroyed
++    // count, so this branch must be untouched by the raw-document change.
++    expect(officeXpSpentForCategory({}, 5)).toBe(5);
++    expect(officeXpSpentForCategory({ 'Safe Place': 3, Contacts: 3, Resources: 3 }, 5)).toBe(14);
++  });
+ });
+ 
+ // ─────────────────────────────────────────────────────────────────────────────
+diff --git a/server/tests/oxp-3-office-manoeuvre-rank.test.js b/server/tests/oxp-3-office-manoeuvre-rank.test.js
+index e0e9afdd..45b04830 100644
+--- a/server/tests/oxp-3-office-manoeuvre-rank.test.js
++++ b/server/tests/oxp-3-office-manoeuvre-rank.test.js
+@@ -97,23 +97,35 @@ describe.skipIf(!dbAvailable)('oxp.3 — GET /api/office_manoeuvre_rank', () =>
+     expect(res.body).toEqual({});
+   });
+ 
+-  it('oxp.11: reflects a prior PUT, keyed by SEAT id, value is the bare integer', async () => {
++  it('oxp.11: reflects a prior PUT, keyed by SEAT id; oxp.6: value is {rank, manoeuvre_xp_destroyed}', async () => {
+     await request(app).put(`/api/office_manoeuvre_rank/${ENFORCER}`).set('X-Test-User', stUser())
+       .send({ rank: 3 });
+ 
+     const res = await request(app).get('/api/office_manoeuvre_rank').set('X-Test-User', stUser());
+     expect(res.status).toBe(200);
+-    expect(res.body[ENFORCER]).toBe(3);
++    expect(res.body[ENFORCER]).toEqual({ rank: 3, manoeuvre_xp_destroyed: 0 });
+     // The office category is never the key any more.
+     expect(res.body).not.toHaveProperty('Enforcer');
+   });
+ 
++  it('oxp.6 AC1: a non-zero manoeuvre_xp_destroyed (as oxp.5\'s handover reset writes) round-trips', async () => {
++    await request(app).put(`/api/office_manoeuvre_rank/${ENFORCER}`).set('X-Test-User', stUser())
++      .send({ rank: 1 });
++    // oxp.5's route writes this field directly; simulate that here rather than
++    // depending on the handover route from this suite.
++    await getCollection('office_manoeuvre_ranks').updateOne(
++      { _id: ENFORCER }, { $set: { manoeuvre_xp_destroyed: 5 } });
++
++    const res = await request(app).get('/api/office_manoeuvre_rank').set('X-Test-User', stUser());
++    expect(res.body[ENFORCER]).toEqual({ rank: 1, manoeuvre_xp_destroyed: 5 });
++  });
++
+   it('AC3: a seat with no document is simply absent — the client treats missing as 0', async () => {
+     await request(app).put(`/api/office_manoeuvre_rank/${ENFORCER}`).set('X-Test-User', stUser())
+       .send({ rank: 2 });
+ 
+     const res = await request(app).get('/api/office_manoeuvre_rank').set('X-Test-User', stUser());
+-    expect(res.body[ENFORCER]).toBe(2);
++    expect(res.body[ENFORCER]).toEqual({ rank: 2, manoeuvre_xp_destroyed: 0 });
+     expect(res.body).not.toHaveProperty(PRIMOGEN);
+     expect(res.body).not.toHaveProperty(SOCIALITE);
+   });
+@@ -160,8 +172,8 @@ describe.skipIf(!dbAvailable)('oxp.3 — PUT /api/office_manoeuvre_rank/:seatId'
+       .send({ rank: 1 });
+ 
+     const res = await request(app).get('/api/office_manoeuvre_rank').set('X-Test-User', stUser());
+-    expect(res.body[ENFORCER]).toBe(5);
+-    expect(res.body[PRIMOGEN]).toBe(1);
++    expect(res.body[ENFORCER].rank).toBe(5);
++    expect(res.body[PRIMOGEN].rank).toBe(1);
+   });
+ 
+   it('AC5: rejects a player (403)', async () => {
+@@ -242,7 +254,7 @@ describe.skipIf(!dbAvailable)('oxp.3 — PUT /api/office_manoeuvre_rank/:seatId'
+     expect(res.body.rank).toBe(0);
+ 
+     const get = await request(app).get('/api/office_manoeuvre_rank').set('X-Test-User', stUser());
+-    expect(get.body[ENFORCER]).toBe(0);
++    expect(get.body[ENFORCER].rank).toBe(0);
+   });
+ });
+ 
+diff --git a/server/tests/oxp-4-merit-persistence-handover.test.js b/server/tests/oxp-4-merit-persistence-handover.test.js
+index 3af9958b..0c1eb4ca 100644
+--- a/server/tests/oxp-4-merit-persistence-handover.test.js
++++ b/server/tests/oxp-4-merit-persistence-handover.test.js
+@@ -299,11 +299,18 @@ describe.skipIf(!dbAvailable)('oxp.4 merit dots survive a change of officeholder
+ 
+ /** Source text of _wireMeritDots + _adjustMeritDots only, excluding neighbours.
+  *  The end anchor is the next function after the pair, so the slice really is
+- *  the two merit-dot functions and nothing else. */
++ *  the two merit-dot functions and nothing else.
++ *
++ *  oxp.6: `_wireMeritDots` lost its `async` keyword (it no longer fetches its
++ *  own data — see `refreshPurchaseStateBlock()` below for where that guarantee
++ *  now lives) and both functions' signatures widened to carry `data`
++ *  (OFFICE_DATA[category], for the merit-dot render loop) and `isOwnOffice`
++ *  (so a post-adjustment refresh can re-derive the seat balance both purchase
++ *  sections now share). Neither addition is a character reference. */
+ function meritDotsBlock() {
+   const src = readFile('public/js/tabs/office-tab.js');
+-  const start = src.indexOf('async function _wireMeritDots');
+-  const end = src.indexOf('async function _wireManoeuvreRank');
++  const start = src.indexOf('function _wireMeritDots');
++  const end = src.indexOf('function _wireManoeuvreRank');
+   expect(start).toBeGreaterThan(-1);
+   expect(end).toBeGreaterThan(start);
+   return src.slice(start, end);
+@@ -313,7 +320,25 @@ function meritDotsBlock() {
+ function seatResolutionBlock() {
+   const src = readFile('public/js/tabs/office-tab.js');
+   const start = src.indexOf('async function _wirePurchaseState');
+-  const end = src.indexOf('async function _wireMeritDots');
++  const end = src.indexOf('function _wireMeritDots');
++  expect(start).toBeGreaterThan(-1);
++  expect(end).toBeGreaterThan(start);
++  return src.slice(start, end);
++}
++
++/**
++ * oxp.6: source text of `_refreshPurchaseState` alone — the function that now
++ * does the `office_merit_dots` fetch `_wireMeritDots` itself used to do.
++ * Scoped narrowly (not merged into `seatResolutionBlock`) because
++ * `_wirePurchaseState`, which precedes it, legitimately reads `char._id` for
++ * the holder-match comparison — sweeping that in would make the "no character
++ * reaches the merit-dots API" guarantee below trivially fail for an unrelated
++ * reason.
++ */
++function refreshPurchaseStateBlock() {
++  const src = readFile('public/js/tabs/office-tab.js');
++  const start = src.indexOf('async function _refreshPurchaseState');
++  const end = src.indexOf('function _wireMeritDots');
+   expect(start).toBeGreaterThan(-1);
+   expect(end).toBeGreaterThan(start);
+   return src.slice(start, end);
+@@ -322,18 +347,26 @@ function seatResolutionBlock() {
+ describe('oxp.4 client wiring: no character id reaches the office_merit_dots API', () => {
+   it('extracts a block containing both merit-dot functions and neither neighbour', () => {
+     const block = meritDotsBlock();
+-    expect(block).toContain('async function _wireMeritDots');
++    expect(block).toContain('function _wireMeritDots');
+     expect(block).toContain('async function _adjustMeritDots');
+     expect(block).not.toContain('async function _wirePurchaseState');
+-    expect(block).not.toContain('async function _wireManoeuvreRank');
++    expect(block).not.toContain('function _wireManoeuvreRank');
+   });
+ 
+-  it('reads the whole collection with no character-scoped query string', () => {
+-    const block = meritDotsBlock();
++  it('oxp.6: the fetch moved to _refreshPurchaseState (shared with the manoeuvre section), still no character-scoped query string', () => {
++    // Both purchase sections now share ONE fetch of each collection (AC7: the
++    // holder decides the split between merits and manoeuvres, so both must see
++    // the same balance) — the fetch itself is no longer inside _wireMeritDots.
++    const block = refreshPurchaseStateBlock();
+     expect(block).toMatch(/apiGet\(['"]\/api\/office_merit_dots['"]\)/);
+     // No query parameters of any kind: nothing to smuggle a holder id into.
+     expect(block).not.toMatch(/\/api\/office_merit_dots\?/);
+-    // The seat filter happens client-side, off the returned map.
++    expect(block).not.toMatch(/\bchars?\b/);
++    expect(block).not.toMatch(/\bchar\./);
++  });
++
++  it('the seat filter happens client-side, off the returned map, inside _wireMeritDots', () => {
++    const block = meritDotsBlock();
+     expect(block).toMatch(/dotsBySeat\[outcome\.seatId\]/);
+   });
+ 
+@@ -356,8 +389,11 @@ describe('oxp.4 client wiring: no character id reaches the office_merit_dots API
+ 
+   it('takes the resolved seat, never a character, in either function signature', () => {
+     const block = meritDotsBlock();
+-    expect(block).toMatch(/async function _wireMeritDots\(el, outcome, meritNames, gen\)/);
+-    expect(block).toMatch(/async function _adjustMeritDots\(el, outcome, meritNames, merit, delta\)/);
++    // oxp.6: widened to carry `data` (this office's merit list) and
++    // `isOwnOffice` (so a post-adjustment refresh can re-derive the shared
++    // seat balance) — neither is a character reference.
++    expect(block).toMatch(/function _wireMeritDots\(el, outcome, data, dotsBySeat, fetchFailed, balance, isOwnOffice, gen\)/);
++    expect(block).toMatch(/async function _adjustMeritDots\(el, outcome, data, isOwnOffice, merit, delta\)/);
+   });
+ 
+   it('oxp.11: a seat\'s holder_id is READ in exactly one place, only to CHOOSE a seat', () => {
