@@ -15,6 +15,10 @@ const col = () => getCollection('office_merit_dots');
 router.get('/', async (req, res) => {
   const docs = await col().find({}).toArray();
   const out = {};
+  // oxp.4: `doc._id` IS the office category string. Keying by category alone,
+  // with no character or holder reference anywhere in this file, is what makes
+  // Epic OXP's "merits persist across handover" requirement hold automatically.
+  // Proven by server/tests/oxp-4-merit-persistence-handover.test.js.
   for (const doc of docs) out[doc._id] = doc.dots || {};
   res.json(out);
 });
@@ -47,6 +51,10 @@ router.put('/:category', requireRole('st'), async (req, res) => {
   if (!Number.isInteger(n) || n < 0 || n > cap)
     return res.status(400).json({ error: 'VALIDATION_ERROR', message: `Dots must be an integer between 0 and ${cap}` });
 
+  // oxp.4: category-only key, deliberately. No character id is ever stored
+  // against an office's merit dots, so a change of officeholder cannot reach
+  // them. Re-keying this collection by character would look like a reasonable
+  // refactor in isolation and would silently break that guarantee.
   const result = await col().findOneAndUpdate(
     { _id: category },
     { $set: { [`dots.${merit}`]: n, updated_at: new Date().toISOString() } },
