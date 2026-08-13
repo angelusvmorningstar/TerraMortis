@@ -45,6 +45,12 @@ import { getCatalogue, getCatalogueEntry } from '../data/equipment-catalogue-cac
 // items render disabled with a tooltip explaining why. Item-request
 // textarea (ECM-9) is the escape valve.
 import { availabilityCap, fixerReduction, effectiveAvailability, isAffordable } from '../data/equipment-derivation.js';
+// EQC-4 (#1155): kept as a separate import statement, not merged into the
+// line above — issue #896's own test asserts an exact-match regex on that
+// import's brace contents, and widening it would break that assertion for
+// no benefit (same "scope the assertion, don't widen the code to dodge it"
+// lesson EQC-2's review patch already established for this module).
+import { equipmentTweakableField, tweakedAvailability } from '../data/equipment-derivation.js';
 
 // Influence merit names that generate monthly influence
 const INFLUENCE_MERIT_NAMES = ['Allies', 'Retainer', 'Mentor', 'Resources', 'Staff', 'Contacts', 'Status'];
@@ -1112,9 +1118,16 @@ function collectResponses() {
       const catSelectEl = document.getElementById(`dt-equipment_${n}_catalogue_id`);
       const qtyEl = document.getElementById(`dt-equipment_${n}_qty`);
       const notesEl = document.getElementById(`dt-equipment_${n}_notes`);
+      const tweakEl = document.getElementById(`dt-equipment_${n}_tweak`);
       responses[`equipment_${n}_catalogue_id`] = catSelectEl ? catSelectEl.value : '';
       responses[`equipment_${n}_qty`] = qtyEl ? qtyEl.value : '';
       responses[`equipment_${n}_notes`] = notesEl ? notesEl.value : '';
+      // EQC-4 (#1155): only persist a tweak request when the checkbox is
+      // actually rendered (tweakable item selected) - a row with no
+      // rendered checkbox (nothing selected, or a non-tweakable item)
+      // carries no tweak request at all, matching the DOM-driven collection
+      // pattern every other field in this loop already follows.
+      responses[`equipment_${n}_tweak`] = tweakEl ? String(tweakEl.checked) : '';
     }
     // ECM-9 (#876): item_request — optional free-text escape valve.
     const itemReqEl = document.getElementById('dt-item-request');
@@ -2765,6 +2778,26 @@ function renderForm(container) {
       _onCarthianNewRowChange(container);
       return;
     }
+    // EQC-4 (#1155): equipment catalogue-item dropdown changed — re-render
+    // so the tweak checkbox (only shown for a tweakable selected item)
+    // tracks the CURRENTLY selected item, not a stale one. Same
+    // collect-then-re-render pattern as Carthian Pull / rote-disc above.
+    if (e.target.classList.contains('dt-equip-cat')) {
+      const responses = collectResponses();
+      // Review patch (#1155): collectResponses() runs BEFORE this row
+      // re-renders, so it reads the OLD item's still-in-DOM checkbox
+      // alongside the NEW item's already-changed catalogue_id — a checked
+      // tweak request for the previous item would otherwise silently carry
+      // onto whichever item is selected next. Explicitly clear this row's
+      // own tweak flag on every selection change; renderEquipmentRow always
+      // starts a freshly-selected item's checkbox unchecked.
+      const rowMatch = e.target.id.match(/^dt-equipment_(\d+)_catalogue_id$/);
+      if (rowMatch) responses[`equipment_${rowMatch[1]}_tweak`] = '';
+      if (responseDoc) responseDoc.responses = responses;
+      else responseDoc = { responses };
+      renderForm(container);
+      return;
+    }
     // dt-form.33: NPCR.12/13 relationship-picker change handler removed.
     // The story-moment relationship picker (a DB-relational element) was
     // suppressed under the broader NPC-interaction policy alongside the
@@ -3414,12 +3447,14 @@ function renderForm(container) {
         responses[`equipment_${n}_name`] = responses[`equipment_${n + 1}_name`] || '';
         responses[`equipment_${n}_qty`] = responses[`equipment_${n + 1}_qty`] || '1';
         responses[`equipment_${n}_notes`] = responses[`equipment_${n + 1}_notes`] || '';
+        responses[`equipment_${n}_tweak`] = responses[`equipment_${n + 1}_tweak`] || '';
       }
       // Clear last slot
       delete responses[`equipment_${current}_catalogue_id`];
       delete responses[`equipment_${current}_name`];
       delete responses[`equipment_${current}_qty`];
       delete responses[`equipment_${current}_notes`];
+      delete responses[`equipment_${current}_tweak`];
       responses['equipment_slot_count'] = String(Math.max(1, current - 1));
       if (responseDoc) responseDoc.responses = responses;
       else responseDoc = { responses };
@@ -5574,6 +5609,31 @@ function renderEquipmentRow(n, saved) {
   h += `<input type="text" id="dt-equipment_${n}_notes" class="qf-input dt-equip-notes" placeholder="Notes (optional)" value="${esc(saved[`equipment_${n}_notes`] || '')}">`;
   if (n > 1) h += `<button type="button" class="dt-sorcery-remove" data-remove-equipment="${n}" title="Remove">\u00D7</button>`;
   h += '</div>';
+  // EQC-4 (#1155, epic #1038 item 5): "+1 tweak" request \u2014 one dot of
+  // availability per shift, capped to the bucket's ONE primary numeric
+  // bonus field (see equipmentTweakableField). Only shown once a tweakable
+  // item is selected; the request is captured here for the ST to adjudicate
+  // (grant via a distinct catalogue entry) - no automated granting happens
+  // in this form.
+  const selectedEntry = selectedId ? getCatalogueEntry(selectedId) : null;
+  const tweakField = selectedEntry ? equipmentTweakableField(selectedEntry) : null;
+  if (tweakField) {
+    const tweakCost = tweakedAvailability(selectedEntry);
+    const isChecked = saved[`equipment_${n}_tweak`] === 'true';
+    const tweakChecked = isChecked ? ' checked' : '';
+    // Review patch (#1155): AC #5's literal wording is "When the tweak
+    // checkbox is CHECKED and the tweaked cost exceeds ... the row shows a
+    // warning" - the first version showed the warning whenever the cost was
+    // over cap regardless of whether the player had actually requested the
+    // tweak yet. Gated on isChecked too now.
+    const warning = (isChecked && tweakCost > rawMax)
+      ? `<span class="dt-equipment-tweak-warn" style="color:#b23;margin-left:6px;">Above your effective availability (max ${rawMax}) - the ST will need to adjudicate.</span>`
+      : '';
+    h += `<div class="dt-equipment-tweak" style="margin-top:4px;">`;
+    h += `<label><input type="checkbox" id="dt-equipment_${n}_tweak" class="dt-equip-tweak"${tweakChecked}> Request +1 ${esc(tweakField)} (raises cost to avail ${tweakCost})</label>`;
+    h += warning;
+    h += `</div>`;
+  }
   h += '</div>';
   return h;
 }

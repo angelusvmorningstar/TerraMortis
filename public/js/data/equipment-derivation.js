@@ -367,3 +367,59 @@ export function effectiveAvailability(item, c) {
 export function isAffordable(item, c) {
   return effectiveAvailability(item, c) <= availabilityCap(c);
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// EQC-4 (issue #1155, epic #1038) — stat-tweak request. "Tweakable" is the
+// bucket's ONE primary numeric bonus field, per Angelus's scope ruling: the
+// combat_gear weapon/armour split reuses isCombatGearWeaponShaped /
+// isCombatGearArmourShaped above (same single-source-of-truth discipline as
+// every other EQC story) rather than re-deriving the shape check a third
+// time. tool_utility/narrative/container have no numeric bonus field by
+// design and are never tweakable.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Which stat field a catalogue entry's one-step "+1" tweak request applies
+ * to, or null if the entry has no tweakable numeric bonus at all.
+ *
+ * @param {object} entry - catalogue entry
+ * @returns {'damage_mod'|'armour_value'|'bonus_dice'|null}
+ */
+export function equipmentTweakableField(entry) {
+  if (!entry) return null;
+  if (entry.bucket === 'combat_gear') {
+    // Review patch (#1155): the catalogue-admin form allows a single
+    // combat_gear entry to carry both a weapon-shape field and an
+    // armour-shape field at once (nothing in the schema forbids it). This
+    // story scopes a tweak request to exactly ONE stat per item, so a
+    // dual-shaped entry needs a tie-break; weapon wins, deliberately and
+    // arbitrarily (no design ruling favours one over the other) - documented
+    // here rather than left silent.
+    if (isCombatGearWeaponShaped(entry)) return 'damage_mod';
+    if (isCombatGearArmourShaped(entry)) return 'armour_value';
+    return null;
+  }
+  // Review patch (#1155): mirrors the combat_gear branch's populated-field
+  // guard - bonus_dice is nullable in both the schema and the catalogue-admin
+  // form (server/schemas/equipment_catalogue.schema.js), so a skill_gear
+  // entry with no bonus_dice set has no tweakable numeric bonus at all, same
+  // as this function's own docstring promises. The first version returned
+  // 'bonus_dice' for EVERY skill_gear entry regardless, offering a "+1
+  // bonus_dice" request on items with no such stat to raise.
+  if (entry.bucket === 'skill_gear' && entry.bonus_dice != null) return 'bonus_dice';
+  return null;
+}
+
+/**
+ * Availability cost of the tweaked variant: one dot of availability per
+ * shift (epic #1038 item 5). null when the entry isn't tweakable at all —
+ * there is no meaningful "tweaked cost" to report.
+ *
+ * @param {object} entry - catalogue entry
+ * @returns {number|null}
+ */
+export function tweakedAvailability(entry) {
+  if (!equipmentTweakableField(entry)) return null;
+  const base = Number.isInteger(entry.availability) ? entry.availability : 0;
+  return base + 1;
+}

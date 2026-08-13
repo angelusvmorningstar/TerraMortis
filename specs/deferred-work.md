@@ -94,6 +94,25 @@ reviewed this trade-off and approved shipping otc.3 as scoped rather than gating
 landing first; this entry's priority is unchanged (High) but this note records the increased
 practical exposure for whoever picks up #1143.
 
+## Deferred from: EQC-4 (issue #1155, internal 3-layer review 2026-08-13)
+
+- **A tweak request on an availability-5 item computes a cost (6) the catalogue schema cannot
+  represent** (Medium) — `tweakedAvailability` returns `base + 1` unconditionally; the catalogue
+  schema caps `availability` at 5, so the story's own stated grant mechanism (the ST creates a
+  distinct catalogue entry at the requested cost) has no valid target for a tweak on an
+  already-maximum-availability item. The request still displays and can be submitted (informational
+  only, per AC #5 — doesn't block the draft), so nothing breaks mechanically; an ST reviewing such a
+  request will need to adjudicate down or deny it by judgement, same as any other over-cap request.
+  Not fixed in EQC-4 itself — enforcing or special-casing the boundary would mean either raising the
+  catalogue's global availability cap (a much larger, unrelated change) or silently capping/hiding the
+  display, both out of this story's scope. Revisit if this proves a real friction point in play.
+- **AC #6 names `npm test`, but that script is a no-op stub in this repo** (Low) — `package.json`'s
+  `test` script is `echo "Error: no test specified" && exit 1`; the actual regression command run for
+  every EQC story (this one included) is `npx vitest run server/tests`. Looks like boilerplate carried
+  across the whole EQC epic's story template rather than something specific to EQC-4 — worth fixing at
+  the template level (or wiring `npm test` to the real vitest invocation) next time any EQC-epic story
+  is created, rather than patched story-by-story.
+
 ## Deferred from: EQC-1 (issue #1152, Codex external review 2026-08-13)
 
 - **`container_id` reference/topology validation** (Medium) — nothing in `characters.js`'s write routes

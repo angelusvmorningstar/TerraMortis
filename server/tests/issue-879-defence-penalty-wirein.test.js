@@ -599,3 +599,82 @@ describe('#1154 EQC-3 review patch — containedLabel wired into the Containers 
     expect(sectionBody).toMatch(/containedLabel\(item\)/);
   });
 });
+
+describe('#1155 EQC-4 — equipmentTweakableField', () => {
+  it('returns null for a falsy entry', async () => {
+    if (typeof globalThis.location === 'undefined') globalThis.location = { hostname: '' };
+    const mod = await import('../../public/js/data/equipment-derivation.js');
+    expect(mod.equipmentTweakableField(null)).toBeNull();
+    expect(mod.equipmentTweakableField(undefined)).toBeNull();
+  });
+
+  it('returns "damage_mod" for a weapon-shaped combat_gear entry', async () => {
+    if (typeof globalThis.location === 'undefined') globalThis.location = { hostname: '' };
+    const mod = await import('../../public/js/data/equipment-derivation.js');
+    expect(mod.equipmentTweakableField({ bucket: 'combat_gear', weapon_type: 'melee', damage_mod: 1 })).toBe('damage_mod');
+    // Legacy-shaped: only damage_mod populated, same OR-of-fields discriminator EQC-1 established.
+    expect(mod.equipmentTweakableField({ bucket: 'combat_gear', damage_mod: 1 })).toBe('damage_mod');
+  });
+
+  it('returns "armour_value" for an armour-shaped combat_gear entry', async () => {
+    if (typeof globalThis.location === 'undefined') globalThis.location = { hostname: '' };
+    const mod = await import('../../public/js/data/equipment-derivation.js');
+    expect(mod.equipmentTweakableField({ bucket: 'combat_gear', armour_value: 2 })).toBe('armour_value');
+    expect(mod.equipmentTweakableField({ bucket: 'combat_gear', defence_penalty: 1 })).toBe('armour_value');
+  });
+
+  it('returns null for a combat_gear entry that is neither weapon- nor armour-shaped', async () => {
+    if (typeof globalThis.location === 'undefined') globalThis.location = { hostname: '' };
+    const mod = await import('../../public/js/data/equipment-derivation.js');
+    expect(mod.equipmentTweakableField({ bucket: 'combat_gear' })).toBeNull();
+  });
+
+  it('returns "bonus_dice" for a skill_gear entry with bonus_dice populated', async () => {
+    if (typeof globalThis.location === 'undefined') globalThis.location = { hostname: '' };
+    const mod = await import('../../public/js/data/equipment-derivation.js');
+    expect(mod.equipmentTweakableField({ bucket: 'skill_gear', bonus_dice: 1 })).toBe('bonus_dice');
+  });
+
+  it('review patch (#1155): returns null for a skill_gear entry with NO bonus_dice — mirrors the combat_gear branch\'s populated-field guard, matches this function\'s own docstring ("no tweakable numeric bonus at all")', async () => {
+    if (typeof globalThis.location === 'undefined') globalThis.location = { hostname: '' };
+    const mod = await import('../../public/js/data/equipment-derivation.js');
+    expect(mod.equipmentTweakableField({ bucket: 'skill_gear' })).toBeNull();
+    expect(mod.equipmentTweakableField({ bucket: 'skill_gear', skill_domain: 'Athletics' })).toBeNull();
+  });
+
+  it('review patch (#1155): a dual-shaped combat_gear entry (both weapon AND armour fields populated — reachable via the catalogue-admin form, which exposes both field sets on one combat_gear item) deterministically prefers the weapon tweak, documented as a deliberate tie-break', async () => {
+    if (typeof globalThis.location === 'undefined') globalThis.location = { hostname: '' };
+    const mod = await import('../../public/js/data/equipment-derivation.js');
+    expect(mod.equipmentTweakableField({ bucket: 'combat_gear', damage_mod: 1, armour_value: 2 })).toBe('damage_mod');
+  });
+
+  it('returns null for tool_utility, narrative, and container entries — no primary numeric bonus field to tweak', async () => {
+    if (typeof globalThis.location === 'undefined') globalThis.location = { hostname: '' };
+    const mod = await import('../../public/js/data/equipment-derivation.js');
+    expect(mod.equipmentTweakableField({ bucket: 'tool_utility' })).toBeNull();
+    expect(mod.equipmentTweakableField({ bucket: 'narrative' })).toBeNull();
+    expect(mod.equipmentTweakableField({ bucket: 'container' })).toBeNull();
+  });
+});
+
+describe('#1155 EQC-4 — tweakedAvailability', () => {
+  it('returns null when the entry is not tweakable', async () => {
+    if (typeof globalThis.location === 'undefined') globalThis.location = { hostname: '' };
+    const mod = await import('../../public/js/data/equipment-derivation.js');
+    expect(mod.tweakedAvailability({ bucket: 'tool_utility', availability: 2 })).toBeNull();
+    expect(mod.tweakedAvailability(null)).toBeNull();
+  });
+
+  it('returns base availability + 1 (one dot of availability per shift, epic #1038 item 5) when tweakable', async () => {
+    if (typeof globalThis.location === 'undefined') globalThis.location = { hostname: '' };
+    const mod = await import('../../public/js/data/equipment-derivation.js');
+    expect(mod.tweakedAvailability({ bucket: 'combat_gear', weapon_type: 'melee', availability: 2 })).toBe(3);
+    expect(mod.tweakedAvailability({ bucket: 'skill_gear', bonus_dice: 1, availability: 0 })).toBe(1);
+  });
+
+  it('treats a missing/non-integer availability as 0 before adding the shift', async () => {
+    if (typeof globalThis.location === 'undefined') globalThis.location = { hostname: '' };
+    const mod = await import('../../public/js/data/equipment-derivation.js');
+    expect(mod.tweakedAvailability({ bucket: 'skill_gear', bonus_dice: 1 })).toBe(1);
+  });
+});

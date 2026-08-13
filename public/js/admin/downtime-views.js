@@ -24,6 +24,12 @@ import { publishAllForCycle } from './downtime-story.js';
 // values from pre-ECM-4 submissions still render as a fallback per Khepri's
 // backcompat guidance — see the read site below in the Equipment block.
 import { getCatalogueEntry } from '../data/equipment-catalogue-cache.js';
+// EQC-4 (#1155): surfaces a player's tweak request to the ST reviewing the
+// submission — without this, `equipment_${n}_tweak` was captured on the
+// response doc but visible nowhere in the app (Codex/internal review High
+// finding: the feature's whole point, "the ST can see and adjudicate", was
+// unmet even though the data existed).
+import { equipmentTweakableField, tweakedAvailability } from '../data/equipment-derivation.js';
 
 // Convert UTC ISO string to datetime-local input value (local time)
 function isoToLocalInput(iso) {
@@ -1660,7 +1666,17 @@ function renderPlayerResponses(s) {
     }
     const qty = r[`equipment_${n}_qty`] || '';
     const notes = r[`equipment_${n}_notes`] || '';
-    equipRows.push([qty ? `${qty}× ${displayName}` : displayName, notes].filter(Boolean).join(' — '));
+    // EQC-4 (#1155): only meaningful for a catalogue-resolved (not legacy
+    // free-text) row, and only when the entry is genuinely tweakable — a
+    // stale 'true' left over from a since-changed selection resolves to a
+    // non-tweakable or missing entry and is correctly silent here.
+    let tweakLabel = '';
+    if (catalogueId && r[`equipment_${n}_tweak`] === 'true') {
+      const entry = getCatalogueEntry(catalogueId);
+      const field = entry ? equipmentTweakableField(entry) : null;
+      if (field) tweakLabel = `requesting +1 ${field} (avail ${tweakedAvailability(entry)})`;
+    }
+    equipRows.push([qty ? `${qty}× ${displayName}` : displayName, notes, tweakLabel].filter(Boolean).join(' — '));
   }
   if (equipRows.length) {
     h += '<div class="dt-resp-section"><div class="dt-resp-section-title">Equipment</div>';
