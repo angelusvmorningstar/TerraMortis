@@ -391,6 +391,27 @@ describe('issue-1141 — office-tab.js render-level regressions', () => {
   describe('oxp.3: async rank wiring', () => {
     const MUTED = 'office-manoeuvre-unpurchased';
     const YUSUF = { _id: 'yusuf', name: 'Yusuf Kalusicj', court_category: 'Primogen', court_title: 'Primogen' };
+    // An ST browsing Primogen as reference: holds Enforcer, so no Primogen seat
+    // matches them by holder and the deterministic fallback has to decide.
+    const REF_ST = { _id: 'enforcer-holder', name: 'Einar Solveig', court_category: 'Enforcer', court_title: 'Enforcer' };
+
+    // oxp.11: the tab resolves a SEAT before it can read or write purchase
+    // state, so every fetch stub in this block has to serve /api/office_seats
+    // as well. Primogen deliberately carries two seats, mirroring the live
+    // pair, and Yusuf holds the one the fallback would NOT pick — so a test
+    // that lands on seat B proves holder resolution, not the fallback.
+    const SEAT_P_FALLBACK = 'seat-primogen-a'; // sorts first: fallback's choice
+    const SEAT_P_YUSUF    = 'seat-primogen-b'; // Yusuf's own, by holder_id
+    const SEAT_ENFORCER   = 'seat-enforcer';
+    const SEATS = [
+      { _id: SEAT_P_YUSUF,    office_category: 'Primogen', holder_id: 'yusuf', created_at: '2026-02-21', seat_label: null },
+      { _id: SEAT_P_FALLBACK, office_category: 'Primogen', holder_id: 'rene',  created_at: '2026-02-21', seat_label: null },
+      { _id: SEAT_ENFORCER,   office_category: 'Enforcer', holder_id: null,    created_at: '2026-02-21', seat_label: null },
+    ];
+    // Yusuf's own Primogen seat sits at rank 2; the other Primogen seat has no
+    // document at all, which is the client's "missing means 0".
+    const RANKS = { [SEAT_P_YUSUF]: 2, [SEAT_ENFORCER]: 5 };
+
     const hadLocalStorage = 'localStorage' in globalThis;
     let realFetch;
 
@@ -479,7 +500,9 @@ describe('issue-1141 — office-tab.js render-level regressions', () => {
     it('a rejected rank fetch must not leave the holder\'s list looking fully purchased (Codex Pass 1, Medium)', async () => {
       setRole('player');
       globalThis.fetch = async (url) => {
-        if (String(url).includes('/api/office_manoeuvre_rank')) return jsonRes({ message: 'nope' }, false);
+        const u = String(url);
+        if (u.includes('/api/office_seats')) return jsonRes(SEATS);
+        if (u.includes('/api/office_manoeuvre_rank')) return jsonRes({ message: 'nope' }, false);
         return jsonRes({});
       };
 
@@ -510,9 +533,10 @@ describe('issue-1141 — office-tab.js render-level regressions', () => {
         const u = String(url);
         if (opts && opts.method === 'PUT' && u.includes('/api/office_manoeuvre_rank/')) {
           await putGate;
-          return jsonRes({ _id: 'Primogen', rank: 3 });
+          return jsonRes({ _id: SEAT_P_YUSUF, rank: 3 });
         }
-        if (u.includes('/api/office_manoeuvre_rank')) return jsonRes({ Primogen: 2, Enforcer: 5 });
+        if (u.includes('/api/office_seats')) return jsonRes(SEATS);
+        if (u.includes('/api/office_manoeuvre_rank')) return jsonRes(RANKS);
         return jsonRes({});
       };
 
@@ -555,9 +579,10 @@ describe('issue-1141 — office-tab.js render-level regressions', () => {
         const u = String(url);
         if (opts && opts.method === 'PUT') {
           calls.push({ url: u, body: JSON.parse(opts.body) });
-          return jsonRes({ _id: 'Primogen', rank: 3 });
+          return jsonRes({ _id: SEAT_P_YUSUF, rank: 3 });
         }
-        if (u.includes('/api/office_manoeuvre_rank')) return jsonRes({ Primogen: 2 });
+        if (u.includes('/api/office_seats')) return jsonRes(SEATS);
+        if (u.includes('/api/office_manoeuvre_rank')) return jsonRes(RANKS);
         return jsonRes({});
       };
 
@@ -570,10 +595,145 @@ describe('issue-1141 — office-tab.js render-level regressions', () => {
       await flush();
 
       expect(calls).toHaveLength(1);
-      expect(calls[0].url).toContain('/api/office_manoeuvre_rank/Primogen/step');
+      // oxp.11: the step goes to a SEAT, not to an office category.
+      expect(calls[0].url).toContain(`/api/office_manoeuvre_rank/${SEAT_P_YUSUF}/step`);
+      expect(calls[0].url).not.toContain('/Primogen/');
       expect(calls[0].body).toEqual({ delta: 1 });
       // The absolute value is the server's to work out, atomically.
       expect(calls[0].body).not.toHaveProperty('rank');
+    });
+
+    // ─────────────────────────────────────────────────────────────────────
+    // oxp.11 — seat resolution, the fallback disclosure, and the no-seat
+    // state. All three drive the same real wiring against the fake DOM.
+    // ─────────────────────────────────────────────────────────────────────
+
+    /** Serve seats, merit dots and manoeuvre ranks; record every PUT. */
+    function stubFetch({ seats = SEATS, ranks = RANKS, dots = {}, calls = [] } = {}) {
+      globalThis.fetch = async (url, opts) => {
+        const u = String(url);
+        if (opts && opts.method === 'PUT') {
+          calls.push({ url: u, body: JSON.parse(opts.body) });
+          return jsonRes({ _id: 'whatever', rank: 1 });
+        }
+        if (u.includes('/api/office_seats')) return jsonRes(seats);
+        if (u.includes('/api/office_merit_dots')) return jsonRes(dots);
+        if (u.includes('/api/office_manoeuvre_rank')) return jsonRes(ranks);
+        return jsonRes({});
+      };
+      return calls;
+    }
+
+    it('AC5: the viewer\'s OWN office resolves to the seat that holds THEM, not to the fallback', async () => {
+      setRole('st');
+      // Yusuf's seat sorts second, so landing on it can only be a holder match.
+      stubFetch({ dots: { [SEAT_P_YUSUF]: { Resources: 3 }, [SEAT_P_FALLBACK]: { Resources: 5 } } });
+
+      const el = fakeRoot();
+      renderOfficeTab(el, YUSUF, [YUSUF], 'Primogen');
+      await flush();
+
+      // Rank 2 is seat B's; seat A has no rank document at all (0).
+      expect(el.querySelector('[data-office-manoeuvre-rank-mount]').innerHTML).toContain('●●○○○');
+      // And the merit dots are seat B's 3, not seat A's 5.
+      expect(el.querySelector('[data-office-merit-mount]').innerHTML).toContain('●●●○○');
+    });
+
+    it('AC6: with no holder match, the fallback picks the first seat by created_at then _id', async () => {
+      setRole('st');
+      stubFetch({ dots: { [SEAT_P_YUSUF]: { Resources: 3 }, [SEAT_P_FALLBACK]: { Resources: 5 } } });
+
+      const el = fakeRoot();
+      // An ST who holds Enforcer, browsing Primogen: no Primogen seat is theirs.
+      renderOfficeTab(el, REF_ST, [REF_ST], 'Primogen');
+      await flush();
+
+      // Seat A's state, not Yusuf's seat B.
+      expect(el.querySelector('[data-office-manoeuvre-rank-mount]').innerHTML).toContain('○○○○○');
+      expect(el.querySelector('[data-office-merit-mount]').innerHTML).toContain('●●●●●');
+    });
+
+    it('AC6: a multi-seat office names the seat on screen, in both purchase mounts', async () => {
+      setRole('st');
+      stubFetch();
+
+      const el = fakeRoot();
+      renderOfficeTab(el, YUSUF, [YUSUF], 'Primogen');
+      await flush();
+
+      // Primogen's two seats have no seat_label, so the note falls back to a
+      // short form of the seat id — which is all that distinguishes them.
+      const short = SEAT_P_YUSUF.slice(-6);
+      for (const sel of ['[data-office-merit-mount]', '[data-office-manoeuvre-rank-mount]']) {
+        const html = el.querySelector(sel).innerHTML;
+        expect(html, sel).toContain('This office has more than one seat.');
+        expect(html, sel).toContain(short);
+        // Reuses the existing informational-line class; no new styling.
+        expect(html, sel).toContain('office-reference-banner');
+      }
+    });
+
+    it('AC6: a single-seat office shows no note at all — there is nothing to disclose', async () => {
+      setRole('st');
+      stubFetch();
+
+      const el = fakeRoot();
+      renderOfficeTab(el, REF_ST, [REF_ST], 'Enforcer'); // Enforcer has one seat
+      await flush();
+
+      for (const sel of ['[data-office-merit-mount]', '[data-office-manoeuvre-rank-mount]']) {
+        expect(el.querySelector(sel).innerHTML, sel).not.toContain('more than one seat');
+      }
+    });
+
+    it('AC6: the note never reaches a non-ST reference viewer\'s manoeuvre mount (oxp.3 AC2 boundary)', async () => {
+      setRole('player');
+      stubFetch();
+
+      const el = fakeRoot();
+      // A player browsing Primogen, which they do not hold: entitled to the
+      // plain summary and nothing else.
+      renderOfficeTab(el, REF_ST, [REF_ST], 'Primogen');
+      await flush();
+
+      const mount = el.querySelector('[data-office-manoeuvre-rank-mount]');
+      expect(mount.innerHTML).toBe('');
+      expect(el.querySelector('.office-manoeuvre-list').innerHTML).not.toContain(MUTED);
+    });
+
+    it('AC6: an office with NO seat says so in both mounts, and attempts no write', async () => {
+      setRole('st');
+      // Seats exist, but none for Socialite.
+      const calls = stubFetch();
+
+      const el = fakeRoot();
+      renderOfficeTab(el, REF_ST, [REF_ST], 'Socialite');
+      await flush();
+
+      const expected = 'This office has no seat on record';
+      expect(el.querySelector('[data-office-merit-mount]').innerHTML).toContain(expected);
+      expect(el.querySelector('[data-office-manoeuvre-rank-mount]').innerHTML).toContain(expected);
+      // No plausible row of zeros, and no stepper to click.
+      expect(el.querySelector('[data-office-merit-mount]').innerHTML).not.toContain('cs-step-btn');
+      expect(calls).toHaveLength(0);
+    });
+
+    it('AC6: a failed seats fetch says so rather than rendering a plausible row of zeros', async () => {
+      setRole('st');
+      globalThis.fetch = async (url) => {
+        const u = String(url);
+        if (u.includes('/api/office_seats')) return jsonRes({ message: 'nope' }, false);
+        return jsonRes({});
+      };
+
+      const el = fakeRoot();
+      renderOfficeTab(el, YUSUF, [YUSUF], 'Primogen');
+      await flush();
+
+      expect(el.querySelector('[data-office-merit-mount]').innerHTML).toContain('Could not load office seats.');
+      expect(el.querySelector('[data-office-manoeuvre-rank-mount]').innerHTML).toContain('Could not load office seats.');
+      // The holder's optimistic first-render list is not left standing either.
+      expect(el.querySelector('.office-manoeuvre-list').innerHTML).toContain('Could not load office seats.');
     });
   });
 });
