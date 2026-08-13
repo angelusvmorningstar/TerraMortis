@@ -1,6 +1,6 @@
 # Story oxp.2: Derived office-XP calculation
 
-Status: review
+Status: done
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -407,8 +407,11 @@ All four restored, suite re-run clean at 43/43.
 New:
 
 - `public/js/data/office-xp.js` — the pure derivation module (AC1–AC5).
-- `server/routes/office-seats.js` — `GET /api/office_seats`, read-only (AC6).
-- `server/tests/oxp-2-derived-office-xp-calculation.test.js` — 43 tests (34 pure, 9 DB-backed).
+- `server/routes/office-seats.js` — `GET /api/office_seats`, read-only (AC6), `notes` redacted for
+  non-ST callers (added during code review, see Senior Developer Review below).
+- `server/tests/oxp-2-derived-office-xp-calculation.test.js` — 49 tests (39 pure, 10 DB-backed; 6 added
+  during code review: 2 pinning the date-anchoring fix, 3 pinning the `allSeats`-omission fail-safe,
+  1 pinning the `notes` redaction).
 
 Modified:
 
@@ -422,19 +425,115 @@ Modified:
 
 ## Senior Developer Review
 
-_To be filled in by code-review._
+External Codex review (3-pass, single session, `reasoning_effort=high`), run via `codex exec` CLI-direct
+against base commit `828908a0`. Findings at `specs/stories/code-review/oxp-2-codex-findings.md`, raw
+transcript at `oxp-2-codex-raw-output.txt`. 0 High, 4 Medium, 6 Low (one Medium/Low pair each
+describing the same underlying defect from two lenses — Pass 2 blind and Pass 3a spec-aware
+independently converging on the `allSeats`-omission gap is exactly the kind of cross-lens agreement
+that's worth trusting more, not less).
+
+Both return-protocol tripwires checked before trusting anything: the review named this diff's real
+files and real line numbers (including correctly noticing `content/rules/office-powers.md` does not
+exist inside this repo — only in the umbrella root — which only a genuine read of the actual repo
+would surface), and its attestation lists a different, correctly-scoped file set per pass. Codex's
+own DB-backed tests hit the same transient Mongo `EACCES` this project has recorded repeatedly
+(otc-2/oaq-2/oxp-1/oxp-3/oxp-4); it correctly labelled several claims "unverifiable-as-stated" rather
+than asserting them false, which this review round then resolved by re-running with working DB access.
 
 ### Findings and disposition
 
-_To be filled in by code-review._
+**Patched (4):**
+
+1. **[Medium, Pass 1] Unanchored ISO-date regex.** `yearMonthOf`'s string branch matched
+   `/^(\d{4})-(0[1-9]|1[0-2])/` — anchored at the start only, so `'2026-02garbage'`, `'2026-02-99'`,
+   `'2026-02-21junk'` and `'2026-02Tnot-a-date'` all matched the valid-looking prefix and silently
+   derived a plausible month figure from the rest. Reproduced by hand before trusting it (all four
+   values returned `7` pre-patch). Fixed by anchoring both ends and bounding the day component,
+   matching `office_seat.schema.js`'s own `isoDate` pattern exactly rather than inventing a second
+   one. Two new tests pin it (the four malformed values now throw; both real shapes — bare date and
+   full timestamp — still parse correctly). Prove-discriminated: reverting to the unanchored pattern
+   fails exactly the new malformed-input test, restore confirmed clean.
+2. **[Medium, Pass 2 + Pass 3a, same underlying defect] `officeSeatXp` trusted `allSeats` to include
+   the seat being evaluated.** Reproduced by hand: `officeSeatXp(yusuf, [rene], ...)` (a `allSeats`
+   array that omits Yusuf, the very seat being evaluated) returned `spendKnown: true` for a real
+   two-seat Primogen category — the exact false-confidence outcome AC4/AC5 exist to prevent, and
+   Codex's own remedy suggestion ("the safe failure would be `spendKnown: false`, not authoritative
+   `true`") is what was built: `officeSeatXp` now checks whether `seat` is actually present in
+   `allSeats` (by reference, or by `_id` if both carry one, so a freshly-fetched copy with the same
+   identity still counts) and forces `spendKnown: false` if not. The failure direction is one-sided —
+   an inconsistent call can only become MORE cautious, never falsely confident — so every well-formed
+   call (the real 7-seat shape) is unaffected. Three new tests pin it (omission forces false; a
+   genuinely single-seat office is unaffected; identity-match works across object references, not
+   just `===`). Prove-discriminated: reverting to the unguarded version fails exactly the new
+   omission test, restore confirmed clean.
+3. **[Medium, Pass 2 + Low, Pass 1, duplicate of the same field] `notes` exposed ST-only free text to
+   any authenticated player.** `office_seat.schema.js` documents `notes` explicitly as "Provenance
+   notes, ST caveats" — unlike its two sibling routes (`office_merit_dots`/`office_manoeuvre_rank`),
+   which only ever expose numeric dot/rank data, this collection has a free-text field a real product
+   decision was needed for. **Asked Angelus directly rather than deciding it in this session**: keep
+   the route open for every other field (needed by a future player-facing UI, still oxp.6/oxp.7's
+   job), redact only `notes` to `null` for a non-ST caller rather than gating the whole route.
+   Implemented with the existing `isStRole` helper from `middleware/auth.js` (already used for every
+   other ST-vs-everyone-else check in this codebase, and already treats `dev` as ST-equivalent, per
+   this project's standing convention). One new DB-backed test pins it: an ST sees real `notes`
+   content, a player sees `null`, every other field is unaffected by the redaction. Prove-discriminated
+   by reverting the redaction, restore confirmed clean.
+4. **[Low, Pass 3a + Pass 3b, same underlying gap] AC7's route test didn't actually verify "field for
+   field".** The original test deep-checked only Carver's `created_at`/`seat_label` and never touched
+   `notes` at all; a regression corrupting most seats' fields, or any seat's `notes`, could stay green.
+   Strengthened to compare every field of every inserted document against its matching response entry
+   (keyed by `_id`, the one field the route itself transforms). Prove-discriminated by temporarily
+   having the route return a fixed junk string for `notes` on every seat — the old assertions would
+   have missed it (they never read `notes`); the new ones caught it immediately. Restore confirmed
+   clean (`git diff` empty on the route file after the probe).
+
+**Needs Angelus's ruling (not a code defect — resolved above, listed here for the record):** the
+`notes` exposure question. Ruling: redact for non-ST, keep the rest of the route open (item 3 above).
+
+**Deferred (3), logged to `specs/deferred-work.md` → "Deferred from: code review of
+oxp-2-derived-office-xp-calculation":**
+
+- **[Low, Pass 1] Reversed accrual-function argument order fails closed to a plausible `0`** rather
+  than throwing. No current consumer exists to misuse it (oxp.6/oxp.7 haven't been written); adding
+  argument-order defence now, with nothing to actually call it wrong, is premature validation this
+  project's conventions avoid.
+- **[Low, Pass 1] `officeSeatXp` rebuilds the full per-category count map on every call** — O(n²) if a
+  future consumer loops naively over all seats. Immaterial at the real 7-seat count; noted for
+  whoever writes oxp.6/oxp.7's loader.
+- **[Low, Pass 1 + Pass 2, same underlying gap] `officeXpSpentForCategory`'s raw-document fallback can
+  misread a malformed/legacy document missing its `dots` key as the dots map itself.** Confirmed
+  unreachable via any current write path (`office-merit-dots.js`'s `PUT` route always writes
+  `dots.<merit>` via `$set`, which cannot omit the `dots` key). Not patched: the real write path can't
+  trigger it, and tightening shape detection with nothing real to test it against risks its own bug.
 
 ### Regression
 
-_To be filled in by code-review._
+Targeted gate re-run with working DB access (Codex's own environment hit `EACCES`, so this round is
+the first real confirmation of the DB-backed numbers):
+
+```
+cd server && npx vitest run tests/oxp-2-derived-office-xp-calculation.test.js \
+  tests/office-merit-dots.test.js tests/oxp-3-office-manoeuvre-rank.test.js \
+  tests/oxp-4-merit-persistence-handover.test.js
+```
+
+- `oxp-2-derived-office-xp-calculation.test.js`: **49/49**, zero skipped (up from 43 pre-review; 6 new
+  tests, all pinning a patched finding).
+- Four-file changed-area regression: **111/112** — the one failure is the pre-existing, unrelated
+  `oxp-4-merit-persistence-handover.test.js` source-slice failure flagged in the Dev Agent Record
+  (confirmed pre-existing again this round: identical failure with this diff's changes stashed out).
+- All four patches prove-discriminated by single-change revert, one at a time, each restored and
+  confirmed clean before the next (`git diff` empty on the reviewed source between reverts).
+- The dev-story agent's original mutation claims (dropping the accrual `+1` → 16 failures; forcing
+  `spendKnown = true` → 4 failures) were independently re-run and reproduced exactly, resolving
+  Codex's own "unverifiable" flag on those numbers (its sandbox saw 14 and 3 respectively, because 9
+  DB-backed tests were skipped there — accounted for, not a discrepancy).
+- Live `tm_suite` was not connected to or written to at any point in this review round.
 
 ## Change Log
 
 | Date | Change |
 |------|--------|
+| 2026-08-13 | CODE REVIEW COMPLETE, STORY DONE. External Codex review (3-pass, high effort, run CLI-direct via `codex exec`): 0 High, 4 Medium, 6 Low (some describing the same underlying defect from two lenses). 4 patched: an unanchored ISO-date regex that let malformed input like `'2026-02-99'` silently derive a plausible month figure instead of throwing; `officeSeatXp` trusting `allSeats` to include the seat being evaluated, so an incomplete array could make a genuinely two-seat Primogen/Socialite category falsely report `spendKnown: true`, now fails safe to `false`; the new `office_seats` route exposing `notes` (documented as "ST caveats") to any authenticated player — Angelus's ruling, asked directly: redact `notes` for non-ST callers, keep every other field open; and AC7's route test only deep-checking two fields on one seat, now field-for-field on all seven. All four prove-discriminated by single-change revert. 3 Low findings deferred to `deferred-work.md` (no current consumer to misuse the accrual function's argument order; an O(n²) recount with no consumer yet to feel it; a raw-document fallback gap confirmed unreachable via any real write path). 6 new tests (49 total, up from 43). Regression re-run with working DB access (Codex's own sandbox hit the same transient Mongo `EACCES` this project has seen before): 49/49 on oxp-2 itself, 111/112 on the four-file changed area (the 1 failure is the already-documented pre-existing `oxp-4` source-slice issue). Live `tm_suite` never touched. |
 | 2026-08-13 | DEV COMPLETE, status → review. New `public/js/data/office-xp.js` (5 pure functions + the named 1 XP/month rate), new read-only `GET /api/office_seats`, new 43-test suite (34 pure, 9 DB-backed against `tm_suite_test`), route registered in `server/index.js` and in the supertest harness. 43/43 passing with zero skipped; office-domain regression 181/182 and shared-helper regression 96/96. All four load-bearing gates prove-discriminated by single-change mutation (inclusive month count, calendar-vs-day accrual, `spendKnown`, vacant-holder serialisation). Two PRE-EXISTING failures found on `main` and proved not to be this story's: `oxp-1-office-seats.test.js` does not load at all (a `#!/usr/bin/env node` shebang in `seed-office-seats.mjs` breaks vitest's transform, so 41 tests are silently unrun — which is why this story's seven-seat fixture is mirrored rather than imported), and `oxp-4-merit-persistence-handover.test.js` has 1 failure (its source-slice now catches oxp.3's merged `_adjustManoeuvreRank`, whose comment says "holder"). Live `tm_suite` never touched. |
 | 2026-08-13 | Story created. Scoping investigation found and Angelus ruled directly on a real structural gap (`office_merit_dots`/`office_manoeuvre_ranks` are category-keyed, `office_seats` is seat-keyed, so spend cannot currently be attributed per seat for Primogen/Socialite) before ACs were written — see "Why this story exists". Accrual formula (calendar-month-inclusive count) verified against the ruling's own Feb→Aug 2026 = 7 worked example rather than assumed. Confirmed against live data: `office_merit_dots` has 2 documents (single-seat offices only), `office_manoeuvre_ranks` has 0 — the multi-seat collision this story's `spendKnown` flag guards against is real but not yet live-triggered. |

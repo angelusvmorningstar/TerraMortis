@@ -111,3 +111,36 @@ Full record: `specs/stories/oxp-3-manoeuvre-purchase-graduated-merit.md` → Sen
   `{ merit, delta }` and doing the clamped read-modify-write in one MongoDB aggregation-pipeline
   update, with the client sending the step rather than an absolute value. Deliberately not folded
   into oxp.3, which is scoped to manoeuvre rank only.
+
+## Deferred from: code review of oxp-2-derived-office-xp-calculation (2026-08-13, external Codex review)
+
+Full record: `specs/stories/oxp-2-derived-office-xp-calculation.md` → Senior Developer Review.
+
+- **`officeMonthsAccrued` fails closed to a plausible 0 on reversed argument order** (Low).
+  `officeMonthsAccrued(now, createdAt)` called with the two positional arguments swapped returns a
+  `Math.max(0, ...)`-clamped `0` — "this office doesn't exist yet" — rather than throwing, because a
+  transposed call looks identical to a genuine before-creation `now`. Same-month transpositions are
+  even less detectable (both directions can return `1`). No current caller misuses it — `public/js/
+  data/office-xp.js` has no consumer yet in this codebase (oxp.6/oxp.7 will be the first) — so adding
+  argument-order defence now, with nothing to actually call it wrong, is exactly the premature
+  validation this project's conventions avoid. Revisit if/when a real caller is written: either name
+  the parameters via an options object (`{ createdAt, now }`, immune to order by construction) or add
+  a runtime assertion once there's a real call site to test it against.
+- **`officeSeatXp` rebuilds the full per-category seat-count map on every call** (Low, efficiency
+  only). `officeSpendKnownByCategory(allSeats)` is recomputed from scratch inside `officeSeatXp`, so a
+  consumer that naively loops `allSeats.map(s => officeSeatXp(s, allSeats, ...))` to render all seats
+  is O(n²) rather than O(n). Immaterial at the real live count (7 seats) and there is no consumer yet
+  to optimise for. Note for whoever builds oxp.6/oxp.7's loader: call `officeSpendKnownByCategory`
+  once up front and reuse the map, rather than letting each seat's render recompute it.
+- **`officeXpSpentForCategory`'s raw-document fallback can misread a malformed/legacy document with a
+  missing or null `dots` key as the dots map itself** (Low). The function accepts two shapes
+  (`{ [meritName]: dots }` and `{ dots: {...} }`) and falls through to treating the whole argument as
+  the dots map when `.dots` isn't itself an object. A document like `{ _id: 'Enforcer', updated_at:
+  '...' }` (no `dots` key at all) would fall through the same way, and any numeric field on it would
+  silently add to spend. Confirmed unreachable via any real write path today — `office-merit-dots.js`'s
+  `PUT /:category` always writes via `$set: { 'dots.<merit>': n }`, which cannot produce a document
+  missing `dots` — so this is a robustness gap in a defensive fallback branch, not a live bug.
+  Deliberately not patched now: the real write path can't trigger it, and tightening shape detection
+  without a real malformed document to test against risks its own subtle bug. Revisit if this
+  collection is ever hand-edited outside the route (Mongo Compass, a migration script) in a way that
+  could produce a `dots`-less document.

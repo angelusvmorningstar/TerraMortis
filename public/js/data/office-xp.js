@@ -66,8 +66,13 @@ function yearMonthOf(value, label) {
   }
 
   if (typeof value === 'string') {
-    const m = /^(\d{4})-(0[1-9]|1[0-2])/.exec(value);
-    if (m) return { year: Number(m[1]), month: Number(m[2]) };
+    // Anchored at both ends and day-bounded, matching office_seat.schema.js's
+    // own `isoDate` pattern exactly (Codex review, oxp.2: the previous
+    // start-anchored-only pattern accepted a valid-looking prefix and ignored
+    // any garbage after it, e.g. '2026-02-99' or '2026-02-21junk', silently
+    // deriving a plausible month figure from a value that should have thrown).
+    const m = /^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])([T ][0-9:.+-Z]+)?$/.exec(value);
+    if (m) return { year: Number(value.slice(0, 4)), month: Number(m[1]) };
   }
 
   throw new Error(
@@ -222,7 +227,9 @@ export function officeSpendKnownByCategory(allSeats) {
  *
  * @param {object} seat - one `office_seats` document
  * @param {Array<object>} allSeats - every seat document, so the seat count for
- *   this seat's category can be established (see `officeSpendKnownByCategory`)
+ *   this seat's category can be established (see `officeSpendKnownByCategory`).
+ *   `seat` should be one of `allSeats`; if it genuinely is not, `spendKnown`
+ *   is forced `false` rather than trusting a possibly-incomplete count.
  * @param {object|undefined|null} meritDotsDoc - this CATEGORY's merit dots
  * @param {number|object|undefined|null} manoeuvreRankDoc - this CATEGORY's rank
  * @param {string|Date} now - caller-supplied evaluation date
@@ -242,11 +249,24 @@ export function officeSpendKnownByCategory(allSeats) {
  * `left` is allowed to go negative. Both purchase collections are direct
  * ST-set state with no budget check (oxp.9 would add one), so an office can
  * genuinely show more purchased than earned; clamping to 0 would hide that.
+ *
+ * `spendKnown` is forced `false` — never inferred from `allSeats` alone — if
+ * `seat` itself cannot be found in `allSeats` (Codex review, oxp.2: a caller
+ * passing a stale or filtered `allSeats` that omits the very seat being
+ * evaluated made a genuinely multi-seat category undercount to 1 and report
+ * `spendKnown: true`, exactly the false-confidence outcome this flag exists
+ * to prevent). The failure direction is deliberately one-sided: an
+ * inconsistent call can only make this MORE cautious, never falsely
+ * confident, so a well-formed call (`seat` really is one of `allSeats`) is
+ * completely unaffected.
  */
 export function officeSeatXp(seat, allSeats, meritDotsDoc, manoeuvreRankDoc, now) {
   const earned = officeXpEarned(seat, now);
   const spent = officeXpSpentForCategory(meritDotsDoc, manoeuvreRankDoc);
-  const spendKnown = officeSpendKnownByCategory(allSeats)[seat.office_category] === true;
+  const seatIsIncluded = Array.isArray(allSeats) && allSeats.some(s =>
+    s === seat || (seat && s && seat._id != null && s._id != null && String(seat._id) === String(s._id))
+  );
+  const spendKnown = seatIsIncluded && officeSpendKnownByCategory(allSeats)[seat.office_category] === true;
 
   return { earned, spent, left: earned - spent, spendKnown };
 }

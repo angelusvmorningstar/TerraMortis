@@ -152,6 +152,23 @@ describe('oxp.2 officeMonthsAccrued (AC1)', () => {
       expect(() => officeMonthsAccrued(bad, '2026-08-13'), String(bad)).toThrow();
     }
   });
+
+  it('rejects a value with a valid-looking date PREFIX followed by garbage, rather than matching the prefix and ignoring the rest (Codex review)', () => {
+    // The original pattern was anchored at the start only (`^\d{4}-...`), so
+    // it matched the first 7 characters of any of these and silently derived
+    // a plausible month figure from the rest, which is exactly the class of
+    // silent-wrong-answer bug the schema's own ISO pattern already exists to
+    // prevent one layer up. Anchored at both ends now, day-bounded too,
+    // matching office_seat.schema.js's own isoDate pattern exactly.
+    for (const bad of ['2026-02garbage', '2026-02-99', '2026-02-21junk', '2026-02Tnot-a-date', '2026-02']) {
+      expect(() => officeMonthsAccrued(bad, '2026-08-13'), bad).toThrow();
+    }
+  });
+
+  it('still accepts every real shape the schema allows: bare date and full timestamp', () => {
+    expect(officeMonthsAccrued('2026-02-21', '2026-08-13')).toBe(7);
+    expect(officeMonthsAccrued('2026-02-21T09:30:00.000Z', '2026-08-13')).toBe(7);
+  });
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -362,6 +379,47 @@ describe('oxp.2 officeSeatXp (AC5)', () => {
     expect(result.spent).toBe(8);
     expect(result.left).toBe(-6);
   });
+
+  it('forces spendKnown false when allSeats omits the seat being evaluated, even though the raw count would say known (Codex review)', () => {
+    // A caller that passes a stale or filtered allSeats missing the evaluated
+    // seat itself must never come out MORE confident than a well-formed call
+    // would. Here Primogen genuinely has two live seats, but allSeats is
+    // given only the sibling — an omission bug, not a real single-seat office.
+    const seats = sevenSeats();
+    const primogen = seats.filter(s => s.office_category === 'Primogen');
+    const [yusuf, rene] = primogen;
+
+    const wellFormed = officeSeatXp(yusuf, seats, { Contacts: 2 }, 1, NOW);
+    expect(wellFormed.spendKnown).toBe(false);
+
+    const omitted = officeSeatXp(yusuf, [rene], { Contacts: 2 }, 1, NOW);
+    expect(omitted.spendKnown).toBe(false);
+    // earned/spent/left are still real numbers — the guard only ever tightens
+    // spendKnown, never hides the other fields.
+    expect(omitted.earned).toBe(7);
+    expect(omitted.spent).toBe(3);
+    expect(omitted.left).toBe(4);
+  });
+
+  it('a genuinely single-seat office is unaffected by the omission guard', () => {
+    // The guard must fail toward false, never toward false-negative on a
+    // well-formed single-seat call — that would break every ordinary case.
+    const seats = sevenSeats();
+    const enforcer = seats.find(s => s.office_category === 'Enforcer');
+    expect(officeSeatXp(enforcer, seats, undefined, undefined, NOW).spendKnown).toBe(true);
+  });
+
+  it('matches the seat by _id when it is a different object with the same identity, not just by reference', () => {
+    // A caller that re-fetches seats (a new array of new objects each call)
+    // must still be recognised as "the seat is really in this set" as long as
+    // the same seat identity is present, not only on exact reference equality.
+    const original = { _id: '69d73ea49162ece35897a487', office_category: 'Enforcer', holder_id: 'x', created_at: '2026-02-21' };
+    const freshCopy = { ...original };
+    expect(freshCopy).not.toBe(original);
+
+    const result = officeSeatXp(freshCopy, [original], undefined, undefined, NOW);
+    expect(result.spendKnown).toBe(true);
+  });
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -456,11 +514,28 @@ describe.skipIf(!dbAvailable)('oxp.2 GET /api/office_seats (AC6, AC7)', () => {
   });
 
   it('returns every stored seat, field for field, with no aggregation or derivation', async () => {
-    await insertSevenSeats();
+    const inserted = await insertSevenSeats();
     const res = await request(app).get('/api/office_seats').set('X-Test-User', stUser());
 
     expect(res.status).toBe(200);
     expect(res.body).toHaveLength(7);
+
+    // Codex review, oxp.2: the previous version of this test only deep-checked
+    // Carver's created_at/seat_label and never touched notes at all, so a
+    // regression corrupting most seats' fields (or any seat's notes) could
+    // stay green. Every field of every inserted document is now compared
+    // against the matching response entry, keyed by _id (the one field the
+    // route itself transforms — ObjectId to string — so it's checked
+    // separately rather than via a naive deep-equal on the raw insert).
+    for (const doc of inserted) {
+      const found = res.body.find(d => d._id === String(doc._id));
+      expect(found, `no response entry for seat _id ${doc._id}`).toBeTruthy();
+      expect(found.office_category).toBe(doc.office_category);
+      expect(found.holder_id).toBe(doc.holder_id === null ? null : String(doc.holder_id));
+      expect(found.created_at).toBe(doc.created_at);
+      expect(found.seat_label).toBe(doc.seat_label);
+      expect(found.notes).toBe(doc.notes);
+    }
 
     const pairs = res.body.map(d => `${d.office_category}|${d.holder_id}`).sort();
     expect(pairs).toEqual([
@@ -540,6 +615,34 @@ describe.skipIf(!dbAvailable)('oxp.2 GET /api/office_seats (AC6, AC7)', () => {
       .set('X-Test-User', playerUser(['000000000000000000000001']));
     expect(res.status).toBe(200);
     expect(res.body).toHaveLength(7);
+  });
+
+  it('redacts notes to null for a player, but not for an ST (Codex review)', async () => {
+    // office_seat.schema.js documents `notes` explicitly as "Provenance
+    // notes, ST caveats" — unlike the two sibling routes, which only ever
+    // expose numeric dot/rank data, this collection has a free-text field
+    // that could carry something an ST never meant a player to read. Every
+    // OTHER field stays open (Angelus's ruling, 2026-08-13): only `notes`
+    // is redacted, and only for a non-ST caller.
+    const col = getCollection(COLLECTION);
+    await col.insertOne({
+      office_category: 'Enforcer',
+      holder_id: new ObjectId('69d73ea49162ece35897a487'),
+      created_at: '2026-02-21',
+      seat_label: null,
+      notes: 'Watching for a coup attempt, do not let the player see this.',
+    });
+
+    const stRes = await request(app).get('/api/office_seats').set('X-Test-User', stUser());
+    expect(stRes.body[0].notes).toBe('Watching for a coup attempt, do not let the player see this.');
+
+    const playerRes = await request(app).get('/api/office_seats')
+      .set('X-Test-User', playerUser(['000000000000000000000001']));
+    expect(playerRes.body[0].notes).toBeNull();
+    // Every other field is unaffected by the redaction.
+    expect(playerRes.body[0].office_category).toBe('Enforcer');
+    expect(playerRes.body[0].holder_id).toBe('69d73ea49162ece35897a487');
+    expect(playerRes.body[0].created_at).toBe('2026-02-21');
   });
 
   it('requires authentication', async () => {
