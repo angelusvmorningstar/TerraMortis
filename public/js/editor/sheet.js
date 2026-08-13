@@ -16,7 +16,7 @@ import { calcHealth, calcWillpowerMax, calcSize, calcSpeed, calcDefence } from '
 //
 // wornArmourCount drives the >1 worn armour editor hint (ADR-006 D2 + Concern
 // #8, wording locked).
-import { defenceForDisplay, wornArmourCount, effectiveAvailability, isCombatGearWeaponShaped, isCombatGearArmourShaped, equipmentLocationLabel } from '../data/equipment-derivation.js';
+import { defenceForDisplay, wornArmourCount, effectiveAvailability, isCombatGearWeaponShaped, isCombatGearArmourShaped, equipmentLocationLabel, equipmentContainerLabel } from '../data/equipment-derivation.js';
 import { xpToDots, xpEarned, xpSpent, xpLeft, xpStarting, xpHumanityDrop, xpOrdeals, xpGame, xpPT5, xpSpentAttrs, xpSpentSkills, xpSpentMerits, xpSpentPowers, xpSpentSpecial, setDevotionsDB, meritBdRow, meritRating } from './xp.js';
 // OATH-A (#1111): the pledge editor needs to know whether a merit is a
 // Swear By oath and what its requirement resolves to. edit-domain.js owns
@@ -2597,6 +2597,11 @@ export function shRenderEquipment(c, editMode) {
   // (equipment-derivation.js), not a local closure here, so it's directly
   // unit-testable — this alias just keeps the call sites below unchanged.
   const locationLabel = equipmentLocationLabel;
+  // EQC-3 (issue #1154, epic #1038): "(in: <container name>)" for a
+  // contained item. Logic lives in equipmentContainerLabel
+  // (equipment-derivation.js), not a local closure here, so it's directly
+  // unit-testable - this alias just keeps the call sites below unchanged.
+  const containedLabel = item => equipmentContainerLabel(item, equip);
 
   let h = '<div class="sh-sec"><div class="sh-sec-title">Equipment</div><div class="merit-list">';
 
@@ -2633,6 +2638,7 @@ export function shRenderEquipment(c, editMode) {
         WPNTYPE[entry.weapon_type] || entry.weapon_type || null,
         eff != null ? `avail ${eff}` : null,
         locationLabel(item),
+        containedLabel(item),
       ].filter(Boolean);
       const qual   = parts.join(' · ');
       const rmBtn  = editMode ? `<button class="sk-spec-rm" style="float:right;margin-top:2px" onclick="shRemoveEquip(${idx})" title="Remove">× Remove</button>` : '';
@@ -2664,6 +2670,7 @@ export function shRenderEquipment(c, editMode) {
         entry.defence_penalty != null ? `Defence ${baseDefence}(${baseDefence - entry.defence_penalty})` : null,
         eff != null ? `avail ${eff}` : null,
         locationLabel(item),
+        containedLabel(item),
       ].filter(Boolean);
       const qual  = parts.join(' · ');
       const rmBtn = editMode ? `<button class="sk-spec-rm" style="float:right;margin-top:2px" onclick="shRemoveEquip(${idx})" title="Remove">× Remove</button>` : '';
@@ -2681,7 +2688,7 @@ export function shRenderEquipment(c, editMode) {
     for (const { item, entry, idx } of combatOther) {
       const name  = entry.name || item.catalogue_id;
       const eff   = entry.availability != null ? effectiveAvailability(entry, c) : null;
-      const qual  = [eff != null ? `avail ${eff}` : null, locationLabel(item)].filter(Boolean).join(' · ');
+      const qual  = [eff != null ? `avail ${eff}` : null, locationLabel(item), containedLabel(item)].filter(Boolean).join(' · ');
       const rmBtn = editMode ? `<button class="sk-spec-rm" style="float:right;margin-top:2px" onclick="shRemoveEquip(${idx})" title="Remove">× Remove</button>` : '';
       h += `<div class="merit-plain"><div class="trait-row">` +
         `<div class="trait-main"><span class="trait-name">${esc(name)}</span><div class="trait-right">${stateChip(item.state)}${rmBtn}</div></div>` +
@@ -2703,6 +2710,7 @@ export function shRenderEquipment(c, editMode) {
         pool || null,
         eff != null ? `avail ${eff}` : null,
         locationLabel(item),
+        containedLabel(item),
       ].filter(Boolean);
       const qual = qualParts.join(' · ');
       const rmBtn = editMode ? `<button class="sk-spec-rm" style="float:right;margin-top:2px" onclick="shRemoveEquip(${idx})" title="Remove">× Remove</button>` : '';
@@ -2719,7 +2727,7 @@ export function shRenderEquipment(c, editMode) {
     for (const { item, entry, idx } of byBucket.tool_utility) {
       const name  = entry.name || item.catalogue_id;
       const eff   = entry.availability != null ? effectiveAvailability(entry, c) : null;
-      const parts = [entry.mechanical_effect || null, eff != null ? `avail ${eff}` : null, locationLabel(item)].filter(Boolean);
+      const parts = [entry.mechanical_effect || null, eff != null ? `avail ${eff}` : null, locationLabel(item), containedLabel(item)].filter(Boolean);
       const qual  = parts.join(' · ');
       const rmBtn = editMode ? `<button class="sk-spec-rm" style="float:right;margin-top:2px" onclick="shRemoveEquip(${idx})" title="Remove">× Remove</button>` : '';
       h += `<div class="merit-plain"><div class="trait-row">` +
@@ -2734,7 +2742,7 @@ export function shRenderEquipment(c, editMode) {
     h += '<div class="sh-sub-title">Narrative</div>';
     for (const { item, entry, idx } of byBucket.narrative) {
       const name  = entry.name || item.catalogue_id;
-      const loc   = locationLabel(item);
+      const loc   = [locationLabel(item), containedLabel(item)].filter(Boolean).join(' · ') || null;
       const rmBtn = editMode ? `<button class="sk-spec-rm" style="float:right;margin-top:2px" onclick="shRemoveEquip(${idx})" title="Remove">× Remove</button>` : '';
       h += `<div class="merit-plain"><div class="trait-row">` +
         `<div class="trait-main"><span class="trait-name">${esc(name)}</span><div class="trait-right">${stateChip(item.state)}${rmBtn}</div></div>` +
@@ -2782,6 +2790,16 @@ export function shRenderEquipment(c, editMode) {
     const defCycle = state.activeCycleNum ?? 0;
 
     h += '<div class="sh-sub-title" style="margin-top:10px">Add Equipment Item</div>';
+    // EQC-3 (issue #1154, epic #1038): "Place inside" — sourced from the
+    // character's OWN current container-bucket rows (byBucket.container,
+    // already computed above for the Containers section). Default is no
+    // selection (loose item, unchanged behaviour). Not offered at all if the
+    // character owns no containers yet — an empty-but-present dropdown with
+    // only "— none —" would be a confusing no-op affordance.
+    const containerOptions = byBucket.container.map(({ item: ci, entry: ce }) =>
+      `<option value="${esc(ci.catalogue_id)}">${esc(ce.name || ci.catalogue_id)}</option>`
+    ).join('');
+
     h += '<div class="dev-add-row" style="display:flex;flex-wrap:wrap;gap:4px;align-items:center;padding:4px 0">'
       + '<select id="eq-add-bucket" class="dev-add-btn" onchange="shEquipBucketFilter()">'
       + '<option value="">Bucket…</option>'
@@ -2791,6 +2809,10 @@ export function shRenderEquipment(c, editMode) {
       + '<select id="eq-add-state" class="dev-add-btn">'
       + STATES.map(s => `<option value="${s}">${STATE_LABELS[s] || s}</option>`).join('')
       + '</select>'
+      + (containerOptions
+          ? '<select id="eq-add-container" class="dev-add-btn" title="Place inside a container you already own">'
+            + '<option value="">— none —</option>' + containerOptions + '</select>'
+          : '')
       + `<input id="eq-add-cycle" type="number" min="0" value="${defCycle}" style="width:60px" class="attr-bd-input" title="Acquired cycle">`
       + '<input id="eq-add-notes" type="text" placeholder="Notes (optional)" style="width:130px" class="spec-input">'
       + '<button class="sk-spec-add" onclick="shAddEquip()">Add</button>'

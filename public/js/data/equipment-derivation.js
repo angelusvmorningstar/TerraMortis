@@ -128,6 +128,37 @@ export function equipmentLocationLabel(item) {
 }
 
 /**
+ * EQC-3 (issue #1154, epic #1038) - "(in: <container name>)" display label
+ * for a contained item. Checks the CHARACTER's own equipment array for
+ * another row still carrying this `container_id` as its `catalogue_id` -
+ * NOT just whether the catalogue item globally exists. A container removed
+ * from this character's own equipment (its row deleted via DELETE
+ * /:id/equipment/:itemIndex) must render its former contents as loose, even
+ * though the catalogue item itself may still exist for OTHER characters (the
+ * catalogue-admin delete guard only blocks deleting a CATALOGUE item while
+ * ANY character holds it - it does not know about container_id references
+ * at all). This is EQC-1's own "display-inert on dangling reference"
+ * contract, applied correctly.
+ *
+ * Extracted as its own exported pure function (not a closure inside
+ * editor/sheet.js's shRenderEquipment) so it is directly unit-testable,
+ * matching this module's established convention.
+ *
+ * @param {object} item - a character's equipment[] entry (has `container_id`)
+ * @param {object[]} allEquipment - the SAME character's full equipment[] array
+ * @param {function} [catalogueLookup] - (id) => catalogue entry | undefined
+ * @returns {string|null} `in: <name>` | null
+ */
+export function equipmentContainerLabel(item, allEquipment, catalogueLookup = getCatalogueEntry) {
+  if (!item || !item.container_id) return null;
+  const list = Array.isArray(allEquipment) ? allEquipment : [];
+  const stillOwned = list.some(e => e && e !== item && String(e.catalogue_id) === item.container_id);
+  if (!stillOwned) return null;
+  const containerEntry = catalogueLookup(item.container_id);
+  return containerEntry ? `in: ${containerEntry.name || item.container_id}` : null;
+}
+
+/**
  * Sum-by-worst-case of defence penalties from currently-worn armour.
  * Returns a non-negative integer (the magnitude — composition site subtracts).
  *

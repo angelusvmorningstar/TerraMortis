@@ -530,3 +530,52 @@ describe('#1153 EQC-2 review patch — equipmentLocationLabel (Codex external re
     expect(mod.equipmentLocationLabel(null)).toBeNull();
   });
 });
+
+describe('#1154 EQC-3 — equipmentContainerLabel', () => {
+  it('returns null for an item with no container_id', async () => {
+    if (typeof globalThis.location === 'undefined') globalThis.location = { hostname: '' };
+    const mod = await import('../../public/js/data/equipment-derivation.js');
+    expect(mod.equipmentContainerLabel({ container_id: null }, [])).toBeNull();
+    expect(mod.equipmentContainerLabel({}, [])).toBeNull();
+    expect(mod.equipmentContainerLabel(null, [])).toBeNull();
+  });
+
+  it('resolves "in: <name>" when the character still owns the referenced container', async () => {
+    if (typeof globalThis.location === 'undefined') globalThis.location = { hostname: '' };
+    const mod = await import('../../public/js/data/equipment-derivation.js');
+    const haven = { _id: 'haven1', bucket: 'container', name: 'Test Haven' };
+    const item = { catalogue_id: 'knife1', container_id: 'haven1' };
+    const allEquipment = [item, { catalogue_id: 'haven1', state: 'active' }];
+    const lookup = id => (id === 'haven1' ? haven : undefined);
+    expect(mod.equipmentContainerLabel(item, allEquipment, lookup)).toBe('in: Test Haven');
+  });
+
+  it('AC #4: returns null (renders as loose) when the referenced container is no longer owned — a dangling container_id after the container row was removed', async () => {
+    if (typeof globalThis.location === 'undefined') globalThis.location = { hostname: '' };
+    const mod = await import('../../public/js/data/equipment-derivation.js');
+    const haven = { _id: 'haven1', bucket: 'container', name: 'Test Haven' };
+    const item = { catalogue_id: 'knife1', container_id: 'haven1' };
+    // The character's equipment array no longer contains a haven1 row (it
+    // was removed) — only the contained item itself remains.
+    const allEquipment = [item];
+    const lookup = id => (id === 'haven1' ? haven : undefined);
+    expect(mod.equipmentContainerLabel(item, allEquipment, lookup)).toBeNull();
+  });
+
+  it('returns null when the container_id is genuinely unresolvable in the catalogue too (belt-and-braces)', async () => {
+    if (typeof globalThis.location === 'undefined') globalThis.location = { hostname: '' };
+    const mod = await import('../../public/js/data/equipment-derivation.js');
+    const item = { catalogue_id: 'knife1', container_id: 'ghost1' };
+    const allEquipment = [item, { catalogue_id: 'ghost1', state: 'active' }];
+    const lookup = () => undefined;
+    expect(mod.equipmentContainerLabel(item, allEquipment, lookup)).toBeNull();
+  });
+
+  it('does not match against itself — an item is never its own container', async () => {
+    if (typeof globalThis.location === 'undefined') globalThis.location = { hostname: '' };
+    const mod = await import('../../public/js/data/equipment-derivation.js');
+    const item = { catalogue_id: 'x1', container_id: 'x1' };
+    const lookup = () => ({ name: 'Should not resolve' });
+    expect(mod.equipmentContainerLabel(item, [item], lookup)).toBeNull();
+  });
+});
