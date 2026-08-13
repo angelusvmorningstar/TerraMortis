@@ -667,12 +667,51 @@ describe.skipIf(!dbAvailable)('oxp.2 GET /api/office_seats (AC6, AC7)', () => {
     expect(await getCollection(COLLECTION).countDocuments({})).toBe(before.seats);
   });
 
-  it('exposes no write verb — this story adds a GET and nothing else', async () => {
-    // oxp.2 derives a number from data that already exists. Seat creation,
-    // handover and deletion are other stories' work (oxp.5 and beyond).
+  it('the collection ROOT still exposes no write verb, and the seat-scoped route accepts only PUT', async () => {
+    // Restated for oxp.5 (2026-08-13). This test used to read "exposes no write
+    // verb — this story adds a GET and nothing else", and it would still have
+    // PASSED mechanically after oxp.5 landed, because oxp.5's handover route is
+    // at /:seatId/holder and a bare write to the collection root still matches
+    // nothing. Its TITLE and its comment would have been false, though, which
+    // is the kind of quietly-wrong assertion that survives for years. So it is
+    // restated as what is genuinely still guaranteed, and strengthened rather
+    // than weakened.
+    //
+    // Still true, and the part that matters: seat CREATION and DELETION are
+    // exposed nowhere at all. `office_seats` documents are minted only by
+    // oxp.1's manual seed script; oxp.5 changes who HOLDS a seat, never which
+    // seats exist. In-app seat CRUD has no story home yet.
     for (const method of ['post', 'put', 'patch', 'delete']) {
       const res = await request(app)[method]('/api/office_seats').set('X-Test-User', stUser()).send({});
       expect(res.status, method).toBe(404);
     }
+
+    // A bare seat id is not addressable either — there is no
+    // PUT /api/office_seats/:seatId, only the /holder sub-route.
+    const seatId = '69d73ea49162ece35897a487';
+    for (const method of ['post', 'put', 'patch', 'delete']) {
+      const res = await request(app)[method](`/api/office_seats/${seatId}`).set('X-Test-User', stUser()).send({});
+      expect(res.status, `bare seat id, ${method}`).toBe(404);
+    }
+
+    // And the handover sub-route answers to PUT alone. A 404 here is the router
+    // declining the verb, distinct from the 400/404/409 the PUT handler itself
+    // can return.
+    for (const method of ['post', 'patch', 'delete']) {
+      const res = await request(app)[method](`/api/office_seats/${seatId}/holder`).set('X-Test-User', stUser()).send({});
+      expect(res.status, `holder sub-route, ${method}`).toBe(404);
+    }
+
+    // The title's other half — "accepts only PUT" — was never actually proved
+    // above: every assertion so far shows verbs being REJECTED, none shows PUT
+    // being accepted. Codex review finding (Low): prove it directly, or the
+    // route could be deleted entirely and this test would still pass. `seatId`
+    // is well-formed hex but not a real document, so this reaches the HANDLER's
+    // own 404 (a JSON `NOT_FOUND` body) rather than Express's router-level 404
+    // for an unmatched verb (no such body shape) — that distinction is what
+    // proves the router dispatched to the PUT handler at all.
+    const putRes = await request(app).put(`/api/office_seats/${seatId}/holder`).set('X-Test-User', stUser()).send({ holder_id: null });
+    expect(putRes.status, 'PUT should reach the handler, not be rejected by the router').toBe(404);
+    expect(putRes.body.error, 'a router-level 404 has no such body — this must be the handler\'s own').toBe('NOT_FOUND');
   });
 });
