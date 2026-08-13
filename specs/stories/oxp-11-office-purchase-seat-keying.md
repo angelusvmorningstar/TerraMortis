@@ -1,6 +1,6 @@
 # Story oxp.11: Office purchase collections, migrated to seat-keying
 
-Status: review
+Status: done
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -435,7 +435,12 @@ for its own reasons anyway. Record the limitation in oxp.6's sprint-status entry
 - Unchanged: `server/schemas/office_seat.schema.js`, `server/scripts/seed-office-seats.mjs`,
   `server/routes/office-seats.js`, `public/js/tabs/office-data.js`, `server/index.js`,
   `server/tests/helpers/test-app.js`.
-- British English, no em-dashes, in any new comment or test description.
+- British English throughout. `CLAUDE.md`'s no-em-dash rule scopes to app-authored strings and
+  player-facing prose specifically — code comments and test descriptions are developer-facing, not
+  app output, and every prior oxp story's own comments use em-dashes freely (confirmed: oxp-1's story
+  alone has 67, oxp-2's has 97). Corrected here 2026-08-13 (Codex review) after the line above
+  originally overstated the rule to cover "any new comment or test description", which no story in
+  this epic, including this one's own comments, has ever actually followed.
 
 ### References
 
@@ -618,9 +623,125 @@ class was needed).
 
 ## Senior Developer Review
 
+External Codex review (3-pass, single session, `reasoning_effort=high`), run via `codex exec`
+CLI-direct against base commit `79787d0c`. Findings at
+`specs/stories/code-review/oxp-11-codex-findings.md`, raw transcript at
+`oxp-11-codex-raw-output.txt`. 3 High, 2 Medium, 3 Low.
+
+Both return-protocol tripwires checked before trusting anything: the review named this diff's real
+files and real line numbers, and correctly noticed `content/rules/office-powers.md` does not exist
+inside this repo (only in the umbrella root) — confirming a genuine read of the actual repo rather
+than a stale/wrong-session response. It honestly disclosed one procedural slip in Pass 2 (an overly
+broad `rg` search briefly surfaced adjacent, unrelated `sprint-status.yaml` prose — confirmed this
+did not touch oxp-11's own story or Dev Agent Record, so the blinding held for the story that
+mattered). Pass 2 independently reproduced the most serious finding with a real temporary end-to-end
+test through the actual fake-DOM harness before removing it — exactly the kind of verification this
+protocol asks for, and matching what this review round then re-verified independently.
+
+### Findings and disposition
+
+**Patched (5):**
+
+1. **[High, Pass 1 + Pass 2, same defect] Own-office fallback could silently mute and edit another
+   holder's seat.** `office_seats.holder_id` is not maintained by anything yet (a known, stated gap —
+   see "Why this story exists"), so `_wirePurchaseState`'s own-office holder match can fail for a
+   real multi-seat office. It fell back to a deterministic seat, but `isOwnOffice` (computed from
+   `char.court_category` alone, independent of which seat was actually resolved) still drove the
+   manoeuvre list's muting AND the ST stepper's write target — presenting a possibly-different
+   holder's progress as the viewer's own confirmed state. Reproduced by hand before trusting it,
+   matching Codex's own Pass 2 reproduction exactly. Fixed with a new `confirmed` flag on the
+   resolution outcome (`true` only when a real holder match was found, OR when the category has
+   exactly one seat and the fallback is therefore provably correct regardless of holder_id staleness)
+   — the manoeuvre list is muted as "own progress" only when `confirmed`, and the disclosure note is
+   strengthened specifically for the unconfirmed-own case to say plainly that an edit here may not
+   affect the viewer's own seat. The ST edit control itself was deliberately left working even when
+   unconfirmed: STs can already edit any seat while browsing as reference (an existing, intentional
+   design this diff didn't change), so the actual defect was the misleading PRESENTATION, not the
+   write capability. Four new tests pin it (no muting when unconfirmed; the disclosure wording;
+   single-seat offices unaffected; the edit control still functions and targets the seat actually
+   named on screen). Prove-discriminated: reverting the `confirmed` guard fails exactly the new
+   "does NOT mute" test, restore confirmed clean.
+2. **[High, Pass 1] Migration `apply` could lose a concurrent update made after planning.**
+   `planMigration` and `applyMigration` are separate round-trips; a write landing on the same
+   category-keyed document between them would have its change silently discarded — either embedded
+   as a stale snapshot at the new seat id, or deleted out from under a newer value. Fixed with an
+   optimistic-concurrency guard (`unchangedSince`, keyed on `updated_at`, which both purchase routes
+   already set on every write) checked immediately before the insert AND immediately before the
+   delete: a document that changed since planning is left untouched and reported as `CHANGED` rather
+   than migrated, cleanly recoverable by re-running the script. Three new tests pin the primary
+   (pre-insert) guard: refusal with the stale snapshot never embedded, the log message, and that a
+   re-run afterward picks up the current value. The narrower post-insert/pre-delete window is
+   defense-in-depth using the identical guard; forcing that exact interleaving would need mocking the
+   collection to inject a write mid-call, judged disproportionate for a script one human runs once —
+   documented as such in the code rather than left unexplained. Prove-discriminated: reverting the
+   pre-insert guard fails exactly the 3 tests targeting it, restore confirmed clean.
+3. **[High, Pass 2] No safe documented deploy/migration cutover order.** Real finding about
+   operational sequencing, not a code defect: the new server code reads/writes only seat-keyed
+   documents, so a gap between deploying it and running the migration (or the reverse order) could
+   let an ST's edit during that window create a fresh seat-keyed document the later migration would
+   then treat as "already migrated," permanently stranding the real pre-migration value. Addressed
+   with an explicit, prominent operational warning in the migration script's own header (matching its
+   existing warning-block style) rather than runtime dual-schema compatibility code: both live
+   documents this migration would move currently hold nothing but `{ "Safe Place": 0 }` (re-confirmed
+   this round), so the actual current stakes of getting the order wrong are two zeroes re-typed by
+   hand — building read-compatibility code to eliminate a window around content that trivial would be
+   solving a problem this project does not have yet. The chosen, documented procedure: deploy, then
+   run the migration with `--apply` immediately, before any ST opens the affected tab sections. Logged
+   to `deferred-work.md` as a real, accepted-for-now risk to revisit if either collection ever holds
+   genuine purchase data before a future migration of this shape.
+4. **[Low, Pass 3a] Migration classified any 24-hex-shaped key as "already migrated" without
+   checking a real seat exists.** A shape-only check would silently wave through an orphaned document
+   (a real seat deleted after being keyed to it, or a hand-malformed record) as already done, leaving
+   it permanently unreachable. Fixed: `planMigration` now checks the key against the seats it actually
+   loaded, not just its shape, and refuses (reports, leaves untouched) a shape-valid-but-nonexistent
+   key under a new `refused-orphaned-seat-key` action, the same posture as the two existing refusal
+   categories. One new test pins it, using a syntactically valid but nonexistent ObjectId. Not
+   currently reachable live (no such orphan exists in either collection today), but a real,
+   independently checkable AC4 deviation regardless. Prove-discriminated: reverting the existence
+   check fails exactly that test, restore confirmed clean.
+5. **[Low, Pass 3a] The story's own "no em-dashes in any new comment or test description" line
+   overstated the real rule.** Checked against evidence before accepting: `CLAUDE.md`'s actual rule
+   scopes to app-authored strings and player-facing prose, not code comments; every prior oxp story's
+   own prose uses em-dashes extensively (oxp-1: 67, oxp-2: 97, oxp-11 itself: 15); and this diff's own
+   code comments follow that same established, pervasive convention throughout the codebase, including
+   in files this diff never touched. Dismissed as a finding against the CODE (144 em-dashes across new
+   and pre-existing comments/tests, none of it worth mass-editing to satisfy an inaccurate line), and
+   the story's own Project Structure Notes corrected instead to state the real, narrower rule.
+
+**Not a code defect, resolved by direct confirmation (2):**
+
+- **[Medium, Pass 3b] Claimed DB-backed totals and mutation counts could not be reproduced in
+  Codex's own sandbox** — its environment hit the same transient Mongo `EACCES` this project has
+  recorded repeatedly (otc-2/oaq-2/oxp-1/oxp-2/oxp-3/oxp-4). Resolved by re-running the full required
+  gate with working DB access this round: **188/188** across the six required files (up from the
+  reworked suites' pre-patch total, +8 for the new tests above), and **79/79** on the four-file
+  adjacent regression. The historical figures reproduce; Codex's own inability to verify them was
+  correctly labelled unverifiable-as-stated rather than asserted false, which is exactly right.
+- **[Low, Pass 3b] "Migration was never run against live" is a historical negative Codex's own review
+  could not independently prove.** Confirmed directly by this session: the migration script's
+  `--apply` flag was not invoked against `tm_suite` or `tm_suite_test` at any point during this review
+  round either — every verification here went through the vitest harness or read-only inspection.
+
+### Regression
+
+Required gate, re-run with working DB access after all patches (Codex's own environment had none):
+
+```
+cd server && npx vitest run tests/office-merit-dots.test.js tests/oxp-3-office-manoeuvre-rank.test.js tests/oxp-4-merit-persistence-handover.test.js tests/issue-1141-office-tab-render.test.js tests/oxp-11-office-purchase-seat-keying.test.js tests/oxp-2-derived-office-xp-calculation.test.js
+```
+
+- **188/188**, zero skipped, zero failed (6 files).
+- Four-file adjacent regression (`issue-823-test-db-guard`, `feature.691.hos-city-status-power`,
+  `issue-1141-office-data-sync`, `oaq-2-pending-status-actions`): **79/79**.
+- 5 patches, each prove-discriminated by single-change revert, restored and confirmed clean
+  (`git diff` empty on the reviewed source) before moving to the next.
+- Live `tm_suite` was not connected to or written to at any point in this review round. The migration
+  script's `--apply` was not invoked against anything.
+
 ## Change Log
 
 | Date | Change |
 |------|--------|
+| 2026-08-13 | CODE REVIEW COMPLETE, STORY DONE. External Codex review (3-pass, high effort, CLI-direct via `codex exec`): 3 High, 2 Medium, 3 Low. 5 patched — an own-office fallback that could silently mute and edit another holder's seat when `holder_id` is stale (now fails safe, edit control targets and discloses the resolved seat regardless); a migration plan/apply gap that could lose a concurrent write (now guarded by an `updated_at` optimistic-concurrency check before both the insert and the delete); no documented safe deploy/migration cutover order (addressed via a prominent operational warning in the script header, not runtime dual-schema code, given both live documents currently hold nothing but `{ "Safe Place": 0 }`); a migration classification gap that would silently treat an orphaned seat-shaped key as already migrated (now refused and reported); and the story's own overstated "no em-dashes in comments" line, dismissed against real codebase evidence and corrected. 2 findings resolved by direct confirmation rather than a code change: DB-backed totals Codex's own sandboxed environment could not verify (re-run here with working DB access: 188/188 required gate, 79/79 adjacent regression) and confirmation the migration script's `--apply` was not run against anything, this round either. All 5 patches prove-discriminated by single-change revert. 8 new tests. Live `tm_suite` never touched. |
 | 2026-08-13 | Implemented, status `ready-for-dev` -> `review`. All 10 ACs satisfied, all 34 subtasks complete. Both purchase collections re-keyed to seat, one shared resolver added at `server/lib/office-seat-resolve.js`, migration script written (dry-run default, refuses rather than guesses, NOT yet run against live `tm_suite`), client resolves one seat per render pass with a deterministic fallback and an on-screen disclosure for multi-seat offices. Four suites reworked, one added. 187 tests passed / 0 failed across the changed area, with `mongod` available so the DB-backed independence and handover proofs genuinely ran. Both load-bearing gates prove-discriminated by single-change mutation and revert. The pre-existing `oxp-1-office-seats.test.js` load failure is unchanged and untouched. The residual `holder_id` staleness dependency is recorded in the Dev Agent Record and written into oxp.5's sprint-status entry as a hard requirement; oxp.6's entry now carries the seat-picker limitation. |
 | 2026-08-13 | Story created. Scope settled directly with Angelus before ACs were written: full seat-keying migration rather than a multi-seat carve-out, and backend plus minimal client wiring only (no new seat-picker UI, which stays oxp.6's). Live data re-confirmed read-only: `office_merit_dots` still holds only `Enforcer` and `Head of State`, both single-seat and both containing exactly `{ "Safe Place": 0 }`; `office_manoeuvre_ranks` is still empty; all 7 seats still match a character by `holder_id`. The "seat-keying preserves oxp.4's handover guarantee" reasoning was checked and holds server-side, but analysis surfaced a genuinely new client-side dependency on `office_seats.holder_id`, which nothing currently maintains, making "oxp.5 must write `holder_id` on a handover" a stated requirement of oxp.5 and motivating AC6's fallback disclosure. Analysis also found a fourth affected test suite the original scoping did not name: `oxp-4-merit-persistence-handover.test.js`. |

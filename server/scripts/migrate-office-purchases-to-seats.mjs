@@ -23,6 +23,38 @@
  *   survivable is the DRY-RUN DEFAULT: without `--apply` this only reads, and
  *   prints exactly what it would do.
  *
+ * ==========================================================================
+ *   RUN THIS IMMEDIATELY AFTER DEPLOYING oxp.11 — NOT BEFORE, NOT LATER.
+ * ==========================================================================
+ *
+ *   (Codex review, 2026-08-13.) The deployed server code (this migration's own
+ *   sibling routes) reads and writes ONLY seat-keyed documents; the OLD
+ *   category-keyed routes this PR removes no longer exist once it is live. If
+ *   this script has not yet run, `GET /api/office_merit_dots` and
+ *   `GET /api/office_manoeuvre_rank` will show the two existing purchases
+ *   (Enforcer, Head of State) as unpurchased, and an ST editing either during
+ *   that gap creates a NEW seat-keyed document from scratch — which this
+ *   script, once it does run, will then see as already-migrated and leave
+ *   alone, silently stranding the real pre-migration values under their old
+ *   category key forever.
+ *
+ *   There is no code-level guard against this: it is a real live-deploy
+ *   ordering hazard, not a hypothetical one, and it is accepted here
+ *   deliberately rather than built around, because both live documents this
+ *   migration would move currently hold nothing but `{"Safe Place": 0}` — the
+ *   entire real stakes of getting the order wrong, right now, is re-typing
+ *   two zeroes by hand. Building dual-schema read compatibility to eliminate
+ *   an ordering window around content that trivial would be solving a problem
+ *   this project does not have yet. Revisit this note if either collection
+ *   ever holds real purchase data before a future migration of this shape.
+ *
+ *   The procedure that keeps the window as small as it can be: deploy this
+ *   PR, then run this script with `--apply` right away, before any ST opens
+ *   the Office tab's Merit Suite or Manoeuvres section. Do not run it before
+ *   deploying (the not-yet-deployed old code would then see nothing for
+ *   Enforcer/Head of State and could recreate the same stale-category
+ *   problem from the other direction).
+ *
  * Usage, from `server/` so that cwd-relative `dotenv/config` picks up
  * `server/.env`:
  *
@@ -61,6 +93,20 @@
  * upsert with `$setOnInsert`, so two overlapping runs cannot both decide the
  * seat-keyed document is missing and both create it, and the match branch
  * writes nothing at all rather than clobbering a live value.
+ *
+ * CONCURRENT MODIFICATION (Codex review, 2026-08-13): `planMigration` reads
+ * every category-keyed document once, up front. If the live app writes to
+ * one of those SAME documents (a normal PUT through the old category-keyed
+ * route) before `applyMigration` reaches that row, the plan's snapshot is
+ * now stale. Both the insert and the delete are therefore guarded on an
+ * `updated_at` match against that snapshot: if the live document has moved
+ * on, NOTHING is written for that row (reported as `CHANGED`, not silently
+ * skipped) rather than embedding a stale value at the new seat id or
+ * deleting a newer one out from under it. Re-running the script picks up
+ * whatever is current. In the narrower window between the insert and the
+ * delete, a `WARNING` (not `CHANGED`) is logged instead, because by then the
+ * seat-keyed copy already exists and "leave it untouched" is no longer a
+ * safe option — that case needs a human to reconcile the two documents.
  */
 
 import 'dotenv/config';
@@ -71,9 +117,15 @@ import { connectDb, getCollection, closeDb } from '../db.js';
 export const PURCHASE_COLLECTIONS = ['office_merit_dots', 'office_manoeuvre_ranks'];
 
 /**
- * A document `_id` that is already a seat id: `String(ObjectId)`'s own shape.
- * No office category is 24 hexadecimal characters long, so this is an
- * unambiguous test for "already migrated".
+ * A document `_id` shaped like a seat id: `String(ObjectId)`'s own form. No
+ * office category is 24 hexadecimal characters long, so the SHAPE alone is
+ * unambiguous evidence the key is not a category — but shape alone is not
+ * evidence the seat it names still exists (Codex review, oxp.11: an orphaned
+ * document — a real seat deleted after this collection was keyed to it, or a
+ * hand-malformed record — would match this pattern and be classified as
+ * already migrated, when there is in fact no real seat backing it at all).
+ * `planMigration` below checks BOTH: the shape, via this pattern, and real
+ * existence, against the seats it actually loaded.
  */
 const SEAT_KEY = /^[0-9a-fA-F]{24}$/;
 
@@ -96,7 +148,9 @@ export async function planMigration(purchaseCollection, seatsCollection) {
 
   const seats = await seatsCollection.find({}).toArray();
   const byCategory = new Map();
+  const realSeatIds = new Set();
   for (const seat of seats) {
+    realSeatIds.add(String(seat._id));
     const cat = seat && seat.office_category;
     if (!cat) continue;
     if (!byCategory.has(cat)) byCategory.set(cat, []);
@@ -108,7 +162,17 @@ export async function planMigration(purchaseCollection, seatsCollection) {
     const key = String(doc._id);
 
     if (SEAT_KEY.test(key)) {
-      rows.push({ key, action: 'already-seat-keyed' });
+      if (realSeatIds.has(key)) {
+        rows.push({ key, action: 'already-seat-keyed' });
+      } else {
+        // Shaped like a seat id, but no office_seats document has it. A real
+        // seat deleted out from under this purchase document, or a hand-
+        // malformed record — either way, silently calling this "migrated" and
+        // moving on would leave an unreachable orphan with no seat to belong
+        // to. Refuse it the same way an ambiguous or seatless CATEGORY is
+        // refused: report it, touch nothing, let a human decide.
+        rows.push({ key, action: 'refused-orphaned-seat-key' });
+      }
       continue;
     }
 
@@ -125,12 +189,31 @@ export async function planMigration(purchaseCollection, seatsCollection) {
 }
 
 /**
+ * Build a filter that matches `doc`'s row ONLY if the collection's live copy
+ * is still exactly what was captured at plan time — an optimistic-concurrency
+ * guard keyed on `updated_at`, which both purchase routes set on every write
+ * (Codex review, oxp.11: `planMigration` and `applyMigration` are separate
+ * round-trips, so a write landing between them must never be silently
+ * discarded by inserting a stale snapshot or deleting a newer value under
+ * it). A document that somehow predates `updated_at` entirely is matched by
+ * its absence, not by a guessed value.
+ *
+ * @param {object} doc - the row's plan-time snapshot (`row.doc`)
+ * @returns {object} a MongoDB filter fragment
+ */
+function unchangedSince(doc) {
+  return Object.prototype.hasOwnProperty.call(doc, 'updated_at')
+    ? { updated_at: doc.updated_at }
+    : { updated_at: { $exists: false } };
+}
+
+/**
  * Carry out (or, by default, merely narrate) the plan.
  *
  * @param {import('mongodb').Collection} purchaseCollection
  * @param {Array<object>} rows - the output of `planMigration`
  * @param {{ apply?: boolean, log?: Function }} opts
- * @returns {Promise<{migrated:number, recovered:number, deleted:number, refused:number, alreadySeatKeyed:number}>}
+ * @returns {Promise<{migrated:number, recovered:number, deleted:number, refused:number, alreadySeatKeyed:number, changedSincePlan:number}>}
  */
 export async function applyMigration(purchaseCollection, rows, { apply = false, log = () => {} } = {}) {
   let migrated = 0;
@@ -138,6 +221,7 @@ export async function applyMigration(purchaseCollection, rows, { apply = false, 
   let deleted = 0;
   let refused = 0;
   let alreadySeatKeyed = 0;
+  let changedSincePlan = 0;
 
   for (const row of rows) {
     if (row.action === 'already-seat-keyed') {
@@ -156,9 +240,27 @@ export async function applyMigration(purchaseCollection, rows, { apply = false, 
           'A human must decide which seat this purchase state belongs to. Left untouched.');
       continue;
     }
+    if (row.action === 'refused-orphaned-seat-key') {
+      refused += 1;
+      log(`  REFUSED  : ${row.key} is shaped like a seat id, but no office_seats document has it. ` +
+          'Left untouched; confirm whether the seat was really deleted, or the key is malformed.');
+      continue;
+    }
 
     if (!apply) {
       log(`  [DRY RUN] would migrate '${row.category}' -> seat ${row.seatId}`);
+      continue;
+    }
+
+    // Re-check the source is still exactly what planMigration captured,
+    // BEFORE writing anything. A concurrent PUT to the category-keyed
+    // document between planning and this point must never have its change
+    // silently discarded by embedding the stale snapshot at the new seat id.
+    const stillCurrent = await purchaseCollection.findOne({ _id: row.key, ...unchangedSince(row.doc) });
+    if (!stillCurrent) {
+      changedSincePlan += 1;
+      log(`  CHANGED  : '${row.category}' was modified after this migration planned its move. ` +
+          'Left untouched. Re-run to pick up the current value.');
       continue;
     }
 
@@ -181,13 +283,31 @@ export async function applyMigration(purchaseCollection, rows, { apply = false, 
           `Kept it as-is; clearing the stale '${row.category}' document.`);
     }
 
-    // Delete second, so an interruption between the two leaves BOTH documents
-    // rather than neither.
-    const del = await purchaseCollection.deleteOne({ _id: row.key });
-    deleted += del.deletedCount;
+    // Delete second, guarded the SAME way as the pre-insert check above, so a
+    // write landing in the (much smaller) gap between the insert and this
+    // delete is also caught, not just one landing before the insert.
+    const del = await purchaseCollection.deleteOne({ _id: row.key, ...unchangedSince(row.doc) });
+    if (del.deletedCount === 1) {
+      deleted += 1;
+    } else {
+      // The insert already happened by this point, so "leave it untouched"
+      // is no longer available — both documents now exist. Report loudly
+      // rather than silently, since this needs a human to reconcile.
+      //
+      // This branch is real defense-in-depth for the (much narrower) window
+      // between the insert above and this delete, not the primary guard —
+      // the pre-insert check earlier in this function is what actually
+      // catches an ordinary concurrent write, and is what this file's own
+      // test suite exercises directly. Forcing THIS specific window would
+      // need mocking the collection to interleave a write mid-call, which
+      // is disproportionate for a script one human runs once, by hand.
+      changedSincePlan += 1;
+      log(`  WARNING  : '${row.category}' changed after being copied to seat ${row.seatId} but before ` +
+          'the old document could be removed. BOTH documents now exist; reconcile them by hand.');
+    }
   }
 
-  return { migrated, recovered, deleted, refused, alreadySeatKeyed };
+  return { migrated, recovered, deleted, refused, alreadySeatKeyed, changedSincePlan };
 }
 
 export async function main(argv = process.argv) {
@@ -205,7 +325,7 @@ export async function main(argv = process.argv) {
     console.log(`office_seats holds ${seatCount} seat(s).`);
     console.log('');
 
-    const totals = { migrated: 0, recovered: 0, deleted: 0, refused: 0, alreadySeatKeyed: 0 };
+    const totals = { migrated: 0, recovered: 0, deleted: 0, refused: 0, alreadySeatKeyed: 0, changedSincePlan: 0 };
 
     for (const name of PURCHASE_COLLECTIONS) {
       const collection = getCollection(name);
@@ -228,7 +348,7 @@ export async function main(argv = process.argv) {
     console.log(
       `Totals: ${totals.migrated} migrated, ${totals.recovered} recovered, ` +
       `${totals.deleted} stale document(s) cleared, ${totals.refused} refused, ` +
-      `${totals.alreadySeatKeyed} already seat-keyed.`
+      `${totals.alreadySeatKeyed} already seat-keyed, ${totals.changedSincePlan} changed since planning.`
     );
     if (apply) {
       console.log('Idempotency check: re-run with --apply and confirm "0 migrated".');
@@ -239,6 +359,11 @@ export async function main(argv = process.argv) {
       console.log('');
       console.log('One or more documents were REFUSED and left exactly as they were.');
       console.log('Nothing about them has changed. Decide what should happen to each, by hand.');
+    }
+    if (totals.changedSincePlan > 0) {
+      console.log('');
+      console.log('One or more documents changed while this migration was running.');
+      console.log('Re-run to pick up the current value; see the CHANGED/WARNING lines above for detail.');
     }
   } finally {
     await closeDb();

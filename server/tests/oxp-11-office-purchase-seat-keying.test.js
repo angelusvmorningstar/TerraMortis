@@ -426,6 +426,25 @@ describe.skipIf(!dbAvailable)('oxp.11 AC4 — migrate-office-purchases-to-seats'
     expect((await merits().findOne({ _id: ENF })).dots).toEqual({ 'Safe Place': 1 });
   });
 
+  it('Codex review, oxp.11 (Low): REFUSES a seat-shaped key with no real seat behind it, rather than calling it migrated', async () => {
+    // 24 hex characters, exactly a real ObjectId's shape, but no office_seats
+    // document has this id — the seat was deleted, or the record is
+    // hand-malformed. Either way it must not be silently waved through.
+    const orphan = 'aaaaaaaaaaaaaaaaaaaaaaaa';
+    await merits().insertOne({ _id: orphan, dots: { 'Safe Place': 1 }, updated_at: 'x' });
+
+    const rows = await planMigration(merits(), seats());
+    expect(rows[0].action).toBe('refused-orphaned-seat-key');
+    expect(rows[0].key).toBe(orphan);
+
+    const summary = await applyMigration(merits(), rows, { apply: true });
+    expect(summary.migrated).toBe(0);
+    expect(summary.alreadySeatKeyed).toBe(0);
+    expect(summary.refused).toBe(1);
+    // Untouched — still exactly where and what it was.
+    expect((await merits().findOne({ _id: orphan })).dots).toEqual({ 'Safe Place': 1 });
+  });
+
   it('is idempotent: a second --apply run reports zero migrated and changes nothing', async () => {
     await merits().insertOne({ _id: 'Enforcer', dots: { 'Safe Place': 2 }, updated_at: 'first' });
 
@@ -455,6 +474,68 @@ describe.skipIf(!dbAvailable)('oxp.11 AC4 — migrate-office-purchases-to-seats'
     expect(survivor.dots).toEqual({ 'Safe Place': 5 });
     expect(survivor.updated_at).toBe('new');
     expect(await merits().findOne({ _id: 'Enforcer' })).toBeNull();
+  });
+
+  // ───────────────────────────────────────────────────────────────────────
+  // Codex review, oxp.11 (High): planMigration and applyMigration are
+  // separate round-trips. A write landing on the SAME category-keyed
+  // document between them must never be silently discarded.
+  // ───────────────────────────────────────────────────────────────────────
+
+  it('refuses to migrate a document that changed after planning, rather than embedding the stale snapshot', async () => {
+    await merits().insertOne({ _id: 'Enforcer', dots: { 'Safe Place': 0 }, updated_at: 'plan-time' });
+
+    const rows = await planMigration(merits(), seats());
+    expect(rows[0].action).toBe('will-migrate');
+
+    // A concurrent write lands after planning captured its snapshot — the
+    // real app's own PUT route would do exactly this to the old category
+    // key, since the migration has not run yet.
+    await merits().updateOne({ _id: 'Enforcer' }, { $set: { dots: { 'Safe Place': 3 }, updated_at: 'concurrent-write' } });
+
+    const summary = await applyMigration(merits(), rows, { apply: true });
+
+    expect(summary.migrated).toBe(0);
+    expect(summary.deleted).toBe(0);
+    expect(summary.changedSincePlan).toBe(1);
+
+    // The newer value survives, under its ORIGINAL key — not silently
+    // dropped, and not moved with the stale dots count that would have lost
+    // the concurrent write.
+    const stillThere = await merits().findOne({ _id: 'Enforcer' });
+    expect(stillThere.dots).toEqual({ 'Safe Place': 3 });
+    expect(stillThere.updated_at).toBe('concurrent-write');
+    // Nothing was created under the seat id — a stale snapshot must never
+    // reach the new location at all.
+    expect(await merits().findOne({ _id: ENF })).toBeNull();
+  });
+
+  it('a document that changed since planning is reported via the log, distinctly from a refusal', async () => {
+    await merits().insertOne({ _id: 'Enforcer', dots: {}, updated_at: 'plan-time' });
+    const rows = await planMigration(merits(), seats());
+    await merits().updateOne({ _id: 'Enforcer' }, { $set: { updated_at: 'concurrent-write' } });
+
+    const lines = [];
+    await applyMigration(merits(), rows, { apply: true, log: msg => lines.push(msg) });
+
+    expect(lines.some(l => l.includes('CHANGED') && l.includes('Enforcer'))).toBe(true);
+    expect(lines.some(l => l.includes('REFUSED'))).toBe(false);
+  });
+
+  it('re-running after a changed-since-plan refusal migrates the NOW-current value', async () => {
+    await merits().insertOne({ _id: 'Enforcer', dots: { 'Safe Place': 0 }, updated_at: 'plan-time' });
+    const staleRows = await planMigration(merits(), seats());
+    await merits().updateOne({ _id: 'Enforcer' }, { $set: { dots: { 'Safe Place': 4 }, updated_at: 'concurrent-write' } });
+    await applyMigration(merits(), staleRows, { apply: true });
+
+    // A fresh plan/apply pass, exactly what re-running the script does.
+    const freshRows = await planMigration(merits(), seats());
+    const summary = await applyMigration(merits(), freshRows, { apply: true });
+
+    expect(summary.migrated).toBe(1);
+    const moved = await merits().findOne({ _id: ENF });
+    expect(moved.dots).toEqual({ 'Safe Place': 4 });
+    expect(moved.updated_at).toBe('concurrent-write');
   });
 
   it('handles an empty collection as a clean, reported outcome — office_manoeuvre_ranks is empty live', async () => {

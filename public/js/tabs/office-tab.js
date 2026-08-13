@@ -238,14 +238,24 @@ async function _wirePurchaseState(el, char, category, data, isOwnOffice) {
         ? forCategory.find(s => s.holder_id != null && String(s.holder_id) === String(char._id))
         : null;
       const seat = held || _fallbackSeat(forCategory);
+      // Codex review, oxp.11: a single-seat category has exactly one candidate,
+      // so the fallback is provably that seat regardless of whether holder_id
+      // matched — nothing was ever ambiguous there. A multi-seat category with
+      // no holder match is genuinely uncertain: office_seats.holder_id is not
+      // kept current by anything yet (oxp.5's job), so an own-office view can
+      // silently fall back to a DIFFERENT holder's seat. `confirmed` is what
+      // tells the manoeuvre list whether it is safe to present as the viewer's
+      // own progress — see _wireManoeuvreRank.
+      const confirmed = held != null || forCategory.length === 1;
       outcome = {
         status: 'ok',
         seatId: String(seat._id),
+        confirmed,
         // AC6: only disclose when there is genuinely something to disclose. For
         // a single-seat office the fallback cannot be wrong, so a label would
         // be noise; for a multi-seat one it is the difference between an ST
         // knowing which Primogen they are editing and not.
-        note: forCategory.length > 1 ? _seatNote(seat) : null,
+        note: forCategory.length > 1 ? _seatNote(seat, isOwnOffice && !confirmed) : null,
       };
     }
   }
@@ -272,9 +282,20 @@ function _fallbackSeat(seats) {
 /** AC6: names the seat whose purchase state is on screen. A label if the seat
  *  has one (Socialite's two do: 'Harpy' and "People's Harpy"), otherwise a
  *  short form of its id, because Primogen's two seats have neither a label nor
- *  any other distinguishing field. */
-function _seatNote(seat) {
+ *  any other distinguishing field.
+ *
+ *  Codex review, oxp.11: `unconfirmedOwn` is true only for an own-office view
+ *  that could not match the viewer's own character by holder_id, in a
+ *  multi-seat category — the case where the resolved seat may genuinely NOT be
+ *  the viewer's. The wording says so plainly, because the manoeuvre list is no
+ *  longer muted as "yours" in that case (see _wireManoeuvreRank) but the merit
+ *  suite and any edit control still act on the seat named here, own or not. */
+function _seatNote(seat, unconfirmedOwn) {
   const label = seat.seat_label ? String(seat.seat_label) : `seat ${String(seat._id).slice(-6)}`;
+  if (unconfirmedOwn) {
+    return `Could not confirm which of this office's seats is yours. Showing: ${label}. `
+      + 'Any edit here affects that seat, which may not be your own.';
+  }
   return `This office has more than one seat. Showing: ${label}.`;
 }
 
@@ -438,7 +459,17 @@ async function _wireManoeuvreRank(el, outcome, manoeuvres, isOwnOffice, gen) {
 
   // Muting is own-office only — the reference view's markup never gains the
   // class, whatever the stored rank.
-  if (isOwnOffice && listEl) {
+  //
+  // Codex review, oxp.11: also requires outcome.confirmed. Muting presents the
+  // list as the viewer's OWN purchased progress. When the own-office holder
+  // match failed and the resolved seat is only a deterministic fallback (a
+  // multi-seat category with no confirmed holder), that presentation would be
+  // a real lie, not just an unhelpful one — it could be a different holder's
+  // seat entirely. Leaving the list at its unmuted first-render markup (see
+  // renderOfficeTab, which passes a null rank there) is the same safe state a
+  // reference viewer already sees, and _seatNote's unconfirmedOwn wording
+  // (rendered into the mount below regardless) is what discloses the gap.
+  if (isOwnOffice && outcome.confirmed && listEl) {
     listEl.innerHTML = manoeuvreListHtml(manoeuvres, rank, true);
   }
 

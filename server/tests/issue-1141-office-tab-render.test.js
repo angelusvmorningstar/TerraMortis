@@ -394,6 +394,13 @@ describe('issue-1141 — office-tab.js render-level regressions', () => {
     // An ST browsing Primogen as reference: holds Enforcer, so no Primogen seat
     // matches them by holder and the deterministic fallback has to decide.
     const REF_ST = { _id: 'enforcer-holder', name: 'Einar Solveig', court_category: 'Enforcer', court_title: 'Enforcer' };
+    // Codex review, oxp.11: a character whose court_category IS Primogen (so
+    // isOwnOffice is true) but who holds NEITHER seat by office_seats.holder_id
+    // — the exact gap the story's own Dev Notes name: nothing keeps holder_id
+    // current, so a real handover can leave this character believing this is
+    // their own confirmed office when the fallback resolves to someone else's
+    // seat entirely.
+    const STALE_PRIMOGEN = { _id: 'new-primogen-holder', name: 'A New Primogen', court_category: 'Primogen', court_title: 'Primogen' };
 
     // oxp.11: the tab resolves a SEAT before it can read or write purchase
     // state, so every fetch stub in this block has to serve /api/office_seats
@@ -684,6 +691,84 @@ describe('issue-1141 — office-tab.js render-level regressions', () => {
       for (const sel of ['[data-office-merit-mount]', '[data-office-manoeuvre-rank-mount]']) {
         expect(el.querySelector(sel).innerHTML, sel).not.toContain('more than one seat');
       }
+    });
+
+    // ─────────────────────────────────────────────────────────────────────
+    // Codex review, oxp.11 (High): own-office view whose holder match fails
+    // in a multi-seat category must never present the fallback seat's state
+    // as the viewer's own confirmed progress.
+    // ─────────────────────────────────────────────────────────────────────
+
+    it('an unconfirmed own-office view does NOT mute the manoeuvre list as the viewer\'s own progress', async () => {
+      setRole('st');
+      // STALE_PRIMOGEN's court_category is Primogen (isOwnOffice true), but its
+      // _id matches neither seat's holder_id — the exact gap this fix closes.
+      stubFetch();
+
+      const el = fakeRoot();
+      renderOfficeTab(el, STALE_PRIMOGEN, [STALE_PRIMOGEN], 'Primogen');
+      await flush();
+
+      const listHtml = el.querySelector('.office-manoeuvre-list').innerHTML;
+      // Rank 2 exists on the fallback seat's document via RANKS[SEAT_P_YUSUF]
+      // only, not on the fallback's own — but even if it did, an unconfirmed
+      // own view must never carry the muted class at all.
+      expect(listHtml).not.toContain(MUTED);
+    });
+
+    it('an unconfirmed own-office view discloses that the resolved seat may not be the viewer\'s', async () => {
+      setRole('st');
+      stubFetch();
+
+      const el = fakeRoot();
+      renderOfficeTab(el, STALE_PRIMOGEN, [STALE_PRIMOGEN], 'Primogen');
+      await flush();
+
+      for (const sel of ['[data-office-merit-mount]', '[data-office-manoeuvre-rank-mount]']) {
+        const html = el.querySelector(sel).innerHTML;
+        expect(html, sel).toContain('Could not confirm which of this office\'s seats is yours');
+        expect(html, sel).toContain('may not be your own');
+      }
+    });
+
+    it('the ST edit control still exists on an unconfirmed own-office view (reference offices are already ST-editable by design)', async () => {
+      setRole('st');
+      const calls = stubFetch();
+
+      const el = fakeRoot();
+      renderOfficeTab(el, STALE_PRIMOGEN, [STALE_PRIMOGEN], 'Primogen');
+      await flush();
+
+      const upBtn = el.querySelector('[data-office-manoeuvre-rank-mount]')
+        .querySelectorAll('[data-manoeuvre-rank-up]')[0];
+      expect(upBtn).toBeTruthy();
+      upBtn.click();
+      await flush();
+
+      // The write targets whichever seat was actually resolved (the fallback,
+      // named in the disclosure note above) — never silently dropped, and
+      // never redirected to a seat the client cannot identify.
+      expect(calls).toHaveLength(1);
+      expect(calls[0].url).toContain(`/api/office_manoeuvre_rank/${SEAT_P_FALLBACK}/step`);
+    });
+
+    it('a single-seat office is unaffected — the fallback is provably correct with only one candidate, so it still mutes as own', async () => {
+      setRole('st');
+      stubFetch();
+
+      const el = fakeRoot();
+      // REF_ST's own office (Enforcer) has exactly one seat. No holder_id was
+      // set on it (SEATS' Enforcer entry is deliberately vacant), yet a single
+      // candidate is never ambiguous — confirmed must still be true.
+      renderOfficeTab(el, REF_ST, [REF_ST], 'Enforcer');
+      await flush();
+
+      // Rank 5 on SEAT_ENFORCER means all five manoeuvres are purchased, so
+      // muting would show no MUTED class either way — assert the ABSENCE of
+      // the unconfirmed-own disclosure instead, which is the actual
+      // regression this test guards against.
+      const html = el.querySelector('[data-office-manoeuvre-rank-mount]').innerHTML;
+      expect(html).not.toContain('Could not confirm which of this office\'s seats is yours');
     });
 
     it('AC6: the note never reaches a non-ST reference viewer\'s manoeuvre mount (oxp.3 AC2 boundary)', async () => {
