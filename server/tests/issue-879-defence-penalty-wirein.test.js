@@ -87,8 +87,19 @@ describe('#879 — equipment-derivation.js module shape', () => {
   });
 
   it('filters by state === \'worn\' (positive predicate, not !==)', () => {
-    expect(src).toMatch(/item\.state\s*!==\s*['"]worn['"]/);
-    expect(src).not.toMatch(/item\.state\s*===\s*['"]stashed['"]/);
+    // EQC-2 review patch (#1153): scoped to armourDefencePenalty's OWN
+    // function body, not the whole module source. The original whole-file
+    // regex assumed no code anywhere in this module would ever check
+    // `state === 'stashed'` literally - an assumption EQC-2's new
+    // equipmentLocationLabel (a different function, checking a DIFFERENT
+    // predicate for a DIFFERENT purpose) correctly breaks. The test's real
+    // intent - armourDefencePenalty itself uses a positive `worn` check, not
+    // a negative `stashed` exclusion - is preserved by scoping to it.
+    const fnStart = src.indexOf('export function armourDefencePenalty');
+    const fnEnd = src.indexOf('\nexport function', fnStart + 1);
+    const fnBody = src.slice(fnStart, fnEnd > -1 ? fnEnd : undefined);
+    expect(fnBody).toMatch(/item\.state\s*!==\s*['"]worn['"]/);
+    expect(fnBody).not.toMatch(/item\.state\s*===\s*['"]stashed['"]/);
   });
 
   it('filters by bucket === \'combat_gear\' AND isCombatGearArmourShaped(entry) (EQC-1 #1152: armour merged into combat_gear, distinguished by populated stat fields; review patch broadened the single-field check to an OR-of-fields shared predicate)', () => {
@@ -451,5 +462,71 @@ describe('#879 — defenceMechanicalBase (export-site helper)', () => {
     const result = mod.defenceMechanicalBase(c, mkLookup(items));
     expect(result).toBe(Math.max(0, accessors.calcDefence(c) - 2));
     expect(result).not.toBe(99);
+  });
+});
+
+describe('#1153 EQC-2 — isEquipmentOnMe (on-me vs owned-elsewhere)', () => {
+  it('true for carried, worn, active', async () => {
+    if (typeof globalThis.location === 'undefined') globalThis.location = { hostname: '' };
+    const mod = await import('../../public/js/data/equipment-derivation.js');
+    expect(mod.isEquipmentOnMe({ state: 'carried' })).toBe(true);
+    expect(mod.isEquipmentOnMe({ state: 'worn' })).toBe(true);
+    expect(mod.isEquipmentOnMe({ state: 'active' })).toBe(true);
+  });
+
+  it('false for stashed and lost', async () => {
+    if (typeof globalThis.location === 'undefined') globalThis.location = { hostname: '' };
+    const mod = await import('../../public/js/data/equipment-derivation.js');
+    expect(mod.isEquipmentOnMe({ state: 'stashed' })).toBe(false);
+    expect(mod.isEquipmentOnMe({ state: 'lost' })).toBe(false);
+  });
+
+  it('false for a null/undefined item, never throws', async () => {
+    if (typeof globalThis.location === 'undefined') globalThis.location = { hostname: '' };
+    const mod = await import('../../public/js/data/equipment-derivation.js');
+    expect(mod.isEquipmentOnMe(null)).toBe(false);
+    expect(mod.isEquipmentOnMe(undefined)).toBe(false);
+  });
+
+  it('AC #4: "on me" (carried) is independent of "bonus currently active" (worn) for armour — a carried-but-unworn item is on you but grants no AR', async () => {
+    if (typeof globalThis.location === 'undefined') globalThis.location = { hostname: '' };
+    const mod = await import('../../public/js/data/equipment-derivation.js');
+    const items = [{ _id: 'arm1', bucket: 'combat_gear', armour_value: 1, defence_penalty: 3 }];
+    const c = mkChar({ equipment: [{ catalogue_id: 'arm1', state: 'carried' }] });
+    // On you (carried counts for isEquipmentOnMe)...
+    expect(mod.isEquipmentOnMe(c.equipment[0])).toBe(true);
+    // ...but armourDefencePenalty's own worn-only gating is completely
+    // unaffected by this story — a carried-not-worn breastplate grants 0 AR.
+    expect(mod.armourDefencePenalty(c, mkLookup(items))).toBe(0);
+  });
+});
+
+describe('#1153 EQC-2 review patch — equipmentLocationLabel (Codex external review Low finding)', () => {
+  it("returns 'On you' for carried/worn/active", async () => {
+    if (typeof globalThis.location === 'undefined') globalThis.location = { hostname: '' };
+    const mod = await import('../../public/js/data/equipment-derivation.js');
+    expect(mod.equipmentLocationLabel({ state: 'carried' })).toBe('On you');
+    expect(mod.equipmentLocationLabel({ state: 'worn' })).toBe('On you');
+    expect(mod.equipmentLocationLabel({ state: 'active' })).toBe('On you');
+  });
+
+  it("returns 'Stored elsewhere' for the ONE known elsewhere state, stashed", async () => {
+    if (typeof globalThis.location === 'undefined') globalThis.location = { hostname: '' };
+    const mod = await import('../../public/js/data/equipment-derivation.js');
+    expect(mod.equipmentLocationLabel({ state: 'stashed' })).toBe('Stored elsewhere');
+  });
+
+  it('returns null (no label) for lost — the item is gone, not "elsewhere"', async () => {
+    if (typeof globalThis.location === 'undefined') globalThis.location = { hostname: '' };
+    const mod = await import('../../public/js/data/equipment-derivation.js');
+    expect(mod.equipmentLocationLabel({ state: 'lost' })).toBeNull();
+  });
+
+  it('returns null (fails safe, no unsupported claim) for a missing or unrecognised state — the exact bug the review found', async () => {
+    if (typeof globalThis.location === 'undefined') globalThis.location = { hostname: '' };
+    const mod = await import('../../public/js/data/equipment-derivation.js');
+    expect(mod.equipmentLocationLabel({ state: 'teleported' })).toBeNull();
+    expect(mod.equipmentLocationLabel({})).toBeNull();
+    expect(mod.equipmentLocationLabel(null)).toBeNull();
   });
 });

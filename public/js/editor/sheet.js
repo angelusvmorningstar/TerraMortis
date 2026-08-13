@@ -16,7 +16,7 @@ import { calcHealth, calcWillpowerMax, calcSize, calcSpeed, calcDefence } from '
 //
 // wornArmourCount drives the >1 worn armour editor hint (ADR-006 D2 + Concern
 // #8, wording locked).
-import { defenceForDisplay, wornArmourCount, effectiveAvailability, isCombatGearWeaponShaped, isCombatGearArmourShaped } from '../data/equipment-derivation.js';
+import { defenceForDisplay, wornArmourCount, effectiveAvailability, isCombatGearWeaponShaped, isCombatGearArmourShaped, equipmentLocationLabel } from '../data/equipment-derivation.js';
 import { xpToDots, xpEarned, xpSpent, xpLeft, xpStarting, xpHumanityDrop, xpOrdeals, xpGame, xpPT5, xpSpentAttrs, xpSpentSkills, xpSpentMerits, xpSpentPowers, xpSpentSpecial, setDevotionsDB, meritBdRow, meritRating } from './xp.js';
 // OATH-A (#1111): the pledge editor needs to know whether a merit is a
 // Swear By oath and what its requirement resolves to. edit-domain.js owns
@@ -2587,6 +2587,16 @@ export function shRenderEquipment(c, editMode) {
   const WPNTYPE      = { melee: 'Melee', ranged: 'Ranged', thrown: 'Thrown' };
   const cycleLabel   = n  => n === 0 ? 'Pre-campaign' : `Cycle ${n}`;
   const stateChip    = st => `<span class="gen-granted-tag-view">${STATE_LABELS[st] || st}</span>`;
+  // EQC-2 (issue #1153, epic #1038): "on me" (bonus applies in game) vs
+  // "owned but elsewhere" (available in downtime only) — the epic's own
+  // display distinction. Rendered as a muted trait-qual fragment (this
+  // renderer's existing convention for secondary info, e.g. item.notes)
+  // rather than a second competing pill beside the state chip.
+  // EQC-2 review patch (#1153, Codex external review Low finding): the
+  // label logic itself now lives in equipmentLocationLabel
+  // (equipment-derivation.js), not a local closure here, so it's directly
+  // unit-testable — this alias just keeps the call sites below unchanged.
+  const locationLabel = equipmentLocationLabel;
 
   let h = '<div class="sh-sec"><div class="sh-sec-title">Equipment</div><div class="merit-list">';
 
@@ -2622,6 +2632,7 @@ export function shRenderEquipment(c, editMode) {
         DMGTYPE[entry.damage_type] || entry.damage_type || null,
         WPNTYPE[entry.weapon_type] || entry.weapon_type || null,
         eff != null ? `avail ${eff}` : null,
+        locationLabel(item),
       ].filter(Boolean);
       const qual   = parts.join(' · ');
       const rmBtn  = editMode ? `<button class="sk-spec-rm" style="float:right;margin-top:2px" onclick="shRemoveEquip(${idx})" title="Remove">× Remove</button>` : '';
@@ -2652,6 +2663,7 @@ export function shRenderEquipment(c, editMode) {
         entry.armour_value    != null ? `AR ${entry.armour_value}` : null,
         entry.defence_penalty != null ? `Defence ${baseDefence}(${baseDefence - entry.defence_penalty})` : null,
         eff != null ? `avail ${eff}` : null,
+        locationLabel(item),
       ].filter(Boolean);
       const qual  = parts.join(' · ');
       const rmBtn = editMode ? `<button class="sk-spec-rm" style="float:right;margin-top:2px" onclick="shRemoveEquip(${idx})" title="Remove">× Remove</button>` : '';
@@ -2669,7 +2681,7 @@ export function shRenderEquipment(c, editMode) {
     for (const { item, entry, idx } of combatOther) {
       const name  = entry.name || item.catalogue_id;
       const eff   = entry.availability != null ? effectiveAvailability(entry, c) : null;
-      const qual  = eff != null ? `avail ${eff}` : '';
+      const qual  = [eff != null ? `avail ${eff}` : null, locationLabel(item)].filter(Boolean).join(' · ');
       const rmBtn = editMode ? `<button class="sk-spec-rm" style="float:right;margin-top:2px" onclick="shRemoveEquip(${idx})" title="Remove">× Remove</button>` : '';
       h += `<div class="merit-plain"><div class="trait-row">` +
         `<div class="trait-main"><span class="trait-name">${esc(name)}</span><div class="trait-right">${stateChip(item.state)}${rmBtn}</div></div>` +
@@ -2690,6 +2702,7 @@ export function shRenderEquipment(c, editMode) {
       const qualParts = [
         pool || null,
         eff != null ? `avail ${eff}` : null,
+        locationLabel(item),
       ].filter(Boolean);
       const qual = qualParts.join(' · ');
       const rmBtn = editMode ? `<button class="sk-spec-rm" style="float:right;margin-top:2px" onclick="shRemoveEquip(${idx})" title="Remove">× Remove</button>` : '';
@@ -2706,7 +2719,7 @@ export function shRenderEquipment(c, editMode) {
     for (const { item, entry, idx } of byBucket.tool_utility) {
       const name  = entry.name || item.catalogue_id;
       const eff   = entry.availability != null ? effectiveAvailability(entry, c) : null;
-      const parts = [entry.mechanical_effect || null, eff != null ? `avail ${eff}` : null].filter(Boolean);
+      const parts = [entry.mechanical_effect || null, eff != null ? `avail ${eff}` : null, locationLabel(item)].filter(Boolean);
       const qual  = parts.join(' · ');
       const rmBtn = editMode ? `<button class="sk-spec-rm" style="float:right;margin-top:2px" onclick="shRemoveEquip(${idx})" title="Remove">× Remove</button>` : '';
       h += `<div class="merit-plain"><div class="trait-row">` +
@@ -2721,10 +2734,12 @@ export function shRenderEquipment(c, editMode) {
     h += '<div class="sh-sub-title">Narrative</div>';
     for (const { item, entry, idx } of byBucket.narrative) {
       const name  = entry.name || item.catalogue_id;
+      const loc   = locationLabel(item);
       const rmBtn = editMode ? `<button class="sk-spec-rm" style="float:right;margin-top:2px" onclick="shRemoveEquip(${idx})" title="Remove">× Remove</button>` : '';
       h += `<div class="merit-plain"><div class="trait-row">` +
         `<div class="trait-main"><span class="trait-name">${esc(name)}</span><div class="trait-right">${stateChip(item.state)}${rmBtn}</div></div>` +
-        (entry.description || item.notes ? `<div class="trait-sub">${entry.description ? `<span class="trait-qual">${esc(entry.description)}</span>` : ''}${item.notes ? `<span class="trait-qual dim">${esc(item.notes)}</span>` : ''}</div>` : '') +
+        (entry.description ? `<div class="trait-sub"><span class="trait-qual">${esc(entry.description)}</span></div>` : '') +
+        (loc || item.notes ? `<div class="trait-sub">${loc ? `<span class="trait-qual">${esc(loc)}</span>` : ''}${item.notes ? `<span class="trait-qual dim">${esc(item.notes)}</span>` : ''}</div>` : '') +
         `</div></div>`;
     }
   }

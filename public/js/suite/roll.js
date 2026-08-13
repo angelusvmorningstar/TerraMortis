@@ -8,7 +8,7 @@ import { d10, mkDie, mkChain, rollPool, cntSuc } from '../shared/dice.js';
 import { skSpecs, skNineAgain } from '../data/accessors.js';
 import { hasAoE } from '../data/helpers.js';
 import { getCatalogueEntry } from '../data/equipment-catalogue-cache.js';
-import { isCombatGearWeaponShaped } from '../data/equipment-derivation.js';
+import { isCombatGearWeaponShaped, isEquipmentOnMe } from '../data/equipment-derivation.js';
 
 // ── Imports from other suite modules (will exist once extracted) ──
 // showResistSec / updResist live in shared/resist.js
@@ -143,10 +143,12 @@ export function updPool() {
       // to carried/worn for chip eligibility (Khepri's option (a) — preserves
       // 'active' as a semantically-stronger marker an ST may have already used).
       // EQC-1 (#1152): old 'equipment' bucket -> 'skill_gear', unchanged meaning.
+      // EQC-2 (#1153): state check consolidated onto the shared isEquipmentOnMe
+      // predicate (same carried/worn/active set, single source of truth).
       return entry && entry.bucket === 'skill_gear' &&
              entry.bonus_dice > 0 &&
              entry.skill_domain === pi.skill &&
-             (item.state === 'carried' || item.state === 'worn' || item.state === 'active');
+             isEquipmentOnMe(item);
     });
     if (equip.length) {
       html += '<div class="effpool-specs">' + equip.map(item => {
@@ -237,8 +239,9 @@ export function updWeaponRef() {
     // is identified via the shared isCombatGearWeaponShaped predicate (review
     // patch: a single-field check missed legacy weapons whose weapon_type was
     // null but damage_mod/damage_type were populated).
+    // EQC-2 (#1153): state check consolidated onto isEquipmentOnMe.
     return entry && entry.bucket === 'combat_gear' && isCombatGearWeaponShaped(entry) &&
-           (item.state === 'carried' || item.state === 'worn' || item.state === 'active');
+           isEquipmentOnMe(item);
   });
   if (!weapons.length) {
     panel.style.display = 'none';

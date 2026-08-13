@@ -75,6 +75,59 @@ export function isCombatGearWeaponShaped(entry) {
 }
 
 /**
+ * EQC-2 (issue #1153, epic #1038) - "on me" (bonus applies in game) vs
+ * "owned but elsewhere" (available in downtime only), per the epic's own
+ * display distinction. Derived from the EXISTING `state` field, not a new
+ * stored value - see the story's own Background for why a second
+ * independent field was rejected (same "two things that can disagree" class
+ * of bug the combat_gear shape check above needed fixing for).
+ *
+ * `carried`/`worn`/`active` = physically on the character = on me.
+ * `stashed` = owned but elsewhere. `lost` = neither (the item is gone).
+ *
+ * NOTE: "on me" (possession) is BROADER than "bonus currently active" for
+ * armour specifically, which additionally requires `state === 'worn'` (see
+ * armourDefencePenalty above) - a carried-but-unworn breastplate is on you
+ * but grants no AR. This predicate answers "is it near me right now", not
+ * "is every possible bonus from it firing" - callers that need the latter
+ * (armour) keep their own narrower check unchanged.
+ *
+ * Single source of truth for every consumer that previously re-derived this
+ * exact three-state check inline (roll.js, roll-v2.js) - see EQC-1's own
+ * isCombatGearArmourShaped/isCombatGearWeaponShaped for why duplicating this
+ * kind of check per-consumer is the mistake to avoid.
+ *
+ * @param {object} item - a character's equipment[] entry (has `state`)
+ * @returns {boolean}
+ */
+export function isEquipmentOnMe(item) {
+  if (!item) return false;
+  return item.state === 'carried' || item.state === 'worn' || item.state === 'active';
+}
+
+/**
+ * EQC-2 review patch (issue #1153, Codex external review Low finding):
+ * the player-facing "On you" / "Stored elsewhere" text label. The first
+ * version of this treated ANY non-'lost' state as "elsewhere", including a
+ * missing/malformed/unrecognised `state` value - a confident but
+ * unsupported location claim for bad data. Only `'stashed'` is a genuinely
+ * known "elsewhere" state; anything else that isn't on-me returns `null`
+ * (no label) rather than guessing.
+ *
+ * Extracted as its own exported pure function (not left inline in
+ * editor/sheet.js) so it is directly unit-testable, matching this module's
+ * own "single shared predicate, not duplicated/embedded inline" convention.
+ *
+ * @param {object} item - a character's equipment[] entry (has `state`)
+ * @returns {string|null} 'On you' | 'Stored elsewhere' | null
+ */
+export function equipmentLocationLabel(item) {
+  if (isEquipmentOnMe(item)) return 'On you';
+  if (item && item.state === 'stashed') return 'Stored elsewhere';
+  return null;
+}
+
+/**
  * Sum-by-worst-case of defence penalties from currently-worn armour.
  * Returns a non-negative integer (the magnitude — composition site subtracts).
  *
