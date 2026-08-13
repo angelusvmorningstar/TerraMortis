@@ -22,7 +22,7 @@ import { ALL_ATTRS, ALL_SKILLS, CLAN_DISCS, BLOODLINE_DISCS, CORE_DISCS, RITUAL_
 // legitimately compute dots without going through meritEffectiveRating.
 import { freeOf, normaliseAttachedTo, applySuspensionTo } from '../data/rules-helpers.js';
 import { calcTotalInfluence, domMeritTotal, attacheBonusDots, effectiveInvictusStatus, ssjHerdBonus, flockHerdBonus, meritEffectiveRating, influenceBreakdown, domKey, canAllocateCarthianPull } from '../editor/domain.js';
-import { calcVitaeMax, skTotal, riteCost, skillAcqPoolStr, getAttrEffective, getAttrTotal, discDots } from '../data/accessors.js';
+import { calcVitaeMax, skTotal, riteCost, getAttrEffective, getAttrTotal, discDots } from '../data/accessors.js';
 import { xpLeft } from '../editor/xp.js';
 import { meetsPrereq, isMeritExcluded } from '../editor/merits.js';
 import { getRuleByKey, getRulesByCategory } from '../data/loader.js';
@@ -994,12 +994,14 @@ function collectResponses() {
   }
 
   // dt-form.29: structured-row collect for the redesigned Acquisitions
-  // section. Reads `data-acq-row="resource_${i}"` / `="skill_${i}"` row
-  // containers and extracts the canonical row arrays. Then the mirror
-  // builder rebuilds every legacy key in the consumer→key map (see PR
-  // body for the inventory) so existing admin/parser/db readers keep
-  // working unchanged. Idempotent both ways: re-running on the same DOM
-  // produces the same output.
+  // section. Reads `data-acq-row="resource_${i}"` row containers and
+  // extracts the canonical row array. Then the mirror builder rebuilds
+  // every legacy key in the consumer→key map (see PR body for the
+  // inventory) so existing admin/parser/db readers keep working unchanged.
+  // Idempotent both ways: re-running on the same DOM produces the same
+  // output.
+  // EQC-5 (#1156): the Skill sub-table (and its skill-specific branch
+  // here) is removed — Resources is the only remaining row kind.
   const _collectAcqRows = (rowKey) => {
     const out = [];
     document.querySelectorAll(`[data-acq-row-key="${rowKey}"][data-acq-row]`).forEach(rowEl => {
@@ -1012,41 +1014,36 @@ function collectResponses() {
       const description = descEl ? descEl.value : '';
       const availability = availEl ? availEl.value : '';
       const row = { description, availability, merits };
-      if (rowKey === 'skill') {
-        const skillEl = rowEl.querySelector(`[data-acq-skill="${idx}"]`);
-        const specEl  = rowEl.querySelector(`[data-acq-skill-spec-hidden="${idx}"]`);
-        row.skill = skillEl ? skillEl.value : '';
-        row.spec  = specEl  ? specEl.value  : '';
-      }
       out.push(row);
     });
     return out;
   };
 
   const resourceRows = _collectAcqRows('resource');
-  const skillRows = _collectAcqRows('skill');
 
   // Persist canonical rows. If the DOM didn't render any rows (section
   // collapsed off-screen or load timing edge), preserve prior arrays via
   // the spread base — don't clobber with empty.
   if (resourceRows.length) responses['acq_resource_rows'] = JSON.stringify(resourceRows);
-  if (skillRows.length)    responses['acq_skill_rows']    = JSON.stringify(skillRows);
 
   // ── Mirror builder: rebuild legacy keys for back-compat consumers ──
   // Consumer→key map (see PR body for the inventory):
   //   acq_slot_count, acq_${N}_description, acq_${N}_availability, acq_${N}_merits
   //   acq_description, acq_availability, acq_merits      (legacy single = row 0)
   //   resources_acquisitions                             (blob, downtime-views/story-tab)
-  //   skill_acq_description, skill_acq_pool_skill, skill_acq_pool_spec,
-  //   skill_acq_availability, skill_acq_merits           (legacy single skill = row 0)
-  //   skill_acquisitions                                 (blob, downtime-views/parser)
-  // skill_acq_pool_attr is intentionally NOT mirrored — post-#42 dropped.
+  // EQC-5 (#1156): `skill_acq_*`/`skill_acquisitions`/`acq_skill_rows` are no
+  // longer written here at all (not even conditionally) — a submission's
+  // existing values for those keys, if any (pre-EQC-5 skill acquisition,
+  // read-only from here on), pass through unchanged on the spread base
+  // instead of being overwritten with empty strings on every unrelated
+  // save. See `server/schemas/downtime_submission.schema.js` for the
+  // matching legacy-field annotation.
   // Issue #120 (2026-05-08): defensive symmetry with the canonical writes
   // above — when the DOM has no rows (section never rendered, or a future
   // pure-API caller bypasses the form), don't overwrite legacy keys with
   // empty values. Any existing legacy data on the spread base passes
   // through unchanged.
-  if (resourceRows.length || skillRows.length) {
+  if (resourceRows.length) {
   const _rrows = resourceRows.length ? resourceRows : [];
   responses['acq_slot_count'] = String(Math.max(1, _rrows.length));
   // Per-slot keys (1-indexed). Always write at least slot 1.
@@ -1082,27 +1079,7 @@ function collectResponses() {
     });
   }
   responses['resources_acquisitions'] = _blobLines.join('\n').replace(/^\n/, '').trim();
-
-  // Skill mirror = row 0 of acq_skill_rows.
-  const _s0 = skillRows[0] || { skill: '', spec: '', description: '', availability: '', merits: [] };
-  responses['skill_acq_description']  = _s0.description || '';
-  responses['skill_acq_pool_skill']   = _s0.skill || '';
-  responses['skill_acq_pool_spec']    = _s0.spec || '';
-  responses['skill_acq_availability'] = _s0.availability || '';
-  responses['skill_acq_merits']       = JSON.stringify(_s0.merits || []);
-  // skill_acquisitions blob — same composition as the legacy builder.
-  const _skPoolStr = skillAcqPoolStr(currentChar, {
-    skill: responses['skill_acq_pool_skill'],
-    spec:  responses['skill_acq_pool_spec'],
-  });
-  responses['skill_acquisitions'] = [
-    responses['skill_acq_description'],
-    _skPoolStr ? `Pool: ${_skPoolStr}` : '',
-    responses['skill_acq_availability']
-      ? `Availability: ${responses['skill_acq_availability'] === 'unknown' ? 'Unknown' : responses['skill_acq_availability'] + '/5'}`
-      : '',
-  ].filter(Boolean).join('\n');
-  } // end if (resourceRows.length || skillRows.length) — issue #120
+  } // end if (resourceRows.length) — issue #120
 
   // Collect equipment slots (skipped when hidden — prior values preserved via _prior spread).
   // ECM-4 (#871): the canonical persistence key is `equipment_${n}_catalogue_id` (24-hex
@@ -2459,40 +2436,24 @@ function renderForm(container) {
     // DTOSL.2 choice chip handler — removed in NPCR.12 (replaced by the
     // single relationships picker in renderPersonalStorySection).
 
-    // Skill acquisition spec chip toggle
-    const skAcqSpec = e.target.closest('[data-skill-acq-spec]');
-    if (skAcqSpec) {
-      const sp = skAcqSpec.dataset.skillAcqSpec;
-      const input = document.getElementById('dt-skill_acq_pool_spec');
-      // Toggle: click same spec to deselect
-      if (input) input.value = input.value === sp ? '' : sp;
-      const responses = collectResponses();
-      if (responseDoc) responseDoc.responses = responses;
-      else responseDoc = { responses };
-      renderForm(container);
-      scheduleSave();
-      return;
-    }
-
     // dt-form.29: Acquisitions row handlers (Add / Remove / Avail dots /
-    // Avail unknown / Skill spec chip). Row state is canonical in
-    // `responses.acq_resource_rows` / `acq_skill_rows`; click handlers
-    // mutate the spread base then re-render. Saves the cycle of
-    // legacy-input mutation + DOM dot-class toggles by going straight
-    // through collectResponses → mutate → renderForm.
+    // Avail unknown). Row state is canonical in
+    // `responses.acq_resource_rows`; click handlers mutate the spread base
+    // then re-render. Saves the cycle of legacy-input mutation + DOM
+    // dot-class toggles by going straight through
+    // collectResponses → mutate → renderForm.
+    // EQC-5 (#1156): Resources is the only remaining acquisition row kind
+    // (Skill's spec-chip toggle handler and its share of this block are
+    // removed — the skill spec-chip elements it targeted no longer render
+    // anywhere).
     const acqAddBtn = e.target.closest('[data-acq-add-row]');
     if (acqAddBtn) {
-      const rowKey = acqAddBtn.dataset.acqAddRow;
       const cur = collectResponses();
-      const arrKey = rowKey === 'skill' ? 'acq_skill_rows' : 'acq_resource_rows';
       let arr = [];
-      try { arr = JSON.parse(cur[arrKey] || '[]'); } catch { arr = []; }
+      try { arr = JSON.parse(cur['acq_resource_rows'] || '[]'); } catch { arr = []; }
       if (!Array.isArray(arr)) arr = [];
-      const empty = rowKey === 'skill'
-        ? { skill: '', spec: '', description: '', availability: '', merits: [] }
-        : { description: '', availability: '', merits: [] };
-      arr.push(empty);
-      cur[arrKey] = JSON.stringify(arr);
+      arr.push({ description: '', availability: '', merits: [] });
+      cur['acq_resource_rows'] = JSON.stringify(arr);
       if (responseDoc) responseDoc.responses = cur;
       else responseDoc = { responses: cur };
       renderForm(container);
@@ -2501,15 +2462,13 @@ function renderForm(container) {
     }
     const acqRemoveBtn = e.target.closest('[data-acq-row-remove]');
     if (acqRemoveBtn) {
-      const rowKey = acqRemoveBtn.dataset.acqRowRemove;
       const idx = parseInt(acqRemoveBtn.dataset.acqRowIdx, 10);
       const cur = collectResponses();
-      const arrKey = rowKey === 'skill' ? 'acq_skill_rows' : 'acq_resource_rows';
       let arr = [];
-      try { arr = JSON.parse(cur[arrKey] || '[]'); } catch { arr = []; }
+      try { arr = JSON.parse(cur['acq_resource_rows'] || '[]'); } catch { arr = []; }
       if (Array.isArray(arr) && idx >= 0 && idx < arr.length) {
         arr.splice(idx, 1);
-        cur[arrKey] = JSON.stringify(arr);
+        cur['acq_resource_rows'] = JSON.stringify(arr);
         if (responseDoc) responseDoc.responses = cur;
         else responseDoc = { responses: cur };
         renderForm(container);
@@ -2537,19 +2496,6 @@ function renderForm(container) {
       const val = String(parseInt(acqDot.dataset.acqDot, 10) || 0);
       const hidden = container.querySelector(`[data-acq-avail-hidden="${rowKey}_${idx}"]`);
       if (hidden) hidden.value = val;
-      const cur = collectResponses();
-      if (responseDoc) responseDoc.responses = cur;
-      else responseDoc = { responses: cur };
-      renderForm(container);
-      scheduleSave();
-      return;
-    }
-    const acqSkillSpec = e.target.closest('[data-acq-skill-spec]');
-    if (acqSkillSpec) {
-      const idx = acqSkillSpec.dataset.acqRowIdx;
-      const sp = acqSkillSpec.dataset.acqSkillSpec;
-      const hidden = container.querySelector(`[data-acq-skill-spec-hidden="${idx}"]`);
-      if (hidden) hidden.value = hidden.value === sp ? '' : sp;
       const cur = collectResponses();
       if (responseDoc) responseDoc.responses = cur;
       else responseDoc = { responses: cur };
@@ -2952,20 +2898,6 @@ function renderForm(container) {
     const xpItem = e.target.closest('[data-xp-item]');
     const xpDots = e.target.closest('[data-xp-dots]');
     if (xpCat || xpItem || xpDots) {
-      const responses = collectResponses();
-      if (responseDoc) responseDoc.responses = responses;
-      else responseDoc = { responses };
-      renderForm(container);
-      return;
-    }
-    // dt-form.29: Skill row select change — re-render so the spec-chip
-    // strip rebuilds for the new skill and the read-only pool annotation
-    // updates. Spec is cleared on skill change to avoid carrying a spec
-    // that doesn't apply to the newly-selected skill.
-    if (e.target.matches('[data-acq-skill]')) {
-      const idx = e.target.dataset.acqSkill;
-      const specHidden = container.querySelector(`[data-acq-skill-spec-hidden="${idx}"]`);
-      if (specHidden) specHidden.value = '';
       const responses = collectResponses();
       if (responseDoc) responseDoc.responses = responses;
       else responseDoc = { responses };
@@ -3418,8 +3350,10 @@ function renderForm(container) {
     // dt-form.29: legacy `#dt-add-acquisition` and `[data-remove-acq]`
     // handlers removed. Add/Remove now goes through the structured-row
     // path at `[data-acq-add-row]` / `[data-acq-row-remove]` which mutates
-    // `responses.acq_resource_rows` / `acq_skill_rows` directly. Mirror
-    // builder rebuilds the legacy `acq_slot_count` + per-slot keys on save.
+    // `responses.acq_resource_rows` directly (EQC-5, #1156: the sibling
+    // `acq_skill_rows` this comment used to mention no longer exists as a
+    // write target). Mirror builder rebuilds the legacy `acq_slot_count` +
+    // per-slot keys on save.
     // Add Equipment button
     if (e.target.closest('#dt-add-equipment')) {
       const responses = collectResponses();
@@ -5221,22 +5155,24 @@ async function _hydrateMgPriorOutcomesForm(lockedSlots) {
 
 // ── Acquisitions (custom render) ──
 
-// dt-form.29 (story #87, ADR-003 §Audit-baseline). Two distinct sub-tables —
-// Resources rows + Skill rows — both using the locked 3-col condensed shape
-// (Description / Availability dots / Merit multi-select). Skill rows carry
-// extra inline sub-fields (skill + spec) above the row + a read-only pool
-// annotation derived via `skillAcqPoolStr` (the post-#42 source of truth).
+// dt-form.29 (story #87, ADR-003 §Audit-baseline) built a Resources sub-table
+// using the locked 3-col condensed shape (Description / Availability dots /
+// Merit multi-select). EQC-5 (#1156) removed the sibling Skill sub-table this
+// section originally had alongside it — shaking down a shopkeeper for a free
+// item via a skill roll is now a Personal Project, not an acquisition. The
+// `skill_acq_*`/`skill_acquisitions`/`acq_skill_rows` keys are read-only
+// legacy from here on (see `server/schemas/downtime_submission.schema.js`);
+// nothing in this file writes them any more.
 //
-// Persistence: `responses.acq_resource_rows` + `responses.acq_skill_rows`
-// (JSON-stringified arrays). Mirror builder in collectResponses rebuilds the
-// full legacy surface (acq_slot_count + acq_${N}_* + acq_* + resources_acquisitions
-// blob + skill_acq_* + skill_acquisitions blob) on every save so existing
-// admin/parser/db consumers keep working unchanged.
+// Persistence: `responses.acq_resource_rows` (JSON-stringified array).
+// Mirror builder in collectResponses rebuilds the full legacy surface
+// (acq_slot_count + acq_${N}_* + acq_* + resources_acquisitions blob) on
+// every save so existing admin/parser/db consumers keep working unchanged.
 //
-// Backward-compat seed: when `_rows` is empty, _readResourceRows /
-// _readSkillRows seed rows[0] from the legacy single-row + multi-slot keys
-// so pre-redesign drafts surface in the new UI on first render. Silent-leave
-// for legacy keys per dt-form.26 A1 precedent — no migration script.
+// Backward-compat seed: when `_rows` is empty, _readResourceRows seeds
+// rows[0] from the legacy single-row + multi-slot keys so pre-redesign
+// drafts surface in the new UI on first render. Silent-leave for legacy
+// keys per dt-form.26 A1 precedent — no migration script.
 
 function _readResourceRows(saved) {
   let rows = [];
@@ -5268,26 +5204,6 @@ function _readResourceRows(saved) {
     }
   }
   if (!rows.length) rows.push({ description: '', availability: '', merits: [] });
-  return rows;
-}
-
-function _readSkillRows(saved) {
-  let rows = [];
-  const json = saved.acq_skill_rows || '';
-  if (json) { try { rows = JSON.parse(json); } catch { rows = []; } }
-  if (!Array.isArray(rows)) rows = [];
-  if (rows.length) return rows;
-  // Seed from legacy single-row keys (skills was 1-per-cycle pre-redesign).
-  const skill = saved.skill_acq_pool_skill || '';
-  const spec  = saved.skill_acq_pool_spec  || '';
-  const desc  = saved.skill_acq_description || '';
-  const avail = saved.skill_acq_availability || '';
-  let merits = [];
-  try { merits = JSON.parse(saved.skill_acq_merits || '[]'); } catch { merits = []; }
-  if (skill || spec || desc || avail || merits.length) {
-    rows.push({ skill, spec, description: desc, availability: avail, merits });
-  }
-  if (!rows.length) rows.push({ skill: '', spec: '', description: '', availability: '', merits: [] });
   return rows;
 }
 
@@ -5360,89 +5276,6 @@ function _renderResourceRow(idx, row, charMerits, isOnly) {
   return h;
 }
 
-function _renderSkillRow(idx, row, charMerits, c, skSkills, isOnly) {
-  let h = `<div class="dt-acq-card" data-acq-row="skill_${idx}" data-acq-row-key="skill" data-acq-row-idx="${idx}">`;
-  h += '<div class="dt-acq-card-hd">';
-  h += `<div class="dt-acq-card-title">Skill ${idx + 1}</div>`;
-  if (!isOnly) {
-    h += `<button type="button" class="dt-sorcery-remove dt-acq-remove" data-acq-row-remove="skill" data-acq-row-idx="${idx}" title="Remove this skill">\xD7 Remove</button>`;
-  }
-  h += '</div>';
-
-  const savedSkill = row.skill || '';
-  const savedSpec  = row.spec  || '';
-  h += '<div class="qf-field">';
-  h += '<label class="qf-label">Skill</label>';
-  h += `<select class="qf-select" data-acq-skill="${idx}">`;
-  h += '<option value="">— Select skill —</option>';
-  for (const s of skSkills) {
-    const dots = skTotal(c, s);
-    const sel = savedSkill === s ? ' selected' : '';
-    h += `<option value="${esc(s)}"${sel}>${esc(s)} (${dots})</option>`;
-  }
-  h += '</select>';
-  h += '</div>';
-
-  const skNativeSpecs = savedSkill ? (c.skills?.[savedSkill]?.specs || []) : [];
-  const skIsSpecs = isSpecs(c).filter(({ spec }) => !skNativeSpecs.includes(spec));
-  const allSpecs = [
-    ...skNativeSpecs.map(sp => ({ sp, fromSkill: null, native: true })),
-    ...skIsSpecs.map(({ spec, fromSkill }) => ({ sp: spec, fromSkill, native: false })),
-  ];
-  if (allSpecs.length) {
-    h += '<div class="qf-field">';
-    h += '<label class="qf-label">Specialisation</label>';
-    h += '<div class="dt-feed-spec-row">';
-    for (const { sp, fromSkill, native } of sortChips(allSpecs, item => item.sp)) {
-      const on = savedSpec === sp ? ' dt-feed-spec-on' : '';
-      const label = native ? esc(sp) : `${esc(sp)} (${esc(fromSkill)})`;
-      h += `<button type="button" class="dt-feed-spec-chip${on}" data-acq-skill-spec="${esc(sp)}" data-acq-row-idx="${idx}">${label} <span class="dt-feed-spec-bonus">+${hasAoE(c, sp) ? 2 : 1}</span></button>`;
-    }
-    h += '</div>';
-    h += `<input type="hidden" data-acq-skill-spec-hidden="${idx}" value="${esc(savedSpec)}">`;
-    h += '</div>';
-  } else {
-    h += `<input type="hidden" data-acq-skill-spec-hidden="${idx}" value="${esc(savedSpec)}">`;
-  }
-
-  // Read-only pool annotation. Post-#42: SKILL only via skillAcqPoolStr.
-  // This is the only pool-rendering site after dt-form.29 (the inline
-  // duplicate at the legacy renderer is gone).
-  h += '<div class="qf-field">';
-  h += '<label class="qf-label">Acquisition Pool</label>';
-  if (savedSkill) {
-    const poolStr = skillAcqPoolStr(c, { skill: savedSkill, spec: savedSpec });
-    if (poolStr) {
-      h += `<p class="qf-desc dt-acq-pool-readout">${esc(poolStr)}</p>`;
-    } else {
-      h += '<p class="qf-desc">Pool unavailable for this skill.</p>';
-    }
-  } else {
-    h += '<p class="qf-desc">Pick a skill above to see the auto-derived pool.</p>';
-  }
-  h += '</div>';
-
-  h += '<div class="qf-field">';
-  h += '<label class="qf-label">Description</label>';
-  h += `<textarea class="qf-textarea" rows="2" data-acq-desc="skill_${idx}" placeholder="What are you attempting to obtain, and how?">${esc(row.description || '')}</textarea>`;
-  h += '</div>';
-
-  h += '<div class="qf-field">';
-  h += '<label class="qf-label">Availability</label>';
-  h += '<p class="qf-desc">How rare is this skill source? 1 = Common, 5 = Unique.</p>';
-  h += _renderAcqAvailabilityDots('skill', idx, row.availability);
-  h += '</div>';
-
-  h += '<div class="qf-field">';
-  h += '<label class="qf-label">Relevant Merits</label>';
-  h += '<p class="qf-desc">Select merits that support this acquisition.</p>';
-  h += _renderAcqMeritsCheckboxes('skill', idx, charMerits, row.merits);
-  h += '</div>';
-
-  h += '</div>';
-  return h;
-}
-
 function renderAcquisitionsSection(saved) {
   const c = currentChar;
   const resourcesMerit = (c.merits || []).find(m => m.name === 'Resources');
@@ -5451,16 +5284,17 @@ function renderAcquisitionsSection(saved) {
   const charMerits = (c.merits || []).filter(m =>
     m.category === 'general' || m.category === 'influence' || m.category === 'standing'
   );
-  const skSkills = ALL_SKILLS.filter(s => skTotal(c, s) > 0);
 
   const resourceRows = _readResourceRows(saved);
-  const skillRows = _readSkillRows(saved);
 
   let h = '<div class="qf-section collapsed" data-section-key="acquisitions">';
   h += '<h4 class="qf-section-title">Asset Acquisitions<span class="qf-section-tick">✔</span></h4>';
   h += '<div class="qf-section-body">';
 
   // ── Resources sub-table ──
+  // EQC-5 (#1156): the sibling Skill sub-table this section used to render
+  // here is removed — shaking down a shopkeeper for a free item via a skill
+  // roll is now a Personal Project, not an acquisition channel.
   h += '<div class="dt-acq-subtable" data-acq-subtable="resource">';
   h += '<h5 class="dt-acq-subtitle">Resource-Based Asset Acquisition</h5>';
   h += '<div class="dt-acq-resources-row dt-acq-resources-header">';
@@ -5471,25 +5305,6 @@ function renderAcquisitionsSection(saved) {
     h += _renderResourceRow(i, resourceRows[i], charMerits, resourceRows.length === 1);
   }
   h += '<button type="button" class="dt-add-rite-btn dt-acq-add" data-acq-add-row="resource">+ Add Resource Item</button>';
-  h += '</div>';
-
-  // ── Skills sub-table ──
-  // Issue #187 (2026-05-08): Skill Acquisitions is a fixed single-row
-  // section per the rules (only one skill can be acquired per cycle this
-  // way). The repeating-row affordance was misleading. Render row 0 only;
-  // no Add button, no Remove button (the `isOnly=true` flag suppresses
-  // the per-row remove already). Resources Acquisitions above keeps its
-  // Add affordance (resources can have multiple).
-  // Persistence shape unchanged: `responses.acq_skill_rows` is still a
-  // JSON array (now always length 1). Mirror keys (skill_acq_*) read
-  // from row 0 (line 919-923) — no change required there. Multi-row
-  // legacy data on the spread base prunes to row 0 on next save (per
-  // A1 silent-leave; no real users have submitted skill multi-rows).
-  h += '<div class="dt-acq-subtable" data-acq-subtable="skill" style="margin-top:18px;">';
-  h += '<h5 class="dt-acq-subtitle">Skill-Based Asset Acquisition</h5>';
-  h += '<p class="qf-section-intro">Use this section if you are using a skill to make, create, or directly obtain an asset or piece of equipment.</p>';
-  const skillRow0 = skillRows[0] || { skill: '', spec: '', description: '', availability: '', merits: [] };
-  h += _renderSkillRow(0, skillRow0, charMerits, c, skSkills, true);
   h += '</div>';
 
   h += '</div></div>'; // section-body, section

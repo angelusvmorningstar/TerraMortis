@@ -175,17 +175,20 @@ Pre-populated from character's Allies/Status merits. Field visibility depends on
 | `acq_merits` | JSON array of `"Name\|qualifier"` merit keys |
 | `resources_acquisitions` | Backwards compat: combined text |
 
-**Skill-Based Acquisition:**
+**Skill-Based Acquisition — [legacy, EQC-5 #1156]:** this whole sub-table was removed from the form
+(shaking down a shopkeeper for a free item via a skill roll is now a Personal Project, not an
+acquisition channel). Every key below is read-only back-compat for submissions filed before EQC-5;
+none of them is written any more.
 
 | Key | Notes |
 |---|---|
-| `skill_acq_description` | What to acquire and how |
-| `skill_acq_pool_attr` | Pool attribute name |
-| `skill_acq_pool_skill` | Pool skill name |
-| `skill_acq_pool_spec` | Pool skill specialisation |
-| `skill_acq_availability` | `"1"`-`"5"` dot rating |
-| `skill_acq_merits` | JSON array of `"Name\|qualifier"` merit keys |
-| `skill_acquisitions` | Backwards compat: combined text |
+| `skill_acq_description` | [legacy] What to acquire and how |
+| `skill_acq_pool_attr` | [legacy] Pool attribute name — already dropped post-hotfix #42 (pool is SKILL only) before EQC-5 removed the rest |
+| `skill_acq_pool_skill` | [legacy] Pool skill name |
+| `skill_acq_pool_spec` | [legacy] Pool skill specialisation |
+| `skill_acq_availability` | [legacy] `"1"`-`"5"` dot rating |
+| `skill_acq_merits` | [legacy] JSON array of `"Name\|qualifier"` merit keys |
+| `skill_acquisitions` | [legacy] Backwards compat: combined text |
 
 ### Vamping (always present)
 

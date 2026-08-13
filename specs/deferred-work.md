@@ -94,6 +94,24 @@ reviewed this trade-off and approved shipping otc.3 as scoped rather than gating
 landing first; this entry's priority is unchanged (High) but this note records the increased
 practical exposure for whoever picks up #1143.
 
+## Deferred from: EQC-5 (issue #1156, dev-story implementation 2026-08-13)
+
+- **Two skill-acquisition Playwright specs have stale fixtures, unrelated to EQC-5** (Low, found not
+  caused) — `tests/fix-493-skill-acq-outcome-summary.spec.js` (4/4 tests) and one test in
+  `tests/fix-player-skill-acq-outcome.spec.js` (1/8, "AC-1: skill acquisition outcome_summary appears
+  in player Resources group") fail on `main`/pre-EQC-5 exactly as they do after EQC-5's changes
+  (confirmed via `git stash` isolation during this story's implementation). Root cause: both files'
+  fixtures place skill-acquisition outcome data at `acquisitions_resolved[0]`, but fix.914 (a later
+  story) moved Skill Acquisition to slot `[1]` (Resources kept `[0]`) and these two files' fixtures were
+  never updated to match — `fix-491-skill-acquisition-outcome-card.spec.js` and
+  `fix-914-acquisition-outcome-field-slot.spec.js` DO use the correct post-fix.914 slot and are fully
+  green, confirming the underlying `downtime-story.js`/`downtime-views.js` read logic is correct; only
+  these two test files' own fixtures are stale. EQC-5 removed the skill-acquisition WRITE side only
+  (see its story's "stop writing, keep reading" shape) and explicitly did not touch either of these read
+  files, so fixing stale fixtures in tests for functionality this story doesn't modify is out of its
+  scope. Whoever next touches either spec should move the fixture's `acquisitions_resolved` entry from
+  index `[0]` to `[1]`.
+
 ## Deferred from: EQC-4 (issue #1155, internal 3-layer review 2026-08-13)
 
 - **A tweak request on an availability-5 item computes a cost (6) the catalogue schema cannot
