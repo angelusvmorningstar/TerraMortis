@@ -7,27 +7,32 @@
  * its exported functions and runs them against `tm_suite_test` only.
  *
  * ==========================================================================
- *   STOP. ONE OF THE SEVEN DATES IS NOT CONFIRMED.
+ *   Rene St. Dominique's Primogen seat creation date: CONFIRMED 2026-08-13.
  * ==========================================================================
  *
- *   Rene St. Dominique's PRIMOGEN SEAT CREATION DATE IS UNKNOWN.
+ *   Angelus confirmed both live Primogen seats were created in Game 1
+ *   (2026-02-21) - the same date as Yusuf Kalusicj's seat and every other
+ *   Game 1 office. The two seats are not "the original" and "a later
+ *   addition"; both have existed, as seats, since Game 1.
  *
- *   The epic's "Office creation dates" table
- *   (specs/epic-oxp-office-xp-economy.md) predates the discovery that
- *   Primogen has two concurrent seats, so it covers ONE Primogen seat only.
- *   Which of the two live Primogen it describes has never been established.
+ *   Separately, and NOT a `created_at` input: Yusuf Kalusicj has only been
+ *   the HOLDER of his Primogen seat since Game 5, not since the seat's
+ *   creation. That is exactly the seat-vs-holder distinction this schema is
+ *   built around (see the collection's own design rule: XP accrues per seat
+ *   from `created_at`, regardless of who holds it or when a handover
+ *   happened; merits persist across a handover, only manoeuvres reset - see
+ *   oxp-5). A prior, unnamed holder occupied that seat Games 1-4; this
+ *   collection has no holder-history field, so that prior holder is not, and
+ *   does not need to be, represented here. Worth keeping in mind for oxp.5's
+ *   handover-logic story, since it means a real handover already happened on
+ *   this exact seat before oxp.5 exists to log one.
  *
- *   Do NOT guess it. In particular do NOT default it to Game 1's 2026-02-21
- *   just because Yusuf Kalusicj's seat dates from there. The date drives
- *   oxp.2's months-since-creation XP arithmetic, so a wrong value here is a
- *   wrong XP figure later, in a place nobody will think to check.
- *
- *   Confirm the real date with Angelus, then either:
- *     - set RENE_PRIMOGEN_SEAT_CREATED_AT below, or
- *     - pass --rene-created-at=YYYY-MM-DD on the command line.
- *
- *   The script refuses to run without one of the two. That refusal is the
- *   feature; do not soften it into a default.
+ *   Below, `--rene-created-at=2026-02-21` (or
+ *   `RENE_PRIMOGEN_SEAT_CREATED_AT = '2026-02-21'`) is therefore the
+ *   confirmed, correct value to run this with - not a guess, not a default.
+ *   The refuse-without-a-date behaviour stays in place regardless: it is a
+ *   general safety property of this script (never silently assume a date),
+ *   not a placeholder for this one specific gap now that the gap is closed.
  *
  * ==========================================================================
  *
