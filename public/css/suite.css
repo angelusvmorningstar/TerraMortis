@@ -2299,6 +2299,24 @@ body.desktop-mode.sidebar-collapsed .sb-collapse-btn { width: 100%; justify-cont
 .office-manoeuvre-name { font-family: var(--fl); font-size: 13px; color: var(--accent); letter-spacing: .04em; margin-bottom: 4px; }
 .office-manoeuvre-effect { font-family: var(--fb); font-size: 13px; color: var(--txt2); line-height: 1.5; }
 
+/* oxp.3 — manoeuvres above the office's current purchase rank. Reuses the
+   dim idiom .skill-zero already establishes for "this exists but isn't active
+   yet" rather than inventing a new colour; applied to the whole block so the
+   card dims as one unit, which .pointed.hollow (a dot-glyph pattern) cannot do.
+   Own-office view only — never rendered in the reference view. */
+.office-manoeuvre-unpurchased { opacity: .4; }
+
+/* oxp.3 — graduated rank readout + ST-only stepper. Mirrors the office merit
+   rows; the stepper itself is the shared .cs-edit-stepper/.cs-step-btn pair,
+   not a new control. Empty until the rank fetch resolves, and left empty for a
+   non-ST reference viewer, so :empty keeps it out of the layout. */
+.office-manoeuvre-rank { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+.office-manoeuvre-rank:empty { display: none; }
+.office-manoeuvre-rank-label { font-family: var(--fl); font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--txt3); }
+.office-manoeuvre-rank-dots { font-family: var(--fh); font-size: 14px; color: var(--gold2); letter-spacing: 1px; }
+.office-manoeuvre-rank-stepper.cs-edit-stepper { flex-direction: row; margin: 0; gap: 6px; }
+.office-manoeuvre-rank-stepper .cs-step-btn { width: 26px; height: 26px; font-size: 12px; }
+
 .office-merit-list { display: flex; flex-direction: column; gap: 6px; }
 .office-merit-chip { font-family: var(--fl); font-size: 12px; color: var(--txt2); background: var(--surf2); border: 1px solid var(--bdr); border-radius: 4px; padding: 3px 8px; }
 

@@ -93,3 +93,21 @@ is exposed — but the pre-existing gap is now more discoverable/likely to be st
 reviewed this trade-off and approved shipping otc.3 as scoped rather than gating it on this fix
 landing first; this entry's priority is unchanged (High) but this note records the increased
 practical exposure for whoever picks up #1143.
+
+## Deferred from: code review of oxp-3-manoeuvre-purchase-graduated-merit (2026-08-13, external Codex review)
+
+Full record: `specs/stories/oxp-3-manoeuvre-purchase-graduated-merit.md` → Senior Developer Review.
+
+- **The office merit-dots stepper has the same lost-update race oxp.3's manoeuvre stepper just had
+  fixed** (Medium). `_adjustMeritDots` in `public/js/tabs/office-tab.js` fetches
+  `GET /api/office_merit_dots`, computes `current + delta` in the client, and PUTs that absolute
+  value to `server/routes/office-merit-dots.js`'s `PUT /:category`, which applies an unconditional
+  `$set`. Two overlapping adjustments (two STs, or one ST double-clicking before the row
+  re-renders) can both read the same starting dot count and both write the same next one, so one of
+  the two requested steps is silently lost. `findOneAndUpdate` is atomic per write, but the values
+  being written were already computed from a stale read, so that does not help. Pre-existing since
+  PR #1147; untouched by oxp.3's diff, and found only because oxp.3 copied the pattern and then had
+  to fix its own copy. The fix is the same shape as oxp.3's: a relative `PUT /:category/step` taking
+  `{ merit, delta }` and doing the clamped read-modify-write in one MongoDB aggregation-pipeline
+  update, with the client sending the step rather than an absolute value. Deliberately not folded
+  into oxp.3, which is scoped to manoeuvre rank only.
