@@ -34,6 +34,7 @@ import { chaptersRouter } from '../../routes/chapters.js';
 import cyoaRouter from '../../routes/cyoa.js';
 import officeActionsRouter from '../../routes/office-actions.js';
 import officeMeritDotsRouter from '../../routes/office-merit-dots.js';
+import officeManoeuvreRankRouter from '../../routes/office-manoeuvre-rank.js';
 import contestedRollsRouter from '../../routes/contested-rolls.js';
 
 /**
@@ -121,6 +122,8 @@ export function createTestApp() {
   // Issue #691 / otc.2: office actions (Status Actions)
   app.use('/api/office_actions', mockAuth, noCache(), officeActionsRouter);
   app.use('/api/office_merit_dots', mockAuth, noCache(), officeMeritDotsRouter);
+  // oxp.3: office manoeuvre purchase rank (open read, ST-only write)
+  app.use('/api/office_manoeuvre_rank', mockAuth, noCache(), officeManoeuvreRankRouter);
   // oaq.2 review: needed to test contested-rolls.js's request_type guard
   // against status_action documents sharing the same collection.
   app.use('/api/contested_roll_requests', mockAuth, noCache(), contestedRollsRouter);
