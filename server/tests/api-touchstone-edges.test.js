@@ -1,30 +1,31 @@
 /**
- * API tests — touchstones (NPCR.4, free-text only per DBO-8, 2026-08-14)
+ * API tests — touchstones (NPCR.4; DBO-8 2026-08-14, corrected 2026-08-15)
  *
  * Model:
  * - character.touchstones[] is authoritative (cap 6, humanity descends from anchor)
  * - anchor = 7 if clan='Ventrue', else 6
- * - every entry is {humanity, name, desc?} - no relationships link
+ * - every entry is {humanity, name, desc?} - no edge_id link to `relationships`
  *
- * DBO-8 retired the earlier design where a touchstones[] entry could
- * optionally carry `edge_id`, linking it to a `relationships` document
- * (kind='touchstone', touchstone_meta.humanity). Issue #162 removed the
- * only code path that ever created a linked touchstone, and a live-data
- * query (2026-08-14) confirmed zero of 44 live touchstones used it - so the
- * link, the `relationships` shape, and the server-side enrichment it drove
- * were all removed rather than kept as dead surface. This file's own
- * previous version (git history) exercised that mechanism; these tests
- * exercise its absence.
+ * DBO-8 (2026-08-14) retired `edge_id`/`touchstone_meta` entirely, including
+ * removing 'touchstone' as a valid `relationships.kind`. That went too far:
+ * 'touchstone' is a first-class kind in TM Suite's own NPC Register epic
+ * (never closed) and TM Wiki already ships tested code expecting it as one
+ * of 19 closed canon kinds (relationship-board-defaults.js, Story 8.1) -
+ * DBO-8 silently broke that cross-repo contract. Restored 2026-08-15 as an
+ * ORDINARY kind (like 'family' or 'contact') - no special shape, no
+ * mandatory metadata.
+ *
+ * What stays retired: `characters.touchstones[].edge_id` and
+ * `relationships.touchstone_meta` - the dual-storage identity-linking
+ * mechanism DBO-8 was actually asked to resolve. That's still open, larger
+ * work, not reinstated by this fix.
  *
  * Covers:
  * - characters PUT validates touchstones[]: cap, humanity-in-anchor-range
- * - `edge_id` is rejected as an unknown property (additionalProperties: false)
- * - `relationships` POST/PUT reject kind='touchstone' as an invalid enum value
- * - `touchstone_meta` is rejected as an unknown property on `relationships`
- * - the admin Relationship Editor's own kind taxonomy (a SEPARATE client-side
- *   file this story's own external review found still offered 'touchstone'
- *   as a selectable option after the server stopped accepting it) no longer
- *   lists it
+ * - `edge_id` is still rejected as an unknown property (additionalProperties: false)
+ * - `relationships` POST accepts kind='touchstone' as an ordinary kind again
+ * - `touchstone_meta` is still rejected as an unknown property on `relationships`
+ * - the admin Relationship Editor's own kind taxonomy lists 'touchstone' again
  */
 
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
@@ -179,10 +180,10 @@ describe('GET /api/characters/:id touchstones', () => {
   });
 });
 
-// ── Relationships route: 'touchstone' is no longer a valid kind ────────────
+// ── Relationships route: 'touchstone' is an ordinary kind again ────────────
 
-describe("DBO-8: POST /api/relationships rejects kind='touchstone'", () => {
-  it('400s on kind=touchstone (not a KIND_ENUM value any more)', async () => {
+describe("POST /api/relationships accepts kind='touchstone' as an ordinary kind (restored 2026-08-15)", () => {
+  it('201s on kind=touchstone with no touchstone_meta required', async () => {
     const res = await request(app)
       .post('/api/relationships')
       .set('X-Test-User', stUser())
@@ -195,7 +196,9 @@ describe("DBO-8: POST /api/relationships rejects kind='touchstone'", () => {
         st_hidden: false,
       });
 
-    expect(res.status).toBe(400);
+    expect(res.status).toBe(201);
+    expect(res.body.kind).toBe('touchstone');
+    expect(res.body).not.toHaveProperty('touchstone_meta');
   });
 
   it('400s on touchstone_meta as an unknown property, even with a valid kind', async () => {
@@ -216,12 +219,14 @@ describe("DBO-8: POST /api/relationships rejects kind='touchstone'", () => {
 
 // ── Admin Relationship Editor's own kind taxonomy ───────────────────────────
 
-describe("DBO-8: relationship-kinds.js no longer offers 'touchstone'", () => {
-  it('RELATIONSHIP_KINDS does not list touchstone as a selectable kind', () => {
-    expect(RELATIONSHIP_KINDS.some(k => k.code === 'touchstone')).toBe(false);
+describe("relationship-kinds.js offers 'touchstone' again (restored 2026-08-15)", () => {
+  it('RELATIONSHIP_KINDS lists touchstone as a selectable kind', () => {
+    expect(RELATIONSHIP_KINDS.some(k => k.code === 'touchstone')).toBe(true);
   });
 
-  it('kindByCode(touchstone) returns null rather than throwing (a historical edge with this kind must still render safely)', () => {
-    expect(kindByCode('touchstone')).toBeNull();
+  it("kindByCode(touchstone) resolves to the Mortal-family entry", () => {
+    const k = kindByCode('touchstone');
+    expect(k).not.toBeNull();
+    expect(k.family).toBe('Mortal');
   });
 });
