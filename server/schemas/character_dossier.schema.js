@@ -49,13 +49,13 @@
  * live blast radius - the backfill is the thing that closes the gap.
  *
  * `st_hidden` IS REQUIRED, AND THE REASON IS A LIVE FAIL-OPEN READER. TM
- * Wiki's shipped `filterVisibleFacts` (`../TM Wiki/server/routes/
+ * Wiki's shipped `filterFactsForViewer` (`../TM Wiki/server/routes/
  * characters.js:210-214`) reads `if (fact.st_hidden !== true) return true` -
  * fail-open - so a fact minted WITHOUT `st_hidden` is silently visible to
  * everyone. All 442 live facts carry it, so requiring it costs nothing today
  * and closes a real default-open hazard for every future writer. (TM Wiki's
  * newer `visibility_prefs` projection is allowlist / fail-closed by design;
- * the `filterVisibleFacts` path described here is the one live today.)
+ * the `filterFactsForViewer` path described here is the one live today.)
  */
 
 /**
@@ -113,7 +113,7 @@ const factSchema = {
     fact_key: { type: 'string', minLength: 1 },
 
     // Declared, never written by anything in this repo. Its only current
-    // reader is TM Wiki's shipped `filterVisibleFacts`, so this is a live
+    // reader is TM Wiki's shipped `filterFactsForViewer`, so this is a live
     // reader contract rather than a dead field. Zero live facts carry one.
     revealed_to: { type: 'array', items: { type: 'string' } },
 

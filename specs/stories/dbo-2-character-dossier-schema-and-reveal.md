@@ -1,6 +1,6 @@
 # Story DBO.2: `character_dossier` schema, and the `fact_key` mint TM Wiki's reveal path is waiting on
 
-Status: review
+Status: done
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -92,7 +92,7 @@ reveal action itself is TM Wiki's own future story, writing to TM Wiki's own `tm
   byte-for-byte assertion exists to prove it did not happen.
 - **NOT changing any existing fact's `revealed_to` value.** Zero facts carry one today; zero must
   carry one after this story. The field is *declared* in the schema (TM Wiki's shipped
-  `filterVisibleFacts` reads it today, so it is a live reader contract, not a dead field), but nothing
+  `filterFactsForViewer` reads it today, so it is a live reader contract, not a dead field), but nothing
   here writes it.
 - **NOT flipping TM Wiki's `wiki_config.fact_level_enabled`.** Different repo, different database,
   TM Wiki's own action. This story's completion is the signal that they *can*, not the act of doing it.
@@ -180,7 +180,7 @@ reference is DBO-7's problem, not this story's.
      `severity`, `compromised`, `status`.
    - `npc_id: { type: ['string', 'null'] }` (both shapes are live).
    - `revealed_to: { type: 'array', items: { type: 'string' } }`, with a comment naming TM Wiki's
-     `filterVisibleFacts` as its only current reader and stating that nothing in this repo writes it.
+     `filterFactsForViewer` as its only current reader and stating that nothing in this repo writes it.
    - `severity: { type: 'string', enum: ['minor', 'major', 'life_threatening'] }` - a genuinely closed,
      ordered vocabulary, enum it.
    - `status: { type: 'string', minLength: 1 }` - **not** an enum. Only one live value
@@ -212,12 +212,12 @@ reference is DBO-7's problem, not this story's.
      thing that closes the gap.
 
 3. **`st_hidden` is required on every fact, and the reason is written down.** TM Wiki's shipped
-   `filterVisibleFacts` (`../TM Wiki/server/routes/characters.js:210-214`) reads
+   `filterFactsForViewer` (`../TM Wiki/server/routes/characters.js:210-214`) reads
    `if (fact.st_hidden !== true) return true;` - **fail-open**. A fact minted without `st_hidden` is
    therefore visible to everyone, silently. All 442 live facts carry it, so requiring it costs nothing
    today and closes a real default-open hazard for every future writer. Say exactly that in the schema
    comment. (TM Wiki's newer `visibility_prefs` projection is allowlist / fail-closed by design; the
-   `filterVisibleFacts` path described here is the one that is live today.)
+   `filterFactsForViewer` path described here is the one that is live today.)
 
 4. **`DOSSIER_TAGS` is exported, and `_dossier-audit.js` runs again.**
    - `export const DOSSIER_TAGS = [...]` - the 26 tags in the inventory above.
@@ -428,7 +428,7 @@ separate, riskier decision and is explicitly out of scope.
   mechanism. `SUBJECT_TYPES` includes `'fact'`; the `allOf` arm for it requires
   `subject_ref: { fact_key: { type: 'string', minLength: 1 } }`, which is why a UUID string satisfies
   their contract without a change on their side.
-- [Source: `../TM Wiki/server/routes/characters.js:210-229`] - `filterVisibleFacts`'s fail-open
+- [Source: `../TM Wiki/server/routes/characters.js:210-229`] - `filterFactsForViewer`'s fail-open
   `st_hidden` read (AC3's rationale), and the already-self-corrected dead citation.
 - [Source: `../TM Cockpit/lib/connect.mjs`] - the seven-collection credential scope that rules Cockpit
   out as the reveal writer's home.
@@ -509,7 +509,12 @@ re-verified green afterwards.
 
 - This story's own suite: `server/tests/dbo-2-dossier-fact-key.test.js` - **25 passed, 0 failed,
   0 skipped** (14 Ajv schema tests, 3 export / import-contract tests, 8 `tm_suite_test`-backed script
-  tests). The DB-backed 8 genuinely ran; a skip would have shown as a lower total.
+  tests). The DB-backed 8 genuinely ran. (Corrected during the Senior Developer Review below: the
+  original wording here claimed "a skip would have shown as a lower total", and that mechanism is
+  false under this repo's Vitest 4.1.2 - a skipped test stays in the displayed total. The real
+  differentiator is that the reporter prints an explicit `N skipped` count whenever anything is
+  skipped, and its total absence from the summary line is what proves a fully-green run. The
+  conclusion is unchanged and was re-verified with a fresh run during the review.)
 - Targeted gate, every `server/tests/*.test.js` that imports from `../schemas/` or `../scripts/`
   (18 files) plus this story's own suite plus `dbo-9` and `dbo-3` for adjacency - 21 files:
   **255 passed, 0 failed, 0 skipped, 14 files passed, 7 files failed to LOAD.**
@@ -547,12 +552,27 @@ output on a successful apply, and in `specs/epic-dbo-database-ownership.md`'s DB
 - `server/scripts/dbo-2-dossier-fact-key-backfill.mjs` - `planBackfill` / `applyBackfill` / `main`,
   dry-run by default.
 - `server/tests/dbo-2-dossier-fact-key.test.js` - one combined suite (schema + audit-import contract +
-  backfill script), 25 tests. The story left the schema / script test split to the developer; combined
-  matches DBO-1's own precedent.
+  backfill script), 27 tests (25 at first submission, plus 2 added by the Senior Developer Review).
+  The story left the schema / script test split to the developer; combined matches DBO-1's own
+  precedent.
+
+**Modified by the Senior Developer Review (code):**
+
+- `server/scripts/dbo-2-dossier-fact-key-backfill.mjs` - Patches 1, 2 and 4: `applyBackfill` now
+  re-derives WHICH fact positions to stamp from the fresh backup read instead of iterating the plan's
+  possibly-stale `indices`; the shared `needsKey` / `needsKeyFilter` pair replaces the presence-only
+  `hasOwnProperty` completeness test with a validity test; `main()` also prints the collection's total
+  document count.
+- `server/schemas/character_dossier.schema.js` - Patch 3: the TM Wiki reader is `filterFactsForViewer`,
+  not `filterVisibleFacts` (3 occurrences in comments).
+- `server/tests/dbo-2-dossier-fact-key.test.js` - Patches 1, 2, 3 and 5: two new DB-backed tests
+  (reorder-between-plan-and-apply, present-but-invalid `fact_key`), a keyless fact carrying
+  `revealed_to` added to the `mixed` fixture with its preservation asserted, and the symbol-name fix.
 
 **Modified (documentation and tracking only, no code):**
 
-- `specs/stories/dbo-2-character-dossier-schema-and-reveal.md` - this record, Tasks, Status.
+- `specs/stories/dbo-2-character-dossier-schema-and-reveal.md` - this record, Tasks, Status, the
+  Senior Developer Review section, and the `filterFactsForViewer` name fix.
 - `specs/epic-dbo-database-ownership.md` - DBO-2 section gained a "SHIPPED 2026-08-14" subsection.
 - `specs/deferred-work.md` - the `_havens-and-locations.js:46` keyless-`$push` hazard, and the seven
   pre-existing load failures.
@@ -564,3 +584,135 @@ output on a successful apply, and in `specs/epic-dbo-database-ownership.md`'s DB
 - `server/package.json` - no dependency added.
 - Every `server/routes/*.js`, everything under `public/`, every other `server/scripts/_*.js`, and both
   other repos.
+
+## Senior Developer Review
+
+**Reviewer:** external, Codex CLI (`codex exec`, `model_reasoning_effort=high`), 3-pass adversarial
+protocol (Pass 1 blind diff-only, Pass 2 blind repository context, Pass 3a acceptance audit against
+the ACs, Pass 3b record audit), run against commit `2b187a7d` on branch
+`ms/dbo-2-character-dossier-schema-and-reveal`.
+
+**Outcome:** 8 findings - 5 Medium, 3 Low. No High, no blocking defect. **5 patched, 3 dismissed with
+evidence.** Full raw findings, including each one's File:line, triggering sequence, confidence, and
+the reviewer's own command log and restore attestation, are at
+`specs/stories/code-review/dbo-2-character-dossier-schema-and-reveal-codex-findings.md` - not
+duplicated here.
+
+### Patched
+
+**PATCH 1 - `applyBackfill` re-derives WHICH positions to stamp from the fresh read.**
+Closes *[Pass 1] A reordered array can make one apply run stamp a shifted fact and miss a planned
+fact* (Medium) and *[Pass 3a] AC5's fresh-read write-decision requirement is not implemented*
+(Medium) - one defect seen from two angles. The old loop iterated `row.indices`, computed at PLAN
+time, and only re-read the VALUE at each of those stale positions. An insert, delete or move between
+plan and apply repoints those positions, so the run could stamp whatever had shifted into a planned
+slot while silently missing the fact that was actually planned - self-healing on a later re-run, but
+wrong on that run, and contrary to AC5's literal "the same read that produces the backup is the one
+the write decisions come from". `applyBackfill` now recomputes the unkeyed positions from
+`current.facts` in the fresh backup read via the shared `needsKey`, and never iterates `row.indices`
+at all; the plan contributes only WHICH DOCUMENTS to visit. The header comment's re-derivation claim,
+which previously overclaimed this, was rewritten to describe what the code now actually does.
+
+**PATCH 2 - present-but-invalid `fact_key` values are healed, not treated as permanently complete.**
+Closes *[Pass 1] Present-but-invalid `fact_key` values are treated as permanently complete* (Medium).
+Both the plan test and the DB-level update filter used presence (`hasOwnProperty` /
+`$exists: false`), so `fact_key: null`, `''`, or any non-string would have been treated as done
+forever - even though this story's own schema declares `{ type: 'string', minLength: 1 }` and rejects
+exactly those values, and no re-run could have repaired the document. The test is now validity, in
+one shared place (`needsKey`) with its DB mirror (`needsKeyFilter`): a fact needs a key when
+`typeof fact.fact_key !== 'string' || fact.fact_key.length === 0`. AC5's "never overwrite an existing
+`fact_key`" is unweakened - it protects stable IDENTITY, which only a non-empty string carries, so
+minting over an invalid value is healing rather than overwriting. The reasoning is documented at the
+check itself. Zero live impact: 0 of 442 live facts carry a `fact_key` of any value today.
+
+**PATCH 3 - the TM Wiki reader's real name.** Closes *[Pass 3b] The schema and story name a TM Wiki
+reader that does not exist* (Low). The exported function is `filterFactsForViewer`
+(`../TM Wiki/server/routes/characters.js:207`, with the fail-open `st_hidden !== true` at :211);
+`filterVisibleFacts` appears nowhere in that file. Renamed at all occurrences in this repo's DBO-2
+files - 3 in the schema header/comments, 1 in the test, 5 in this story. The cited line range
+`210-214` was re-verified against the sibling and is correct as written. Nothing in `../TM Wiki` was
+touched.
+
+**PATCH 4 - a collection-total print, so an empty target cannot look like a finished migration.**
+Closes *[Pass 2] A misspelled database override can produce a false-clean migration result* (Low).
+MongoDB selects a non-existent database name without complaint, so a typo'd `MONGODB_DB` reads an
+absent collection and reports the same `0 document(s) / 0 fact(s) need a fact_key` a completed
+migration reports. `main()` now also prints
+`character_dossier: N document(s) in the collection total.` Report path only - planning and writing
+are behaviourally unchanged.
+
+**PATCH 5 - the missing `revealed_to`-preservation fixture.** Closes *[Pass 2] The DB-backed
+non-mutation test does not cover an existing `revealed_to`* (Low). The `mixed` fixture gained a fact
+that has NO `fact_key` (so it must be stamped) but DOES already carry a `revealed_to` array, and the
+suite now asserts it gains a valid key with that array byte-for-byte intact. Correctly identified as
+a test gap, not a write defect - the single-field `$set` already preserved it. The per-fact
+`not.toHaveProperty('revealed_to')` sweep became a conditional so it still proves no fact ACQUIRED
+one.
+
+### Dismissed
+
+**[Pass 1] The purported BSON-tolerant ID schema accepts arbitrary objects (Medium)** - real and
+correctly reproduced: Ajv's `type: ['string', 'object']` does accept `{}` or any object, not only a
+BSON ObjectId. Dismissed because this schema is explicitly documentation-only - there is no
+`$jsonSchema` collection validator and no route in this repo reads or writes `character_dossier`, so
+it enforces nothing at runtime - Ajv has no native way to express "must be a BSON ObjectId", and the
+header already discloses `'object'` as the closest honest approximation rather than claiming false
+precision. Tightening it would need a custom Ajv format or keyword function: disproportionate
+machinery for a declaration nothing validates against.
+
+**[Pass 2] The existing haven writer destroys stable identity and recreates an unsafe fact (Medium)**
+- real, but not a new finding. `server/scripts/_havens-and-locations.js`'s `$pull`-then-`$push` is
+the exact residual hazard this story's own Dev Notes name under "The residual hazard, named now
+rather than discovered later", already logged to `specs/deferred-work.md` under "Deferred from:
+dbo-2-character-dossier-schema-and-reveal", and already excluded by "What this story is NOT", which
+puts all seven historical `_*.js` dossier writers out of scope. The blinded Pass 2 reviewer
+rediscovered a genuinely real, already-disclosed, already-deliberately-deferred item, which is the
+blinding working as designed rather than a new defect. Not re-filed in `deferred-work.md`; it is
+already there.
+
+**[Pass 3b] The record's DB-backed green gate is not reproducible and its skip heuristic is false
+(Medium)** - partially correct, partially overclaimed. The overclaim: Codex's own sandbox could not
+reach Atlas (`connect EACCES 159.143.141.178:27017`), which it disclosed honestly, so its runs showed
+17 passed / 8 skipped. That is an environment limitation of the REVIEWER's sandbox, not a defect in
+this diff, and "is not reproducible" / "must not be inherited as current evidence" does not follow
+from one sandbox's outbound network denial. Independently re-verified twice in the real working
+environment before this review was actioned, and again during it: `cd server && npx vitest run
+tests/dbo-2-dossier-fact-key.test.js` reports a clean green with no `skipped` label anywhere in the
+output, so the DB-backed block genuinely runs here. The correct sub-claim WAS actioned: the record's
+stated reason ("a skip would have shown as a lower total") is a false mechanism under Vitest 4.1.2 -
+Codex's own run showed 17 passed, 8 skipped, 25 total, the total unchanged - so that sentence in the
+Dev Agent Record was corrected to name the real differentiator, the reporter's explicit `N skipped`
+count and its total absence from a green summary line. The conclusion it supported stands.
+
+### Verification of the patches
+
+- **Story suite:** `cd server && npx vitest run tests/dbo-2-dossier-fact-key.test.js` -
+  **27 passed, 0 failed, 0 skipped** (25 prior plus the 2 new DB-backed tests). No `skipped` label in
+  the summary; MongoDB was genuinely reachable for this run.
+- **Targeted gate,** the same 21 files the original dev run used (every `server/tests/*.test.js`
+  importing from `../schemas/` or `../scripts/`, plus `dbo-9` and `dbo-3` for adjacency) -
+  **257 passed, 0 failed, 14 files passed, 7 files failed to LOAD.** 257 is the previously-recorded
+  255 plus this review's 2 new tests; the 7 load failures are byte-for-byte the same pre-existing set
+  the Dev Agent Record already proved against the stashed base
+  (`issue-1013`, `issue-1021`, `issue-811`, `issue-826`, `issue-837`, `n8-mandragora-prereq`,
+  `oxp-1-office-seats`). No new regression.
+- **Prove-discrimination, three single-change inversions,** each restored and re-verified green
+  afterwards:
+  1. *Patch 1 reverted alone* (position loop returned to `row.indices`, validity check kept) ->
+     exactly 1 failure, `AC5 - a facts array REORDERED between plan and apply is still fully
+     stamped`, 26 passed. Restored, 27/27.
+  2. *Patch 2 reverted alone* (both layers back to presence: `hasOwnProperty` and `$exists: false`)
+     -> exactly 1 failure, `AC5 - a present-but-INVALID fact_key is healed, and a valid one is still
+     never touched`, 26 passed. Restored, 27/27.
+  3. *Patch 5's protected behaviour inverted* (the single-field `$set` replaced with a whole-fact
+     `$set` that drops `revealed_to` - the write shape `_havens-and-locations.js` uses) -> exactly 1
+     failure, `AC6 - apply stamps every unkeyed fact and mutates nothing else, byte-for-byte`,
+     failing precisely at the new `revealed_to` assertion, 26 passed. Restored, 27/27. This proves
+     the new fixture discriminates a real behaviour rather than merely passing.
+- **British English, no em-dashes, no smart quotes, no NUL bytes** re-verified programmatically
+  across all three source files after patching (U+2014, U+2013, U+2018, U+2019, U+201C, U+201D,
+  U+0000: clean).
+- **Live `tm_suite` was not written to during this review.** No `--apply` at any target. Only
+  `applyBackfill(..., { apply: true })` inside vitest against `tm_suite_test`. The hand-off recorded
+  above is unchanged: running the backfill for real remains Angelus's action, and TM Wiki must be
+  told once it lands.

@@ -89,7 +89,7 @@ describe('DBO-2: characterDossierSchema describes the real live documents', () =
     expect(missing).toContain('fact_key');
   });
 
-  it('AC3 - fails when st_hidden is absent from one fact (TM Wiki\'s filterVisibleFacts is fail-open)', () => {
+  it('AC3 - fails when st_hidden is absent from one fact (TM Wiki\'s filterFactsForViewer is fail-open)', () => {
     const { st_hidden: _dropped, ...open } = baseFact();
     expect(validate(baseDoc([open]))).toBe(false);
     const missing = (validate.errors || [])
@@ -201,6 +201,10 @@ describe.skipIf(!dbAvailable)('DBO-2: dbo-2-dossier-fact-key-backfill.mjs', () =
     clean: `${ID_PREFIX}doc-clean`,   // fully keyed already - must not be planned at all
   };
   const PRE_EXISTING_KEY = 'dbo-2-pre-existing-key-do-not-touch';
+  // A keyless fact that ALREADY carries `revealed_to`. Zero live facts are in
+  // this state today, but it becomes the ordinary state the moment TM Wiki's
+  // reveal mechanism goes live, so the preservation is pinned now.
+  const PRE_EXISTING_REVEALED_TO = ['664b1f0e0e0e0e0e0e0e0e05', '664b1f0e0e0e0e0e0e0e0e06'];
 
   // Every shape observed in the live inventory (2026-08-14, 30 docs / 442
   // facts), not simplified stand-ins.
@@ -225,6 +229,9 @@ describe.skipIf(!dbAvailable)('DBO-2: dbo-2-dossier-fact-key-backfill.mjs', () =
         { tag: 'notable_ally', value: 'Runs errands for the Harpy.', source: 'excel', st_hidden: true, npc_id: '664b1f0e0e0e0e0e0e0e0e02' },
         // 6 - ALREADY carries a fact_key: must survive byte-for-byte
         { tag: 'worldview', value: 'The city keeps its own accounts.', source: 'excel', st_hidden: true, fact_key: PRE_EXISTING_KEY },
+        // 7 - NO fact_key (so it must be stamped) but ALREADY carries a
+        // revealed_to: that array must come through untouched.
+        { tag: 'notable_event', value: 'Named at the Prince\'s court.', source: 'history', st_hidden: true, revealed_to: [...PRE_EXISTING_REVEALED_TO] },
       ],
     },
     {
@@ -273,7 +280,7 @@ describe.skipIf(!dbAvailable)('DBO-2: dbo-2-dossier-fact-key-backfill.mjs', () =
     const rows = ownRows(await planBackfill(col()));
     const byId = Object.fromEntries(rows.map(r => [r._id, r]));
 
-    expect(byId[ids.mixed].indices).toEqual([0, 1, 2, 3, 4, 5]); // 6 is already keyed
+    expect(byId[ids.mixed].indices).toEqual([0, 1, 2, 3, 4, 5, 7]); // 6 is already keyed; 7 is keyless-but-revealed
     expect(byId[ids.stale].indices).toEqual([0, 1]);
     expect(byId[ids.clean]).toBeUndefined();
     expect(byId[ids.mixed].character_id).toBe('664b1f0e0e0e0e0e0e0e0e01');
@@ -296,7 +303,7 @@ describe.skipIf(!dbAvailable)('DBO-2: dbo-2-dossier-fact-key-backfill.mjs', () =
     const result = await applyBackfill(col(), rows, { apply: true });
 
     expect(result.documentsTouched).toBe(2);
-    expect(result.factsStamped).toBe(8); // 6 on mixed + 2 on stale
+    expect(result.factsStamped).toBe(9); // 7 on mixed + 2 on stale
     expect(result.backedUp).toBe(2);
 
     const after = await col().find({ _id: { $in: fixtureIds } }).toArray();
@@ -311,9 +318,14 @@ describe.skipIf(!dbAvailable)('DBO-2: dbo-2-dossier-fact-key-backfill.mjs', () =
       doc.facts.forEach((fact, i) => {
         expect(typeof fact.fact_key).toBe('string');
         expect(fact.fact_key.length).toBeGreaterThan(0);
-        // st_hidden untouched, and no fact acquired a revealed_to.
+        // st_hidden untouched; no fact acquired a revealed_to, and any fact
+        // that already had one kept it exactly.
         expect(fact.st_hidden).toBe(true);
-        expect(fact).not.toHaveProperty('revealed_to');
+        if (Object.prototype.hasOwnProperty.call(original.facts[i], 'revealed_to')) {
+          expect(fact.revealed_to).toEqual(original.facts[i].revealed_to);
+        } else {
+          expect(fact).not.toHaveProperty('revealed_to');
+        }
         // Everything except fact_key is byte-for-byte identical.
         const { fact_key: _ak, ...restFactAfter } = fact;
         const { fact_key: _bk, ...restFactBefore } = original.facts[i];
@@ -324,6 +336,13 @@ describe.skipIf(!dbAvailable)('DBO-2: dbo-2-dossier-fact-key-backfill.mjs', () =
     // The already-keyed fact kept its ORIGINAL key, not a fresh mint.
     const mixed = after.find(d => d._id === ids.mixed);
     expect(mixed.facts[6].fact_key).toBe(PRE_EXISTING_KEY);
+    // A keyless fact carrying revealed_to gains its key WITHOUT the single-
+    // field $set disturbing that array. This is the state every fact enters
+    // once TM Wiki's reveal mechanism is live, so it is pinned explicitly
+    // rather than left to the generic byte-for-byte sweep above.
+    expect(typeof mixed.facts[7].fact_key).toBe('string');
+    expect(mixed.facts[7].fact_key.length).toBeGreaterThan(0);
+    expect(mixed.facts[7].revealed_to).toEqual(PRE_EXISTING_REVEALED_TO);
     // The fully-keyed document was never planned, so never written.
     const clean = after.find(d => d._id === ids.clean);
     expect(clean.facts[0].fact_key).toBe('already-keyed-a');
@@ -335,8 +354,8 @@ describe.skipIf(!dbAvailable)('DBO-2: dbo-2-dossier-fact-key-backfill.mjs', () =
 
     const after = await col().find({ _id: { $in: fixtureIds } }).toArray();
     const keys = after.flatMap(d => d.facts.map(f => f.fact_key));
-    expect(keys).toHaveLength(10);
-    expect(new Set(keys).size).toBe(10);
+    expect(keys).toHaveLength(11);
+    expect(new Set(keys).size).toBe(11);
   });
 
   it('AC6 - is idempotent: a second plan is empty and a re-applied stale plan stamps zero', async () => {
@@ -371,6 +390,88 @@ describe.skipIf(!dbAvailable)('DBO-2: dbo-2-dossier-fact-key-backfill.mjs', () =
     expect(after.facts[0].fact_key).toBe(OUT_OF_BAND);
     expect(after.facts[1].fact_key).not.toBe(OUT_OF_BAND);
     expect(typeof after.facts[1].fact_key).toBe('string');
+  });
+
+  it('AC5 - a facts array REORDERED between plan and apply is still fully stamped', async () => {
+    // The Pass 1 / Pass 3a finding of the DBO-2 external review. `row.indices`
+    // describes the layout at PLAN time. If anything shifts the array before
+    // the apply, iterating those stale positions stamps whatever slid into a
+    // planned slot and silently misses the fact that was actually planned.
+    // AC5 requires the write decisions - positions included - to come from the
+    // fresh backup read, which makes this self-correcting.
+    const rows = ownRows(await planBackfill(col()));
+    expect(rows.find(r => r._id === ids.stale).indices).toEqual([0, 1]);
+
+    // A REAL Mongo write between plan and apply, not a mutated JS variable:
+    // another actor inserts an unkeyed fact at the FRONT, shifting both
+    // planned facts one position to the right.
+    await col().updateOne(
+      { _id: ids.stale },
+      {
+        $push: {
+          facts: {
+            $each: [{ tag: 'secret', value: 'Inserted between plan and apply.', source: 'history', st_hidden: true }],
+            $position: 0,
+          },
+        },
+      }
+    );
+
+    await applyBackfill(col(), rows, { apply: true });
+
+    const after = await col().findOne({ _id: ids.stale });
+    expect(after.facts).toHaveLength(3);
+    // Nothing was skipped by stale indexing: every fact actually present and
+    // unkeyed at apply time carries a key now.
+    for (const fact of after.facts) {
+      expect(typeof fact.fact_key).toBe('string');
+      expect(fact.fact_key.length).toBeGreaterThan(0);
+    }
+    expect(new Set(after.facts.map(f => f.fact_key)).size).toBe(3);
+    // Named specifically: the fact that shifted to index 2 is the one a stale
+    // index walk never visits.
+    const byValue = Object.fromEntries(after.facts.map(f => [f.value, f]));
+    expect(byValue['Glasgow.'].fact_key.length).toBeGreaterThan(0);
+    expect(byValue['Fear of being forgotten.'].fact_key.length).toBeGreaterThan(0);
+    expect(byValue['Inserted between plan and apply.'].fact_key.length).toBeGreaterThan(0);
+  });
+
+  it('AC5 - a present-but-INVALID fact_key is healed, and a valid one is still never touched', async () => {
+    // The other Pass 1 finding: a presence-only completeness test treats
+    // `fact_key: ''` / `null` as permanently complete, even though the schema
+    // this story ships (`{ type: 'string', minLength: 1 }`) rejects exactly
+    // those values, so no re-run could ever repair the document.
+    const invalidId = `${ID_PREFIX}doc-invalid`;
+    const VALID_KEY = 'a-genuinely-valid-key-keep-me';
+    await col().insertOne({
+      _id: invalidId,
+      character_id: '664b1f0e0e0e0e0e0e0e0e07',
+      source: 'excel',
+      facts: [
+        { tag: 'aspiration', value: 'Empty-string key.', source: 'excel', st_hidden: true, fact_key: '' },
+        { tag: 'worldview', value: 'Null key.', source: 'excel', st_hidden: true, fact_key: null },
+        { tag: 'boon', value: 'Valid key, must survive.', source: 'excel', st_hidden: true, fact_key: VALID_KEY },
+      ],
+    });
+    try {
+      const rows = await planBackfill(col());
+      const row = rows.find(r => r._id === invalidId);
+      expect(row).toBeDefined();
+      expect(row.indices).toEqual([0, 1]); // the valid key at 2 is not planned
+
+      await applyBackfill(col(), rows.filter(r => r._id === invalidId), { apply: true });
+
+      const after = await col().findOne({ _id: invalidId });
+      for (const i of [0, 1]) {
+        expect(typeof after.facts[i].fact_key).toBe('string');
+        expect(after.facts[i].fact_key.length).toBeGreaterThan(0);
+      }
+      expect(after.facts[0].fact_key).not.toBe(after.facts[1].fact_key);
+      // Never overwrite an existing VALID key - that invariant is untouched.
+      expect(after.facts[2].fact_key).toBe(VALID_KEY);
+    } finally {
+      await col().deleteOne({ _id: invalidId });
+    }
   });
 
   it('does not touch a foreign document sharing this tm_suite_test collection', async () => {
