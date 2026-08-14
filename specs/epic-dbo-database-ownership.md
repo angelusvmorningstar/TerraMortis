@@ -250,21 +250,36 @@ cross-referencing real sheet values, and where that field is genuinely live-mech
 stays. Angelus: *"mostly true with some exceptions like mask etc."* Per-field pass required. Depends
 on DBO-2 resolving the schema and reveal questions first.
 
-### DBO-8 — Touchstone mechanic/identity separation *(joint with Wiki 31-6)*
+### DBO-8 — Touchstone mechanic/identity separation — RESOLVED 2026-08-14, scope changed
 
-Target: `characters.touchstones[]` keeps `{humanity, edge_id?}` and drops `name`/`desc`. Today
-`name` is **REQUIRED** (`server/schemas/character.schema.js:246-262`) — the schema forces this app to
-carry an identity it is meant to be agnostic about.
+Original target: `characters.touchstones[]` keeps `{humanity, edge_id?}` and drops `name`/`desc`,
+resolving first that Humanity was stored **twice** (`characters.touchstones[].humanity` and
+`relationships.touchstone_meta.humanity`) with no reconciliation.
 
-**Resolve first, in this repo:** the Humanity rating is stored **twice** —
-`characters.touchstones[].humanity` and `relationships.touchstone_meta.humanity`
-(`server/schemas/relationship.schema.js:66-73`, every `kind:'touchstone'` edge, endpoints enforced as
-one PC + one NPC). No reconciliation, no stated winner. **Query whether they currently disagree before
-touching either.** Each record also carries half the other's concern: the character slot carries
-identity, the relationship carries the mechanic.
+**RESOLVED, dev-storied 2026-08-14 — the "resolve first" investigation changed the story's shape.**
+Live query against `tm_suite`: **0 of 44** live `touchstones[]` entries (30 characters) carry
+`edge_id`. The **one** `kind:'touchstone'` relationship edge in the whole database is
+`status:'retired'` and orphaned (no character references it). Traced why: `public/js/editor/edit.js`'s
+own comment cites **issue #162** removing the only code path that ever created an `edge_id`-linked
+touchstone — "Legacy entries with edge_id continue to render and edit; their edges sit dormant" — but
+zero such legacy entries survive in live data. There was no live disagreement to reconcile, because
+nothing live used the dual-storage shape.
 
-**Wrinkle**: `edge_id` is optional — object/concept touchstones are not characters and have no edge
-(schema comment, `:245,257`). Their identity is only ever the `name` string and needs a destination.
+Presented to Angelus as a genuine strategic choice (revive vs retire a dormant mechanism), not decided
+unilaterally. **Angelus's call: retire the dead mechanic outright** rather than build the originally-
+planned split. Delivered: `edge_id`/`touchstone_meta`/`kind:'touchstone'` removed entirely from both
+schemas (`character.schema.js`, `relationship.schema.js`) and all code
+(`server/routes/relationships.js`, `server/routes/characters.js`, `public/js/editor/edit.js`,
+`public/js/editor/sheet.js`); `touchstones[]` stays `{humanity, name, desc?}` — the shape every live
+entry already was. A dry-run-only cleanup script for the one orphaned relationship document
+(`server/scripts/dbo-8-orphaned-touchstone-edges-cleanup.mjs`) — `--apply` stays Angelus's own action,
+though unlike DBO-1's own migration this one carries no urgency (the document is inert; the schema
+change alone prevents any new one). Full evidence:
+`specs/stories/dbo-8-touchstone-mechanic-identity-split.md`.
+
+**Wiki's own 31-6 should be re-checked against this outcome** — if it assumed the original split
+(character-linked touchstones staying a real, buildable-toward mechanic), that assumption no longer
+holds on this side.
 
 ### DBO-9 — Suite's own duplicated constants
 
