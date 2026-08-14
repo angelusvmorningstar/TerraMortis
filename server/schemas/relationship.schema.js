@@ -13,14 +13,17 @@
  * kind='other' requires a non-empty custom_label — enforced at the
  * route layer (the schema allows custom_label for any kind).
  *
- * kind='touchstone' requires touchstone_meta.humanity (1..10) and
- * endpoints shaped as one pc + one npc — enforced at the route layer.
+ * 'touchstone' is deliberately NOT a KIND_ENUM value (DBO-8, 2026-08-14) —
+ * touchstones are free-text only on characters.touchstones[]; the earlier
+ * relationship-linked design (this schema's own touchstone_meta) was
+ * retired because issue #162 removed its only creation path and live data
+ * confirmed zero touchstones used it.
  */
 
 export const KIND_ENUM = [
   'sire', 'childe', 'grand-sire', 'grand-childe', 'clan-mate',
   'coterie', 'ally', 'rival', 'enemy', 'mentor', 'debt-holder', 'debt-bearer',
-  'touchstone', 'family', 'contact', 'retainer', 'correspondent', 'romantic',
+  'family', 'contact', 'retainer', 'correspondent', 'romantic',
   'other',
 ];
 
@@ -63,15 +66,6 @@ const fieldDeltaSchema = {
   },
 };
 
-const touchstoneMetaSchema = {
-  type: 'object',
-  required: ['humanity'],
-  additionalProperties: false,
-  properties: {
-    humanity: { type: 'integer', minimum: 1, maximum: 10 },
-  },
-};
-
 const historyItemSchema = {
   type: 'object',
   required: ['at', 'by', 'change'],
@@ -109,7 +103,6 @@ export const relationshipSchema = {
     // POSTs. Used by NPCR.9 to scope edit rights to the creating char.
     created_by_char_id: { type: 'string' },
     history:      { type: 'array', items: historyItemSchema },
-    touchstone_meta: touchstoneMetaSchema,
     created_at:   { type: 'string' },
     updated_at:   { type: 'string' },
   },

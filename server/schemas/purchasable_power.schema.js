@@ -216,33 +216,17 @@ export const purchasablePowerSchema = {
       ],
     },
 
-    // Tracking flag — not consumed by game logic yet.
-    // Issue #5 (2026-05-07): the legacy `selected` boolean was retired. Holder
-    // count is now computed at render time from the live character set
-    // (admin Rule Data table 'Held by' column).
-    //
-    // CORRECTION (OATH-A, issue #1111, 2026-08-07). This comment previously
-    // gave the script's path as `server/scripts/strip-selected-...js` and
-    // described the $unset in the past tense, as though the cleanup had
-    // happened. Two things are wrong with that:
-    //
-    //   1. The path is stale — the script was archived (not deleted) by
-    //      f07887fc and now lives at
-    //      `server/scripts/archive/strip-selected-from-purchasable-powers.js`.
-    //      It is dry-run by default, takes a backup on `--apply`, and its
-    //      filter `{ selected: { $exists: true } }` is collection-wide.
-    //   2. The cleanup has NOT taken effect. Measured against live tm_suite
-    //      2026-08-07: `selected` is on 666 of 673 rows and `special` on
-    //      527, so 666 rows fail this schema on `additionalProperties:
-    //      false` — only 7 pass.
-    //
-    // A purpose-built, backup-taking script exists AND the field is still
-    // on 666 rows, so either it was never run or something re-seeds
-    // `selected` after it runs. That question decides whether the fix is
-    // "run the existing script" or "find what puts it back", and it must be
-    // answered before anyone writes a new script — filed separately.
-    // OATH-A strips these two keys from the ten `cost_model` rows only,
-    // because those are the rows it must make POST-able.
+    // `selected` (legacy `Held by` boolean, retired by issue #5, 2026-05-07)
+    // is deliberately NOT declared — `additionalProperties: false` keeps
+    // rejecting it, and `server/scripts/dbo-1-purchasable-powers-field-
+    // cleanup.mjs` strips it from disk. `special` is declared because it is
+    // load-bearing since DBO-3: `isMeritEventGranted(rule)` in
+    // `public/js/editor/merits.js` reads `rule.special === 'standing'`, true
+    // only for Mystery Cult Initiation and Professional Training; every other
+    // row carries `null`. Full investigation, including what can still
+    // re-seed either field: specs/epic-dbo-database-ownership.md, DBO-1.
+    special: { type: ['string', 'null'], enum: ['standing', null] },
+
     implemented: { type: 'boolean' },   // all rules/prereqs/mechanics verified correct in backend
   },
 };

@@ -2,11 +2,16 @@
  * API tests — player-writable POST /api/relationships (NPCR.7)
  *
  * Covers the split-auth POST branch added in NPCR.7:
- * - ST path: unchanged; any endpoints, any kind (touchstone excluded for simplicity,
- *   NPCR.2 tests already cover the ST happy path end-to-end)
+ * - ST path: unchanged; any endpoints, any kind
  * - Player path: a.type=pc with a.id in character_ids, b.type=npc,
- *   kind !== 'touchstone', sets created_by_char_id
+ *   sets created_by_char_id
  * - Duplicate detection: 409 when an active edge with same {a, b, kind} exists
+ *
+ * 'touchstone' is not a valid `kind` at all any more (DBO-8, 2026-08-14) —
+ * touchstones are free-text only on characters.touchstones[]. The old
+ * player-path business rule this file used to test ("touchstones are
+ * managed from the character sheet") is unreachable now: the schema itself
+ * rejects kind='touchstone' before any handler code runs.
  *
  * Also covers the new /api/npcs/directory player-readable listing.
  */
@@ -128,17 +133,17 @@ describe('POST /api/relationships — player auth + validation', () => {
     expect(res.body.message).toMatch(/PC-to-PC/i);
   });
 
-  it("400 when kind='touchstone' (players use the sheet picker)", async () => {
+  it("DBO-8: 400 when kind='touchstone' (not a valid kind at all - rejected at the schema layer)", async () => {
     const res = await request(app)
       .post('/api/relationships')
       .set('X-Test-User', playerUser([MY_CHAR]))
       .send(validPlayerBody({
         kind: 'touchstone',
         b: { type: 'npc', id: NPC_2_ID },
-        touchstone_meta: { humanity: 6 },
       }));
     expect(res.status).toBe(400);
-    expect(res.body.message).toMatch(/character sheet/i);
+    expect(res.body.error).toBe('VALIDATION_ERROR');
+    expect(res.body.errors.some(e => e.path === '/kind')).toBe(true);
   });
 });
 

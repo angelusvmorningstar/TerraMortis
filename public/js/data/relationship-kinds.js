@@ -33,7 +33,8 @@ export const RELATIONSHIP_KINDS = [
   { code: 'debt-bearer', label: 'Debt-bearer', family: 'Political', direction: 'directed', typicalEndpoints: { a: 'any', b: 'any' }, custom_label_allowed: false, description: 'a owes a debt to b (inverse of debt-holder)' },
 
   // ── Mortal ─────────────────────────────────────────────────────────────────
-  { code: 'touchstone',    label: 'Touchstone',    family: 'Mortal', direction: 'directed', typicalEndpoints: { a: 'pc', b: 'npc' },  custom_label_allowed: false, description: "a's Humanity is anchored by b" },
+  // 'touchstone' removed (DBO-8, 2026-08-14): not a valid server KIND_ENUM
+  // value any more - touchstones are free-text only on characters.touchstones[].
   { code: 'family',        label: 'Family',        family: 'Mortal', direction: 'mutual',   typicalEndpoints: { a: 'any', b: 'npc' }, custom_label_allowed: false, description: 'mortal family tie' },
   { code: 'contact',       label: 'Contact',       family: 'Mortal', direction: 'directed', typicalEndpoints: { a: 'any', b: 'npc' }, custom_label_allowed: false, description: "a's mortal contact is b" },
   { code: 'retainer',      label: 'Retainer',      family: 'Mortal', direction: 'directed', typicalEndpoints: { a: 'any', b: 'npc' }, custom_label_allowed: false, description: "a's retainer is b" },
