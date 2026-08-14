@@ -97,9 +97,39 @@ or something re-seeds the field.
 **Answer that question first — "never run, or does something put it back?" — before writing any new
 script.** The schema comment says so explicitly and it is the right call.
 
+**ANSWERED 2026-08-14, read-only investigation, no writes.** Neither field is being re-seeded — both
+are stale, un-migrated legacy data, and nothing in the active codebase can currently write either back:
+
+- `selected` — genuinely dead. `POST /api/rules` validates against the schema
+  (`additionalProperties: false`), so a new document carrying it is rejected outright; `PUT
+  /api/rules/:key`'s `UPDATABLE_FIELDS` allowlist (`server/routes/rules.js:70-83`) doesn't include it
+  at all, so routine ST edits via the admin Rule Data editor structurally cannot set or restore it.
+  `grep` across `public/` found zero reads of it against a purchasable-power shape (the handful of
+  `.selected` hits are DOM `<option>`/CSS state, unrelated). The archived collection-wide strip script
+  (`server/scripts/archive/strip-selected-from-purchasable-powers.js`) has **never been run with
+  `--apply`** — the 666-row count from 2026-08-07 is simply the original `ingest-excel.js` import,
+  untouched since. Live re-check today: **656 of 673** (was 666) — the drop of exactly 10 matches
+  `fix-1111-oath-row-hygiene.js` (OATH-A, issue #1111), a narrow, already-applied script that strips
+  `selected`+`special` from only the ten `cost_model` rows. That script ran; the broad one never did.
+- `special` — same shape of answer, but **not a clean strip any more**. Commit `b3a6ab4e` (2026-04-08,
+  Peter) moved the CODE from `rule.special` to `rule.sub_category` for standing-merit filtering and
+  removed `special` from the schema/seed/PUT-allowlist/rules-editor-modal — but never migrated the
+  DATA, so every row that already carried a `special` value kept it forever. That is the root cause
+  DBO-3 (merged today) diagnosed independently from the other direction. **DBO-3 has now made
+  `special` load-bearing again**: `isMeritEventGranted(rule)` in `public/js/editor/merits.js:46` reads
+  `rule.special === 'standing'` and is live in production. Live re-check today, grouped by value:
+  `{null: 515, "standing": 2}` — the two `"standing"` rows are exactly Mystery Cult Initiation and
+  Professional Training, the pair DBO-3's fix depends on. **This changes DBO-1's fix shape**: `special`
+  can no longer be silently stripped collection-wide — it must be DECLARED in the schema (the 2
+  `"standing"` rows are genuinely read by live code), while the 515 `null` rows are harmless residue
+  that can be left as `null` (equivalent to absent for the one check that reads it) or cleaned
+  opportunistically. `selected` remains a clean, safe, collection-wide strip — the existing archived
+  script (extended past its current `selected`-only filter, or a new one following the same
+  dry-run/backup/`--apply` shape) is the right tool; there is nothing to "find" that puts it back.
+
 Blocks readers: TM Wiki's Epic 17 research wanted a load-bearing filter on `special` and could not
-safely take one. Until this resolves, `special` is readable but undeclared, so a fresh write rejects
-it.
+safely take one. Now resolved: `special` should be declared as `{ oneOf: [{ enum: ['standing'] }, {
+type: 'null' }] }` (or equivalent), not removed — Epic 17 can take a filter on it once declared.
 
 ### DBO-2 — `character_dossier` schema and reveal path
 
