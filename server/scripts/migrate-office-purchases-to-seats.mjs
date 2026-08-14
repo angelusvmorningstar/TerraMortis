@@ -84,8 +84,14 @@
  * MongoDB `_id` is immutable, so the rewrite is INSERT THEN DELETE, in that
  * order. An interrupted run therefore leaves both documents rather than
  * neither, and a re-run recognises the seat-keyed document as already present,
- * declines to overwrite it, and clears only the stale category-keyed one. A
- * document already keyed by a 24-hex seat id is recognised as migrated and
+ * declines to overwrite it, and — ONLY IF the two documents' purchase content
+ * is identical (Codex review, DBO-4, 2026-08-14) — clears the now-redundant
+ * category-keyed one. A seat document created independently (through
+ * ordinary use of the live seat-keyed routes, not an interrupted migration)
+ * can genuinely differ from the old category-keyed one; in that case the
+ * category-keyed document is left in place and reported REFUSED, because
+ * deleting it would silently discard whatever purchase data it alone holds.
+ * A document already keyed by a 24-hex seat id is recognised as migrated and
  * skipped entirely. Re-running after `--apply` reports "Migrated 0".
  *
  * Idempotency is ATOMIC, not merely sequential, following the discipline
@@ -208,6 +214,30 @@ function unchangedSince(doc) {
 }
 
 /**
+ * Deep-equal via a canonical (key-sorted) JSON string, so two documents built
+ * with the same fields in a different insertion order (e.g. `dots` set one
+ * merit at a time vs. seeded all at once) compare equal rather than falsely
+ * differing.
+ */
+function canonicalJSON(value) {
+  if (Array.isArray(value)) return `[${value.map(canonicalJSON).join(',')}]`;
+  if (value && typeof value === 'object') {
+    const keys = Object.keys(value).sort();
+    return `{${keys.map(k => `${JSON.stringify(k)}:${canonicalJSON(value[k])}`).join(',')}}`;
+  }
+  return JSON.stringify(value);
+}
+
+/** Value fields only - strips the identity/bookkeeping fields that legitimately
+ * differ between the category-keyed original and its seat-keyed counterpart
+ * (`_id` itself, `updated_at`, and the denormalised `office_category` this
+ * migration adds on write) so the comparison is about PURCHASE CONTENT only. */
+function valueFieldsOf(doc) {
+  const { _id, updated_at, office_category, ...rest } = doc || {};
+  return rest;
+}
+
+/**
  * Carry out (or, by default, merely narrate) the plan.
  *
  * @param {import('mongodb').Collection} purchaseCollection
@@ -278,9 +308,34 @@ export async function applyMigration(purchaseCollection, rows, { apply = false, 
       migrated += 1;
       log(`  migrated : '${row.category}' -> seat ${row.seatId}`);
     } else {
+      // Codex review, DBO-4 (2026-08-14): a seat document can exist here for
+      // two entirely different reasons, and this script used to treat both
+      // as the same "interrupted earlier run" case, deleting the old
+      // category-keyed document unconditionally either way. The SAFE case is
+      // a genuinely interrupted migration: the seat document IS the old
+      // document, already copied, just not yet cleaned up - deleting the old
+      // one loses nothing, because the two are identical. The UNSAFE case is
+      // a seat document created independently, through completely ordinary
+      // use of the live seat-keyed routes (which this project's own office
+      // tab exposes today) - the two documents can genuinely differ, and
+      // deleting the old one on that assumption would silently discard
+      // whatever purchase data it alone held (any merit dot, or the rank, the
+      // newer write never touched). Compare content, not merely presence.
+      const existing = await purchaseCollection.findOne({ _id: row.seatId });
+      const identical = existing
+        && canonicalJSON(valueFieldsOf(row.doc)) === canonicalJSON(valueFieldsOf(existing));
+
+      if (!identical) {
+        refused += 1;
+        log(`  REFUSED  : seat ${row.seatId} already holds a DIFFERENT document than '${row.category}'. ` +
+            'Not a safe auto-recovery - deleting the old document would discard whatever it alone holds. ' +
+            'Both left untouched; a human must reconcile them by hand.');
+        continue;
+      }
+
       recovered += 1;
-      log(`  recovered: seat ${row.seatId} already held a document (interrupted earlier run). ` +
-          `Kept it as-is; clearing the stale '${row.category}' document.`);
+      log(`  recovered: seat ${row.seatId} already held an identical document (interrupted earlier run). ` +
+          `Kept it as-is; clearing the now-redundant '${row.category}' document.`);
     }
 
     // Delete second, guarded the SAME way as the pre-insert check above, so a

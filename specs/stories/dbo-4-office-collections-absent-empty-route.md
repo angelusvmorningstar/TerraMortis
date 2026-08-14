@@ -1,6 +1,6 @@
 # Story DBO.4: Office collections — absent, empty, and whether "renders empty" is a bug
 
-Status: review
+Status: done
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -127,7 +127,10 @@ before establishing whether there is anything to fix.
         corrected accordingly (see epic-dbo-database-ownership.md's DBO-4 resolution).
 - [x] Task 4: Correct the stale OXP-merge-status premise (AC: #4)
   - [x] `git log origin/main` for oxp-\*/oaq-\* commits, current state — confirmed `oxp-1` through
-        `oxp-6` and `oxp-11` all merged (oxp-5 via PR #1165, merge commit `1063787b`).
+        `oxp-5` and `oxp-11` merged (oxp-5 via PR #1165, merge commit `1063787b`); `oxp-6` is NOT on
+        `origin/main` (this dev pass's first attempt used `git log origin/main --all`, which includes
+        local branches, and wrongly counted `oxp-6` as merged — caught and corrected by this story's
+        own external Codex review; see Senior Developer Review below).
   - [x] Update `epic-dbo-database-ownership.md`'s DBO-4 section and this file's own `sprint-status.yaml`
         row (and epic-oxp's own row, also found stale on the same point) with the corrected state.
 - [x] Task 5: Document the three collections in `specs/reference-data-ssot.md` (AC: #5)
@@ -261,23 +264,32 @@ Claude Sonnet 5 (claude-sonnet-5).
   reviewed alongside oxp-11, and is already correct) — it is a pending operational action, explicitly
   gated to Angelus by the script's own header ("RUNNING THIS FOR REAL IS ANGELUS'S ACTION, NOT AN
   AGENT'S"). Both affected documents currently hold only `{"Safe Place": 0}`, so nothing of real value
-  is at stake today, but the script's own header names a real compounding hazard if either seat is
-  touched through the live UI before the migration runs (see Dev Notes and `deferred-work.md`).
-- **AC4 — confirmed and corrected.** The epic's "OXP not yet merged" premise was stale (`oxp-1`
-  through `oxp-6` and `oxp-11` are already on `origin/main`); `epic-dbo-database-ownership.md`'s
-  DBO-4 section and both this story's own and epic-oxp's `sprint-status.yaml` rows corrected.
-- **AC5 — done.** New "Office (Court Positions — Epic OXP)" section in
-  `specs/reference-data-ssot.md`, matching the file's existing table format, covering all four
-  `office_*` collections plus `office_seats` and `contested_roll_requests` for auth-boundary
-  completeness, with the "no document = 0 is deliberate" note and the live migration-gap finding both
-  recorded there for the next audit to find without rediscovering either.
-- **AC6 — N/A, explicitly.** No code defect was found anywhere in Tasks 1-3's investigation. Nothing
-  was patched. The one real finding (above) is an operational action pending Angelus, not a bug in
-  this repo's code.
-- **No code changed by this story.** Every file this story modified is documentation/spec/tracking:
+  is at stake today, but the script's own header named a real compounding hazard if either seat was
+  touched through the live UI before the migration ran — **since fixed by this story's own external
+  review; see Senior Developer Review below.**
+- **AC4 — confirmed, and this dev pass's own correction needed a correction.** The epic's "OXP not
+  yet merged" premise was stale, but the first-pass fix over-corrected: `oxp-1` through `oxp-5` and
+  `oxp-11` are genuinely on `origin/main`; `oxp-6` is NOT (a `git log origin/main --all` command
+  wrongly included a local-only branch). Caught by the external review; see Senior Developer Review.
+  `epic-dbo-database-ownership.md`'s DBO-4 section and both this story's own and epic-oxp's
+  `sprint-status.yaml` rows corrected twice — once for the original staleness, once for this.
+- **AC5 — done, then corrected twice more by the external review.** New "Office (Court Positions —
+  Epic OXP)" section in `specs/reference-data-ssot.md`, matching the file's existing table format,
+  covering all `office_*` collections plus `office_seats` and `contested_roll_requests` for
+  auth-boundary completeness. The review found and this pass fixed two documentation errors in it —
+  see Senior Developer Review.
+- **AC6 — fired after all, on external review, not during this dev pass.** The original conclusion
+  ("no code defect found anywhere in Tasks 1-3's investigation") did not survive an active hunt by
+  the external review: it found a real High-severity data-loss defect in the migration script and a
+  real Medium-severity input-validation gap in `office-merit-dots.js`, neither within Tasks 1-3's own
+  narrower framing (they checked "does absent/empty degrade gracefully" and "is there a silent
+  failure", not "does the migration script itself have a bug"). Both patched, both
+  prove-discriminated. See Senior Developer Review for full detail.
+- **Code WAS changed, by the external review's own findings, not by the original dev pass.**
+  `server/scripts/migrate-office-purchases-to-seats.mjs`, `server/routes/office-merit-dots.js`, and
+  their two test files. Everything else this story touched remains documentation/spec/tracking:
   the story file itself, `specs/reference-data-ssot.md`, `specs/epic-dbo-database-ownership.md`,
-  `specs/stories/sprint-status.yaml`, `specs/deferred-work.md`. Nothing in `server/` or `public/` was
-  touched — consistent with Task 6 finding no genuine code defect to fix.
+  `specs/stories/sprint-status.yaml`, `specs/deferred-work.md`.
 - Live `tm_suite` was read from repeatedly (document counts, full document contents for
   `office_merit_dots` and `office_seats`, and the migration's own `planMigration()` output) but never
   written to at any point in this story.
@@ -285,9 +297,127 @@ Claude Sonnet 5 (claude-sonnet-5).
 ### File List
 
 - `specs/stories/dbo-4-office-collections-absent-empty-route.md` (this file)
-- `specs/reference-data-ssot.md` (modified — new Office section + Auth Boundaries rows, AC5)
-- `specs/epic-dbo-database-ownership.md` (modified — DBO-4 section resolved with corrected findings, AC4)
-- `specs/stories/sprint-status.yaml` (modified — this story's own row, epic-dbo's count unchanged
-  since this story adds an investigation not a "done" count the epic tracks separately, and
-  epic-oxp's own row corrected for its stale merge-status claim, AC4)
-- `specs/deferred-work.md` (modified — new entry flagging the urgent, time-sensitive migration gap)
+- `specs/reference-data-ssot.md` (modified — new Office section + Auth Boundaries rows, AC5; then
+  twice more by the external review's own findings)
+- `specs/epic-dbo-database-ownership.md` (modified — DBO-4 section resolved with corrected findings,
+  AC4; then corrected again for the oxp-6 error)
+- `specs/stories/sprint-status.yaml` (modified — this story's own row, epic-dbo's done-count, and
+  epic-oxp's row, corrected twice: once for the original staleness, once for the oxp-6
+  over-correction)
+- `specs/deferred-work.md` (modified — new entry, then downgraded from urgent to a plain deferred
+  action once the migration script's own bug was fixed)
+- `server/scripts/migrate-office-purchases-to-seats.mjs` (modified by the Senior Developer Review —
+  fixed a real data-loss defect the external review found)
+- `server/routes/office-merit-dots.js` (modified by the Senior Developer Review — fixed an
+  input-validation coercion gap the external review found)
+- `server/tests/oxp-11-office-purchase-seat-keying.test.js` (modified — corrected an existing test
+  that was unknowingly exercising the unsafe path, plus 2 new regression tests)
+- `server/tests/office-merit-dots.test.js` (modified — 2 new regression tests)
+
+## Senior Developer Review
+
+**Reviewer**: external, Codex CLI (`codex exec`, `model_reasoning_effort=high`), single-pass
+adversarial fact-check protocol — this story had no source diff to blind-review (Tasks 1-5 were
+read-only/documentation), so the prompt instead asked Codex to fact-check each of the story's six
+specific claims against the real code and to actively hunt for anything the investigation's own
+narrower framing might have missed. Full raw findings:
+`specs/stories/code-review/dbo-4-office-collections-absent-empty-route-codex-findings.md`. Prompt:
+`specs/stories/code-review/dbo-4-office-collections-absent-empty-route-codex-review.md`. Reviewed
+against commit `778a28cf`.
+
+Every finding below was independently re-verified against the real code and a real test run before
+being accepted or acted on.
+
+### Patched (2, both from the external review, both prove-discriminated)
+
+1. **High — the migration script's own "recovered" branch silently DESTROYED data, not merely
+   left it orphaned as this story's own investigation had claimed.** `applyMigration` in
+   `server/scripts/migrate-office-purchases-to-seats.mjs` treated ANY case where a seat-keyed
+   document already existed as "an interrupted earlier run", unconditionally deleting the old
+   category-keyed document afterward. But that exact document shape — a category-keyed original plus
+   a DIFFERENT seat-keyed document for the same seat — can also arise from completely ordinary use:
+   an ST purchasing a merit dot through the current, live, seat-keyed route before this migration
+   ever runs. In that case the two documents are NOT the same data recovering from an interruption;
+   the old one is the only record of whatever was purchased before oxp-11 shipped, and any field it
+   held that the newer write never touched was destroyed on delete, silently. Confirmed real by
+   reading `planMigration`/`applyMigration` in full and by an existing test
+   (`server/tests/oxp-11-office-purchase-seat-keying.test.js`) whose own fixture had different values
+   on the two documents and asserted the delete succeeded anyway — unknowingly exercising the unsafe
+   path. Fixed: the "recovered" branch now content-compares the two documents (a key-order-independent
+   canonical-JSON comparison, since `dots` is built one merit at a time and insertion order isn't
+   meaningful) and only clears the old document when they are genuinely identical; a real mismatch is
+   now REFUSED and reported for a human to reconcile, matching this file's own established
+   refuse-rather-than-guess pattern used everywhere else in it. The existing test was corrected to
+   assert the new REFUSE behaviour under differing content, and two new tests added: one confirming a
+   genuine mismatch is refused (both documents survive untouched), one confirming key-order alone
+   does not cause a false refuse on an otherwise-identical recovery. Prove-discrimination: reverting
+   only the content-comparison (hardcoding `identical = true`) failed exactly the new refuse test
+   (25 passed, 1 failed); restored, 26/26 green.
+2. **Medium — `office-merit-dots.js`'s `PUT /:seatId` silently coerced malformed `dots` values to a
+   valid-looking `0`.** Bare `Number(dots)` turns `null`, `false`, `''`, whitespace-only strings, and
+   `[]` all into `0`, which then passes the integer/range check and gets written as a real value —
+   silently accepting malformed input as "clear this merit's dots to zero" instead of rejecting it.
+   The neighbouring `office-manoeuvre-rank.js` route already guards against exactly this coercion
+   class, with its own comment naming it explicitly. Confirmed real by reading both routes directly
+   and by standard JavaScript coercion semantics. Fixed: ported the same guard
+   (`typeof dots === 'string' && dots.trim() !== '' ? Number(dots) : dots`) into
+   `office-merit-dots.js`. Two new tests: one confirming every listed malformed value is now rejected
+   with nothing written, one confirming a numeric string still works as before. Prove-discrimination:
+   reverting only the guard failed exactly the new rejection test (26 passed, 1 failed); restored,
+   27/27 green.
+
+### Corrected in the record, not the code (2, both self-inflicted by this dev pass)
+
+3. **Medium — this dev pass's own AC4/Task 4 claimed `oxp-6` was merged to `origin/main`; it is
+   not.** The command used was `git log origin/main --all -15`, and `--all` includes every local ref,
+   not just `origin/main`'s own history — `oxp-6` only exists on local branch
+   `ms/oxp-6-office-tab-purchase-markers`, unpushed. Confirmed with `git fetch origin main` +
+   `git merge-base --is-ancestor a358d180 origin/main` (exit 1 — not an ancestor). `oxp-1` through
+   `oxp-5` and `oxp-11` genuinely are merged, so the underlying "OXP is substantially shipped, not
+   unshipped" conclusion still holds — only the exact story list needed correcting. Corrected in
+   `epic-dbo-database-ownership.md`'s DBO-4 section and both this story's own and `epic-oxp`'s
+   `sprint-status.yaml` rows (each already carrying one correction from this story's first pass — now
+   carrying a correction-of-a-correction, clearly dated and layered rather than silently overwritten).
+4. **Low — two documentation errors in `reference-data-ssot.md`'s new Office section.** The Auth
+   Boundaries table listed `GET/PUT /api/office_actions/pending`, which reads as though a `PUT`
+   exists on that path — it does not; only `GET` does, and the two real `PUT` routes
+   (`/:id/accept`, `/:id/decline`) were already listed separately. And the Office section's opening
+   line claimed all four `office_*` collections use seat-keyed `_id`s — false: `office_actions` uses
+   ordinary MongoDB-generated ids (it is an append-only log), and `office_action_budgets` is keyed by
+   the composite string `${game_session_id}:${actor_id}`. Only `office_seats`,
+   `office_manoeuvre_ranks`, and `office_merit_dots` participate in the seat-key scheme. Both fixed;
+   no code implication either way.
+
+### Dismissed with evidence (1)
+
+5. **Low — the "GET handlers default a missing key to 0" wording was imprecise, not wrong.** The
+   review found that `office-manoeuvre-rank.js`/`office-merit-dots.js`'s `GET /` handlers only
+   default a missing FIELD on an EXISTING document (`doc.rank || 0`, `doc.dots || {}`); the
+   missing-SEAT default (a seat with no document at all) is actually supplied by the client
+   (`public/js/tabs/office-tab.js`). The overall "no document = zero" convention this story confirmed
+   still holds end to end — the review's own finding was about which layer supplies which default,
+   not about whether the convention is real. Wording tightened in `reference-data-ssot.md`; not worth
+   its own standalone entry beyond that.
+
+### Confirmed as claimed, no action needed (3)
+
+- Claim 1 (upsert convention across `office_manoeuvre_ranks`/`office_merit_dots`'s writers) —
+  confirmed, all four call sites match.
+- Claim 2 (`office_actions`'s transactional write, no silent-failure branch) — confirmed by reading
+  the full `accept` handler; every non-`RouteResponse` error re-throws.
+- The "identical" reconciliation logic added for finding 1 (the migration's `office_manoeuvre_ranks`
+  arm) was exercised by the existing full suite even though `office_manoeuvre_ranks` currently has
+  nothing to migrate (confirmed empty on both sides of the key scheme, live) — the fix applies
+  uniformly to both collections `PURCHASE_COLLECTIONS` names, not just the one with live data.
+
+### Verification
+
+- Both patches independently prove-discriminated (single-change revert → exact expected test(s)
+  fail → restore → full suite green again) — detailed above per finding.
+- `npx vitest run tests/oxp-11-office-purchase-seat-keying.test.js` — **26/26 passed** (24 original,
+  1 renamed to reflect the corrected "identical content" precondition, 2 new).
+- `npx vitest run tests/office-merit-dots.test.js` — **27/27 passed** (25 original, 2 new).
+- No writes to live `tm_suite` at any point in this review or its fixes — the external reviewer was
+  explicitly forbidden from connecting to any database or invoking the migration script under any
+  circumstance, and confirmed it did not; this session's own verification used the vitest suite
+  exclusively (against `tm_suite_test`), never the script's CLI, never `--apply`.

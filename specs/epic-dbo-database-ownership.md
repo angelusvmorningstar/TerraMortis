@@ -181,9 +181,13 @@ Decide per surface whether "renders empty" is an intended quiet failure or a def
 explicit rather than a discovery at the table.
 
 **RESOLVED, dev-storied 2026-08-14 — this section's own "not yet merged" premise was stale.**
-`git log origin/main` (checked at dev time) shows `oxp-1` through `oxp-6` and `oxp-11` already merged
-(oxp-5 via PR #1165, merge commit `1063787b`) — this repo's own `epic-oxp` sprint-status row was
-itself stale on the same point. Findings, all confirmed against live `tm_suite` (read-only queries):
+**CORRECTION (dbo-4's own external Codex review, same day): `git log origin/main --all` was used at
+dev time, which includes local branches — `oxp-1` through `oxp-5` and `oxp-11` are genuinely merged
+(oxp-5 via PR #1165, merge commit `1063787b`), but `oxp-6` is NOT on `origin/main`; it exists only on
+local branch `ms/oxp-6-office-tab-purchase-markers`, unpushed. Re-verified with `git fetch origin main`
++ `git merge-base --is-ancestor`.** This repo's own `epic-oxp` sprint-status row was stale on the
+oxp-5 point (now corrected); its oxp-6 row was already correctly marked `backlog`. Findings, all
+confirmed against live `tm_suite` (read-only queries):
 
 - **`office_manoeuvre_ranks` and `office_merit_dots`'s "no document = 0" convention is deliberate**,
   not a gap — confirmed by reading every writer (both `PUT` routes' `upsert: true`, the one reset path

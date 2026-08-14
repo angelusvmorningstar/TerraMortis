@@ -290,25 +290,30 @@ Full record: `specs/stories/dbo-1-purchasable-powers-schema-vs-data.md` → Seni
   failure; not fixed here (out of scope, likely a `.gitattributes`/line-ending config issue affecting
   more than this one file).
 
-## Deferred from: dbo-4-office-collections-absent-empty-route (2026-08-14, investigation story, no code changed)
+## Deferred from: dbo-4-office-collections-absent-empty-route (2026-08-14, external Codex review closed)
 
-Full record: `specs/stories/dbo-4-office-collections-absent-empty-route.md` → Dev Agent Record;
-`specs/epic-dbo-database-ownership.md`, DBO-4, 2026-08-14 resolution.
+Full record: `specs/stories/dbo-4-office-collections-absent-empty-route.md` → Senior Developer
+Review; `specs/epic-dbo-database-ownership.md`, DBO-4, 2026-08-14 resolution.
 
-- **URGENT / TIME-SENSITIVE: `server/scripts/migrate-office-purchases-to-seats.mjs` has not been run
-  against live `tm_suite`, and a real, currently-open compounding hazard exists** (High operational
-  risk, Low current stakes). `office_merit_dots` holds 2 real, pre-oxp-11 documents still keyed by
-  office category (`"Enforcer"`, `"Head of State"`) rather than by seat — confirmed via a read-only
-  live query and the migration's own pure `planMigration()` function (never via the script's CLI or
-  `--apply`). Both currently hold only `{"Safe Place": 0}`, so nothing of real value is stranded
-  *today*. But the script's own header names the compounding case: if an ST sets a merit dot on
-  either seat (Enforcer or Head of State) through the current, live, seat-keyed UI *before* this
-  migration runs, that write creates a brand-new seat-keyed document — and the migration, whenever it
-  eventually does run, will then see that seat as already-migrated and leave the old category-keyed
-  document untouched forever, permanently orphaning whatever the pre-migration value actually was.
-  Right now the value is trivial (two zeroes); the risk is that it stops being trivial the moment any
-  ST touches either seat's Merit Suite. Fix: run `node scripts/migrate-office-purchases-to-seats.mjs
-  --apply` from `server/` against live `tm_suite` — Angelus's own action per this project's standing
-  "one-off migration scripts are run by a human, not an agent" convention (same shape as DBO-1's own
-  cleanup script). `office_manoeuvre_ranks` has nothing to migrate (confirmed empty on both sides of
-  the key scheme) — this only concerns `office_merit_dots`.
+- **`server/scripts/migrate-office-purchases-to-seats.mjs` has not been run against live `tm_suite`
+  — but the compounding-loss hazard this entry originally flagged as urgent has since been FIXED
+  (2026-08-14, dbo-4's own external Codex review)**, so this is no longer time-sensitive. What
+  remains is a plain deferred action: `office_merit_dots` holds 2 real, pre-oxp-11 documents still
+  keyed by office category (`"Enforcer"`, `"Head of State"`) rather than by seat — confirmed via a
+  read-only live query and the migration's own pure `planMigration()` function. Both currently hold
+  only `{"Safe Place": 0}`. The script's own header used to warn of a compounding case: an ST setting
+  a merit dot on either seat through the live seat-keyed UI before the migration ran would create a
+  fresh seat-keyed document, and the migration would then unconditionally DELETE the old
+  category-keyed one on its next run — not merely leave it orphaned, actively destroy whatever field
+  it alone held. **Fixed**: `applyMigration`'s "recovered" branch now content-compares the two
+  documents (key-order-independent canonical comparison) and only auto-clears the old one when they
+  are genuinely identical; a real mismatch is now REFUSED and reported for a human to reconcile,
+  matching the script's own established refuse-rather-than-guess pattern everywhere else in the file.
+  Proven with 2 new regression tests (one for the refuse path, one confirming key-order alone doesn't
+  cause a false refuse) plus an existing test corrected (its own fixture had unknowingly been
+  exercising the unsafe path). Remaining action, whenever Angelus chooses: run
+  `node scripts/migrate-office-purchases-to-seats.mjs --apply` from `server/` against live
+  `tm_suite` — still a human's own action per this project's standing "one-off migration scripts are
+  run by a human, not an agent" convention (same shape as DBO-1's own cleanup script), but no longer
+  gated by a closing window. `office_manoeuvre_ranks` has nothing to migrate (confirmed empty on both
+  sides of the key scheme) — this only concerns `office_merit_dots`.
