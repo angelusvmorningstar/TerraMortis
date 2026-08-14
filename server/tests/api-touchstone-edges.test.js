@@ -21,6 +21,10 @@
  * - `edge_id` is rejected as an unknown property (additionalProperties: false)
  * - `relationships` POST/PUT reject kind='touchstone' as an invalid enum value
  * - `touchstone_meta` is rejected as an unknown property on `relationships`
+ * - the admin Relationship Editor's own kind taxonomy (a SEPARATE client-side
+ *   file this story's own external review found still offered 'touchstone'
+ *   as a selectable option after the server stopped accepting it) no longer
+ *   lists it
  */
 
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
@@ -28,6 +32,7 @@ import request from 'supertest';
 import 'dotenv/config';
 import { ObjectId } from 'mongodb';
 import { createTestApp, stUser } from './helpers/test-app.js';
+import { RELATIONSHIP_KINDS, kindByCode } from '../../public/js/data/relationship-kinds.js';
 import { setupDb, teardownDb } from './helpers/db-setup.js';
 import { getCollection } from '../db.js';
 
@@ -206,5 +211,17 @@ describe("DBO-8: POST /api/relationships rejects kind='touchstone'", () => {
       });
 
     expect(res.status).toBe(400);
+  });
+});
+
+// ── Admin Relationship Editor's own kind taxonomy ───────────────────────────
+
+describe("DBO-8: relationship-kinds.js no longer offers 'touchstone'", () => {
+  it('RELATIONSHIP_KINDS does not list touchstone as a selectable kind', () => {
+    expect(RELATIONSHIP_KINDS.some(k => k.code === 'touchstone')).toBe(false);
+  });
+
+  it('kindByCode(touchstone) returns null rather than throwing (a historical edge with this kind must still render safely)', () => {
+    expect(kindByCode('touchstone')).toBeNull();
   });
 });

@@ -1,0 +1,11 @@
+Review complete and written to [dbo-8-touchstone-mechanic-identity-split-codex-findings.md](<D:/Terra Mortis/TM Suite/specs/stories/code-review/dbo-8-touchstone-mechanic-identity-split-codex-findings.md>).
+
+Result: **not ready to ship as-is**.
+
+- High: 0
+- Medium: 2 — stale Touchstone option in the live relationship editor; cleanup race can delete a relationship whose kind changed after planning.
+- Low: 3 — orphaned CSS, stale `_npc_name` renderer branch, regression claim not reproducible here.
+
+The required gate could not execute assertions because access to `tm_suite_test` failed with `EACCES`; all 191 discovered tests were skipped. All seven syntax checks passed.
+
+I followed and froze all three passes in order, did not access live `tm_suite` or sibling repositories, never invoked the cleanup script directly, and modified only the required findings report.

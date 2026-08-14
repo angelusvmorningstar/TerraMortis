@@ -82,4 +82,25 @@ describe.skipIf(!dbAvailable)('DBO-8: dbo-8-orphaned-touchstone-edges-cleanup.mj
     const remaining = secondPlan.filter(r => String(r._id).startsWith(KEY_PREFIX));
     expect(remaining).toEqual([]);
   });
+
+  it('Codex review, DBO-8 (Medium): does not delete a row whose kind changed away from touchstone after planning', async () => {
+    // This shape is real, not hypothetical: an ST successfully PUTs an
+    // existing kind:'touchstone' row to a schema-valid kind (e.g. 'ally')
+    // between this script's plan and apply steps. Deleting by _id alone
+    // would destroy that now-legitimate relationship; the fix re-checks
+    // kind at delete time against a fresh read.
+    const col = getCollection('relationships');
+    const rows = (await planCleanup(col)).filter(r => String(r._id).startsWith(KEY_PREFIX));
+    expect(rows.some(r => r._id === ids.orphan)).toBe(true);
+
+    // Simulate the reconciling PUT landing after planning, before apply.
+    await col.updateOne({ _id: ids.orphan }, { $set: { kind: 'ally' }, $unset: { touchstone_meta: '' } });
+
+    const result = await applyCleanup(col, rows, { apply: true });
+
+    expect(result.deleted).toBe(0);
+    const survivor = await col.findOne({ _id: ids.orphan });
+    expect(survivor).not.toBeNull();
+    expect(survivor.kind).toBe('ally');
+  });
 });

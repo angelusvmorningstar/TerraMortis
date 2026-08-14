@@ -29,8 +29,12 @@
  * removes them.
  *
  * WHAT IT DOES: every document in `relationships` with `kind: 'touchstone'`
- * -> DELETE, after a full-document JSON backup. Nothing else in the
- * collection is touched — every other `kind` value is left exactly as-is.
+ * -> DELETE, after a full-document JSON backup, IF its `kind` still reads
+ * 'touchstone' at write time (re-checked against a fresh read taken
+ * immediately before the backup - a row an ST successfully edited away from
+ * 'touchstone' between planning and apply is silently skipped, not deleted).
+ * Nothing else in the collection is touched — every other `kind` value is
+ * left exactly as-is.
  *
  * SAFETY: DRY-RUN BY DEFAULT. `--apply` writes a full-document JSON backup to
  * `server/scripts/_backups/dbo-8-orphaned-touchstone-edges-<ISO>.json` BEFORE
@@ -106,9 +110,23 @@ export async function applyCleanup(collection, rows, { apply = false, log = () =
   writeFileSync(backupPath, JSON.stringify(originals, null, 2));
   log(`Backup written: ${backupPath}`);
 
+  // Codex review, DBO-8 (2026-08-14): deleting by `_id` alone trusted the
+  // stale plan from `planCleanup` - if an ST successfully edited a row's
+  // `kind` away from 'touchstone' between planning and here (a legitimate
+  // reconciliation PUT), the delete would still fire and destroy a document
+  // that is no longer the shape this script exists to clean up. The filter
+  // now re-checks `kind: 'touchstone'` against the SAME fresh read the
+  // backup already took, so a changed document is silently skipped rather
+  // than deleted - same fix shape as migrate-office-purchases-to-seats.mjs's
+  // own concurrent-modification guard.
+  const byId = new Map(originals.map(doc => [String(doc._id), doc]));
+
   let deleted = 0;
   for (const row of rows) {
-    const result = await collection.deleteOne({ _id: row._id });
+    const current = byId.get(String(row._id));
+    if (!current || current.kind !== 'touchstone') continue; // changed or gone since planning
+
+    const result = await collection.deleteOne({ _id: row._id, kind: 'touchstone' });
     if (result.deletedCount === 1) {
       deleted += 1;
       log(`  deleted: ${row._id}`);

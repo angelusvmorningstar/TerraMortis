@@ -1,6 +1,6 @@
 # Story DBO.8: Retire the dead relationship-linked touchstone mechanic
 
-Status: review
+Status: done
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -261,7 +261,92 @@ Claude Sonnet 5 (claude-sonnet-5).
 - `public/js/editor/edit.js` (modified — edge-linked mirror/retire branches removed, dead `apiGet`
   import removed, AC5)
 - `public/js/editor/sheet.js` (modified — kind badge + `_npc_name` rendering removed, AC6)
-- `server/scripts/dbo-8-orphaned-touchstone-edges-cleanup.mjs` (new — AC7)
-- `server/tests/dbo-8-orphaned-touchstone-edges-cleanup.test.js` (new — 4 tests, AC7/AC8)
-- `server/tests/api-touchstone-edges.test.js` (rewritten — 11 tests, AC8)
+- `server/scripts/dbo-8-orphaned-touchstone-edges-cleanup.mjs` (new — AC7; patched by the Senior
+  Developer Review for a stale-plan race)
+- `server/tests/dbo-8-orphaned-touchstone-edges-cleanup.test.js` (new — 5 tests after the review's
+  own regression test, AC7/AC8)
+- `server/tests/api-touchstone-edges.test.js` (rewritten — 13 tests after the review's own regression
+  tests, AC8)
 - `server/tests/api-relationships-player-create.test.js` (modified — 1 test reworded, AC8)
+- `public/js/data/relationship-kinds.js` (modified by the Senior Developer Review — the review found
+  a live admin picker this story's own investigation missed)
+- `public/js/suite/sheet.js` (modified by the Senior Developer Review — a second, separate touchstone
+  renderer this story's own Task 5/6 never touched)
+- `public/css/components.css` (modified by the Senior Developer Review — orphaned CSS the review found)
+
+## Senior Developer Review
+
+**Reviewer**: external, Codex CLI (`codex exec`, `model_reasoning_effort=high`), three-pass
+adversarial protocol. Full raw findings:
+`specs/stories/code-review/dbo-8-touchstone-mechanic-identity-split-codex-findings.md`. Reviewed
+against commit `6e718ec5`.
+
+No High findings. 2 Medium, 2 Low. All four independently re-verified and patched.
+
+### Patched (4)
+
+1. **Medium — a completely separate live admin UI still offered "Touchstone" as a selectable
+   relationship kind, after the server stopped accepting it.** `public/js/data/relationship-kinds.js`
+   is a client-side taxonomy file (`RELATIONSHIP_KINDS`) that this story's own investigation never
+   found — my repo-wide sweep before this review searched for `edge_id`/`touchstone_meta`/
+   `kind==='touchstone'` code patterns, not the bare string `'touchstone'` as a data value, and this
+   file's own doc comment falsely claimed its codes "match server `KIND_ENUM`". Confirmed real: the
+   admin Relationship Editor (`public/js/admin/relationship-editor.js`) renders every taxonomy entry
+   as a selectable `<option>`; an ST choosing "Touchstone" and saving would submit a request the
+   server now rejects with a confusing 400 — a genuine, live UX regression this story introduced.
+   Fixed: removed the `'touchstone'` entry (confirmed safe via `kindByCode`'s existing `?.` optional
+   chaining — a historical document like the one orphaned `relationships` row still renders without
+   throwing, just with no kind pre-selected). Two new tests: the entry is genuinely gone from
+   `RELATIONSHIP_KINDS`, and `kindByCode('touchstone')` returns `null` rather than throwing.
+   Prove-discrimination: reverting the removal failed exactly those 2 tests (11 passed, 2 failed);
+   restored, 13/13 green.
+2. **Medium — the cleanup script's delete could destroy a legitimately-reconciled document.**
+   `applyCleanup` took a fresh backup read immediately before deleting, but the delete itself filtered
+   only on `_id`, not on `kind` still reading `'touchstone'` at that moment. If an ST successfully
+   PUT an existing `kind:'touchstone'` row to a different, schema-valid kind between `planCleanup`'s
+   read and `applyCleanup`'s write (a legitimate reconciliation, not a hypothetical — the schema
+   genuinely allows it since `kind` just needs to be a valid `KIND_ENUM` value going forward), the
+   stale plan would still delete the now-legitimate document. Same class of defect DBO-4's own
+   external review found in `migrate-office-purchases-to-seats.mjs`; fixed the same way — re-derive
+   eligibility from the SAME fresh read the backup already took, and re-assert `kind: 'touchstone'`
+   in the delete filter itself as a second, DB-level guard. New regression test: plans the fixture,
+   simulates the reconciling PUT (changes `kind` to `'ally'`, unsets `touchstone_meta`), applies,
+   confirms 0 deleted and the document survives with its new kind intact. Prove-discrimination:
+   reverting to the unconditioned delete failed exactly that test (4 passed, 1 failed); restored,
+   5/5 green.
+3. **Low — a second, separate touchstone renderer this story's Task 5 never touched.**
+   `public/js/editor/sheet.js` (the admin/edit sheet) was fixed; `public/js/suite/sheet.js` (the
+   read-only player-facing "suite" view — a genuinely different file, not a duplicate import) still
+   read `t._npc_name || t.name`. Harmless in practice (the server never sets `_npc_name` any more, so
+   this always fell through to `t.name`), but an incomplete retirement — dead mechanic-specific code
+   left in a live, still-imported file (`public/js/app.js` imports it). Fixed to match the admin
+   sheet's own cleanup.
+4. **Low — orphaned CSS.** `.sh-ts-slot-kind`/`.sh-ts-slot-kind.dim` in `public/css/components.css`
+   had no remaining emitter once `sheet.js`'s kind badge was removed. Deleted.
+
+### Dismissed with evidence (0) / Deferred (0)
+
+None — every finding was real and cheap to fix; nothing was dismissed or deferred.
+
+### Verification
+
+- `npx vitest run tests/api-touchstone-edges.test.js` — **13/13 passed** (11 original + 2 new).
+- `npx vitest run tests/dbo-8-orphaned-touchstone-edges-cleanup.test.js` — **5/5 passed** (4 original
+  + 1 new).
+- Both patches independently prove-discriminated (single-change revert → exact expected test fails →
+  restore → suite green again) — detailed above per finding.
+- Full regression re-run after all four patches: the same 24 test files as the original dev pass —
+  **397 tests, all green** (394 + 3 new: 2 taxonomy tests, 1 cleanup-race test). The external
+  reviewer's own environment could not reach `tm_suite_test` Atlas (`connect EACCES`) and so could
+  not independently confirm the original 394-test claim — re-confirmed here, in this session's own
+  environment, which does have real Atlas access (established across every DBO story this session).
+- A repo-wide sweep for the bare string `'touchstone'`/`"touchstone"` (broader than this story's
+  original `edge_id`/`touchstone_meta`-scoped grep — the same gap that let finding 1 through) found
+  three further hits, all confirmed unrelated on inspection: `personal_story_kind` (a downtime
+  submission's story-format choice, `downtime-form.js`/`downtime-views.js`) and an Investigation
+  Tracker `threshold_type` enum (`investigation.schema.js`/`downtime-views.js`, "how hard is it to
+  investigate someone's touchstone" — a different feature that happens to share the word). Neither
+  touches the `relationships` collection's retired `kind:'touchstone'` shape.
+- No writes to live `tm_suite` at any point in this review or its fixes — the external reviewer was
+  explicitly forbidden from connecting to any database or invoking the cleanup script's CLI, and
+  confirmed it did not; this session's own verification used the vitest suite exclusively.
