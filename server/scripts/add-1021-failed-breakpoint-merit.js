@@ -1,4 +1,3 @@
-#!/usr/bin/env node
 /**
  * Issue #1021 — insert 'Failed Breakpoint' merit into purchasable_powers.
  *
