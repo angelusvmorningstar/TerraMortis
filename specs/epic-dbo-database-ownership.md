@@ -131,6 +131,19 @@ Blocks readers: TM Wiki's Epic 17 research wanted a load-bearing filter on `spec
 safely take one. Now resolved: `special` should be declared as `{ oneOf: [{ enum: ['standing'] }, {
 type: 'null' }] }` (or equivalent), not removed — Epic 17 can take a filter on it once declared.
 
+**CORRECTION 2026-08-14 (dbo-1's own external Codex review, Pass 2).** The "nothing in the active
+codebase can currently write either back" claim above was true of every *automatic* path but missed a
+*manual* one: `server/scripts/seed-rules-necropolis.js` (issue #692, active, not archived — has its
+own shebang, is meant to be re-run) upserts nine merit documents via `_baseDoc()`, whose defaults
+include `selected: true` and `special: null`. Re-running it with `--apply` after DBO-1's cleanup would
+put `selected` straight back on all nine rows (and `special: null`, though that value is schema-valid
+and harmless on its own). This does not make DBO-1's cleanup unsafe to ship — it is not boot-time or
+automatic, and DBO-1's own script remains correct for the state of the data today — but it means the
+end state is not durable against a real, supported, already-shipped workflow. Not fixed as part of
+DBO-1 (out of its stated scope: this touches a different epic's seeder, N-3/MNEC). Flagged in
+`deferred-work.md` for a follow-up: strip `selected: true` from `seed-rules-necropolis.js`'s
+`_baseDoc()` defaults (or run DBO-1's cleanup script again after any future re-seed).
+
 ### DBO-2 — `character_dossier` schema and reveal path
 
 Two defects on one collection (30 docs / 442 facts):

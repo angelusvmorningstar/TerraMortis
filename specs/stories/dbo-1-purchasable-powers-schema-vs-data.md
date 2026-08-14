@@ -1,6 +1,6 @@
 # Story DBO.1: `purchasable_powers` schema declares `special`, cleans up dead `selected`
 
-Status: review
+Status: done
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -299,9 +299,130 @@ Claude Sonnet 5 (claude-sonnet-5), via `bmad-dev-story`.
   one live-DB script invocation was a bare dry-run, read-only by the script's own default). No
   deploy, no migration, no commit to `main` — stays inside the pre-game freeze.
 
+**CORRECTED by the Senior Developer Review below — two claims in this list did not hold**: the
+"127/128, only #1115" gate count (a second, pre-existing, unrelated failure exists — real count with
+this repo's real Atlas access is 193 total, 191 passed, 2 failed, 0 skipped), and "DB tests scoped to
+a `dbo-1-test-` key prefix" (true now, after the review's patches; was not true as originally
+written — `applyCleanup` was called with the full, unfiltered plan). See below for detail on both.
+
 ### File List
 
 - `server/schemas/purchasable_power.schema.js` (modified — new `special` property, `:219-245`
-  comment block replaced)
-- `server/scripts/dbo-1-purchasable-powers-field-cleanup.mjs` (new)
-- `server/tests/dbo-1-purchasable-powers-schema-cleanup.test.js` (new)
+  comment block replaced, then trimmed again by the Senior Developer Review to genuinely satisfy
+  AC1's "short pointer" requirement)
+- `server/scripts/dbo-1-purchasable-powers-field-cleanup.mjs` (new; patched by the Senior Developer
+  Review for a stale-plan race)
+- `server/tests/dbo-1-purchasable-powers-schema-cleanup.test.js` (new; patched by the Senior
+  Developer Review to scope apply-mode tests to their own fixtures, plus two new regression tests)
+
+## Senior Developer Review
+
+**Reviewer**: external, Codex CLI (`codex exec`, `model_reasoning_effort=high`), three-pass adversarial
+protocol (Blind Hunter → Edge Case Hunter → Acceptance Auditor), single session, ordered and frozen
+per pass. Full raw findings: `specs/stories/code-review/dbo-1-purchasable-powers-schema-vs-data-codex-
+findings.md`. Prompt: `specs/stories/code-review/dbo-1-purchasable-powers-schema-vs-data-codex-
+review.md`. Diff reviewed: the three source files above only (spec and tracking files deliberately
+excluded), taken against base `2534c559` (`origin/main`, the dbo-3/PR #1166 merge).
+
+Every finding below was independently re-verified against the real code and a real test run in this
+session before being triaged — none were accepted on the external reviewer's word alone. No High
+findings, from either the reviewer or this verification pass.
+
+### Patched (2, both from the external review, both prove-discriminated)
+
+1. **Stale-plan TOCTOU could strip a newly-added `special: 'standing'` value** (Medium, [Pass 1]).
+   `applyCleanup` computed which fields to unset from `planCleanup`'s earlier read, not from the
+   fresh read it takes for the backup — so a document that gained `special: 'standing'` in the gap
+   between planning and writing would still lose it, on the one guarantee this script exists to hold.
+   Fixed by re-deriving `unsetSelected`/`unsetSpecial` from the freshly-fetched `originals` at write
+   time, plus a DB-level `special: { $ne: 'standing' }` filter on the update itself as a second guard
+   against the same gap recurring between that re-read and the write. New regression test: `a stale
+   plan does not strip special from a row that became "standing" after planning` — plans a row,
+   mutates it to `'standing'` out from under the stale plan, applies, asserts it survived. Reverting
+   only the fix failed exactly this one test (10 passed, 1 failed); restored, re-verified 11/11 green.
+
+2. **DB-backed apply tests were not actually scoped to their own fixtures** (Medium, raised
+   independently by [Pass 1] and [Pass 3b] from two different angles — the code shape and the
+   record's own false claim about it). `planCleanup` correctly scans the whole `tm_suite_test`
+   collection (that's real production behaviour, correctly under test), but the three apply-mode
+   tests then handed the *entire, unfiltered* plan to `applyCleanup(..., { apply: true })` — so any
+   other document in the shared `tm_suite_test.purchasable_powers` collection carrying `selected` or
+   a cleanup-eligible `special` would have been silently stripped and never restored. Confirmed real:
+   `setupDb()` only asserts the connected database name ends in `_test`; it does not reset or isolate
+   the collection. Fixed by filtering `planCleanup`'s result to `KEY_PREFIX`-matching rows before
+   every `applyCleanup(..., { apply: true })` call. New regression test: `does not mutate a stray
+   document outside this suite's own fixture prefix` — inserts a foreign document, runs the suite's
+   own apply path, asserts the foreign document is untouched. Reverting only the filter on that one
+   call site failed exactly this test (11 passed, 1 failed); restored, re-verified 12/12 green.
+
+### Corrected in the record, not the code (2)
+
+3. **The schema comment claimed "nothing active can write [`selected`/`special`] back"; that was
+   false** (Medium, [Pass 2], confirmed by reading `server/scripts/seed-rules-necropolis.js` directly
+   — its `_baseDoc()` defaults every merit it upserts to `selected: true`, `special: null`, and it is
+   an active, shebang'd, re-runnable script, not archived). Re-running it with `--apply` after this
+   cleanup would put `selected` back on its nine Necropolis merit rows. This does not make DBO-1
+   unsafe to ship (not automatic, not boot-time, and DBO-1's own fix is correct for the data as it
+   stands today) but the claim was wrong and needed correcting rather than shipping alongside code
+   that now contradicts it. **Not patched here** — `seed-rules-necropolis.js` belongs to a different
+   epic (N-3/MNEC, issue #692) and was never in this story's own File List or Task list; expanding
+   scope to a second, unrelated script mid-review is exactly what "What this story is NOT" exists to
+   prevent. Corrected: the schema comment (trimmed and de-overclaimed — see finding 5 below), the
+   epic's own DBO-1 section (dated correction appended), and `deferred-work.md` (new entry naming the
+   one-line fix: drop `selected: true` from `_baseDoc()`'s defaults).
+4. **The claimed targeted gate ("127/128, only #1115") undercounted by one failure** (Medium,
+   [Pass 3b]). Re-run in this session, which — unlike the external reviewer's own sandboxed
+   environment — has real Atlas reachability: the 8-file gate (this file + `dbo-3-standing-merit-
+   filter.test.js` + `n7-n9-allocator-readers.test.js` + all five `oath-*.test.js` files, since the
+   original "three oath suites" wasn't specific about which three) is **193 total, 191 passed, 2
+   failed, 0 skipped**. The two failures: `n7-n9-allocator-readers.test.js` (the documented #1115) and
+   `oath-a-pledge-helpers.test.js`'s "byte-identical to their pre-OATH-A form" check, previously
+   undocumented, failing on this Windows checkout because it expects LF text but reads CRLF file
+   content — confirmed unrelated to this diff (neither `xp.js` nor `domain.js`, the two files that
+   check reads, is touched by DBO-1). Not fixed here (a different, pre-existing, line-ending issue,
+   out of scope); logged in `deferred-work.md` as a CLAUDE.md candidate alongside #1115 so the next
+   story's gate count isn't thrown off by an unexplained extra failure.
+
+### Dismissed with evidence (3, all from the external review)
+
+5. **AC1's literal code block (`oneOf: [...]`) doesn't match what shipped
+   (`type: ['string','null'], enum: [...]`)** (Medium, [Pass 3a]). Real and already disclosed in this
+   story's own Debug Log and Completion Notes at dev time — not a hidden gap. Re-verified the
+   equivalence claim directly: a live Ajv comparison of both schema shapes against all four of AC5's
+   required cases (`'standing'`, `null`, absent, `'anything-else'`) returns identical results for
+   both forms. The terser form was chosen because it matches `cost_model` (a closer analogue — a
+   single enum-or-null field, not `forfeiture`'s multi-shape discriminator) more directly than AC1's
+   drafted snippet. Dismissed as a documented, behaviourally-verified, intentional deviation — no
+   patch. (The schema comment was independently trimmed for finding 3 above, which also resolves
+   AC1's separate "short pointer, not a re-narration" requirement — the replacement comment is now
+   8 lines, not ~20, and no longer restates the investigation inline.)
+6. **AC3's "byte-for-byte unchanged" wording doesn't literally hold — `selected` differs between
+   before/after on the standing fixture** (Medium, [Pass 3a]). True, but AC2 separately requires
+   `selected` stripped from *every* row including the standing one — the two ACs can't both hold
+   under a literal full-document reading, so the test's actual behaviour (assert `special` and every
+   field other than `selected` are byte-for-byte identical) is the only coherent reading of the pair.
+   Dismissed as an AC-wording imprecision, not a code defect — no patch.
+7. **Three Low findings** (unknown CLI flags silently accepted; `_backups/` test artefacts
+   accumulate locally; `backedUp`/`cleaned` counts can diverge under concurrent apply runs).
+   Dismissed: the directory is already gitignored (`server/scripts/_backups/` in the root
+   `.gitignore`); the count divergence is honestly reported per-field, not silently wrong, and only
+   theoretical for a manually-invoked one-off; the CLI is fail-closed on any unrecognised argument
+   (defaults to dry-run) so a typo cannot cause a write. Two further Low findings — the Rule Data UI
+   cannot create/repair a `special` marker, and Ajv treats an explicit `special: undefined` as
+   absent — were already covered by this story's own "What this story is NOT" (the UI asymmetry is a
+   named, deliberate exclusion) and are unreachable via any real JSON POST respectively. No patches.
+
+### Verification
+
+- Both patches independently prove-discriminated (single-change revert → exact expected test fails →
+  restore → full suite green again) — detailed above per finding.
+- `npx vitest run tests/dbo-1-purchasable-powers-schema-cleanup.test.js` — **12/12 passed** (10
+  original + 2 new regression tests from this review).
+- `npx vitest run tests/dbo-1-purchasable-powers-schema-cleanup.test.js tests/dbo-3-standing-merit-
+  filter.test.js` — **29/29 passed**. `dbo-3-standing-merit-filter.test.js` itself confirmed untouched
+  by this diff (`git diff` against base `2534c559` is empty for that file).
+- Full 8-file targeted gate re-run after patches: **193 total, 191 passed, 2 failed, 0 skipped** — the
+  2 failures are pre-existing and unrelated to this diff (see finding 4).
+- No writes to live `tm_suite` at any point in this review — the external reviewer was explicitly
+  forbidden from invoking the cleanup script's CLI or `--apply` under any circumstance, and did not;
+  this session's own verification used the vitest suite exclusively, never the script's CLI.

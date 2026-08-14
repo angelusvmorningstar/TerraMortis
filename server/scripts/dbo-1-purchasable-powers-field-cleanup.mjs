@@ -137,12 +137,32 @@ export async function applyCleanup(collection, rows, { apply = false, log = () =
   writeFileSync(backupPath, JSON.stringify(originals, null, 2));
   log(`Backup written: ${backupPath}`);
 
+  // Re-derive what to unset from `originals` (fetched just now), not from
+  // `rows` (fetched by planCleanup, which may be stale by the time we get
+  // here). Without this, a document that gained special:'standing' in the
+  // gap between planning and writing would still lose it — exactly the value
+  // this script exists to protect. The `special: { $ne: 'standing' }` filter
+  // is a second, DB-level guard against the same gap between this re-read and
+  // the write itself.
+  const byId = new Map(originals.map(doc => [String(doc._id), doc]));
+
   let cleaned = 0;
   for (const row of rows) {
+    const current = byId.get(String(row._id));
+    if (!current) continue; // deleted since planning — nothing left to clean
+
+    const unsetSelected = Object.prototype.hasOwnProperty.call(current, 'selected');
+    const unsetSpecial = Object.prototype.hasOwnProperty.call(current, 'special') && current.special !== 'standing';
+    if (!unsetSelected && !unsetSpecial) continue; // state moved on since planning
+
     const unset = {};
-    if (row.unsetSelected) unset.selected = '';
-    if (row.unsetSpecial) unset.special = '';
-    const result = await collection.updateOne({ _id: row._id }, { $unset: unset });
+    if (unsetSelected) unset.selected = '';
+    if (unsetSpecial) unset.special = '';
+
+    const filter = { _id: row._id };
+    if (unsetSpecial) filter.special = { $ne: 'standing' };
+
+    const result = await collection.updateOne(filter, { $unset: unset });
     if (result.modifiedCount === 1) {
       cleaned += 1;
       log(`  cleaned: ${row.key || row._id}`);

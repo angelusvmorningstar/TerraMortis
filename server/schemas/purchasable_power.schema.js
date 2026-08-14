@@ -217,24 +217,14 @@ export const purchasablePowerSchema = {
     },
 
     // `selected` (legacy `Held by` boolean, retired by issue #5, 2026-05-07)
-    // is deliberately NOT declared here. DBO-1 (2026-08-14) answered the open
-    // question the previous version of this comment left standing: neither
-    // `selected` nor `special` is being re-seeded by anything live — both are
-    // un-migrated data from the original Excel import, and the archived
-    // collection-wide strip script (`server/scripts/archive/strip-selected-
-    // from-purchasable-powers.js`) has simply never been run with `--apply`.
-    // `selected` stays undeclared on purpose so `additionalProperties: false`
-    // keeps rejecting it; `server/scripts/dbo-1-purchasable-powers-field-
-    // cleanup.mjs` removes it from disk. Full investigation:
-    // specs/epic-dbo-database-ownership.md, DBO-1.
-    //
-    // `special` — event-granted-merit marker. Load-bearing since DBO-3
-    // (2026-08-14): `isMeritEventGranted(rule)` in
-    // `public/js/editor/merits.js` reads `rule.special === 'standing'` to
-    // exclude Mystery Cult Initiation and Professional Training from XP-spend
-    // merit pickers. Only those two live rows carry `'standing'`; the
-    // remaining 515 carry `null`. Declared (not stripped) for exactly that
-    // reason — unlike `selected`, this field is read by live code.
+    // is deliberately NOT declared — `additionalProperties: false` keeps
+    // rejecting it, and `server/scripts/dbo-1-purchasable-powers-field-
+    // cleanup.mjs` strips it from disk. `special` is declared because it is
+    // load-bearing since DBO-3: `isMeritEventGranted(rule)` in
+    // `public/js/editor/merits.js` reads `rule.special === 'standing'`, true
+    // only for Mystery Cult Initiation and Professional Training; every other
+    // row carries `null`. Full investigation, including what can still
+    // re-seed either field: specs/epic-dbo-database-ownership.md, DBO-1.
     special: { type: ['string', 'null'], enum: ['standing', null] },
 
     implemented: { type: 'boolean' },   // all rules/prereqs/mechanics verified correct in backend

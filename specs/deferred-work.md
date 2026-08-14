@@ -266,3 +266,26 @@ Full record: `specs/stories/oxp-11-office-purchase-seat-keying.md` → Senior De
   right now is re-typing two zeroes by hand. Revisit properly (read-both-schemas compatibility, or a
   server-side migration trigger on deploy) if either collection ever holds genuine purchase data
   before a future migration of this same shape (category-to-something-else re-keying).
+
+## Deferred from: code review of dbo-1-purchasable-powers-schema-vs-data (2026-08-14, external Codex review)
+
+Full record: `specs/stories/dbo-1-purchasable-powers-schema-vs-data.md` → Senior Developer Review;
+`specs/epic-dbo-database-ownership.md`, DBO-1, 2026-08-14 correction.
+
+- **`server/scripts/seed-rules-necropolis.js` re-seeds the exact dead field DBO-1 removes** (Medium,
+  found by Pass 2 Edge Case Hunter, confirmed against live source). Its `_baseDoc()` defaults every
+  merit it upserts to `selected: true` and `special: null`. It is active (issue #692, N-3/MNEC epic),
+  not archived, and designed to be safely re-run — so a future `--apply` of it (for any reason: a
+  tenth merit, a typo fix) puts `selected` straight back on its nine rows, undoing DBO-1's cleanup for
+  exactly those documents and reproducing the schema-violation defect DBO-1 exists to fix. Out of
+  DBO-1's own scope (a different epic's seeder). Fix: strip `selected: true` from `_baseDoc()`'s
+  defaults (keep `special: null` — schema-valid, harmless). Low effort, one line, whenever N-3/MNEC is
+  next touched or as a standalone follow-up.
+- **A second, previously-undocumented pre-existing test failure**, same class as CLAUDE.md's own
+  #1115: `server/tests/oath-a-pledge-helpers.test.js`'s "meritRating and meritEffectiveRating are
+  byte-identical to their pre-OATH-A form" assertion fails on this Windows checkout — it expects LF
+  text but reads CRLF file content. Confirmed unrelated to DBO-1 (neither `xp.js` nor `domain.js` is
+  in this story's diff) and confirmed present without any DBO-1 change. Worth a CLAUDE.md entry
+  alongside #1115 so the next story's targeted-gate count isn't thrown off by an unexplained extra
+  failure; not fixed here (out of scope, likely a `.gitattributes`/line-ending config issue affecting
+  more than this one file).

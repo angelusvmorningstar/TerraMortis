@@ -124,7 +124,11 @@ describe.skipIf(!dbAvailable)('DBO-1: dbo-1-purchasable-powers-field-cleanup.mjs
 
   it('apply strips selected everywhere and special only where it is not "standing"', async () => {
     const col = getCollection('purchasable_powers');
-    const rows = await planCleanup(col);
+    // planCleanup scans the whole shared tm_suite_test collection by design
+    // (that's the real, production-matching behaviour under test) - but the
+    // WRITE below must stay scoped to this suite's own fixtures, or a stray
+    // document left by another suite sharing this database gets mutated too.
+    const rows = (await planCleanup(col)).filter(r => r.key?.startsWith(KEY_PREFIX));
     const result = await applyCleanup(col, rows, { apply: true });
 
     expect(result.cleaned).toBe(rows.length);
@@ -146,10 +150,29 @@ describe.skipIf(!dbAvailable)('DBO-1: dbo-1-purchasable-powers-field-cleanup.mjs
     expect(whitespaceVariant).not.toHaveProperty('special');
   });
 
+  it('does not mutate a stray document outside this suite\'s own fixture prefix', async () => {
+    const col = getCollection('purchasable_powers');
+    // planCleanup itself is collection-wide by design; this proves the
+    // WRITE side of these tests stays confined to KEY_PREFIX fixtures and
+    // never touches another suite's (or another process's) leftover data
+    // sharing this same tm_suite_test collection.
+    const foreignKey = 'not-dbo-1-test-unrelated-fixture';
+    await col.insertOne({ key: foreignKey, name: 'Unrelated', category: 'merit', selected: true });
+    try {
+      const rows = (await planCleanup(col)).filter(r => r.key?.startsWith(KEY_PREFIX));
+      await applyCleanup(col, rows, { apply: true });
+
+      const foreign = await col.findOne({ key: foreignKey });
+      expect(foreign.selected).toBe(true);
+    } finally {
+      await col.deleteOne({ key: foreignKey });
+    }
+  });
+
   it('AC3 — the "standing" row survives byte-for-byte: special kept, only selected removed', async () => {
     const col = getCollection('purchasable_powers');
     const before = await col.findOne({ key: keys.standing });
-    const rows = await planCleanup(col);
+    const rows = (await planCleanup(col)).filter(r => r.key?.startsWith(KEY_PREFIX));
     await applyCleanup(col, rows, { apply: true });
 
     const after = await col.findOne({ key: keys.standing });
@@ -163,11 +186,28 @@ describe.skipIf(!dbAvailable)('DBO-1: dbo-1-purchasable-powers-field-cleanup.mjs
 
   it('is idempotent: re-planning after apply finds nothing left for these fixtures', async () => {
     const col = getCollection('purchasable_powers');
-    const firstPlan = await planCleanup(col);
+    const firstPlan = (await planCleanup(col)).filter(r => r.key?.startsWith(KEY_PREFIX));
     await applyCleanup(col, firstPlan, { apply: true });
 
     const secondPlan = await planCleanup(col);
     const remaining = secondPlan.filter(r => r.key?.startsWith(KEY_PREFIX));
     expect(remaining).toEqual([]);
+  });
+
+  it('a stale plan does not strip special from a row that became "standing" after planning', async () => {
+    const col = getCollection('purchasable_powers');
+    // specialOnly starts as special: null - plan it for cleanup...
+    const rows = (await planCleanup(col)).filter(r => r.key?.startsWith(KEY_PREFIX));
+    const staleRow = rows.find(r => r.key === keys.specialOnly);
+    expect(staleRow.unsetSpecial).toBe(true);
+
+    // ...then, before applying, another actor promotes it to a real standing
+    // marker. The stale plan still says "unset special" for this row.
+    await col.updateOne({ key: keys.specialOnly }, { $set: { special: 'standing' } });
+
+    await applyCleanup(col, rows, { apply: true });
+
+    const after = await col.findOne({ key: keys.specialOnly });
+    expect(after.special).toBe('standing');
   });
 });
