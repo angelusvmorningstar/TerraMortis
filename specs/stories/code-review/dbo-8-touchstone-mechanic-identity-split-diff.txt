@@ -1,0 +1,1212 @@
+diff --git a/public/js/editor/edit.js b/public/js/editor/edit.js
+index 53e7e578..4ef518e8 100644
+--- a/public/js/editor/edit.js
++++ b/public/js/editor/edit.js
+@@ -1,7 +1,7 @@
+ /* Sheet-mode edit handlers — all read state.editIdx and write to state.chars[state.editIdx] */
+ 
+ import state from '../data/state.js';
+-import { apiGet, apiPost, apiPut, apiDelete } from '../data/api.js';
++import { apiPost, apiPut, apiDelete } from '../data/api.js';
+ import { isInClanDisc } from '../data/accessors.js';
+ import {
+   CLAN_BANES, BLOODLINE_CLANS, BLOODLINE_DISCS, CLAN_DISCS,
+@@ -171,10 +171,12 @@ export function shAddBane() {
+    TOUCHSTONES (NPCR.4)
+    ----------------------------------------------------------
+    Model: character.touchstones[] is authoritative (cap 6).
+-   Slot rating descends from the anchor — 7 for Ventrue, 6 else.
+-   Entries may carry optional edge_id linking to a relationships
+-   doc (kind='touchstone') when the touchstone is a character; the
+-   server resolves the NPC name onto each entry as _npc_name.
++   Slot rating descends from the anchor - 7 for Ventrue, 6 else.
++   Free-text only (DBO-8, 2026-08-14): {humanity, name, desc}. An
++   earlier design let an entry link to a relationships doc via
++   edge_id, but issue #162 removed the only path that ever created
++   one, and live data confirmed zero touchstones used it, so the
++   link was retired.
+    Operations round-trip atomically via PUT /api/characters/:id
+    so partial state never persists without a character save.
+ ══════════════════════════════════════════════════════════ */
+@@ -251,11 +253,11 @@ export async function shTouchstoneSaveAdd() {
+   const draft = picker.draft;
+   const charId = String(c._id);
+ 
+-  // Issue #162: NPC picker branch dropped — Touchstone is free-text only.
++  // Issue #162: NPC picker branch dropped - Touchstone is free-text only.
+   // The legacy DB-relational path (POST /api/npcs + POST /api/relationships)
+   // returned 4xx under the broader NPC suppression and blocked sheet save.
+-  // Free-text shape: { humanity, name, desc }. Legacy entries with edge_id
+-  // continue to render and edit; their edges sit dormant in relationships.
++  // DBO-8 retired the dormant edge_id-linked shape entirely - every entry
++  // is now { humanity, name, desc }.
+   const name = String(draft.name || '').trim();
+   if (!name) { _tsSetError(c, 'Name is required.'); return; }
+   const newEntry = { humanity, name, desc: String(draft.desc || '') };
+@@ -293,26 +295,6 @@ export async function shTouchstoneSaveEdit() {
+   try {
+     await apiPut('/api/characters/' + charId, { touchstones: nextTouchstones });
+     c.touchstones = nextTouchstones;
+-    // If linked to an edge, mirror the state text onto the edge so the
+-    // admin NPC register sees the same description.
+-    if (t.edge_id) {
+-      try {
+-        const edges = await apiGet('/api/relationships?endpoint=' + encodeURIComponent(charId) + '&kind=touchstone');
+-        const edge = (edges || []).find(e => String(e._id) === String(t.edge_id));
+-        if (edge && edge.state !== newDesc) {
+-          await apiPut('/api/relationships/' + t.edge_id, {
+-            a: edge.a, b: edge.b, kind: edge.kind,
+-            direction: edge.direction || 'a_to_b',
+-            state: newDesc,
+-            st_hidden: !!edge.st_hidden,
+-            status: edge.status,
+-            touchstone_meta: edge.touchstone_meta,
+-          });
+-        }
+-      } catch (e) {
+-        console.warn('[touchstone] edge state sync failed (non-fatal):', e);
+-      }
+-    }
+     delete c._ts_picker;
+     _renderSheet(c);
+   } catch (err) {
+@@ -329,9 +311,7 @@ export async function shTouchstoneRemove(i) {
+ 
+   const ok = await _tsConfirmModal({
+     title: 'Remove touchstone?',
+-    body: t.edge_id
+-      ? 'The touchstone will be removed and the linked NPC relationship will be retired.'
+-      : 'The touchstone will be removed.',
++    body: 'The touchstone will be removed.',
+     confirmLabel: 'Remove',
+     danger: true,
+   });
+@@ -344,10 +324,6 @@ export async function shTouchstoneRemove(i) {
+   try {
+     await apiPut('/api/characters/' + charId, { touchstones: nextTouchstones });
+     c.touchstones = nextTouchstones;
+-    if (t.edge_id) {
+-      try { await apiDelete('/api/relationships/' + t.edge_id); }
+-      catch (e) { console.warn('[touchstone] edge retire failed (non-fatal):', e); }
+-    }
+     _renderSheet(c);
+   } catch (err) {
+     console.error('[touchstone] remove error:', err);
+diff --git a/public/js/editor/sheet.js b/public/js/editor/sheet.js
+index 183f58ff..90ec6dc7 100644
+--- a/public/js/editor/sheet.js
++++ b/public/js/editor/sheet.js
+@@ -388,10 +388,9 @@ export function toggleDisc(id) {
+   row.classList.toggle('open', !isOpen); drawer.classList.toggle('visible', !isOpen);
+ }
+ /**
+- * NPCR.4 touchstone section — character.touchstones[] is authoritative (cap 6).
+- * Slot rating descends from the clan anchor (Ventrue=7, else=6). Each entry
+- * may carry an optional edge_id linking to a relationships doc (kind='touchstone').
+- * The server enriches each item with _npc_name when linked.
++ * NPCR.4 touchstone section — character.touchstones[] is authoritative (cap 6),
++ * free-text only (DBO-8, 2026-08-14): {humanity, name, desc}.
++ * Slot rating descends from the clan anchor (Ventrue=7, else=6).
+  */
+ export function renderTouchstones(c, editMode) {
+   const ts = Array.isArray(c.touchstones) ? c.touchstones : [];
+@@ -403,7 +402,7 @@ export function renderTouchstones(c, editMode) {
+     if (sorted.length === 0) return '';
+     const rows = sorted.map(t => {
+       const att = hum >= t.humanity;
+-      const name = t._npc_name || t.name || '(unnamed)';
++      const name = t.name || '(unnamed)';
+       return '<div class="exp-ts-row"><span class="exp-ts-hum">Humanity ' + t.humanity
+         + ' — <span class="exp-ts-state ' + (att ? 'attached' : 'detached') + '">' + (att ? 'Attached' : 'Detached') + '</span></span>'
+         + '<span class="exp-ts-name">' + esc(name)
+@@ -426,14 +425,13 @@ export function renderTouchstones(c, editMode) {
+   sorted.forEach(t => {
+     const actualIdx = ts.indexOf(t);
+     const att = hum >= t.humanity;
+-    const name = t._npc_name || t.name || '(unnamed)';
++    const name = t.name || '(unnamed)';
+     const isEditing = picker && picker.mode === 'edit' && picker.index === actualIdx;
+     h += '<div class="sh-ts-slot">';
+     h += '<div class="sh-ts-slot-head"><span class="sh-ts-slot-hum">Humanity ' + t.humanity
+       + '</span> · <span class="sh-ts-slot-att" style="color:'
+       + (att ? 'rgba(140,200,140,.9)' : 'var(--txt3)') + '">'
+       + (att ? 'Attached' : 'Detached') + '</span>'
+-      + (t.edge_id ? ' <span class="sh-ts-slot-kind">character</span>' : ' <span class="sh-ts-slot-kind dim">object</span>')
+       + '</div>';
+     h += '<div class="sh-ts-slot-body">';
+     if (isEditing) {
+@@ -475,13 +473,12 @@ function renderTouchstoneAddForm(c, anchor, existingCount) {
+   // per the broader NPC-suppression policy (Piatra 2026-05-06). The
+   // 'is_character' branch (Pick existing NPC / Create new NPC) was a
+   // DB-relational picker that POSTed to /api/relationships to create an
+-  // edge — that endpoint flow no longer round-trips cleanly under the
++  // edge - that endpoint flow no longer round-trips cleanly under the
+   // suppression sweep, returning 4xx and blocking sheet save. Touchstone
+-  // is now free-text only (Name + optional Description), categorically a
+-  // typed-string input — same shape dt-form.18 used for the Personal
+-  // Story person field. Legacy touchstones carrying `edge_id` continue
+-  // to render and edit by name + desc; their edges sit dormant in the
+-  // relationships collection (silent-leave per A1 precedent).
++  // is free-text only (Name + optional Description), categorically a
++  // typed-string input - same shape dt-form.18 used for the Personal
++  // Story person field. DBO-8 (2026-08-14) retired the dormant edge_id
++  // link entirely; every touchstone is this shape.
+   let h = '<div class="sh-ts-picker">';
+   h += '<div class="sh-ts-picker-head">New touchstone · Humanity ' + humanity + '</div>';
+   h += '<label class="sh-ts-picker-field"><span>Name *</span>'
+@@ -3049,9 +3046,7 @@ export function renderSheet(c, target = null) {
+   if (curse) h += expRow('curse', 'Curse', esc(curse.name), '<div>' + esc(curse.effect || '') + '</div>');
+   if (editMode) { regB.forEach((b, bi) => { const ri = allB.indexOf(b); h += '<div class="exp-row" style="flex-direction:column;align-items:stretch;padding:8px 10px"><div class="sh-bane-edit-row"><span class="exp-lbl" style="min-width:36px">Bane</span><select class="sh-edit-select" style="flex:1" onchange="shEditBaneName(' + ri + ',this.value)"><option value="">(select)</option>' + BANE_LIST.map(bn => '<option' + (b.name === bn ? ' selected' : '') + '>' + esc(bn) + '</option>').join('') + '</select><button class="sh-bane-rm" onclick="shRemoveBane(' + ri + ')" title="Remove">&times;</button></div><input class="sh-edit-input" value="' + esc(b.effect || '') + '" onchange="shEditBaneEffect(' + ri + ',this.value)" placeholder="Effect text" style="margin-top:4px;font-size:11px"></div>'; }); h += '<button class="sh-bane-add" onclick="shAddBane()">+ Add Bane</button>'; }
+   else regB.forEach((b, i) => { h += expRow('bane' + i, 'Bane', esc(b.name), '<div>' + esc(b.effect || '') + '</div>'); });
+-  // Touchstones \u2014 NPCR.4 Shape B bridge.
+-  // Branch on touchstone_edge_ids presence: truthy \u2192 new picker/view backed by
+-  // the relationships graph; falsy \u2192 legacy read-only + migration button.
++  // Touchstones - NPCR.4, free-text only (DBO-8).
+   h += renderTouchstones(c, editMode);
+   // Date of Embrace + Apparent Age
+   if (editMode || c.date_of_embrace) { const _ded = c.date_of_embrace || ''; const _dedDisp = _ded ? new Date(_ded + 'T00:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }) : ''; h += '<div class="exp-row"><span class="exp-lbl labeled">Embrace</span>' + (editMode ? '<input type="date" class="sh-edit-input" value="' + esc(_ded) + '" onchange="shEdit(\'date_of_embrace\',this.value)">' : '<span class="exp-val">' + esc(_dedDisp) + '</span>') + '</div>'; }
+diff --git a/server/routes/characters.js b/server/routes/characters.js
+index 89aab789..73dfdaf3 100644
+--- a/server/routes/characters.js
++++ b/server/routes/characters.js
+@@ -107,15 +107,9 @@ async function validateEquipmentContainerRefs(equipment) {
+ }
+ 
+ /**
+- * NPCR.4: validate that every id in touchstone_edge_ids[] points to an
+- * active relationship edge with kind='touchstone' and the character on
+- * one endpoint. Returns null on success, or an error message string.
+- */
+-/**
+- * NPCR.4 helpers — touchstones live on character.touchstones[], capped at 6.
+- * Slot rating descends from the clan anchor (Ventrue=7, else=6).
+- * Each entry may carry an optional edge_id linking to a relationships doc
+- * (kind='touchstone') when the touchstone is a character; omitted for objects.
++ * NPCR.4 helpers — touchstones live on character.touchstones[], capped at 6,
++ * free-text only (DBO-8, 2026-08-14). Slot rating descends from the clan
++ * anchor (Ventrue=7, else=6).
+  */
+ 
+ function anchorFor(character) {
+@@ -123,12 +117,11 @@ function anchorFor(character) {
+ }
+ 
+ /**
+- * Validate a touchstones[] array on a save body: cap, humanity-in-anchor-range,
+- * and each edge_id (when present) points to an active relationships edge of
+- * kind='touchstone' with this character on one endpoint.
+- * Returns null on success or an error message string.
++ * Validate a touchstones[] array on a save body: cap and
++ * humanity-in-anchor-range. Returns null on success or an error message
++ * string.
+  */
+-async function validateTouchstones(touchstones, characterId, currentCharDoc) {
++function validateTouchstones(touchstones, currentCharDoc) {
+   if (!Array.isArray(touchstones)) return null;
+   if (touchstones.length > 6) {
+     return `touchstones cap is 6 (received ${touchstones.length})`;
+@@ -141,86 +134,9 @@ async function validateTouchstones(touchstones, characterId, currentCharDoc) {
+       return `touchstone humanity ${t?.humanity} out of range (anchor=${anchor}, min=${minRating})`;
+     }
+   }
+-
+-  const edgeIds = touchstones
+-    .map(t => t?.edge_id)
+-    .filter(id => typeof id === 'string' && id.length > 0);
+-  if (edgeIds.length === 0) return null;
+-
+-  const oids = [];
+-  for (const id of edgeIds) {
+-    try { oids.push(new ObjectId(id)); }
+-    catch { return `touchstone edge_id '${id}' is not a valid id`; }
+-  }
+-  const rels = getCollection('relationships');
+-  const edges = await rels.find({ _id: { $in: oids } }).toArray();
+-  const foundById = new Map(edges.map(e => [String(e._id), e]));
+-  const charIdStr = String(characterId);
+-  for (const id of edgeIds) {
+-    const edge = foundById.get(String(id));
+-    if (!edge) return `touchstone edge '${id}' not found`;
+-    if (edge.kind !== 'touchstone') return `edge '${id}' is kind='${edge.kind}', expected 'touchstone'`;
+-    if (edge.status === 'retired') return `edge '${id}' is retired`;
+-    const onEdge =
+-      (edge.a?.type === 'pc' && String(edge.a.id) === charIdStr) ||
+-      (edge.b?.type === 'pc' && String(edge.b.id) === charIdStr);
+-    if (!onEdge) return `edge '${id}' does not have this character as an endpoint`;
+-  }
+   return null;
+ }
+ 
+-/**
+- * Attach _npc_name on each touchstones[] entry that carries an edge_id,
+- * so the client can render the linked NPC's name without a separate fetch.
+- * Edges that are retired or (for player callers) st_hidden are treated as
+- * missing — no name attached; the client still renders the entry via its
+- * inline name field.
+- */
+-async function enrichTouchstoneNpcNames(chars, { forPlayer } = {}) {
+-  const allEdgeOids = [];
+-  for (const c of chars) {
+-    for (const t of (c.touchstones || [])) {
+-      if (typeof t?.edge_id === 'string' && t.edge_id.length > 0) {
+-        try { allEdgeOids.push(new ObjectId(t.edge_id)); } catch { /* skip */ }
+-      }
+-    }
+-  }
+-  if (allEdgeOids.length === 0) return;
+-
+-  const rels = getCollection('relationships');
+-  const edgeFilter = {
+-    _id: { $in: allEdgeOids },
+-    kind: 'touchstone',
+-    status: { $ne: 'retired' },
+-  };
+-  if (forPlayer) edgeFilter.st_hidden = { $ne: true };
+-  const edges = await rels.find(edgeFilter).toArray();
+-  const edgeById = new Map(edges.map(e => [String(e._id), e]));
+-
+-  const npcOids = [];
+-  for (const e of edges) {
+-    const npcEp = e.a?.type === 'npc' ? e.a : (e.b?.type === 'npc' ? e.b : null);
+-    if (npcEp?.id) {
+-      try { npcOids.push(new ObjectId(String(npcEp.id))); } catch { /* skip */ }
+-    }
+-  }
+-  const npcs = npcOids.length > 0
+-    ? await getCollection('npcs').find({ _id: { $in: npcOids } }, { projection: { name: 1 } }).toArray()
+-    : [];
+-  const npcById = new Map(npcs.map(n => [String(n._id), n]));
+-
+-  for (const c of chars) {
+-    for (const t of (c.touchstones || [])) {
+-      if (typeof t?.edge_id !== 'string' || !t.edge_id) continue;
+-      const edge = edgeById.get(String(t.edge_id));
+-      if (!edge) continue;
+-      const npcEp = edge.a?.type === 'npc' ? edge.a : edge.b;
+-      const npc = npcEp ? npcById.get(String(npcEp.id)) : null;
+-      if (npc?.name) t._npc_name = npc.name;
+-    }
+-  }
+-}
+-
+ // N-1 (ADR-005 Rev 2 §D3): Collective Compound synthesis on the server side.
+ // Mirrors the client-side pass in `mci.js#applyDerivedMerits` so the player
+ // portal sees synthesised `_collective_shared_with` without needing to run
+@@ -274,7 +190,6 @@ router.get('/', async (req, res) => {
+   if (isStRole(req.user) && !req.query.mine) {
+     const chars = await col().find().toArray();
+     await _enrichCollectiveSharing(chars);
+-    await enrichTouchstoneNpcNames(chars, { forPlayer: false });
+     return res.json(chars);
+   }
+ 
+@@ -331,7 +246,6 @@ router.get('/', async (req, res) => {
+   }
+ 
+   await _enrichCollectiveSharing(chars);
+-  await enrichTouchstoneNpcNames(chars, { forPlayer: true });
+   res.json(chars);
+ });
+ 
+@@ -468,8 +382,6 @@ router.get('/:id', async (req, res) => {
+   const char = await col().findOne({ _id: oid });
+   if (!char) return res.status(404).json({ error: 'NOT_FOUND', message: 'Character not found' });
+ 
+-  const forPlayer = req.user.role === 'player';
+-  await enrichTouchstoneNpcNames([char], { forPlayer });
+   res.json(char);
+ });
+ 
+@@ -580,12 +492,11 @@ router.put('/:id', requireRole('st'), stripEphemeral, validateCharacterPartial,
+     }
+   }
+ 
+-  // NPCR.4: if the save includes touchstones[], validate cap, humanity-in-range,
+-  // and each embedded edge_id points to a valid touchstone relationship for this char.
++  // NPCR.4: if the save includes touchstones[], validate cap and humanity-in-range.
+   if (Object.prototype.hasOwnProperty.call(updates, 'touchstones')) {
+     const existingChar = await col().findOne({ _id: oid }, { projection: { clan: 1 } });
+     const effectiveChar = { ...existingChar, ...updates }; // updates may also change clan
+-    const err = await validateTouchstones(updates.touchstones, oid, effectiveChar);
++    const err = validateTouchstones(updates.touchstones, effectiveChar);
+     if (err) return res.status(400).json({ error: 'VALIDATION_ERROR', message: err });
+   }
+ 
+diff --git a/server/routes/relationships.js b/server/routes/relationships.js
+index 883c1e67..153bee91 100644
+--- a/server/routes/relationships.js
++++ b/server/routes/relationships.js
+@@ -32,19 +32,6 @@ function customLabelMissing(body) {
+   return body.kind === 'other' && (!body.custom_label || !String(body.custom_label).trim());
+ }
+ 
+-function touchstoneShapeError(body) {
+-  if (body.kind !== 'touchstone') return null;
+-  const hum = body.touchstone_meta?.humanity;
+-  if (!Number.isInteger(hum) || hum < 1 || hum > 10) {
+-    return "kind='touchstone' requires touchstone_meta.humanity (integer 1..10)";
+-  }
+-  const types = [body.a?.type, body.b?.type].sort();
+-  if (types[0] !== 'npc' || types[1] !== 'pc') {
+-    return "kind='touchstone' requires one pc and one npc endpoint";
+-  }
+-  return null;
+-}
+-
+ // NPCR.6: player-readable endpoint. Registered BEFORE the ST-only
+ // router.use below. Caller must own the character or be ST. Player
+ // callers receive only active / pending_confirmation edges where
+@@ -167,10 +154,11 @@ router.get('/for-character/:characterId', async (req, res) => {
+ // POST / — create edge. Split auth:
+ //   ST: any endpoints, any kind.
+ //   Player: a.type='pc' with a.id in caller's character_ids, b.type='npc',
+-//           kind !== 'touchstone' (touchstones live on character.touchstones[]
+-//           via the sheet picker from NPCR.4), created_by={type:'player', id:discord_id},
++//           created_by={type:'player', id:discord_id},
+ //           created_by_char_id = a.id (for NPCR.9 edit-rights scoping).
+ // Both auths: strict 409 CONFLICT on a duplicate active {a, b, kind} edge.
++// Touchstones live on character.touchstones[] via the sheet picker (NPCR.4,
++// DBO-8) — 'touchstone' is not a valid `kind` here at all any more.
+ router.post('/', validate(relationshipSchema), async (req, res) => {
+   const body = req.body;
+   const role = req.user?.role;
+@@ -188,9 +176,6 @@ router.post('/', validate(relationshipSchema), async (req, res) => {
+       message: "kind='other' requires a non-empty custom_label",
+     });
+   }
+-  const tsErr = touchstoneShapeError(body);
+-  if (tsErr) return res.status(400).json({ error: 'VALIDATION_ERROR', message: tsErr });
+-
+   // Player-specific constraints
+   let playerPcPc = false;
+   if (!isSt) {
+@@ -201,12 +186,6 @@ router.post('/', validate(relationshipSchema), async (req, res) => {
+         message: 'Player-created edges must have a.type=pc with a.id matching one of your characters',
+       });
+     }
+-    if (body.kind === 'touchstone') {
+-      return res.status(400).json({
+-        error: 'VALIDATION_ERROR',
+-        message: "Touchstones are managed from the character sheet, not the Relationships tab",
+-      });
+-    }
+     // NPCR.10: allow b.type='pc' for PC-to-PC edges when kind accepts any
+     // endpoint type (Lineage / Political / 'romantic' / 'other'). Mortal
+     // kinds (family, contact, retainer, correspondent) remain NPC-only.
+@@ -268,9 +247,6 @@ router.post('/', validate(relationshipSchema), async (req, res) => {
+     doc.custom_label = String(body.custom_label).trim();
+   }
+   if (body.disposition) doc.disposition = body.disposition;
+-  if (body.kind === 'touchstone') {
+-    doc.touchstone_meta = { humanity: body.touchstone_meta.humanity };
+-  }
+   // NPCR.7: stamp the owning char id on player-created edges for NPCR.9 scoping.
+   if (!isSt) {
+     doc.created_by_char_id = String(body.a.id);
+@@ -413,11 +389,6 @@ router.put('/:id', validate(relationshipSchema), async (req, res) => {
+   if (customLabelMissing(body)) {
+     return res.status(400).json({ error: 'VALIDATION_ERROR', message: "kind='other' requires a non-empty custom_label" });
+   }
+-  const tsErr = touchstoneShapeError(body);
+-  if (tsErr && isSt) {
+-    return res.status(400).json({ error: 'VALIDATION_ERROR', message: tsErr });
+-  }
+-
+   // Guard against resurrecting a retired edge from stale client cache.
+   if (existing.status === 'retired' && body.status !== 'retired') {
+     return res.status(409).json({
+@@ -429,12 +400,11 @@ router.put('/:id', validate(relationshipSchema), async (req, res) => {
+   const kindForSave = body.kind ?? existing.kind;
+   if (kindForSave !== 'other') body.custom_label = '';
+   else if (typeof body.custom_label === 'string') body.custom_label = body.custom_label.trim();
+-  if (kindForSave !== 'touchstone') body.touchstone_meta = null;
+ 
+-  const CLEARABLE = new Set(['custom_label', 'disposition', 'touchstone_meta']);
++  const CLEARABLE = new Set(['custom_label', 'disposition']);
+   const isCleared = (name, v) => CLEARABLE.has(name) && (v === '' || v === null);
+ 
+-  const TRACKED = ['a', 'b', 'kind', 'custom_label', 'direction', 'disposition', 'state', 'st_hidden', 'status', 'touchstone_meta'];
++  const TRACKED = ['a', 'b', 'kind', 'custom_label', 'direction', 'disposition', 'state', 'st_hidden', 'status'];
+ 
+   const fields = [];
+   const updates = {};
+diff --git a/server/schemas/character.schema.js b/server/schemas/character.schema.js
+index 575fae85..3705e062 100644
+--- a/server/schemas/character.schema.js
++++ b/server/schemas/character.schema.js
+@@ -240,9 +240,11 @@ export const characterSchema = {
+     // ── Touchstones ───────────────────────────────────────────
+     // NPCR.4: slot array, max 6. Each entry has a humanity rating
+     // (assigned descending from the anchor: 7 for Ventrue, 6 else),
+-    // a name and optional desc, and an optional edge_id linking to a
+-    // relationships doc (kind='touchstone') when the touchstone is a
+-    // character (NPC). Object/concept touchstones omit edge_id.
++    // a name and optional desc. Free-text only (DBO-8, 2026-08-14) — an
++    // earlier design let a touchstone link to a relationships doc via
++    // edge_id, but issue #162 removed the only path that ever created one,
++    // and live data confirmed zero touchstones used it, so the link was
++    // retired rather than kept as dead surface.
+     touchstones: {
+       type: 'array',
+       maxItems: 6,
+@@ -253,9 +255,7 @@ export const characterSchema = {
+           humanity: { type: 'integer', minimum: 1, maximum: 10 },
+           name:     { type: 'string' },
+           // desc is absent when not yet written — never null
+-          desc:     { type: 'string' },
+-          // edge_id present when linked to a relationships doc; absent for object touchstones
+-          edge_id:  { type: 'string' }
++          desc:     { type: 'string' }
+         },
+         additionalProperties: false
+       }
+diff --git a/server/schemas/relationship.schema.js b/server/schemas/relationship.schema.js
+index b905888c..2238cd48 100644
+--- a/server/schemas/relationship.schema.js
++++ b/server/schemas/relationship.schema.js
+@@ -13,14 +13,17 @@
+  * kind='other' requires a non-empty custom_label — enforced at the
+  * route layer (the schema allows custom_label for any kind).
+  *
+- * kind='touchstone' requires touchstone_meta.humanity (1..10) and
+- * endpoints shaped as one pc + one npc — enforced at the route layer.
++ * 'touchstone' is deliberately NOT a KIND_ENUM value (DBO-8, 2026-08-14) —
++ * touchstones are free-text only on characters.touchstones[]; the earlier
++ * relationship-linked design (this schema's own touchstone_meta) was
++ * retired because issue #162 removed its only creation path and live data
++ * confirmed zero touchstones used it.
+  */
+ 
+ export const KIND_ENUM = [
+   'sire', 'childe', 'grand-sire', 'grand-childe', 'clan-mate',
+   'coterie', 'ally', 'rival', 'enemy', 'mentor', 'debt-holder', 'debt-bearer',
+-  'touchstone', 'family', 'contact', 'retainer', 'correspondent', 'romantic',
++  'family', 'contact', 'retainer', 'correspondent', 'romantic',
+   'other',
+ ];
+ 
+@@ -63,15 +66,6 @@ const fieldDeltaSchema = {
+   },
+ };
+ 
+-const touchstoneMetaSchema = {
+-  type: 'object',
+-  required: ['humanity'],
+-  additionalProperties: false,
+-  properties: {
+-    humanity: { type: 'integer', minimum: 1, maximum: 10 },
+-  },
+-};
+-
+ const historyItemSchema = {
+   type: 'object',
+   required: ['at', 'by', 'change'],
+@@ -109,7 +103,6 @@ export const relationshipSchema = {
+     // POSTs. Used by NPCR.9 to scope edit rights to the creating char.
+     created_by_char_id: { type: 'string' },
+     history:      { type: 'array', items: historyItemSchema },
+-    touchstone_meta: touchstoneMetaSchema,
+     created_at:   { type: 'string' },
+     updated_at:   { type: 'string' },
+   },
+diff --git a/server/scripts/dbo-8-orphaned-touchstone-edges-cleanup.mjs b/server/scripts/dbo-8-orphaned-touchstone-edges-cleanup.mjs
+new file mode 100644
+index 00000000..ec7fb658
+--- /dev/null
++++ b/server/scripts/dbo-8-orphaned-touchstone-edges-cleanup.mjs
+@@ -0,0 +1,150 @@
++/**
++ * DBO-8 — delete `relationships` documents with `kind: 'touchstone'`. Manual,
++ * ST-invoked, one-off. Nothing calls this on server boot and nothing calls it
++ * in test setup; the vitest suite imports its exported functions and runs
++ * them against `tm_suite_test` only.
++ *
++ * NOTE FOR ANYONE TIDYING THIS FILE: there is deliberately NO
++ * `#!/usr/bin/env node` shebang, for the same reason
++ * `dbo-1-purchasable-powers-field-cleanup.mjs` has none — a shebang breaks
++ * vitest's transform for any file importing this one.
++ *
++ * ==========================================================================
++ *   RUNNING THIS FOR REAL IS ANGELUS'S ACTION, NOT AN AGENT'S.
++ * ==========================================================================
++ *
++ *   Connection comes from `../db.js` (MONGODB_URI via config.js, database
++ *   name from MONGODB_DB, defaulting to `tm_suite`). Running this bare from
++ *   `server/` with `server/.env` in place therefore targets LIVE Atlas. What
++ *   makes that survivable is the DRY-RUN DEFAULT: without `--apply` this only
++ *   reads, and prints exactly what it would do.
++ *
++ * BACKGROUND (specs/stories/dbo-8-touchstone-mechanic-identity-split.md):
++ * DBO-8 retired `characters.touchstones[].edge_id` and the linked
++ * `relationships` shape (`kind: 'touchstone'`, `touchstone_meta`) — issue
++ * #162 removed the only code path that ever created a linked touchstone, and
++ * live data confirmed zero of 44 touchstones used it. `'touchstone'` is no
++ * longer a valid `kind` in `relationship.schema.js`'s `KIND_ENUM`, so any
++ * document carrying it now fails its own schema. This script finds and
++ * removes them.
++ *
++ * WHAT IT DOES: every document in `relationships` with `kind: 'touchstone'`
++ * -> DELETE, after a full-document JSON backup. Nothing else in the
++ * collection is touched — every other `kind` value is left exactly as-is.
++ *
++ * SAFETY: DRY-RUN BY DEFAULT. `--apply` writes a full-document JSON backup to
++ * `server/scripts/_backups/dbo-8-orphaned-touchstone-edges-<ISO>.json` BEFORE
++ * issuing any delete, and aborts (deletes nothing) if the backup write
++ * throws. Idempotent: re-running `planCleanup` after a successful `--apply`
++ * returns an empty array — nothing left to clean.
++ *
++ * Usage, from `server/` so that cwd-relative `dotenv/config` picks up
++ * `server/.env`:
++ *
++ *   # preview against the configured database, no writes (the default):
++ *   node scripts/dbo-8-orphaned-touchstone-edges-cleanup.mjs
++ *
++ *   # write:
++ *   node scripts/dbo-8-orphaned-touchstone-edges-cleanup.mjs --apply
++ *
++ *   # write to the throwaway test database instead of live:
++ *   MONGODB_DB=tm_suite_test node scripts/dbo-8-orphaned-touchstone-edges-cleanup.mjs --apply
++ */
++
++import 'dotenv/config';
++import { mkdirSync, writeFileSync } from 'node:fs';
++import { join, dirname } from 'node:path';
++import { fileURLToPath, pathToFileURL } from 'node:url';
++import { connectDb, getCollection, closeDb } from '../db.js';
++
++const __dirname = dirname(fileURLToPath(import.meta.url));
++const BACKUP_DIR = join(__dirname, '_backups');
++
++/**
++ * Classify every document in `relationships` carrying `kind: 'touchstone'`.
++ * PURE: reads only, no writes, no side effects, so `main()` can print the
++ * whole plan before anyone decides whether to run it.
++ *
++ * The collection is taken as an ARGUMENT rather than resolved internally, so
++ * a test can hand over a `tm_suite_test` collection and this can never reach
++ * live data by accident.
++ *
++ * @param {import('mongodb').Collection} collection
++ * @returns {Promise<Array<{_id:*, doc:object}>>}
++ */
++export async function planCleanup(collection) {
++  const docs = await collection.find({ kind: 'touchstone' }).toArray();
++  return docs.map(doc => ({ _id: doc._id, doc }));
++}
++
++/**
++ * Carry out (or, by default, merely narrate) the plan.
++ *
++ * @param {import('mongodb').Collection} collection
++ * @param {Array<object>} rows - the output of `planCleanup`
++ * @param {{ apply?: boolean, log?: Function }} opts
++ * @returns {Promise<{deleted:number, backedUp:number}>}
++ */
++export async function applyCleanup(collection, rows, { apply = false, log = () => {} } = {}) {
++  if (!rows.length) {
++    log("Nothing to clean — 0 documents carry kind: 'touchstone'.");
++    return { deleted: 0, backedUp: 0 };
++  }
++
++  if (!apply) {
++    for (const row of rows) {
++      log(`  [DRY RUN] would delete relationships/${row._id} (status: ${row.doc.status || 'unknown'})`);
++    }
++    log(`\n${rows.length} document(s) would be deleted. Re-run with --apply to write.`);
++    return { deleted: 0, backedUp: 0 };
++  }
++
++  mkdirSync(BACKUP_DIR, { recursive: true });
++  const stamp = new Date().toISOString().replace(/[:.]/g, '-');
++  const backupPath = join(BACKUP_DIR, `dbo-8-orphaned-touchstone-edges-${stamp}.json`);
++  const originals = await collection.find({ _id: { $in: rows.map(r => r._id) } }).toArray();
++  writeFileSync(backupPath, JSON.stringify(originals, null, 2));
++  log(`Backup written: ${backupPath}`);
++
++  let deleted = 0;
++  for (const row of rows) {
++    const result = await collection.deleteOne({ _id: row._id });
++    if (result.deletedCount === 1) {
++      deleted += 1;
++      log(`  deleted: ${row._id}`);
++    }
++  }
++
++  return { deleted, backedUp: originals.length };
++}
++
++export async function main(argv = process.argv) {
++  const apply = argv.includes('--apply');
++  const dbName = process.env.MONGODB_DB || 'tm_suite';
++
++  console.log(`Mode     : ${apply ? 'APPLY (will backup + write)' : 'DRY RUN (read only; pass --apply to write)'}`);
++  console.log(`Target DB: ${dbName}`);
++  console.log('');
++
++  await connectDb();
++  try {
++    const collection = getCollection('relationships');
++    const rows = await planCleanup(collection);
++    console.log(`relationships: ${rows.length} document(s) need cleanup.`);
++    console.log('');
++
++    const result = await applyCleanup(collection, rows, { apply, log: msg => console.log(msg) });
++    console.log('');
++    console.log(`Totals: ${result.deleted} deleted, ${result.backedUp} backed up.`);
++    if (apply) {
++      console.log('Idempotency check: re-run with --apply and confirm "0 document(s) need cleanup".');
++    }
++  } finally {
++    await closeDb();
++  }
++}
++
++// Auto-run only when invoked directly, never when imported by a test.
++if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
++  main().catch(err => { console.error(err.message); process.exit(1); });
++}
+diff --git a/server/tests/api-relationships-player-create.test.js b/server/tests/api-relationships-player-create.test.js
+index 2f576e26..7fe58ba6 100644
+--- a/server/tests/api-relationships-player-create.test.js
++++ b/server/tests/api-relationships-player-create.test.js
+@@ -2,12 +2,17 @@
+  * API tests — player-writable POST /api/relationships (NPCR.7)
+  *
+  * Covers the split-auth POST branch added in NPCR.7:
+- * - ST path: unchanged; any endpoints, any kind (touchstone excluded for simplicity,
+- *   NPCR.2 tests already cover the ST happy path end-to-end)
++ * - ST path: unchanged; any endpoints, any kind
+  * - Player path: a.type=pc with a.id in character_ids, b.type=npc,
+- *   kind !== 'touchstone', sets created_by_char_id
++ *   sets created_by_char_id
+  * - Duplicate detection: 409 when an active edge with same {a, b, kind} exists
+  *
++ * 'touchstone' is not a valid `kind` at all any more (DBO-8, 2026-08-14) —
++ * touchstones are free-text only on characters.touchstones[]. The old
++ * player-path business rule this file used to test ("touchstones are
++ * managed from the character sheet") is unreachable now: the schema itself
++ * rejects kind='touchstone' before any handler code runs.
++ *
+  * Also covers the new /api/npcs/directory player-readable listing.
+  */
+ 
+@@ -128,17 +133,17 @@ describe('POST /api/relationships — player auth + validation', () => {
+     expect(res.body.message).toMatch(/PC-to-PC/i);
+   });
+ 
+-  it("400 when kind='touchstone' (players use the sheet picker)", async () => {
++  it("DBO-8: 400 when kind='touchstone' (not a valid kind at all - rejected at the schema layer)", async () => {
+     const res = await request(app)
+       .post('/api/relationships')
+       .set('X-Test-User', playerUser([MY_CHAR]))
+       .send(validPlayerBody({
+         kind: 'touchstone',
+         b: { type: 'npc', id: NPC_2_ID },
+-        touchstone_meta: { humanity: 6 },
+       }));
+     expect(res.status).toBe(400);
+-    expect(res.body.message).toMatch(/character sheet/i);
++    expect(res.body.error).toBe('VALIDATION_ERROR');
++    expect(res.body.errors.some(e => e.path === '/kind')).toBe(true);
+   });
+ });
+ 
+diff --git a/server/tests/api-touchstone-edges.test.js b/server/tests/api-touchstone-edges.test.js
+index 12f2ea16..e03cb51a 100644
+--- a/server/tests/api-touchstone-edges.test.js
++++ b/server/tests/api-touchstone-edges.test.js
+@@ -1,50 +1,41 @@
+ /**
+- * API tests — touchstones + relationship edges (NPCR.4, post-rework)
++ * API tests — touchstones (NPCR.4, free-text only per DBO-8, 2026-08-14)
+  *
+  * Model:
+  * - character.touchstones[] is authoritative (cap 6, humanity descends from anchor)
+  * - anchor = 7 if clan='Ventrue', else 6
+- * - each touchstones[] entry may carry optional edge_id linking to a
+- *   relationships doc (kind='touchstone') with touchstone_meta.humanity matching
++ * - every entry is {humanity, name, desc?} - no relationships link
++ *
++ * DBO-8 retired the earlier design where a touchstones[] entry could
++ * optionally carry `edge_id`, linking it to a `relationships` document
++ * (kind='touchstone', touchstone_meta.humanity). Issue #162 removed the
++ * only code path that ever created a linked touchstone, and a live-data
++ * query (2026-08-14) confirmed zero of 44 live touchstones used it - so the
++ * link, the `relationships` shape, and the server-side enrichment it drove
++ * were all removed rather than kept as dead surface. This file's own
++ * previous version (git history) exercised that mechanism; these tests
++ * exercise its absence.
+  *
+  * Covers:
+- * - relationships POST/PUT enforce touchstone_meta.humanity + one pc/one npc
+- *   endpoint when kind='touchstone' (unchanged from Phase A)
+- * - characters PUT validates touchstones[]: cap, humanity-in-anchor-range,
+- *   and embedded edge_id (when present) is active/correct-kind/char-on-endpoint
+- * - GET enriches _npc_name per touchstone item that has an edge_id
+- * - st_hidden excluded for player callers
++ * - characters PUT validates touchstones[]: cap, humanity-in-anchor-range
++ * - `edge_id` is rejected as an unknown property (additionalProperties: false)
++ * - `relationships` POST/PUT reject kind='touchstone' as an invalid enum value
++ * - `touchstone_meta` is rejected as an unknown property on `relationships`
+  */
+ 
+ import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+ import request from 'supertest';
+ import 'dotenv/config';
+ import { ObjectId } from 'mongodb';
+-import { createTestApp, stUser, playerUser } from './helpers/test-app.js';
++import { createTestApp, stUser } from './helpers/test-app.js';
+ import { setupDb, teardownDb } from './helpers/db-setup.js';
+ import { getCollection } from '../db.js';
+ 
+ let app;
+-const CREATED_REL_IDS = [];
+ const CREATED_CHAR_IDS = [];
+-const CREATED_NPC_IDS = [];
+ 
+-const NPC_ID = new ObjectId().toHexString();
+-const NPC_ID_2 = new ObjectId().toHexString();
+ const OTHER_PC_ID = new ObjectId().toHexString();
+-
+-function baseTouchstoneBody(overrides = {}) {
+-  return {
+-    a: { type: 'pc',  id: OTHER_PC_ID },
+-    b: { type: 'npc', id: NPC_ID },
+-    kind: 'touchstone',
+-    direction: 'a_to_b',
+-    state: 'Priscilla, the sister he failed to save',
+-    st_hidden: false,
+-    touchstone_meta: { humanity: 6 },
+-    ...overrides,
+-  };
+-}
++const NPC_ID = new ObjectId().toHexString();
+ 
+ async function seedChar(overrides = {}) {
+   const col = getCollection('characters');
+@@ -61,130 +52,17 @@ async function seedChar(overrides = {}) {
+   return { ...doc, _id: result.insertedId };
+ }
+ 
+-async function seedRelationship(overrides = {}) {
+-  const col = getCollection('relationships');
+-  const now = new Date().toISOString();
+-  const doc = {
+-    a: { type: 'pc',  id: OTHER_PC_ID },
+-    b: { type: 'npc', id: NPC_ID },
+-    kind: 'touchstone',
+-    direction: 'a_to_b',
+-    state: '',
+-    st_hidden: false,
+-    status: 'active',
+-    created_by: { type: 'st', id: 'test-st-001' },
+-    history: [{ at: now, by: { type: 'st', id: 'test-st-001' }, change: 'created' }],
+-    touchstone_meta: { humanity: 5 },
+-    created_at: now,
+-    updated_at: now,
+-    ...overrides,
+-  };
+-  const result = await col.insertOne(doc);
+-  CREATED_REL_IDS.push(result.insertedId);
+-  return { ...doc, _id: result.insertedId };
+-}
+-
+-async function seedNpc(name) {
+-  const col = getCollection('npcs');
+-  const now = new Date().toISOString();
+-  const res = await col.insertOne({
+-    name, description: '', status: 'active',
+-    linked_character_ids: [], linked_cycle_id: null, notes: '',
+-    created_at: now, updated_at: now,
+-  });
+-  CREATED_NPC_IDS.push(res.insertedId);
+-  return { _id: res.insertedId, name };
+-}
+-
+ beforeAll(async () => {
+   await setupDb();
+   app = createTestApp();
+ });
+ 
+ afterAll(async () => {
+-  const rels = getCollection('relationships');
+-  if (CREATED_REL_IDS.length > 0) {
+-    await rels.deleteMany({ _id: { $in: CREATED_REL_IDS } });
+-  }
+   const chars = getCollection('characters');
+   for (const id of CREATED_CHAR_IDS) await chars.deleteOne({ _id: id });
+-  const npcs = getCollection('npcs');
+-  for (const id of CREATED_NPC_IDS) await npcs.deleteOne({ _id: id });
+   await teardownDb();
+ });
+ 
+-// ── Relationships route: touchstone_meta + endpoint shape (unchanged) ────────
+-
+-describe("POST /api/relationships kind='touchstone'", () => {
+-  it('creates a touchstone edge with touchstone_meta.humanity persisted', async () => {
+-    const res = await request(app)
+-      .post('/api/relationships')
+-      .set('X-Test-User', stUser())
+-      .send(baseTouchstoneBody({ touchstone_meta: { humanity: 7 } }));
+-
+-    expect(res.status).toBe(201);
+-    expect(res.body.kind).toBe('touchstone');
+-    expect(res.body.touchstone_meta).toEqual({ humanity: 7 });
+-    CREATED_REL_IDS.push(new ObjectId(res.body._id));
+-  });
+-
+-  it('rejects when touchstone_meta.humanity is missing', async () => {
+-    const body = baseTouchstoneBody();
+-    delete body.touchstone_meta;
+-    const res = await request(app)
+-      .post('/api/relationships')
+-      .set('X-Test-User', stUser())
+-      .send(body);
+-
+-    expect(res.status).toBe(400);
+-    expect(res.body.message).toMatch(/touchstone_meta\.humanity/);
+-  });
+-
+-  it('rejects pc+pc endpoints on a touchstone edge', async () => {
+-    const res = await request(app)
+-      .post('/api/relationships')
+-      .set('X-Test-User', stUser())
+-      .send(baseTouchstoneBody({
+-        a: { type: 'pc', id: OTHER_PC_ID },
+-        b: { type: 'pc', id: new ObjectId().toHexString() },
+-      }));
+-
+-    expect(res.status).toBe(400);
+-    expect(res.body.message).toMatch(/one pc and one npc/);
+-  });
+-
+-  it('rejects humanity=0 and humanity=11', async () => {
+-    const low = await request(app).post('/api/relationships').set('X-Test-User', stUser())
+-      .send(baseTouchstoneBody({ touchstone_meta: { humanity: 0 } }));
+-    expect(low.status).toBe(400);
+-    const high = await request(app).post('/api/relationships').set('X-Test-User', stUser())
+-      .send(baseTouchstoneBody({ touchstone_meta: { humanity: 11 } }));
+-    expect(high.status).toBe(400);
+-  });
+-});
+-
+-describe("PUT /api/relationships kind change clears touchstone_meta", () => {
+-  it("$unsets touchstone_meta when kind changes away from 'touchstone'", async () => {
+-    const created = await seedRelationship({
+-      kind: 'touchstone',
+-      touchstone_meta: { humanity: 3 },
+-    });
+-
+-    const res = await request(app)
+-      .put(`/api/relationships/${created._id}`)
+-      .set('X-Test-User', stUser())
+-      .send({
+-        a: created.a, b: created.b,
+-        kind: 'mentor', direction: 'a_to_b',
+-        state: '', st_hidden: false, status: 'active',
+-      });
+-
+-    expect(res.status).toBe(200);
+-    expect(res.body.kind).toBe('mentor');
+-    expect(res.body.touchstone_meta).toBeUndefined();
+-  });
+-});
+-
+ // ── Characters route: touchstones[] validation ──────────────────────────────
+ 
+ describe('PUT /api/characters/:id touchstones[] validation', () => {
+@@ -257,103 +135,30 @@ describe('PUT /api/characters/:id touchstones[] validation', () => {
+     expect(res.status).toBe(400);
+   });
+ 
+-  it('accepts a touchstones[] entry with a valid edge_id', async () => {
++  it('accepts a plain object touchstone with name + desc', async () => {
+     const char = await seedChar({ clan: 'Daeva' });
+-    const charIdStr = String(char._id);
+-    const edge = await seedRelationship({
+-      a: { type: 'pc', id: charIdStr },
+-      b: { type: 'npc', id: NPC_ID },
+-      touchstone_meta: { humanity: 6 },
+-    });
+-
+     const res = await request(app)
+       .put(`/api/characters/${char._id}`)
+       .set('X-Test-User', stUser())
+-      .send({
+-        touchstones: [{ humanity: 6, name: 'Edge-linked', edge_id: String(edge._id) }],
+-      });
+-
++      .send({ touchstones: [{ humanity: 6, name: "Grandfather's watch", desc: 'An heirloom' }] });
+     expect(res.status).toBe(200);
+-    expect(res.body.touchstones[0].edge_id).toBe(String(edge._id));
+-  });
+-
+-  it('rejects a touchstones[] entry with a non-existent edge_id', async () => {
+-    const char = await seedChar({ clan: 'Daeva' });
+-    const res = await request(app)
+-      .put(`/api/characters/${char._id}`)
+-      .set('X-Test-User', stUser())
+-      .send({
+-        touchstones: [{ humanity: 6, name: 'Bad link', edge_id: new ObjectId().toHexString() }],
+-      });
+-    expect(res.status).toBe(400);
+-    expect(res.body.message).toMatch(/not found/i);
+-  });
+-
+-  it('rejects a touchstones[] entry pointing to a retired edge', async () => {
+-    const char = await seedChar({ clan: 'Daeva' });
+-    const charIdStr = String(char._id);
+-    const retired = await seedRelationship({
+-      a: { type: 'pc', id: charIdStr },
+-      b: { type: 'npc', id: NPC_ID },
+-      status: 'retired',
+-    });
+-    const res = await request(app)
+-      .put(`/api/characters/${char._id}`)
+-      .set('X-Test-User', stUser())
+-      .send({
+-        touchstones: [{ humanity: 6, name: 'Retired link', edge_id: String(retired._id) }],
+-      });
+-    expect(res.status).toBe(400);
+-    expect(res.body.message).toMatch(/retired/i);
++    expect(res.body.touchstones[0]).toEqual({ humanity: 6, name: "Grandfather's watch", desc: 'An heirloom' });
+   });
+ 
+-  it('rejects an edge not involving the character', async () => {
++  it('DBO-8: rejects a touchstones[] entry carrying edge_id (retired, additionalProperties: false)', async () => {
+     const char = await seedChar({ clan: 'Daeva' });
+-    const foreign = await seedRelationship({
+-      a: { type: 'pc', id: OTHER_PC_ID },
+-      b: { type: 'npc', id: NPC_ID },
+-    });
+     const res = await request(app)
+       .put(`/api/characters/${char._id}`)
+       .set('X-Test-User', stUser())
+       .send({
+-        touchstones: [{ humanity: 6, name: 'Foreign link', edge_id: String(foreign._id) }],
++        touchstones: [{ humanity: 6, name: 'Edge-linked', edge_id: new ObjectId().toHexString() }],
+       });
+     expect(res.status).toBe(400);
+-    expect(res.body.message).toMatch(/endpoint/i);
+   });
+ });
+ 
+-// ── GET enrichment: _npc_name per touchstone item ───────────────────────────
+-
+-describe('GET /api/characters/:id touchstone enrichment', () => {
+-  it('attaches _npc_name on touchstone items that link to an NPC edge (ST)', async () => {
+-    const char = await seedChar({ clan: 'Daeva' });
+-    const charIdStr = String(char._id);
+-    const npc = await seedNpc('Resolved-Test Sister');
+-
+-    const edge = await seedRelationship({
+-      a: { type: 'pc', id: charIdStr },
+-      b: { type: 'npc', id: String(npc._id) },
+-      kind: 'touchstone',
+-      touchstone_meta: { humanity: 6 },
+-    });
+-
+-    await getCollection('characters').updateOne(
+-      { _id: char._id },
+-      { $set: { touchstones: [{ humanity: 6, name: 'ignored', edge_id: String(edge._id) }] } }
+-    );
+-
+-    const res = await request(app)
+-      .get(`/api/characters/${char._id}`)
+-      .set('X-Test-User', stUser());
+-
+-    expect(res.status).toBe(200);
+-    expect(res.body.touchstones).toHaveLength(1);
+-    expect(res.body.touchstones[0]._npc_name).toBe('Resolved-Test Sister');
+-  });
+-
+-  it('does not attach _npc_name for object touchstones (no edge_id)', async () => {
++describe('GET /api/characters/:id touchstones', () => {
++  it('DBO-8: returns touchstones as stored, with no server-side enrichment', async () => {
+     const char = await seedChar({
+       clan: 'Daeva',
+       touchstones: [{ humanity: 6, name: "Grandfather's watch", desc: 'Object touchstone' }],
+@@ -364,63 +169,42 @@ describe('GET /api/characters/:id touchstone enrichment', () => {
+       .set('X-Test-User', stUser());
+ 
+     expect(res.status).toBe(200);
+-    expect(res.body.touchstones[0]._npc_name).toBeUndefined();
+-    expect(res.body.touchstones[0].name).toBe("Grandfather's watch");
++    expect(res.body.touchstones[0]).toEqual({ humanity: 6, name: "Grandfather's watch", desc: 'Object touchstone' });
++    expect(res.body.touchstones[0]).not.toHaveProperty('_npc_name');
+   });
++});
+ 
+-  it('excludes _npc_name for st_hidden edges on the player path', async () => {
+-    const char = await seedChar({ clan: 'Daeva' });
+-    const charIdStr = String(char._id);
+-    const npc = await seedNpc('Hidden NPC');
+-
+-    const edge = await seedRelationship({
+-      a: { type: 'pc', id: charIdStr },
+-      b: { type: 'npc', id: String(npc._id) },
+-      kind: 'touchstone',
+-      touchstone_meta: { humanity: 6 },
+-      st_hidden: true,
+-    });
+-
+-    await getCollection('characters').updateOne(
+-      { _id: char._id },
+-      { $set: { touchstones: [{ humanity: 6, name: 'inline-fallback', edge_id: String(edge._id) }] } }
+-    );
+-
+-    const playerRes = await request(app)
+-      .get(`/api/characters/${char._id}`)
+-      .set('X-Test-User', playerUser([String(char._id)]));
++// ── Relationships route: 'touchstone' is no longer a valid kind ────────────
+ 
+-    expect(playerRes.status).toBe(200);
+-    expect(playerRes.body.touchstones[0]._npc_name).toBeUndefined();
++describe("DBO-8: POST /api/relationships rejects kind='touchstone'", () => {
++  it('400s on kind=touchstone (not a KIND_ENUM value any more)', async () => {
++    const res = await request(app)
++      .post('/api/relationships')
++      .set('X-Test-User', stUser())
++      .send({
++        a: { type: 'pc', id: OTHER_PC_ID },
++        b: { type: 'npc', id: NPC_ID },
++        kind: 'touchstone',
++        direction: 'a_to_b',
++        state: 'Priscilla, the sister he failed to save',
++        st_hidden: false,
++      });
+ 
+-    const stRes = await request(app)
+-      .get(`/api/characters/${char._id}`)
+-      .set('X-Test-User', stUser());
+-    expect(stRes.body.touchstones[0]._npc_name).toBe('Hidden NPC');
++    expect(res.status).toBe(400);
+   });
+ 
+-  it('excludes retired edges from enrichment', async () => {
+-    const char = await seedChar({ clan: 'Daeva' });
+-    const charIdStr = String(char._id);
+-    const npc = await seedNpc('Retired NPC');
+-
+-    const edge = await seedRelationship({
+-      a: { type: 'pc', id: charIdStr },
+-      b: { type: 'npc', id: String(npc._id) },
+-      kind: 'touchstone',
+-      touchstone_meta: { humanity: 6 },
+-      status: 'retired',
+-    });
+-
+-    await getCollection('characters').updateOne(
+-      { _id: char._id },
+-      { $set: { touchstones: [{ humanity: 6, name: 'inline-only', edge_id: String(edge._id) }] } }
+-    );
+-
++  it('400s on touchstone_meta as an unknown property, even with a valid kind', async () => {
+     const res = await request(app)
+-      .get(`/api/characters/${char._id}`)
+-      .set('X-Test-User', stUser());
++      .post('/api/relationships')
++      .set('X-Test-User', stUser())
++      .send({
++        a: { type: 'pc', id: OTHER_PC_ID },
++        b: { type: 'npc', id: NPC_ID },
++        kind: 'ally',
++        direction: 'a_to_b',
++        touchstone_meta: { humanity: 6 },
++      });
+ 
+-    expect(res.body.touchstones[0]._npc_name).toBeUndefined();
++    expect(res.status).toBe(400);
+   });
+ });
+diff --git a/server/tests/dbo-8-orphaned-touchstone-edges-cleanup.test.js b/server/tests/dbo-8-orphaned-touchstone-edges-cleanup.test.js
+new file mode 100644
+index 00000000..ff28040b
+--- /dev/null
++++ b/server/tests/dbo-8-orphaned-touchstone-edges-cleanup.test.js
+@@ -0,0 +1,85 @@
++/**
++ * DBO-8 — cleanup script for orphaned `relationships` documents carrying
++ * `kind: 'touchstone'`, a shape retired by this story (issue #162 removed
++ * the only path that ever created a linked touchstone; live data confirmed
++ * zero of 44 touchstones used it).
++ *
++ * DB-backed: real MongoDB required. A skipped suite is not a passing suite —
++ * read the summary line, not the exit code.
++ */
++
++import { describe, it, expect, beforeAll, beforeEach, afterAll } from 'vitest';
++import { setupDb, isDbAvailable } from './helpers/db-setup.js';
++import { getCollection } from '../db.js';
++import { planCleanup, applyCleanup } from '../scripts/dbo-8-orphaned-touchstone-edges-cleanup.mjs';
++
++const dbAvailable = await isDbAvailable();
++
++describe.skipIf(!dbAvailable)('DBO-8: dbo-8-orphaned-touchstone-edges-cleanup.mjs', () => {
++  const KEY_PREFIX = 'dbo-8-test-';
++  const ids = {
++    orphan: `${KEY_PREFIX}orphan`,
++    other: `${KEY_PREFIX}other-kind`,
++  };
++
++  const fixtures = () => ([
++    {
++      _id: ids.orphan, kind: 'touchstone', status: 'retired',
++      a: { type: 'pc', id: 'a1' }, b: { type: 'npc', id: 'b1' },
++      touchstone_meta: { humanity: 6 },
++    },
++    {
++      _id: ids.other, kind: 'ally', status: 'active',
++      a: { type: 'pc', id: 'a2' }, b: { type: 'npc', id: 'b2' },
++    },
++  ]);
++
++  async function cleanupFixtures() {
++    await getCollection('relationships').deleteMany({ _id: { $in: [ids.orphan, ids.other] } });
++  }
++
++  beforeAll(async () => { await setupDb(); });
++  beforeEach(async () => {
++    await cleanupFixtures();
++    await getCollection('relationships').insertMany(fixtures());
++  });
++  afterAll(async () => { await cleanupFixtures(); });
++
++  it('plans exactly the kind: touchstone documents, leaving other kinds out', async () => {
++    const col = getCollection('relationships');
++    const rows = await planCleanup(col);
++    const byId = Object.fromEntries(rows.filter(r => String(r._id).startsWith(KEY_PREFIX)).map(r => [r._id, r]));
++
++    expect(byId[ids.orphan]).toBeDefined();
++    expect(byId[ids.other]).toBeUndefined();
++  });
++
++  it('dry run (default) writes nothing', async () => {
++    const col = getCollection('relationships');
++    const rows = (await planCleanup(col)).filter(r => String(r._id).startsWith(KEY_PREFIX));
++    const result = await applyCleanup(col, rows, { apply: false });
++
++    expect(result).toEqual({ deleted: 0, backedUp: 0 });
++    expect(await col.findOne({ _id: ids.orphan })).not.toBeNull();
++  });
++
++  it('apply deletes only the kind: touchstone document, leaving the other kind untouched', async () => {
++    const col = getCollection('relationships');
++    const rows = (await planCleanup(col)).filter(r => String(r._id).startsWith(KEY_PREFIX));
++    const result = await applyCleanup(col, rows, { apply: true });
++
++    expect(result.deleted).toBe(1);
++    expect(await col.findOne({ _id: ids.orphan })).toBeNull();
++    expect(await col.findOne({ _id: ids.other })).not.toBeNull();
++  });
++
++  it('is idempotent: re-planning after apply finds nothing left for these fixtures', async () => {
++    const col = getCollection('relationships');
++    const firstPlan = (await planCleanup(col)).filter(r => String(r._id).startsWith(KEY_PREFIX));
++    await applyCleanup(col, firstPlan, { apply: true });
++
++    const secondPlan = await planCleanup(col);
++    const remaining = secondPlan.filter(r => String(r._id).startsWith(KEY_PREFIX));
++    expect(remaining).toEqual([]);
++  });
++});

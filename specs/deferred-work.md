@@ -266,3 +266,102 @@ Full record: `specs/stories/oxp-11-office-purchase-seat-keying.md` → Senior De
   right now is re-typing two zeroes by hand. Revisit properly (read-both-schemas compatibility, or a
   server-side migration trigger on deploy) if either collection ever holds genuine purchase data
   before a future migration of this same shape (category-to-something-else re-keying).
+
+## Deferred from: code review of dbo-1-purchasable-powers-schema-vs-data (2026-08-14, external Codex review)
+
+Full record: `specs/stories/dbo-1-purchasable-powers-schema-vs-data.md` → Senior Developer Review;
+`specs/epic-dbo-database-ownership.md`, DBO-1, 2026-08-14 correction.
+
+- **`server/scripts/seed-rules-necropolis.js` re-seeds the exact dead field DBO-1 removes** (Medium,
+  found by Pass 2 Edge Case Hunter, confirmed against live source). Its `_baseDoc()` defaults every
+  merit it upserts to `selected: true` and `special: null`. It is active (issue #692, N-3/MNEC epic),
+  not archived, and designed to be safely re-run — so a future `--apply` of it (for any reason: a
+  tenth merit, a typo fix) puts `selected` straight back on its nine rows, undoing DBO-1's cleanup for
+  exactly those documents and reproducing the schema-violation defect DBO-1 exists to fix. Out of
+  DBO-1's own scope (a different epic's seeder). Fix: strip `selected: true` from `_baseDoc()`'s
+  defaults (keep `special: null` — schema-valid, harmless). Low effort, one line, whenever N-3/MNEC is
+  next touched or as a standalone follow-up.
+- **A second, previously-undocumented pre-existing test failure**, same class as CLAUDE.md's own
+  #1115: `server/tests/oath-a-pledge-helpers.test.js`'s "meritRating and meritEffectiveRating are
+  byte-identical to their pre-OATH-A form" assertion fails on this Windows checkout — it expects LF
+  text but reads CRLF file content. Confirmed unrelated to DBO-1 (neither `xp.js` nor `domain.js` is
+  in this story's diff) and confirmed present without any DBO-1 change. Worth a CLAUDE.md entry
+  alongside #1115 so the next story's targeted-gate count isn't thrown off by an unexplained extra
+  failure; not fixed here (out of scope, likely a `.gitattributes`/line-ending config issue affecting
+  more than this one file).
+
+## Deferred from: dbo-4-office-collections-absent-empty-route (2026-08-14, external Codex review closed)
+
+Full record: `specs/stories/dbo-4-office-collections-absent-empty-route.md` → Senior Developer
+Review; `specs/epic-dbo-database-ownership.md`, DBO-4, 2026-08-14 resolution.
+
+- **`server/scripts/migrate-office-purchases-to-seats.mjs` has not been run against live `tm_suite`
+  — but the compounding-loss hazard this entry originally flagged as urgent has since been FIXED
+  (2026-08-14, dbo-4's own external Codex review)**, so this is no longer time-sensitive. What
+  remains is a plain deferred action: `office_merit_dots` holds 2 real, pre-oxp-11 documents still
+  keyed by office category (`"Enforcer"`, `"Head of State"`) rather than by seat — confirmed via a
+  read-only live query and the migration's own pure `planMigration()` function. Both currently hold
+  only `{"Safe Place": 0}`. The script's own header used to warn of a compounding case: an ST setting
+  a merit dot on either seat through the live seat-keyed UI before the migration ran would create a
+  fresh seat-keyed document, and the migration would then unconditionally DELETE the old
+  category-keyed one on its next run — not merely leave it orphaned, actively destroy whatever field
+  it alone held. **Fixed**: `applyMigration`'s "recovered" branch now content-compares the two
+  documents (key-order-independent canonical comparison) and only auto-clears the old one when they
+  are genuinely identical; a real mismatch is now REFUSED and reported for a human to reconcile,
+  matching the script's own established refuse-rather-than-guess pattern everywhere else in the file.
+  Proven with 2 new regression tests (one for the refuse path, one confirming key-order alone doesn't
+  cause a false refuse) plus an existing test corrected (its own fixture had unknowingly been
+  exercising the unsafe path). Remaining action, whenever Angelus chooses: run
+  `node scripts/migrate-office-purchases-to-seats.mjs --apply` from `server/` against live
+  `tm_suite` — still a human's own action per this project's standing "one-off migration scripts are
+  run by a human, not an agent" convention (same shape as DBO-1's own cleanup script), but no longer
+  gated by a closing window. `office_manoeuvre_ranks` has nothing to migrate (confirmed empty on both
+  sides of the key scheme) — this only concerns `office_merit_dots`.
+
+## Deferred from: dbo-9-suite-duplicated-constants (2026-08-14, dev-story, two more pre-existing test failures found)
+
+Full record: `specs/stories/dbo-9-suite-duplicated-constants.md` → Dev Agent Record.
+
+- **Two more previously-undocumented, pre-existing test failures**, same family as CLAUDE.md's own
+  #1115 and the oath-a-pledge-helpers CRLF failure DBO-1's review found. Confirmed unrelated to this
+  story (neither touches `constants.js`, `sheet.js`, or `downtime-form.js`) by stashing this story's 3
+  changed files and re-running both against the unmodified base — identical failures either way.
+  - `tests/issue-836-legacy-tracker-cache-removed.test.js` fails to load at all: `ENOENT` opening
+    `public/js/suite/tracker.js`, which does not exist on this checkout (per `CLAUDE.md`, the
+    name-keyed persistence surface this file's own tests were written against was removed in #836 —
+    the test itself appears to have gone stale along with the removal it was meant to verify).
+  - `tests/n8-mandragora-prereq.test.js` fails to load at all: `SyntaxError: Invalid or unexpected
+    token`, cause not investigated (out of this story's scope).
+  Worth a `CLAUDE.md` "Known pre-existing failures" entry for both, so a future story's targeted-gate
+  count isn't thrown off by unexplained extra failures. Not fixed here.
+
+## Deferred from: dbo-2-character-dossier-schema-and-reveal (2026-08-14, dev-story)
+
+Full record: `specs/stories/dbo-2-character-dossier-schema-and-reveal.md` -> Dev Agent Record;
+`specs/epic-dbo-database-ownership.md`, DBO-2.
+
+- **`server/scripts/_havens-and-locations.js:46` `$push`es a new `character_dossier` fact with no
+  `fact_key`.** Same class of finding DBO-1's own external review made against
+  `seed-rules-necropolis.js`, and the same conclusion: not unsafe to ship, but the end state is not
+  durable against a real workflow. The script is one-off and already run, and DBO-2 deliberately does
+  not touch it (its "What this story is NOT" names all seven historical `_*.js` dossier writers as
+  out of scope) - but re-running it after the backfill would create a keyless fact, silently
+  reintroducing exactly the positional-addressing hazard `fact_key` exists to close, and TM Wiki's
+  `visibility_prefs` has no way to address a fact without one. Fix: mint a `fact_key` with
+  `randomUUID()` from `node:crypto` in that `$push`, or re-run
+  `server/scripts/dbo-2-dossier-fact-key-backfill.mjs --apply` after any future run of it. Low
+  effort, a few lines. **Any future writer of a dossier fact, in this repo or elsewhere, must mint a
+  `fact_key`** - that is what the new schema's `required` exists to say, and it has no runtime
+  enforcement behind it (no route validates this collection, no DB-level `$jsonSchema` validator).
+- **Seven pre-existing test-suite LOAD failures in the `server/schemas/` + `server/scripts/` gate**,
+  none caused by this story - confirmed by stashing DBO-2's three new files and re-running the same
+  seven files against the unmodified base, which produced identical failures. Two are already
+  documented (`n8-mandragora-prereq.test.js`, logged by DBO-9 above; `oxp-1-office-seats.test.js`,
+  the shebang-in-`seed-office-seats.mjs` failure oxp-11's own record names). The other five are the
+  same `SyntaxError: Invalid or unexpected token` family and appear to be undocumented:
+  `issue-1013-indomitable-rules-text.test.js`, `issue-1021-failed-breakpoint-merit.test.js`,
+  `issue-811-sumchannels-rootcause.test.js`, `issue-826-cleanup-script-integration.test.js`,
+  `issue-837-xp-totals-deprecation.test.js`. Cause not investigated (out of DBO-2's scope) but the
+  shared symptom across seven unrelated files suggests one environmental root cause rather than seven
+  independent bugs - plausibly the same line-ending/encoding family as the CRLF failure DBO-1's
+  review found. Worth a single `CLAUDE.md` "Known pre-existing failures" entry covering the set.
