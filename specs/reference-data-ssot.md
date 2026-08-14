@@ -35,6 +35,25 @@ Migration to `tracker_state` API is task #10. Until done, tracker state is local
 
 ---
 
+## Office (Court Positions — Epic OXP)
+
+| Domain | Collection | API | Managed in UI |
+|--------|-----------|-----|---------------|
+| Office seats (per-seat identity, holder, category) | `office_seats` | `GET` (auth) / `PUT /:seatId/holder` (ST only) | admin.html → City tab (court panel) |
+| Manoeuvre purchase rank, per seat | `office_manoeuvre_ranks` | `GET` (auth) / `PUT /:seatId`, `PUT /:seatId/step` (ST only) | admin.html → City tab (Office tab, Manoeuvres section) |
+| Merit dot purchases, per seat | `office_merit_dots` | `GET` (auth) / `PUT /:seatId` (ST only) | admin.html → City tab (Office tab, Merit Suite section) |
+| Applied Status Action log | `office_actions` | `GET /?game_session_id=X` (auth) / `GET /latest_session` (auth) / `GET /pending`, `PUT /:id/accept`, `PUT /:id/decline` (ST only) / `POST /` (auth; caller must own `actor_id` or be ST) | admin.html → City tab (Office tab, approval queue) |
+| Per-session Status Action budget spend | `office_action_budgets` | *(written only, inside the `/:id/accept` transaction — no direct route)* | — |
+| Pending Status Action requests (submitted, not yet resolved) | `contested_roll_requests` (`request_type: 'status_action'`) | `POST /api/office_actions`, `GET /api/office_actions/pending`, resolved via `PUT /:id/accept`/`/decline` | admin.html → City tab (Office tab, approval queue) |
+
+**All four `office_*` collections use SEAT-keyed `_id`s** (`office_seats._id`, a 24-hex string), not office category names — re-keyed from category to seat by oxp-11 (2026-08-13) because two offices (Primogen, Socialite) carry more than one concurrent seat, and a category key cannot tell them apart.
+
+**"No document = the default value" is deliberate, not a migration gap (DBO-4, 2026-08-14).** A seat that has never had a manoeuvre rank or merit dot set simply has no document — `GET /` treats a missing key as rank 0 / zero dots for every merit, both client-side and via each route's own comment. The one collection-mutating *reset* path (`resetManoeuvreRank`, `server/routes/office-seats.js:501-544`, fired on a handover) explicitly uses `upsert: false` to preserve this: a seat with nothing to destroy gets no document minted just to say so. Do not treat an absent or empty document as evidence of a bug in either collection.
+
+**Known migration gap, live as of 2026-08-14 (DBO-4).** `office_merit_dots` currently holds 2 REAL, pre-oxp-11 documents still keyed by office category (`_id: "Enforcer"`, `_id: "Head of State"`), not by seat — `server/scripts/migrate-office-purchases-to-seats.mjs` (built and reviewed alongside oxp-11, dry-run default, `--apply` to write) has not yet been run against live `tm_suite`. Until it runs, the current seat-keyed code cannot see these two documents at all — `GET /api/office_merit_dots` reports both seats as having zero dots purchased, even though real (if currently zero-value: `{"Safe Place": 0}`) purchases exist. The script's own header names a compounding hazard: an ST setting a merit dot on either seat *before* the migration runs creates a fresh seat-keyed document that the migration will then treat as already-migrated and leave the stale category-keyed original permanently orphaned. Running `--apply` is Angelus's action, not an agent's, per this project's standing convention for one-off migration scripts (same shape as DBO-1's own cleanup script) — flagged here, in `deferred-work.md`, and in `dbo-4-office-collections-absent-empty-route.md`'s Dev Notes for visibility before the compounding case can occur.
+
+---
+
 ## Downtime
 
 | Domain | Collection | API | Managed in UI |
@@ -109,6 +128,8 @@ These are always calculated at render time from character data:
 |---|---|---|
 | `/api/auth` | No | — |
 | `/api/characters`, `/api/territories`, `/api/downtime_*`, `/api/players`, `/api/questionnaire`, `/api/history`, `/api/ordeal*`, `/api/rules`, `/api/npcs` | Yes (any authenticated) | — |
+| `GET /api/office_seats`, `GET /api/office_manoeuvre_rank`, `GET /api/office_merit_dots`, `GET /api/office_actions`, `GET /api/office_actions/latest_session`, `POST /api/office_actions` | Yes | any authenticated (`POST` additionally requires the caller own `actor_id` or be ST) |
+| `PUT /api/office_seats/:seatId/holder`, `PUT /api/office_manoeuvre_rank/:seatId(/step)`, `PUT /api/office_merit_dots/:seatId`, `GET/PUT /api/office_actions/pending`, `/:id/accept`, `/:id/decline` | Yes | ST only |
 | `/api/tracker_state` | Yes | ST (cross-character) or owning player (`req.user.character_ids` per `server/routes/tracker.js:9-15`) |
 | `/api/session_logs`, `/api/game_sessions` | Yes | ST only |
 | `GET /api/st_mods?character_id=<id>` (single) or `GET /api/st_mods?character_ids=<csv>` (bulk; STM-7 / issue #413) | Yes | ST (any character) or owning player (`req.user.character_ids` per `server/routes/st_mods.js#canAccessMods`, applied per-id for bulk) |

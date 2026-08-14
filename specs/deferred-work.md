@@ -289,3 +289,26 @@ Full record: `specs/stories/dbo-1-purchasable-powers-schema-vs-data.md` → Seni
   alongside #1115 so the next story's targeted-gate count isn't thrown off by an unexplained extra
   failure; not fixed here (out of scope, likely a `.gitattributes`/line-ending config issue affecting
   more than this one file).
+
+## Deferred from: dbo-4-office-collections-absent-empty-route (2026-08-14, investigation story, no code changed)
+
+Full record: `specs/stories/dbo-4-office-collections-absent-empty-route.md` → Dev Agent Record;
+`specs/epic-dbo-database-ownership.md`, DBO-4, 2026-08-14 resolution.
+
+- **URGENT / TIME-SENSITIVE: `server/scripts/migrate-office-purchases-to-seats.mjs` has not been run
+  against live `tm_suite`, and a real, currently-open compounding hazard exists** (High operational
+  risk, Low current stakes). `office_merit_dots` holds 2 real, pre-oxp-11 documents still keyed by
+  office category (`"Enforcer"`, `"Head of State"`) rather than by seat — confirmed via a read-only
+  live query and the migration's own pure `planMigration()` function (never via the script's CLI or
+  `--apply`). Both currently hold only `{"Safe Place": 0}`, so nothing of real value is stranded
+  *today*. But the script's own header names the compounding case: if an ST sets a merit dot on
+  either seat (Enforcer or Head of State) through the current, live, seat-keyed UI *before* this
+  migration runs, that write creates a brand-new seat-keyed document — and the migration, whenever it
+  eventually does run, will then see that seat as already-migrated and leave the old category-keyed
+  document untouched forever, permanently orphaning whatever the pre-migration value actually was.
+  Right now the value is trivial (two zeroes); the risk is that it stops being trivial the moment any
+  ST touches either seat's Merit Suite. Fix: run `node scripts/migrate-office-purchases-to-seats.mjs
+  --apply` from `server/` against live `tm_suite` — Angelus's own action per this project's standing
+  "one-off migration scripts are run by a human, not an agent" convention (same shape as DBO-1's own
+  cleanup script). `office_manoeuvre_ranks` has nothing to migrate (confirmed empty on both sides of
+  the key scheme) — this only concerns `office_merit_dots`.

@@ -170,7 +170,7 @@ Live defect in the app players use. Same class as a naming mismatch the Wiki fou
 (`"Theban Sorcery"` vs the `"Theban"` sheet key). Note DBO-1 may change what `special` is allowed to
 be, so sequence this after it or design the fix to survive either outcome.
 
-### DBO-4 — Office collections: absent, empty, and a route pointing at nothing
+### DBO-4 — Office collections: absent, empty, and a route pointing at nothing — RESOLVED 2026-08-14
 
 - **`office_manoeuvre_ranks` does not exist in live Atlas.** Not empty — absent. The route at
   `server/routes/office-manoeuvre-rank.js:7` refers to it.
@@ -179,6 +179,36 @@ be, so sequence this after it or design the fix to survive either outcome.
 Relevant to the OXP epic: code renders differently against dev fixtures than against production.
 Decide per surface whether "renders empty" is an intended quiet failure or a defect, and make it
 explicit rather than a discovery at the table.
+
+**RESOLVED, dev-storied 2026-08-14 — this section's own "not yet merged" premise was stale.**
+`git log origin/main` (checked at dev time) shows `oxp-1` through `oxp-6` and `oxp-11` already merged
+(oxp-5 via PR #1165, merge commit `1063787b`) — this repo's own `epic-oxp` sprint-status row was
+itself stale on the same point. Findings, all confirmed against live `tm_suite` (read-only queries):
+
+- **`office_manoeuvre_ranks` and `office_merit_dots`'s "no document = 0" convention is deliberate**,
+  not a gap — confirmed by reading every writer (both `PUT` routes' `upsert: true`, the one reset path
+  `resetManoeuvreRank` in `server/routes/office-seats.js:501-544`'s explicit `upsert: false`, with an
+  inline comment naming this exact convention). Not a defect.
+- **`office_actions` genuinely holds 0 documents because no office action has ever been approved
+  through the pipeline** — confirmed by reading the full `POST`/`accept`/`decline` write paths
+  (transactional, no silent-failure branch; any non-`RouteResponse` error re-throws as a 500 rather
+  than being swallowed). Not a defect.
+- **The "renders differently against dev fixtures than production" claim is answered, and it is a
+  real, live, currently-open hazard**: `office_merit_dots` holds 2 REAL pre-migration documents still
+  keyed by office category (`"Enforcer"`, `"Head of State"`), not by seat. `server/scripts/migrate-
+  office-purchases-to-seats.mjs` (built and reviewed alongside oxp-11, dry-run default) has not been
+  run against live `tm_suite` — until it is, the current seat-keyed code cannot see either document
+  (`GET /api/office_merit_dots` reports both seats as zero-purchased). Both currently hold only
+  `{"Safe Place": 0}`, so nothing of real value is at stake *today* — but the migration script's own
+  header names a compounding hazard: an ST setting a merit dot on either seat before the migration
+  runs creates a fresh seat-keyed document, after which the migration will treat the old category-
+  keyed one as already-migrated and leave it permanently orphaned. **Running `--apply` is Angelus's
+  action, not an agent's** (same standing convention as DBO-1's own cleanup script) — flagged here,
+  in `specs/reference-data-ssot.md`'s new Office section, and in `deferred-work.md` for visibility
+  before the compounding case can occur.
+
+No code defect found; no code changed by this story. Full evidence:
+`specs/stories/dbo-4-office-collections-absent-empty-route.md`.
 
 ### DBO-5 — Location data handover *(joint with Wiki 31-2)*
 
