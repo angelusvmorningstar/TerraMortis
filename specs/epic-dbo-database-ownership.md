@@ -1,0 +1,223 @@
+# Epic DBO — Database Ownership (TM Suite side)
+
+**Opened** 2026-08-14 from the cross-app data audit recorded in `D:\Terra Mortis\data-map.md`
+(corrections dated `2026-08-14`; new Open Items under a dated heading at the end).
+
+**Companion epic**: `../TM Wiki/specs/epic-31-data-sovereignty.md` — the Wiki half. Neither epic is
+complete on its own. Every migration has acceptance criteria on **both** sides.
+
+> **NOTE ON HOW THIS FILE ARRIVED.** Authored from the TM Wiki session on 2026-08-14 while this repo
+> had uncommitted work in flight on `ms/oxp-7-sheet-office-merits-section` (including
+> `specs/stories/sprint-status.yaml` and `specs/deferred-work.md`). **Deliberately no row was added
+> to this repo's `sprint-status.yaml`** to avoid clobbering that session's uncommitted state. Adding
+> the `epic-dbo` row is this session's first action when it picks this up. Also read
+> `D:\Terra Mortis\BRIEF-2026-08-14-tm-suite.md` first — it carries the rulings and the coordination
+> protocol in full.
+
+---
+
+## Objective
+
+Make `tm_suite` hold only what has a mechanical function during live play, and fix the schema-versus-
+data defects the audit found on this side. **Getting smaller is the point**, not a side effect.
+
+## THIS EPIC OUTRANKS ITS COMPANION (Angelus, 2026-08-14)
+
+> *"The data structure of Suite is more critical. Wiki is not a live feature of game, so wiki can be
+> incomplete without undermining game."*
+
+**When a decision from this epic and one from `../TM Wiki/specs/epic-31-data-sovereignty.md` are both
+waiting on Angelus, this one goes first.** His attention is the scarcest resource in the ecosystem.
+The two streams are otherwise parallel and do not block each other.
+
+Within this epic, `DBO-1` and `DBO-3` are the two live defects in the app that actually runs the
+session, and they should lead. `DBO-3` in particular is a filter in the players' own XP-spend picker
+that has **never once done what its comment says it does.**
+
+**One caution against over-applying the asymmetry:** it does not mean Wiki defects are ignorable. A
+player losing written work is severe wherever it happens, because it is irreversible and it costs a
+real person real effort - which is why the Wiki's Ordeals containment story was treated as urgent
+despite living on the "less critical" side. The full four-band severity model is in `data-map.md`
+under "THE CRITICALITY ASYMMETRY".
+
+**And a tension to hold rather than resolve:** the handover stories below make `tm_suite` leaner,
+which serves this principle directly. But *executing* a migration is itself a risk to Suite. The end
+state is better for the critical side; the transition is a hazard to it. Hence the standing order
+below, and hence nothing runs near a session.
+
+## The governing principle (Angelus, 2026-08-14)
+
+> *"The game app is the most vulnerable to breaking from complexity because it has to COMPUTE. The
+> wiki on the other hand, its interface is largely READING and PRESENTING the database."*
+
+TM Suite computes: dice pools, XP ledgers, prerequisite verdicts, affordability, status resolution,
+downtime processing. Computation means state transitions, and state transitions are where corruption
+lives. Every collection this app carries is more surface for its compute paths to trip over.
+
+**The classifier for what stays:**
+
+> **Does this have a mechanical function during LIVE PLAY (at the table, during a session)?**
+
+Character sheets and stats (XP etc.) stay — direct mechanical impact. A home address does not: where
+a character lives has no bearing on live play and only matters in downtime.
+
+**Two worked examples define the edges:**
+
+- **`characters.mask` / `.dirge` STAY, WHOLE.** Pure character fiction, but they are the *trigger
+  condition* for Willpower regain (`willpower.mask_1wp` / `.mask_all`) — the mechanic needs the
+  content itself. Inseparable.
+- **`characters.touchstones[]` is TWO ENTITIES.** Angelus: *"One piece of data is the touchstone
+  MECHANIC, the other is the touchstone IDENTITY. The game app is truly agnostic on the identity of
+  the touchstone, only story cares about that."*
+
+**General rule:** does the mechanic need *the content itself* (stays whole) or merely *the fact or
+rating of its existence* (two things that were stored together, and separate)?
+
+## The constraint every migration inherits
+
+`../TM Wiki/specs/deferred-work.md` item 163 (Angelus, 2026-08-12): **"Whatever moves, the reader,
+the writer and the storage must move together."** Earned when the Wiki's downtime form stranded a
+real player's Downtime 6 in `tm_wiki`, invisible to processing.
+
+**Standing order: copy, verify, cut over, then drop. Never delete the source first.** The drop is an
+AC on the shared migration story, executed only after the Wiki side verifies a real read end to end.
+
+---
+
+## Stories
+
+### DBO-1 — `purchasable_powers` schema versus live data
+
+`server/schemas/purchasable_power.schema.js:70` is `additionalProperties: false` and declares neither
+`selected` (present on **666 of 673 rows**) nor `special` (**527**). **Only 7 documents pass their own
+schema.** The schema's own comment at `:220-245` records this and notes a purpose-built strip script
+exists at `server/scripts/archive/strip-selected-from-purchasable-powers.js` but either was never run
+or something re-seeds the field.
+
+**Answer that question first — "never run, or does something put it back?" — before writing any new
+script.** The schema comment says so explicitly and it is the right call.
+
+Blocks readers: TM Wiki's Epic 17 research wanted a load-bearing filter on `special` and could not
+safely take one. Until this resolves, `special` is readable but undeclared, so a fresh write rejects
+it.
+
+### DBO-2 — `character_dossier` schema and reveal path
+
+Two defects on one collection (30 docs / 442 facts):
+
+- **`server/schemas/character_dossier.schema.js` does not exist.** `server/scripts/_dossier-audit.js:3`
+  imports it and `../TM Wiki/server/routes/characters.js:219-220` cites it as the authority for
+  `character_id`'s type. Two code sites point at a phantom file.
+- **The reveal path was never wired.** All 442 facts are `st_hidden: true` and `revealed_to` appears
+  on **zero** of them, so the Wiki's shipped summary tier shows nothing to any non-owner. Nothing in
+  this repo writes `revealed_to` for dossier facts (the only `revealed_to` writers are the six
+  `_reveal-*.mjs` scripts, which target `st_map_locations`).
+
+**Needs an Angelus decision**: is full concealment intended, or is the mechanism simply unbuilt? The
+answer determines whether DBO-2 writes a writer or documents a deliberate default. Do not guess — a
+wrong guess here leaks facts, and leaked facts are irreversible in players' heads.
+
+### DBO-3 — XP-spend merit picker: the `standing` filter has never fired
+
+`getItemsForCategory('merit')` skips `sub_category === 'standing'`, but Mystery Cult Initiation and
+Professional Training carry `special: 'standing'` with `sub_category: null`. So the filter has
+**never** excluded the two merits its own comment names, and excludes `Confessor`/`Pledged` instead.
+
+Live defect in the app players use. Same class as a naming mismatch the Wiki found on its own side
+(`"Theban Sorcery"` vs the `"Theban"` sheet key). Note DBO-1 may change what `special` is allowed to
+be, so sequence this after it or design the fix to survive either outcome.
+
+### DBO-4 — Office collections: absent, empty, and a route pointing at nothing
+
+- **`office_manoeuvre_ranks` does not exist in live Atlas.** Not empty — absent. The route at
+  `server/routes/office-manoeuvre-rank.js:7` refers to it.
+- **`office_actions`** holds 0 documents; **`office_merit_dots`** holds 2.
+
+Relevant to the OXP epic: code renders differently against dev fixtures than against production.
+Decide per surface whether "renders empty" is an intended quiet failure or a defect, and make it
+explicit rather than a discovery at the table.
+
+### DBO-5 — Location data handover *(joint with Wiki 31-2)*
+
+Ruled 2026-08-14: *"All location data moves to wiki. Location has no relevance at game."* Covers
+`st_map_locations` (130 docs) and `locations` (42 docs, 26 polygons). **Verified: this repo has zero
+readers for either** — no route, no `server/index.js` mount, no client code.
+
+**Stays here:** `territories` identity and governance — `regent_id`, `lieutenant_id`,
+`feeding_rights`, `ambience`, `ambienceMod`, `slug`, `name`. Those are game-relevant and this repo
+writes them through real routes. **A polygon is presentation; a regent is a rule.**
+
+This side's work: stop building against either collection; hand over the six `_reveal-*.mjs` scripts
+in `server/scripts/` (they live here **only** because the Cockpit's scoped Mongo user cannot write
+`st_map_locations` — a credentials accident the move dissolves); drop the source collections **after**
+the Wiki verifies a real read.
+
+### DBO-6 — `story_threads` handover *(joint with Wiki 31-3)*
+
+44 populated narrative threads, authored 2026-06-21, keyed on `slug`, carrying
+`truth`/`events`/`knowledge`/`participants`. **No route, no mount, no client code in this repo** —
+only ST scripts (`_threads-batch3-and-settles.js`, `_threads-rebuild-timelines.js`, `_dt234-extend.js`,
+`_dt3-canon-apply.js`, `_fix-carver-fact.js`). No mechanical function at the table.
+
+The empty `tm_wiki.story_threads` twin is the correct destination, built by a 2026-07-25 ruling that
+never knew these 44 documents existed. Note live data carries `status: 'seeded'` on 2 documents, a
+value none of the authoring scripts declare.
+
+### DBO-7 — `character_dossier` and `archive_documents` handover *(joint with Wiki 31-4, 31-5)*
+
+Both are downtime/story material by the live-play test. `archive_documents`: 60 docs, ~380KB of
+narrative HTML, 100% `visible_to_player`, read only by this repo's Story tab.
+
+`character_dossier` is **not** a blanket move — 32 facts carry `sheet_field`/`sheet_value`/`clash`
+cross-referencing real sheet values, and where that field is genuinely live-mechanical the coupling
+stays. Angelus: *"mostly true with some exceptions like mask etc."* Per-field pass required. Depends
+on DBO-2 resolving the schema and reveal questions first.
+
+### DBO-8 — Touchstone mechanic/identity separation *(joint with Wiki 31-6)*
+
+Target: `characters.touchstones[]` keeps `{humanity, edge_id?}` and drops `name`/`desc`. Today
+`name` is **REQUIRED** (`server/schemas/character.schema.js:246-262`) — the schema forces this app to
+carry an identity it is meant to be agnostic about.
+
+**Resolve first, in this repo:** the Humanity rating is stored **twice** —
+`characters.touchstones[].humanity` and `relationships.touchstone_meta.humanity`
+(`server/schemas/relationship.schema.js:66-73`, every `kind:'touchstone'` edge, endpoints enforced as
+one PC + one NPC). No reconciliation, no stated winner. **Query whether they currently disagree before
+touching either.** Each record also carries half the other's concern: the character slot carries
+identity, the relationship carries the mechanic.
+
+**Wrinkle**: `edge_id` is optional — object/concept touchstones are not characters and have no edge
+(schema comment, `:245,257`). Their identity is only ever the `name` string and needs a destination.
+
+### DBO-9 — Suite's own duplicated constants
+
+`NON_COMBAT_STYLES` exists in **three** places across two repos: `public/js/editor/sheet.js:2242`,
+`public/js/tabs/downtime-form.js:4277` (`NON_COMBAT_STYLES_DT`), and TM Wiki's own copy. Two of those
+are inside this repo. Consolidate this side's pair; the cross-repo copy is the Wiki's 31-8.
+
+---
+
+## Not this epic
+
+- **Ordeals.** Already ruled FULL CUTOVER (Epic 30, 2026-08-12): this repo's player-facing Ordeals tab
+  and `ordeals-admin.js` marking UI both retire once the Wiki equivalents ship. The cutover is
+  **incomplete** — the Cockpit ingest is unbuilt — so this repo's tab stays live and is the working
+  surface until it completes. **Do not retire it unilaterally.** The Wiki's story 31-0 handles
+  containment on its side.
+- **`feral`.** Awaiting an Angelus ruling: the Wiki drops it, or this repo's `feedMethodEnum`
+  (`server/schemas/downtime_submission.schema.js:58-60`) gains it. Opposite fixes in opposite repos.
+- **Boons and debts** (5 and 4 dossier facts). If an Invictus boon is mechanically enforceable it
+  stays; if it is narrative leverage the ST adjudicates, it travels. Not yet ruled.
+
+## Hard constraints
+
+1. **Nothing deploys before the 2026-08-15 game.** This is the app running the session — the one
+   surface where a deploy breaks the table live.
+2. **No migration, backfill or restructure against production before the game.** After the session,
+   deliberately, backup first.
+3. **Do not edit `D:\Terra Mortis\data-map.md`.** The TM Wiki session holds it and it has no version
+   control — last write wins, silently. Record findings in this repo's `specs/deferred-work.md` and
+   they will be folded in at a sync point. Backup: `D:\Terra Mortis\data-map.backup-2026-08-14.md`.
+4. **Seam decisions are joint.** Anything spanning both databases goes to the data map's Open Items
+   and waits for Angelus. Neither session resolves a seam alone — both sides "fixing" the Ordeals
+   surfaces independently could leave players with no working surface at all.

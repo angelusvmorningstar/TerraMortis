@@ -200,6 +200,53 @@ Full record: `specs/stories/oxp-2-derived-office-xp-calculation.md` → Senior D
   collection is ever hand-edited outside the route (Mongo Compass, a migration script) in a way that
   could produce a `dots`-less document.
 
+## Deferred from: cross-app data audit (2026-08-14, TM Wiki session — Dana, Data Steward)
+
+Four-sweep audit comparing `tm_suite`/`tm_wiki` for duplication, forks and misplaced ownership. Full
+map: `D:\Terra Mortis\data-map.md` (umbrella-level, not versioned — TM Wiki session currently holds
+it; do not edit directly). Brief handed to this session: `D:\Terra Mortis\BRIEF-2026-08-14-tm-suite.md`.
+These five are named in that brief as "real Suite-side defects... yours to fix, none urgent" — logged
+here per the brief's own coordination protocol rather than acted on unilaterally. **Game is
+2026-08-15; nothing from TM Suite deploys before it, per the brief's hard constraints.**
+
+- **`purchasable_powers` schema rejects two fields that 666 of 673 live rows actually carry.**
+  `server/schemas/purchasable_power.schema.js:70` is `additionalProperties: false` and declares
+  neither `selected` (666 rows) nor `special` (527 rows) — only 7 of 673 documents pass their own
+  schema. The schema's own comment at `:220-245` already records this and notes a purpose-built strip
+  script exists but either was never run or something re-seeds the fields. **Open question that must
+  be answered before anyone writes a new script**: never run, or does something put the fields back?
+  Also blocks any reader from safely building on `special`.
+- **`character_dossier.schema.js` does not exist.** `server/scripts/_dossier-audit.js:3` imports it
+  and TM Wiki's `server/routes/characters.js:219-220` cites it as the authority for a field type. The
+  file is not in this repo. A 30-document / 442-fact collection has no schema at all.
+- **`character_dossier` reveal path was never wired.** All 442 facts are `st_hidden: true` and
+  `revealed_to` appears on zero of them, so TM Wiki's shipped summary tier shows nothing to any
+  non-owner. Nothing in this repo writes `revealed_to` for dossier facts. Needs an Angelus decision:
+  full concealment intended, or the mechanism is simply unbuilt.
+- **XP-spend merit picker filter bug — live, concrete, not a data/schema question.** The picker skips
+  `sub_category === 'standing'`, but Mystery Cult Initiation and Professional Training carry
+  `special: 'standing'` with `sub_category: null` — so the filter has never actually excluded the two
+  merits its own comment names, and instead excludes `Confessor`/`Pledged`. Same class as a
+  naming-mismatch bug the Wiki audit found independently on its own side. Unlike the other four items
+  here, this is a straightforward code fix once someone picks it up — not blocked on an Angelus
+  ruling or a data-shape investigation.
+- **`office_manoeuvre_ranks` does not exist in live Atlas** — not empty, absent. The route at
+  `server/routes/office-manoeuvre-rank.js:7` refers to it; `office_actions` holds 0 documents live,
+  `office_merit_dots` holds 2. Relevant to Epic OXP (in progress this session, oxp-1 through oxp-7
+  done, not yet merged): confirmed against oxp-5's own design that its manoeuvre-reset write uses
+  `upsert: false` deliberately, so a missing document is already a correct silent no-op rather than a
+  bug — but any FUTURE OXP work that reads this collection will behave differently against dev
+  fixtures than against production, and should treat "renders empty" as an explicit choice, not a
+  surprise discovery at review time.
+
+**Two items explicitly awaiting Angelus's ruling, not Suite's to resolve alone** (recorded here for
+visibility only — the actual decision goes through the data map's Open Items, per the brief):
+`tm_suite.story_threads` (44 real populated threads) vs. `tm_wiki.story_threads` (empty,
+structurally incompatible, created by a 2026-07-25 ruling that never knew canon's existed — now
+REOPENED in the data map); and TM Wiki's `feral` feeding method, which is not a member of this repo's
+`feedMethodEnum` (`server/schemas/downtime_submission.schema.js:58-60`) and appears nowhere in
+`tm_suite` — either the Wiki drops it or this repo's enum gains it.
+
 ## Deferred from: code review of oxp-11-office-purchase-seat-keying (2026-08-13, external Codex review)
 
 Full record: `specs/stories/oxp-11-office-purchase-seat-keying.md` → Senior Developer Review.
