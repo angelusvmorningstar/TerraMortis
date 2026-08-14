@@ -317,3 +317,20 @@ Review; `specs/epic-dbo-database-ownership.md`, DBO-4, 2026-08-14 resolution.
   run by a human, not an agent" convention (same shape as DBO-1's own cleanup script), but no longer
   gated by a closing window. `office_manoeuvre_ranks` has nothing to migrate (confirmed empty on both
   sides of the key scheme) — this only concerns `office_merit_dots`.
+
+## Deferred from: dbo-9-suite-duplicated-constants (2026-08-14, dev-story, two more pre-existing test failures found)
+
+Full record: `specs/stories/dbo-9-suite-duplicated-constants.md` → Dev Agent Record.
+
+- **Two more previously-undocumented, pre-existing test failures**, same family as CLAUDE.md's own
+  #1115 and the oath-a-pledge-helpers CRLF failure DBO-1's review found. Confirmed unrelated to this
+  story (neither touches `constants.js`, `sheet.js`, or `downtime-form.js`) by stashing this story's 3
+  changed files and re-running both against the unmodified base — identical failures either way.
+  - `tests/issue-836-legacy-tracker-cache-removed.test.js` fails to load at all: `ENOENT` opening
+    `public/js/suite/tracker.js`, which does not exist on this checkout (per `CLAUDE.md`, the
+    name-keyed persistence surface this file's own tests were written against was removed in #836 —
+    the test itself appears to have gone stale along with the removal it was meant to verify).
+  - `tests/n8-mandragora-prereq.test.js` fails to load at all: `SyntaxError: Invalid or unexpected
+    token`, cause not investigated (out of this story's scope).
+  Worth a `CLAUDE.md` "Known pre-existing failures" entry for both, so a future story's targeted-gate
+  count isn't thrown off by unexplained extra failures. Not fixed here.

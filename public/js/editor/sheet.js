@@ -3,7 +3,7 @@
  * Extracted from tm_editor.html lines 315–1310.
  */
 import state from '../data/state.js';
-import { CLAN_DISCS, BLOODLINE_DISCS, CORE_DISCS, RITUAL_DISCS, CLAN_ATTR_OPTIONS, ATTR_CATS, PRI_LABELS, PRI_BUDGETS, SKILL_PRI_BUDGETS, SKILLS_MENTAL, SKILLS_PHYSICAL, SKILLS_SOCIAL, SKILL_CATS, CLANS, COVENANTS, MASKS_DIRGES, COURT_TITLES, BLOODLINE_CLANS, BANE_LIST, INFLUENCE_SPHERES, ALL_SKILLS, CITY_SVG, OTHER_SVG, BP_SVG, HUM_SVG, HEALTH_SVG, WP_SVG, STAT_SVG, STYLE_TAGS, DOMAIN_MERIT_TYPES } from '../data/constants.js';
+import { CLAN_DISCS, BLOODLINE_DISCS, CORE_DISCS, RITUAL_DISCS, CLAN_ATTR_OPTIONS, ATTR_CATS, PRI_LABELS, PRI_BUDGETS, SKILL_PRI_BUDGETS, SKILLS_MENTAL, SKILLS_PHYSICAL, SKILLS_SOCIAL, SKILL_CATS, CLANS, COVENANTS, MASKS_DIRGES, COURT_TITLES, BLOODLINE_CLANS, BANE_LIST, INFLUENCE_SPHERES, ALL_SKILLS, CITY_SVG, OTHER_SVG, BP_SVG, HUM_SVG, HEALTH_SVG, WP_SVG, STAT_SVG, STYLE_TAGS, DOMAIN_MERIT_TYPES, NON_COMBAT_STYLES } from '../data/constants.js';
 import { ICONS } from '../data/icons.js';
 import { CLAN_ICON_KEY, COV_ICON_KEY, clanIcon, covIcon, shDots, shDotsWithBonus, esc, formatSpecs, hasAoE, displayName, cardName, dropdownName, sortName, getWillpower, redactPlayer, redactCharName, isRedactMode, resolveSharedWithMember } from '../data/helpers.js';
 import { getAttrVal, getAttrBonus, getSkillObj, calcCityStatus, titleStatusBonus, regentAmienceBonus, getRegentTerritoryFor, isInClanDisc, riteCost } from '../data/accessors.js';
@@ -2139,9 +2139,6 @@ function _tagCounts(c) {
   return counts;
 }
 
-/** Non-combat style names — live in general merits, not fighting_styles. */
-const NON_COMBAT_STYLES = new Set(['Fast-Talking', 'Cacophony Savvy', 'Etiquette', 'Three Heads of Kerberos']);
-
 /** Max accessible rank for a style = max(own dots, highest relevant tag count). */
 function _maxRank(c, styleName, dots) {
   const tags = STYLE_TAGS[styleName] || [];
@@ -2312,7 +2309,7 @@ function _availablePicks(c) {
   const tc = _tagCounts(c);
   const results = [];
   for (const [key, man] of Object.entries(MAN_DB)) {
-    if (NON_COMBAT_STYLES.has(man.style)) continue;
+    if (NON_COMBAT_STYLES.includes(man.style)) continue;
     if (picked.has(key)) continue;
     if (!_qualifiesForManoeuvre(c, man, tc)) continue;
     if (!_prereqsMet(c, man.prereq)) continue;
@@ -2344,7 +2341,7 @@ function _allStyles() {
 export function shFightingMeritOptions(c) {
   let h = '';
   const ownedStyles = new Set((c.fighting_styles || []).map(fs => fs.name));
-  const styles = _allStyles().filter(s => !ownedStyles.has(s) && !NON_COMBAT_STYLES.has(s));
+  const styles = _allStyles().filter(s => !ownedStyles.has(s) && !NON_COMBAT_STYLES.includes(s));
   if (styles.length) {
     h += '<optgroup label="Fighting Styles">';
     styles.forEach(s => { h += '<option value="__style__:' + esc(s) + '">' + esc(s) + ' (Fighting Style)</option>'; });
@@ -2434,7 +2431,7 @@ export function shRenderManoeuvres(c, editMode) {
     const existingNames = new Set(styles.map(s => s.name));
     h += '<div class="dev-add-row"><select class="dev-add-btn" style="font-size:11px" onchange="if(this.value){shAddStyle(this.value,\'style\');this.value=\'\'}">';
     h += '<option value="">+ Add Fighting Style\u2026</option>';
-    _allStyles().filter(s => !existingNames.has(s) && !NON_COMBAT_STYLES.has(s)).forEach(s => {
+    _allStyles().filter(s => !existingNames.has(s) && !NON_COMBAT_STYLES.includes(s)).forEach(s => {
       h += '<option value="' + esc(s) + '">' + esc(s) + '</option>';
     });
     h += '</select></div></div>';
