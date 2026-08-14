@@ -196,3 +196,27 @@ and verified before deferral. Provenance:
   draft exists (a corrected record, or a genuine covenant-change RP arc) would silently show the OLD
   covenant's answers as if they answered the NEW covenant's differently-worded questions at the same
   keys, with no code path anywhere that detects or resets this. Not fixed this session — flagged only.
+
+## Deferred from: code review of oxp-5-handover-logic (2026-08-14)
+
+- **No transaction-rollback fault-injection test.** `PUT /api/office_seats/:seatId/holder`
+  (`server/routes/office-seats.js`) wraps a genuine multi-document `session.withTransaction` — claim
+  the seat, clear the departing holder, set the incoming holder, reset the manoeuvre rank — but no test
+  anywhere forces a failure AFTER the seat claim commits inside the session and BEFORE the transaction
+  as a whole commits, to prove the claim rolls back along with everything else rather than surviving as
+  a half-applied write. This is a real, valid coverage gap, found independently by two review passes
+  (Blind Hunter and Acceptance Auditor). Checked precedent before deferring rather than assuming it was
+  fine: `server/routes/office-actions.js`'s `PUT /:id/accept`, the exact route this one's transaction
+  scaffolding was deliberately copied from, has never had a fault-injection rollback test either, in
+  this codebase's whole history — so this is not new debt oxp-5 introduced, it is an existing,
+  unaddressed gap in how this codebase proves transactional atomicity, now visible on a second route.
+  The atomicity itself rests on MongoDB's own ACID `session.withTransaction` guarantee, a well-
+  established primitive, not custom-rolled logic — but "the primitive is trustworthy" and "we have
+  proved our specific usage of it" are different claims, and only the second is missing. Building this
+  properly needs a real fault-injection technique against a live Mongo session (e.g.
+  `vi.spyOn(Collection.prototype, 'updateOne')` scoped precisely enough to fail only the intended call,
+  without becoming a flaky or vacuously-passing mock) — worth building ONCE as shared test
+  infrastructure and applying to both `office-actions.js` and `office-seats.js`, rather than each
+  transactional route inventing its own ad hoc version under review-cycle time pressure. Full finding
+  text: `specs/stories/code-review/oxp-5-codex-findings.md` (Pass 1 and Pass 3a, same underlying gap
+  found twice independently).

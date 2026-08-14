@@ -24,7 +24,7 @@ import { freeOf, normaliseAttachedTo, applySuspensionTo } from '../data/rules-he
 import { calcTotalInfluence, domMeritTotal, attacheBonusDots, effectiveInvictusStatus, ssjHerdBonus, flockHerdBonus, meritEffectiveRating, influenceBreakdown, domKey, canAllocateCarthianPull } from '../editor/domain.js';
 import { calcVitaeMax, skTotal, riteCost, getAttrEffective, getAttrTotal, discDots } from '../data/accessors.js';
 import { xpLeft } from '../editor/xp.js';
-import { meetsPrereq, isMeritExcluded } from '../editor/merits.js';
+import { meetsPrereq, isMeritExcluded, isMeritEventGranted } from '../editor/merits.js';
 import { getRuleByKey, getRulesByCategory } from '../data/loader.js';
 import { getRole, isSTRole } from '../auth/discord.js';
 import { FAMILIES, kindByCode } from '../data/relationship-kinds.js';
@@ -4207,7 +4207,7 @@ function getItemsForCategory(category) {
           // — without this fix Carthian Laws were entirely unreachable via XP.
           // Invictus Oath stays excluded (pact UI handles its mutual-bond mechanics).
           if (rule.parent && ['Invictus Oath'].includes(rule.parent)) continue;
-          if (rule.sub_category === 'standing') continue;
+          if (isMeritEventGranted(rule)) continue; // DBO.3
           if (!meetsPrereq(c, rule.prereq)) continue;
           const name = rule.name;
           const rr = rule.rating_range;
