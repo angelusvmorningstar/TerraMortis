@@ -1,4 +1,3 @@
-#!/usr/bin/env node
 
 /**
  * Issue #811 — Phase 2: cleanup of free-channel contamination from the
