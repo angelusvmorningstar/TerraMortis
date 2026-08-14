@@ -1,6 +1,6 @@
 # Story DBO.9: Consolidate `NON_COMBAT_STYLES` to one source
 
-Status: review
+Status: done
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -146,8 +146,9 @@ Claude Sonnet 5 (claude-sonnet-5).
   writing tests (10 and 183 `document.`/`window.` hits respectively) — matches this repo's own
   established source-contract testing pattern for these two files (e.g.
   `n7-n9-allocator-readers.test.js` against `merits.js`).
-- Ran the full set of existing test files that reference `sheet.js`/`downtime-form.js` by name (29
-  files) alongside the new suite to check for any regression from the two shared-file edits: 513/514
+- Ran the full set of test files that reference `sheet.js`/`downtime-form.js` by name (28
+  pre-existing, plus the new suite itself — 29 files total) to check for any regression from the two
+  shared-file edits: 513/514
   passed. The 1 failure is the pre-existing, `CLAUDE.md`-documented #1115 (`n7-n9-allocator-
   readers.test.js` against `merits.js`, untouched by this story). 2 files failed to even load
   (`issue-836-legacy-tracker-cache-removed.test.js` — `ENOENT` on a since-deleted
@@ -190,4 +191,53 @@ Claude Sonnet 5 (claude-sonnet-5).
 - `public/js/editor/sheet.js` (modified — local const deleted, import updated, 3 call sites updated)
 - `public/js/tabs/downtime-form.js` (modified — local const deleted, import updated, 1 call site
   updated, comment corrected)
-- `server/tests/dbo-9-non-combat-styles-consolidation.test.js` (new — 7 tests)
+- `server/tests/dbo-9-non-combat-styles-consolidation.test.js` (new — 7 tests, then hardened by the
+  Senior Developer Review)
+
+## Senior Developer Review
+
+**Reviewer**: external, Codex CLI (`codex exec`, `model_reasoning_effort=high`), three-pass
+adversarial protocol, scaled to this story's small size (a lean hunt list, "nothing found" treated as
+a legitimate expected outcome rather than something to pad). Full raw findings:
+`specs/stories/code-review/dbo-9-suite-duplicated-constants-codex-findings.md`. Reviewed against
+commit `a12ea72d`.
+
+No High or Medium findings. 3 Low findings, all real, all independently re-verified, all patched.
+
+### Patched (3, all Low)
+
+1. **The new test's import-detection regex would false-pass on a commented-out or string-embedded
+   "import" line**, not just a real import statement. Confirmed independently: the exact regex
+   returned `true` against both `// import { NON_COMBAT_STYLES } from '../data/constants.js'` and a
+   string literal containing the same text. Low real-world risk (the accompanying negative
+   assertions — no local redeclaration, exact call-site counts — make an actual accidental false pass
+   unlikely) but cheap to close. Fixed by anchoring both import checks to line-start with the `m`
+   flag (`/^import\s*\{.../m`), which closes the realistic vector (a commented-out import) without
+   over-engineering against a string-literal decoy no real refactor would produce by accident.
+   Re-verified: the hardened regex still matches the real import lines in both files, rejects the
+   comment decoy, and the full suite remains 7/7.
+2. **Four newly-written comments contained em-dashes**, violating this story's own stated "no
+   em-dashes in any comment this story writes" Dev Note — one in `constants.js`'s new doc comment,
+   three in the new test file (its header comment and a section divider). Fixed; the pre-existing
+   `STYLE_TAGS` comment's own em-dash (predates this story) was correctly left alone, and the test
+   description string at `:67` was correctly left alone too (a string literal, not a comment — the
+   rule's own scope).
+3. **The Dev Agent Record's own count claim read ambiguously** — "29 [existing] files alongside the
+   new suite" reads as 29 existing + 1 new = 30 total, when the real, verified number is 28
+   pre-existing + this story's own new suite = 29 total. The underlying result (513/514, one
+   pre-existing failure, two pre-existing load failures) was exactly correct; only the file-count
+   framing was imprecise. Reworded.
+
+### Verification
+
+- `npx vitest run tests/dbo-9-non-combat-styles-consolidation.test.js` — **7/7 passed**, with the
+  hardened regexes in place.
+- Manually confirmed the hardened regex rejects the exact decoy string the review constructed, and
+  still matches the real `import { ..., NON_COMBAT_STYLES } from '../data/constants.js'` lines in
+  both `sheet.js` and `downtime-form.js`.
+- No further prove-discrimination needed beyond what Task 4 already ran (the review's own Pass 3b
+  independently re-ran that same discrimination — reverting one call site to `.has(...)` — and
+  reproduced the identical 6-passed/1-failed result before restoring).
+- No writes to live data at any point — this story never touched a database; the review's own
+  Validation notes confirm it modified nothing beyond the one temporary, restored, byte-verified edit
+  it made to reproduce the prove-discrimination check.

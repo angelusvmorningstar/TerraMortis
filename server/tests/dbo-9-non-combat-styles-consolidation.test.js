@@ -1,11 +1,11 @@
 /**
- * DBO-9 — NON_COMBAT_STYLES consolidated to a single source
+ * DBO-9: NON_COMBAT_STYLES consolidated to a single source
  * (public/js/data/constants.js), replacing two byte-for-byte duplicate local
  * consts (sheet.js's own NON_COMBAT_STYLES, downtime-form.js's own
  * NON_COMBAT_STYLES_DT).
  *
  * sheet.js and downtime-form.js are both heavy on browser globals
- * (document/window) and are not directly importable under vitest — this
+ * (document/window) and are not directly importable under vitest, so this
  * repo's own established pattern for logic buried in those files is a
  * source-contract test against the real file text, not live invocation
  * (see n7-n9-allocator-readers.test.js). constants.js itself has no browser
@@ -29,7 +29,10 @@ describe('DBO-9: NON_COMBAT_STYLES has one real source', () => {
 
   it('sheet.js imports NON_COMBAT_STYLES from constants.js, not a local const', () => {
     const src = read('public/js/editor/sheet.js');
-    expect(src).toMatch(/import\s*\{[^}]*\bNON_COMBAT_STYLES\b[^}]*\}\s*from\s*['"]\.\.\/data\/constants\.js['"]/);
+    // Anchored to line-start (m flag) so a commented-out or string-embedded
+    // "import { ... }" cannot false-pass this check - it must be a real
+    // statement, not text that merely looks like one.
+    expect(src).toMatch(/^import\s*\{[^}]*\bNON_COMBAT_STYLES\b[^}]*\}\s*from\s*['"]\.\.\/data\/constants\.js['"]/m);
     // A local redeclaration would shadow the import and defeat the whole
     // point of consolidating - anchored on `const NON_COMBAT_STYLES =` (an
     // assignment), not the bare name, so the import statement itself can
@@ -48,7 +51,7 @@ describe('DBO-9: NON_COMBAT_STYLES has one real source', () => {
 
   it('downtime-form.js imports NON_COMBAT_STYLES from constants.js, no local NON_COMBAT_STYLES_DT remains', () => {
     const src = read('public/js/tabs/downtime-form.js');
-    expect(src).toMatch(/import\s*\{[^}]*\bNON_COMBAT_STYLES\b[^}]*\}\s*from\s*['"]\.\.\/data\/constants\.js['"]/);
+    expect(src).toMatch(/^import\s*\{[^}]*\bNON_COMBAT_STYLES\b[^}]*\}\s*from\s*['"]\.\.\/data\/constants\.js['"]/m);
     expect(src).not.toMatch(/NON_COMBAT_STYLES_DT/);
   });
 
@@ -60,7 +63,7 @@ describe('DBO-9: NON_COMBAT_STYLES has one real source', () => {
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Behavioural equivalence — the actual filter logic, run for real against the
+// Behavioural equivalence: the actual filter logic, run for real against the
 // shared array, proving the four names are still excluded exactly as before.
 // ─────────────────────────────────────────────────────────────────────────────
 
