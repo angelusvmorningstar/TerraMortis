@@ -13,17 +13,29 @@
  * kind='other' requires a non-empty custom_label — enforced at the
  * route layer (the schema allows custom_label for any kind).
  *
- * 'touchstone' is deliberately NOT a KIND_ENUM value (DBO-8, 2026-08-14) —
- * touchstones are free-text only on characters.touchstones[]; the earlier
- * relationship-linked design (this schema's own touchstone_meta) was
- * retired because issue #162 removed its only creation path and live data
- * confirmed zero touchstones used it.
+ * 'touchstone' IS a valid KIND_ENUM value. DBO-8 (2026-08-14) removed it,
+ * reasoning that 0/44 live touchstones used the edge_id-linked identity
+ * mechanism — but that conflated "this specific link was never built out"
+ * with "the relationship kind itself is unwanted". Restored same-day
+ * (2026-08-15) once the fuller picture surfaced: the NPC Register epic
+ * that spec'd 'touchstone' as a first-class kind never closed (its own
+ * last story is still "review"), the Relationships/Ties mechanic is live
+ * and actively used (88 active edges as of #1135, three days before
+ * DBO-8), and TM Wiki already ships tested code (relationship-board-
+ * defaults.js, Story 8.1) expecting 'touchstone' as one of its 19 closed
+ * canon kinds — DBO-8 silently broke that cross-repo contract.
+ *
+ * touchstone_meta and the route-layer identity-linking requirement
+ * (a pc/npc endpoint shape, mandatory humanity) stay retired — this
+ * restores 'touchstone' as an ordinary, unremarkable kind (like 'family'
+ * or 'contact'), not the old dual-storage mechanism. That mechanism is
+ * DBO-8's other, larger question, still open.
  */
 
 export const KIND_ENUM = [
   'sire', 'childe', 'grand-sire', 'grand-childe', 'clan-mate',
   'coterie', 'ally', 'rival', 'enemy', 'mentor', 'debt-holder', 'debt-bearer',
-  'family', 'contact', 'retainer', 'correspondent', 'romantic',
+  'touchstone', 'family', 'contact', 'retainer', 'correspondent', 'romantic',
   'other',
 ];
 

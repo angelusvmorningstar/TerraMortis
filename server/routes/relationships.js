@@ -157,8 +157,10 @@ router.get('/for-character/:characterId', async (req, res) => {
 //           created_by={type:'player', id:discord_id},
 //           created_by_char_id = a.id (for NPCR.9 edit-rights scoping).
 // Both auths: strict 409 CONFLICT on a duplicate active {a, b, kind} edge.
-// Touchstones live on character.touchstones[] via the sheet picker (NPCR.4,
-// DBO-8) — 'touchstone' is not a valid `kind` here at all any more.
+// 'touchstone' is an ordinary kind here (restored 2026-08-15, see
+// relationship.schema.js) — ST-authored, no special-cased shape or
+// mandatory metadata. character.touchstones[] remains a separate,
+// unlinked free-text field (the mechanical Humanity slot).
 router.post('/', validate(relationshipSchema), async (req, res) => {
   const body = req.body;
   const role = req.user?.role;
@@ -184,6 +186,12 @@ router.post('/', validate(relationshipSchema), async (req, res) => {
       return res.status(403).json({
         error: 'FORBIDDEN',
         message: 'Player-created edges must have a.type=pc with a.id matching one of your characters',
+      });
+    }
+    if (body.kind === 'touchstone') {
+      return res.status(400).json({
+        error: 'VALIDATION_ERROR',
+        message: "Touchstone edges are ST-authored, not player-created",
       });
     }
     // NPCR.10: allow b.type='pc' for PC-to-PC edges when kind accepts any
