@@ -1,4 +1,3 @@
-#!/usr/bin/env node
 
 /**
  * N-8 (issue #761, Peter decisions C + D 2026-06-15) — Mandragora Garden
