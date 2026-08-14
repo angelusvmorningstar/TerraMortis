@@ -39,6 +39,13 @@ import { getRulesByCategory, getRuleByKey } from '../data/loader.js';
 import { applyDerivedMerits, getPoolTotal, getPoolUsed, getPoolsForCategory, mciPoolTotal, getMCIPoolUsed } from './mci.js';
 import { domMeritTotal, domMeritAccess, domMeritContrib, domMeritShareable, calcTotalInfluence, influenceBreakdown, calcContactsInfluence, calcMeritInfluence, hasHoneyWithVinegar, hasViralMythology, vmUsed, ssjHerdBonus, flockHerdBonus, hasLorekeeper, lorekeeperUsed, hasOHM, ohmUsed, hasInvested, investedPool, investedUsed, effectiveInvictusStatus, attacheBonusDots, meritFreeSum, syncMeritRating, meritEffectiveRating, domKey } from './domain.js';
 import { auditCharacter } from '../data/audit.js';
+// oxp.7: the read-only Office Merits section's own data. apiGet is not
+// otherwise used in this file (every other section reads off the character
+// object synchronously) — office merit dots are the one thing on this sheet
+// that live in a separate seat-keyed collection, fetched over the API.
+import { apiGet } from '../data/api.js';
+import { OFFICE_DATA, MERIT_DOT_CAPS } from '../tabs/office-data.js';
+import { resolveHeldSeat } from '../data/office-seat-resolve.js';
 // Issue #162 (2026-05-08): shEnsureTouchstoneData import dropped — the
 // Touchstone editor no longer needs the NPC list (DB-relational picker
 // removed; free-text Name + Description only).
@@ -1747,6 +1754,116 @@ export function shRenderDomainMerits(c, editMode) {
     }
   }
   h += '</div></div>'; return h;
+}
+
+// oxp.7: read-only Office Merits section, mirroring status.js's own
+// appendOfficeActionsLog pattern (reserve a slot synchronously, patch it from
+// a separate un-awaited async function) rather than shRenderDomainMerits's
+// own synchronous-because-c.merits-is-local shape — office merit dots live in
+// a seat-keyed collection fetched over the API, not read off `c` directly.
+let _officeMeritsGen = 0;
+
+/**
+ * oxp.7 AC1/AC3/AC6: the synchronous shell. Returns an EMPTY, invisible
+ * placeholder (no `sh-sec`/title chrome at all) when this character could
+ * possibly hold a real office merit suite; returns '' outright when they
+ * provably cannot (no court_category, or Administrator, which has no
+ * OFFICE_DATA entry yet — oxp.8, not app code).
+ *
+ * The placeholder carries NO visible content of its own specifically so
+ * "renders nothing at all" (AC3) is genuinely true for the unconfirmed-seat
+ * case too — that case cannot be known synchronously (seats/dots are fetched
+ * async by `patchOfficeMerits`), so the section title/wrapper is never
+ * written until a CONFIRMED seat with merits is actually found; an
+ * unconfirmed match leaves this placeholder permanently empty rather than
+ * flashing a title that then has nothing under it. AC3's literal "return ''"
+ * wording is satisfied exactly by the two cases this function itself can
+ * decide synchronously (no `court_category`, no `OFFICE_DATA` entry) — the
+ * remaining AC3 cases (unconfirmed seat, failed fetch, zero-merit office)
+ * are visually-equivalent-but-mechanically-different: this function still
+ * returns the reserved (invisible) placeholder markup, and
+ * `patchOfficeMerits` simply never fills it. Codex review, oxp.7, flagged
+ * this distinction as worth spelling out explicitly rather than leaving the
+ * two contracts to read as identical.
+ *
+ * Never editable — office-tab.js stays the one write path for
+ * `office_merit_dots` (see this story's own "What this story is NOT"), so
+ * unlike `shRenderDomainMerits` there is no `editMode` parameter at all.
+ */
+export function shRenderOfficeMerits(c) {
+  if (!c || !c.court_category || !OFFICE_DATA[c.court_category]) return '';
+  return '<div data-office-merits-char="' + esc(String(c._id)) + '"></div>';
+}
+
+/**
+ * oxp.7 AC7: fetches seats + office merit dots, resolves this character's
+ * OWN confirmed seat (never a guess — see `resolveHeldSeat`'s own doc
+ * comment), and fills in every placeholder `shRenderOfficeMerits` reserved
+ * for this character. `querySelectorAll` (not `getElementById`) is still
+ * used for the lookup even though `suite/sheet.js`'s own `renderSheet` only
+ * ever writes into ONE of its desktop/mobile-split containers per call (the
+ * other is explicitly cleared, never both at once) — this is forward-safety
+ * for a data-attribute-keyed slot, not evidence multiple copies are live
+ * today; correcting an earlier draft of this comment that overstated it.
+ *
+ * Call this UN-AWAITED immediately after the innerHTML write(s) that placed
+ * `shRenderOfficeMerits`'s placeholder into the DOM — mirrors
+ * `status.js`'s own `appendOfficeActionsLog(slotEl)` call site exactly.
+ *
+ * Render-generation guard: `_officeMeritsGen` is a MODULE-scoped counter, not
+ * per-element like `office-tab.js`'s own `el._officeManoeuvreGen` — there is
+ * no single stable root element here (the sheet can be re-rendered for an
+ * entirely different character, or the same one again, into any of several
+ * containers). Bumped once per call, captured before the first `await`,
+ * checked before the DOM write — a late-resolving fetch from a PREVIOUS
+ * sheet view can never paint into whatever character is on screen by the
+ * time it resolves. This exact failure shape (a stale async write repainting
+ * the wrong view after the viewer moved on) is not hypothetical: two
+ * separate prior review rounds on `office-tab.js` (oxp.3, oxp.6) found and
+ * fixed real bugs in precisely this shape.
+ *
+ * The ENTIRE body past the guard clauses is wrapped in one try/catch, not
+ * just the `Promise.all` fetch — this function is called un-awaited with no
+ * `.catch()` at its call site (matching `status.js`'s own precedent), so any
+ * throw anywhere past a successful fetch (a DOM API rejecting an unexpected
+ * character, malformed response data) would otherwise become an unhandled
+ * promise rejection rather than the same silent AC3 empty-render outcome a
+ * fetch failure already produces. Codex review, oxp.7: found and closed.
+ */
+export async function patchOfficeMerits(c) {
+  const gen = ++_officeMeritsGen;
+  if (!c || !c.court_category) return;
+  const data = OFFICE_DATA[c.court_category];
+  if (!data) return; // Administrator — no merit suite exists yet (oxp.8)
+
+  try {
+    const [seats, dotsBySeat] = await Promise.all([
+      apiGet('/api/office_seats'),
+      apiGet('/api/office_merit_dots'),
+    ]);
+    if (gen !== _officeMeritsGen) return;
+
+    const seat = resolveHeldSeat(c, seats);
+    if (!seat) return; // AC3: no confirmed seat — never guess, never disclose.
+
+    const dots = (dotsBySeat && dotsBySeat[String(seat._id)]) || {};
+    const meritNames = data.merits || [];
+    if (!meritNames.length) return; // AC3: an office with no merit suite at all
+
+    const rowsHtml = meritNames.map((merit, i) => {
+      const n = Math.max(0, Math.min(MERIT_DOT_CAPS[merit] || 5, dots[merit] || 0));
+      return shRenderMeritRow(merit, 'office', i, '<span class="trait-dots">' + shDots(n) + '</span>');
+    }).join('');
+
+    const sectionHtml = '<div class="sh-sec"><div class="sh-sec-title">Office Merits</div>' +
+      '<div class="merit-list">' + rowsHtml + '</div></div>';
+
+    const slots = document.querySelectorAll('[data-office-merits-char="' + CSS.escape(String(c._id)) + '"]');
+    slots.forEach(slot => { slot.innerHTML = sectionHtml; });
+  } catch {
+    return; // AC3: a failed fetch — or any later throw — renders nothing,
+    // not an error message. This section has no "Could not load" state.
+  }
 }
 
 export function shRenderStandingMerits(c, editMode) {

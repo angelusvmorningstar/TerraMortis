@@ -7,6 +7,7 @@ import { getCycles } from '../downtime/db.js';
 import { currentCycleInGamePhase } from '../downtime/cycle-phase.js';
 import { getRole } from '../auth/discord.js';
 import { officeSeatXp } from '../data/office-xp.js';
+import { resolveHeldSeat } from '../data/office-seat-resolve.js';
 
 // otc.3: the fixed order the picker lists offices in. All five Court
 // Positions, even 'Administrator' (which has no OFFICE_DATA entry yet — it
@@ -332,9 +333,16 @@ async function _wirePurchaseState(el, char, category, data, isOwnOffice) {
       // AC5: the viewer's OWN office resolves by holder. A seat's holder_id and
       // a character's _id are both stringified at the JSON boundary, so this is
       // a plain string comparison.
-      const held = isOwnOffice
-        ? forCategory.find(s => s.holder_id != null && String(s.holder_id) === String(char._id))
-        : null;
+      //
+      // oxp.7: this is now the SAME shared `resolveHeldSeat` the new sheet
+      // section calls, not a second copy. Passed the FULL `seats` array (not
+      // `forCategory`) — `resolveHeldSeat` does its own category filtering by
+      // `char.court_category`, which equals `category` exactly when
+      // `isOwnOffice` is true, so this is equivalent to the previous inline
+      // filter, not a behaviour change. Still gated on `isOwnOffice`: a
+      // reference viewer (browsing an office that is not their own) must never
+      // resolve to THEIR OWN seat just because `resolveHeldSeat` found one.
+      const held = isOwnOffice ? resolveHeldSeat(char, seats) : null;
       const seat = held || _fallbackSeat(forCategory);
       // Codex review, oxp.11: a single-seat category has exactly one candidate,
       // so the fallback is provably that seat regardless of whether holder_id
