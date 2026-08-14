@@ -156,9 +156,96 @@ Two defects on one collection (30 docs / 442 facts):
   this repo writes `revealed_to` for dossier facts (the only `revealed_to` writers are the six
   `_reveal-*.mjs` scripts, which target `st_map_locations`).
 
-**Needs an Angelus decision**: is full concealment intended, or is the mechanism simply unbuilt? The
-answer determines whether DBO-2 writes a writer or documents a deliberate default. Do not guess — a
-wrong guess here leaks facts, and leaked facts are irreversible in players' heads.
+**RESOLVED 2026-08-14 (Angelus's decision).** Live-data check first: `st_hidden: true` is not
+concentrated on the 13 `secret`-tagged facts — all 26 tags, including plainly non-sensitive ones
+(`aspiration`, `worldview`, `sire`, `haven`, `hunting_method`), are 100% hidden across all 442 facts.
+Presented to Angelus as a genuine choice (full concealment intended vs. mechanism simply unbuilt), not
+decided unilaterally. **Angelus's call: `st_hidden: true` as today's default is correct — he has not
+yet set what should be revealed, not that it must stay concealed.** That means a reveal mechanism does
+need to exist so he can set `revealed_to` per fact when he chooses to; none does today (checked: no
+`server/routes/*.js` writes `character_dossier` at all, only one-off `server/scripts/_*.js` tools).
+
+DBO-2 scope, following from this: (1) write the missing `server/schemas/character_dossier.schema.js`,
+closing the dead-citation bug on both repos; (2) leave every existing fact's `st_hidden` value
+untouched — the current all-hidden state is not a bug to fix; (3) build the missing writer so an ST
+can mark specific facts revealed (set `revealed_to`) going forward. Where that writer's UI should live
+(TM Suite admin vs. TM Cockpit, given the admin-to-Cockpit split direction) is still open — decide at
+create-story time.
+
+**WRITER LOCATION DECIDED 2026-08-14, at create-story time, and it is not this repo. Story created:
+`specs/stories/dbo-2-character-dossier-schema-and-reveal.md` (`ready-for-dev`).** Point (3) above is
+superseded: no reveal writer is built here at all. All three candidate homes were traced.
+
+- **TM Cockpit — ruled out.** Its Atlas credential is hard-scoped to exactly seven collections
+  (`ordeal_responses`, `ordeal_submissions`, `questionnaire_responses`, `characters`,
+  `downtime_submissions`, `downtime_cycles`, `game_sessions`), per `../TM Cockpit/lib/connect.mjs`'s
+  own header comment. `character_dossier` is not among them, and Cockpit's own ADR-001 had already
+  declined to build dossier-write tooling there for a related reason.
+- **TM Suite admin — possible but redundant.** The pattern exists (the Relationship Editor), but it
+  would compete with a mechanism already built elsewhere.
+- **TM Wiki — chosen.** `tm_wiki.visibility_prefs`
+  (`../TM Wiki/server/wiki-schemas/visibility-prefs.schema.js`) is a complete, already-built,
+  currently-dark reveal mechanism: it already declares `subject_type: 'fact'` with
+  `subject_ref: { fact_key }`, three tiers, `semi_private_groups`, and `named_reveals` /
+  `named_conceals`. It is gated off behind `wiki_config.fact_level_enabled: false` for exactly one
+  documented reason. `../TM Wiki/specs/tm-wiki-schema.md`'s "## The fact_key dependency" section names
+  an upstream TM Suite mint of a durable opaque per-fact key as *"the single dependency this
+  foundation cannot satisfy itself"*, and states the unblocking condition plainly: *"When the mint
+  lands and is backfilled, flip the flag - no wiki schema change needed."*
+
+So DBO-2's TM Suite scope is now exactly three things: **write the schema** (from a full live field
+inventory, exporting `DOSSIER_TAGS` to close `_dossier-audit.js:3`'s dead import — confirmed genuinely
+unrunnable, the import throws `ERR_MODULE_NOT_FOUND`; TM Wiki's half of the dead citation is already
+self-corrected by their Story 31-1, so nothing is owed there); **add a required opaque `fact_key`**
+(minted with `randomUUID()` from `node:crypto` — checked first, `server/package.json` declares neither
+`nanoid` nor `ulid`, and no first-party opaque-ID minting precedent exists anywhere in the repo, so no
+new dependency is added; TM Wiki declares `subject_ref.fact_key` as `{ type: 'string', minLength: 1 }`,
+which a UUID satisfies unchanged); and **a one-off, dry-run-default backfill script**
+(`server/scripts/dbo-2-dossier-fact-key-backfill.mjs`, mirroring DBO-1's and DBO-8's own
+`plan`/`apply`/`main` conventions). Hard constraints in the story: no `st_hidden` change, no
+`revealed_to` change, no reveal writer or UI or route here, no flipping `fact_level_enabled` (TM Wiki's
+own action), and `--apply` against live `tm_suite` stays Angelus's.
+
+One new finding surfaced at create-story time and baked into an acceptance criterion: TM Wiki's
+shipped `filterVisibleFacts` (`../TM Wiki/server/routes/characters.js:210-214`) reads
+`if (fact.st_hidden !== true) return true` — **fail-open** — so a fact minted without `st_hidden` is
+silently visible to everyone. `st_hidden` is therefore required on every fact in the new schema; all
+442 live facts already carry it, so it costs nothing today and closes a real default-open hazard for
+every future writer.
+
+**When this lands and Angelus has run `--apply`, TM Wiki must be told the mint is complete**, so they
+can backfill-verify and decide when to flip `wiki_config.fact_level_enabled`.
+
+**SHIPPED 2026-08-14 (dev-story).** Three new files, nothing else in this repo touched:
+
+- `server/schemas/character_dossier.schema.js` - draft-07, `additionalProperties: false` at BOTH the
+  document and the fact level, derived from a fresh read-only live inventory that reproduced the
+  story's own figures exactly (30 documents, 442 facts, 26 tags, `character_id` and `_id` both BSON
+  ObjectId on all 30, `fact_key` on 0, `revealed_to` on 0, `st_hidden: true` on all 442). Exports
+  `characterDossierSchema`, `DOSSIER_TAGS` (26), `DOSSIER_FACT_SOURCES` (4) and `DOSSIER_SEVERITIES`
+  (3). `fact_key` and `st_hidden` are both `required` on every fact; `severity` is the one enumed
+  vocabulary; `tag`, `source` and `status` are deliberately plain strings, each with the reason
+  written beside it. Documentation and test contract only - no MongoDB `$jsonSchema` validator was
+  added, and none exists on the live collection.
+- `server/scripts/dbo-2-dossier-fact-key-backfill.mjs` - `planBackfill` / `applyBackfill` / `main`,
+  mirroring DBO-1's and DBO-8's conventions (dry-run default, backup-before-write with abort on
+  backup failure, no shebang, `MONGODB_DB` override, auto-run guard, collection passed as an
+  argument). Mint is `randomUUID()` from `node:crypto`; `server/package.json` is unchanged.
+- `server/tests/dbo-2-dossier-fact-key.test.js` - 25 tests, all passing, the DB-backed half genuinely
+  executed against a reachable `tm_suite_test` rather than skipped.
+
+`server/scripts/_dossier-audit.js` needed **no edit at all**: its line-3 import specifier was already
+correct and only the target file was missing, so it is byte-identical and its import now resolves.
+The AC8 source-contract test pins that specifier so a future edit cannot silently re-break it.
+
+A bare dry-run against live `tm_suite` (read-only, no `--apply`) reported exactly
+`30 document(s) / 442 fact(s) need a fact_key`, matching the inventory. **`--apply` has NOT been run
+against live `tm_suite`** - that stays Angelus's own action, after the 2026-08-15 game, and the
+TM Wiki notification above is owed the moment it happens.
+
+Residual hazard logged to `specs/deferred-work.md` rather than scope-crept into this story:
+`server/scripts/_havens-and-locations.js:46` `$push`es a fact with no `fact_key`, so re-running that
+one-off script after the backfill would reintroduce a keyless fact.
 
 ### DBO-3 — XP-spend merit picker: the `standing` filter has never fired
 

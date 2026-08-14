@@ -334,3 +334,34 @@ Full record: `specs/stories/dbo-9-suite-duplicated-constants.md` → Dev Agent R
     token`, cause not investigated (out of this story's scope).
   Worth a `CLAUDE.md` "Known pre-existing failures" entry for both, so a future story's targeted-gate
   count isn't thrown off by unexplained extra failures. Not fixed here.
+
+## Deferred from: dbo-2-character-dossier-schema-and-reveal (2026-08-14, dev-story)
+
+Full record: `specs/stories/dbo-2-character-dossier-schema-and-reveal.md` -> Dev Agent Record;
+`specs/epic-dbo-database-ownership.md`, DBO-2.
+
+- **`server/scripts/_havens-and-locations.js:46` `$push`es a new `character_dossier` fact with no
+  `fact_key`.** Same class of finding DBO-1's own external review made against
+  `seed-rules-necropolis.js`, and the same conclusion: not unsafe to ship, but the end state is not
+  durable against a real workflow. The script is one-off and already run, and DBO-2 deliberately does
+  not touch it (its "What this story is NOT" names all seven historical `_*.js` dossier writers as
+  out of scope) - but re-running it after the backfill would create a keyless fact, silently
+  reintroducing exactly the positional-addressing hazard `fact_key` exists to close, and TM Wiki's
+  `visibility_prefs` has no way to address a fact without one. Fix: mint a `fact_key` with
+  `randomUUID()` from `node:crypto` in that `$push`, or re-run
+  `server/scripts/dbo-2-dossier-fact-key-backfill.mjs --apply` after any future run of it. Low
+  effort, a few lines. **Any future writer of a dossier fact, in this repo or elsewhere, must mint a
+  `fact_key`** - that is what the new schema's `required` exists to say, and it has no runtime
+  enforcement behind it (no route validates this collection, no DB-level `$jsonSchema` validator).
+- **Seven pre-existing test-suite LOAD failures in the `server/schemas/` + `server/scripts/` gate**,
+  none caused by this story - confirmed by stashing DBO-2's three new files and re-running the same
+  seven files against the unmodified base, which produced identical failures. Two are already
+  documented (`n8-mandragora-prereq.test.js`, logged by DBO-9 above; `oxp-1-office-seats.test.js`,
+  the shebang-in-`seed-office-seats.mjs` failure oxp-11's own record names). The other five are the
+  same `SyntaxError: Invalid or unexpected token` family and appear to be undocumented:
+  `issue-1013-indomitable-rules-text.test.js`, `issue-1021-failed-breakpoint-merit.test.js`,
+  `issue-811-sumchannels-rootcause.test.js`, `issue-826-cleanup-script-integration.test.js`,
+  `issue-837-xp-totals-deprecation.test.js`. Cause not investigated (out of DBO-2's scope) but the
+  shared symptom across seven unrelated files suggests one environmental root cause rather than seven
+  independent bugs - plausibly the same line-ending/encoding family as the CRLF failure DBO-1's
+  review found. Worth a single `CLAUDE.md` "Known pre-existing failures" entry covering the set.
