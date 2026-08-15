@@ -464,21 +464,31 @@ function _seatNoteHtml(note) {
   return note ? `<div class="office-reference-banner">${esc(note)}</div>` : '';
 }
 
-/** Renders this seat's merit suite with real dot ratings, from data already
- *  fetched by `_refreshPurchaseState`. STs (and dev, which is treated as ST
- *  everywhere per this codebase's own equivalence) get +/- stepper controls;
- *  everyone else sees a read-only dot display.
+/** Renders this seat's merit suite from data already fetched by
+ *  `_refreshPurchaseState`. The merit NAMES are reference info (which merits
+ *  this office grants) and render for every viewer, own office or not — same
+ *  posture as the Manoeuvres list's effect text. The actual DOT RATINGS are
+ *  holder-or-ST-only (`showDots`), matching `_wireManoeuvreRank`'s own
+ *  `isOwnOffice || isST` gate: a reference viewer learns what an office CAN
+ *  hold, never what a specific seat's holder has actually purchased. Fixed
+ *  2026-08-15 (Angelus, live pre-game check) — the previous version showed
+ *  real dot values to any reference viewer; Brandy (Socialite) browsing
+ *  Eve's Head of State office as reference could see her Merit Suite ratings.
+ *  STs (and dev, treated as ST everywhere per this codebase's own
+ *  equivalence) additionally get +/- stepper controls.
  *
  *  oxp.11: takes the resolved seat OUTCOME rather than an office category.
- *  Note this is NOT gated on isOwnOffice: merit dots render for every viewer in
- *  every view, so the seat disclosure note applies to reference viewers too.
+ *  The seat-disclosure note is gated with the dots now too — it only exists
+ *  to say WHICH seat's rating a viewer is looking at, so it has nothing to
+ *  disclose once the rating itself is hidden.
  *
  *  oxp.6: `dotsBySeat`/`fetchFailed`/`balance` come from `_refreshPurchaseState`
  *  rather than this function fetching its own — merit and manoeuvre purchases
- *  now share one balance, so one shared fetch feeds both render calls. Per-dot
- *  affordability REASONS (the `title` attribute) are holder-or-ST-only
- *  (`showReasons`), same as the balance line itself — the dots themselves stay
- *  visible to a reference viewer exactly as before, only the WHY is gated. */
+ *  share one balance, so one shared fetch feeds both render calls. Per-dot
+ *  affordability REASONS (the `title` attribute) stay holder-or-ST-only
+ *  (`showReasons`), same as before — moot for anyone who can't see the dots
+ *  at all now, but still needed to keep an ST's own reasons scoped to a
+ *  confirmed own-office view. */
 function _wireMeritDots(el, outcome, data, dotsBySeat, fetchFailed, balance, isOwnOffice, gen) {
   if (typeof el.querySelector !== 'function') return; // plain-object test mocks have no real DOM
   const mount = el.querySelector('[data-office-merit-mount]');
@@ -502,6 +512,11 @@ function _wireMeritDots(el, outcome, data, dotsBySeat, fetchFailed, balance, isO
 
   const dots = dotsBySeat[outcome.seatId] || {};
   const isST = _isST();
+  // Fixed 2026-08-15: dot RATINGS are owner-or-ST-only, same gate
+  // `_wireManoeuvreRank` uses at its own top-level early return. A reference
+  // viewer (not this office's own occupant, not an ST) sees the merit names
+  // below but never this.
+  const showDots = isOwnOffice || isST;
   // Codex review, oxp.6: requires outcome.confirmed, mirroring the pre-existing
   // manoeuvre-LIST muting guard a few functions over (_wireManoeuvreRank's own
   // `isOwnOffice && outcome.confirmed`). Without it, a player whose own-office
@@ -514,11 +529,12 @@ function _wireMeritDots(el, outcome, data, dotsBySeat, fetchFailed, balance, isO
   const rowsHtml = meritNames.map((merit) => {
     const n = dots[merit] || 0;
     const cap = MERIT_DOT_CAPS[merit] || 5;
-    const reasons = showReasons && balance ? meritDotReasons(n, cap, balance.left) : null;
-    const dotsDisplay = _dotsWithReasons(n, cap, reasons);
     let row = `<div class="office-merit-row">`;
     row += `<span class="office-merit-chip">${esc(merit)}</span>`;
-    row += `<span class="office-merit-dots">${dotsDisplay}</span>`;
+    if (showDots) {
+      const reasons = showReasons && balance ? meritDotReasons(n, cap, balance.left) : null;
+      row += `<span class="office-merit-dots">${_dotsWithReasons(n, cap, reasons)}</span>`;
+    }
     if (isST) {
       row += `<div class="cs-edit-stepper office-merit-stepper">`;
       row += `<button class="cs-step-btn" data-merit-up="${esc(merit)}"${n >= cap ? ' disabled' : ''}>▲</button>`;
@@ -529,7 +545,7 @@ function _wireMeritDots(el, outcome, data, dotsBySeat, fetchFailed, balance, isO
     return row;
   }).join('');
 
-  mount.innerHTML = _seatNoteHtml(outcome.note) + rowsHtml;
+  mount.innerHTML = (showDots ? _seatNoteHtml(outcome.note) : '') + rowsHtml;
 
   if (isST) {
     mount.querySelectorAll('[data-merit-up]').forEach((btn) => {

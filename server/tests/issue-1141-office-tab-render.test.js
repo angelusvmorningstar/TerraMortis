@@ -857,12 +857,15 @@ describe('issue-1141 — office-tab.js render-level regressions', () => {
       expect(mount).not.toContain('derived-note');
     });
 
-    it('oxp.6 Codex review (Low): the merit mount carries no affordability title for a reference viewer either', async () => {
-      // Codex review, Pass 1: the balance-line-absence test above only checked
-      // the manoeuvre mount. Merit dots stay VISIBLE to a reference viewer by
-      // design (unlike the manoeuvre section, which returns early) — this
-      // proves the dots render with no `title=` attribute leaking the seat's
-      // affordability, not just that the separate balance line is hidden.
+    it('2026-08-15 fix (live pre-game check): merit dot RATINGS are hidden from a reference viewer, merit NAMES are not', async () => {
+      // Live-tested finding, 2026-08-15: Brandy (Socialite) browsing Eve's
+      // Head of State office as reference could see her real Merit Suite dot
+      // ratings. Superseded the previous "dots stay visible, just no title="
+      // stance (oxp.6 Codex review, Low) — Angelus's ruling is that a
+      // reference viewer should learn WHICH merits an office grants (reference
+      // info, same as the Manoeuvres list) but never HOW MANY DOTS a specific
+      // seat's holder has purchased. Only the seat's own holder or an ST sees
+      // the rating.
       setRole('player');
       // court_category null means isOwnOffice is false, so resolution falls
       // back to the deterministic first seat (SEAT_P_FALLBACK), not Yusuf's.
@@ -874,8 +877,10 @@ describe('issue-1141 — office-tab.js render-level regressions', () => {
       await flush();
 
       const meritHtml = el.querySelector('[data-office-merit-mount]').innerHTML;
-      expect(meritHtml).toContain(dotsSpan(2, 3)); // dots ARE shown...
-      expect(meritHtml).not.toContain('title='); // ...but never with a reason.
+      expect(meritHtml).toContain('Resources'); // the merit NAME is reference info...
+      expect(meritHtml).not.toContain(dotsSpan(2, 3)); // ...but never the RATING.
+      expect(meritHtml).not.toContain('office-merit-dots'); // no dots span at all for a reference viewer.
+      expect(meritHtml).not.toContain('title='); // and no affordability reason either.
     });
 
     it('AC6: with no holder match, the fallback picks the first seat by created_at then _id', async () => {
@@ -924,6 +929,26 @@ describe('issue-1141 — office-tab.js render-level regressions', () => {
       for (const sel of ['[data-office-merit-mount]', '[data-office-manoeuvre-rank-mount]']) {
         expect(el.querySelector(sel).innerHTML, sel).not.toContain('more than one seat');
       }
+    });
+
+    it('2026-08-15 fix: the multi-seat disclosure note has nothing to disclose to a reference viewer either', async () => {
+      // Live-tested finding, 2026-08-15: a player browsing Primogen (no seat
+      // of their own there) saw "This office has more than one seat. Showing:
+      // seat cfcc99." — a raw seat id fragment with no purpose once the dots
+      // it used to disambiguate are hidden from that same viewer. The note
+      // only exists to say WHICH seat's rating is on screen; nothing to say
+      // once the rating itself does not render.
+      setRole('player');
+      stubFetch();
+      const bystander = { _id: 'bystander', name: 'A Bystander', court_category: null, court_title: null };
+
+      const el = fakeRoot();
+      renderOfficeTab(el, bystander, [bystander], 'Primogen'); // Primogen has two seats
+      await flush();
+
+      const meritHtml = el.querySelector('[data-office-merit-mount]').innerHTML;
+      expect(meritHtml).not.toContain('more than one seat');
+      expect(meritHtml).not.toContain('office-reference-banner');
     });
 
     // ─────────────────────────────────────────────────────────────────────
