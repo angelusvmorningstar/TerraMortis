@@ -51,15 +51,21 @@ Confirmed against `game_sessions.session_date` in MongoDB, keyed by `game_number
 
 | ID | Title | Status | Notes |
 |----|-------|--------|-------|
-| oxp.1 | Data-lock: office/seat schema | backlog | Dana's pass — where creation dates live, how a seat is identified/keyed (must support 2 concurrent Socialite seats), how the persist/reset split is represented. Migrate `OFFICE_DATA` off a static JS module per this project's own convention (new reference data defaults to Mongo-backed, `CLAUDE.md`) — already flagged for whoever picks this up, per the issue-1141 story record. |
-| oxp.2 | Derived office-XP calculation | backlog | Months-since-creation minus the spend ledger, never stored — mirrors the existing `xpGame()` pattern (`public/js/editor/xp.js`) rather than inventing a new one. |
-| oxp.3 | Manoeuvre purchase — graduated merit, rank order | backlog | Bought one dot at a time in fixed rank order (`office-powers.md` §"Where the ranks come from" has the resolved rank tables for all four ranked offices). Resets to zero + spent XP lost on handover. |
-| oxp.4 | Merit purchase — persists across handover | backlog | Institutional; survives a change of holder, unlike manoeuvres. |
-| oxp.5 | Handover logic | backlog | On officeholder/seat change: merits stay with the office; manoeuvres reset to zero and their spent XP is destroyed (not refunded, not banked). |
-| oxp.6 | Office tab — purchase markers | backlog | Full reference list always shown; unpurchased greyed/muted (reuse the existing hollow-dot pattern, `.pointed.hollow`). Distinguish "not enough pool XP" from "prerequisite/rank not reached" via a reason on tap/hover — don't collapse both to one visual state. |
-| oxp.7 | Sheet — new "Office Merits" section | backlog | Parallel to the existing Domain Merits section pattern (`sheet.js:1122`, category-filtered `.sh-sec`); visible only to the character currently holding that seat. |
+| oxp.1 | Data-lock: office/seat schema | done | Dana's pass — where creation dates live, how a seat is identified/keyed (must support 2 concurrent Socialite seats), how the persist/reset split is represented. Migrate `OFFICE_DATA` off a static JS module per this project's own convention (new reference data defaults to Mongo-backed, `CLAUDE.md`) — already flagged for whoever picks this up, per the issue-1141 story record. |
+| oxp.2 | Derived office-XP calculation | done | Months-since-creation minus the spend ledger, never stored — mirrors the existing `xpGame()` pattern (`public/js/editor/xp.js`) rather than inventing a new one. |
+| oxp.3 | Manoeuvre purchase — graduated merit, rank order | done | Bought one dot at a time in fixed rank order (`office-powers.md` §"Where the ranks come from" has the resolved rank tables for all four ranked offices). Resets to zero + spent XP lost on handover. |
+| oxp.4 | Merit purchase — persists across handover | done | Institutional; survives a change of holder, unlike manoeuvres. |
+| oxp.5 | Handover logic | done | On officeholder/seat change: merits stay with the office; manoeuvres reset to zero and their spent XP is destroyed (not refunded, not banked). |
+| oxp.6 | Office tab — purchase markers | done | Full reference list always shown; unpurchased greyed/muted (reuse the existing hollow-dot pattern, `.pointed.hollow`). Distinguish "not enough pool XP" from "prerequisite/rank not reached" via a reason on tap/hover — don't collapse both to one visual state. |
+| oxp.7 | Sheet — new "Office Merits" section | done | Parallel to the existing Domain Merits section pattern (`sheet.js:1122`, category-filtered `.sh-sec`); visible only to the character currently holding that seat. |
 | oxp.8 | Administrator content authoring | backlog | **Not app code.** Five manoeuvres in the "Yes, Minister" style + a merit suite, written by Angelus/Symon (`office-powers.md` §"Remaining loose ends" — the Administrator seat is real and filled since Game 5, just has nothing written to spend its accruing pool on). Blocks nothing else in this epic; can proceed independently. |
-| oxp.9 | Spend routes through Epic OAQ | backlog | All XP spend requires ST approval. Depends on OAQ existing. |
+| oxp.9 | Spend routes through Epic OAQ | backlog | All XP spend requires ST approval. Epic OAQ is itself done (oaq.1-3), so this is genuinely unblocked now, not waiting on a dependency. |
+
+**CORRECTED 2026-08-15**: this table said `backlog` for oxp.1-7; `sprint-status.yaml` on `main` shows
+`done` for all seven, plus `oxp.11` (office-purchase-seat-keying, not in this table at all — added
+later, not scoped here). oxp.1-5 and oxp.11 are merged and live; oxp.6/oxp.7 are dev/review-complete
+on their own branches, held under this epic's own standing order (hold all remaining merges until it
+ships), not actually unstarted. Only oxp.8 and oxp.9 remain genuine backlog.
 
 ---
 
