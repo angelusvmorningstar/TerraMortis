@@ -27,7 +27,7 @@ Sequencing notes below) before Story 1 was written.
 
 | ID | Title | Status | Notes |
 |----|-------|--------|-------|
-| xpl.1 | XP ledger — write hook + ST read view | review | Append-only `xp_ledger` collection, single write hook inside the existing `PUT /api/characters/:id` (diff pre-fetch vs incoming `.xp` fields, one row per non-zero delta), plus a read-only history view on the admin sheet editor. SPEND events only — `xpEarned()` stays fully derived, out of scope here. Dev complete 2026-08-15, 128/128 regression, not yet code-reviewed. |
+| xpl.1 | XP ledger — write hook + ST read view | done | Append-only `xp_ledger` collection, single write hook inside the existing `PUT /api/characters/:id` (diff pre-fetch vs incoming `.xp` fields, one row per non-zero delta), plus a read-only history view and an optional reason input on the admin sheet editor. SPEND events only — `xpEarned()` stays fully derived, out of scope here. Code-reviewed 2026-08-15 (internal 3-layer, Codex CLI unavailable) — 2 real High findings caught and fixed (merit-name-collision fabricating/dropping rows, live-data-reproduced; removed traits/merits invisible to the ledger), 136/136 final regression. Not pushed/merged/deployed. |
 | xpl.2 | Historic reconciliation (DT1-DT6 backfill) | backlog | Deliberately a SEPARATE, later story per John's own party-mode sequencing recommendation. Data-lock confirmed all cycles' `downtime_submissions` documents (including DT5, previously assumed wiped) are intact and reconcilable — walk `project_N_xp_rows` per cycle and mint ledger rows for each real historic purchase. Not started; do not fold into xpl.1. |
 
 ## What this epic is NOT

@@ -249,6 +249,14 @@ html:not([data-theme="dark"]) .edit-icon {
 .sh-xp-breakdown .xp-total-row td{border-top:1px solid var(--bdr);color:var(--txt);font-weight:600;}
 .sh-xp-breakdown input[type=number]{width:48px;background:var(--surf2);border:1px solid var(--bdr);border-radius:3px;color:var(--txt);font-family:var(--ft);font-size:11px;text-align:right;padding:2px 4px;outline:none;}
 .sh-xp-breakdown input[type=number]:focus{border-color:var(--gold);}
+/* xpl.1: XP History is a genuine N-column data table (Date/Category/Trait/
+   Delta/Reason), not a label-value pair grid like the breakdown above it -
+   the plain .sh-xp-breakdown table's nth-child(odd/even) rule assumes
+   exactly 2 columns and mis-styles every column here (code-review
+   2026-08-15, Medium). Same tokens, no odd/even split. */
+.sh-xp-breakdown table.sh-xp-ledger-table{width:100%;border-collapse:collapse;font-family:var(--ft);font-size:11px;margin-top:6px;}
+.sh-xp-breakdown .sh-xp-ledger-table th{color:var(--accent);font-family:var(--fl);font-size:10px;letter-spacing:.06em;text-transform:uppercase;text-align:left;padding:2px 4px 4px;border-bottom:1px solid var(--bdr);}
+.sh-xp-breakdown .sh-xp-ledger-table td{padding:3px 4px;color:var(--txt2);font-family:var(--ft);font-size:11px;font-weight:normal;letter-spacing:normal;text-transform:none;text-align:left;vertical-align:middle;}
 
 /* ── Attribute creation points ── */
 .sh-attr-col-hdr{display:grid;grid-template-columns:repeat(3,1fr);gap:5px;margin-bottom:4px;}

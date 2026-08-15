@@ -4,7 +4,6 @@ console.log('%c[TM Admin] build 2026-04-08T1', 'color: #E0C47A; font-weight: bol
 import { apiGet, apiPut, apiPost, apiDelete } from './data/api.js';
 import { loadGameXP } from './data/game-xp.js';
 import { auditCharacter } from './data/audit.js';
-import { initAdminArchive } from './admin/archive-admin.js';
 import { sanitiseChar, loadRulesFromApi } from './data/loader.js';
 import { downloadCSV } from './editor/export.js';
 import { esc, clanIcon, covIcon, shortCov, cardName, displayName, sortName, redactPlayer, discordAvatarUrl, findRegentTerritory, isRedactMode } from './data/helpers.js';
@@ -657,9 +656,9 @@ function openCharDetail(c) {
         <button class="dt-btn" id="cd-edit-toggle">Edit</button>
         <button class="dt-btn" id="cd-print">PDF</button>
         <button class="dt-btn" id="cd-export-json">JSON</button>
+        <input class="sh-edit-input" id="cd-xp-reason" style="display:none" placeholder="XP change reason (optional)" title="Set this before saving an ad-hoc XP correction, so the XP History records why - leave blank for a routine downtime-driven save">
         <button class="dt-btn" id="cd-save-api" style="display:none">Save to DB</button>
         <a class="dt-btn cd-player-view" href="/" id="cd-player-view">Player View</a>
-        <button class="dt-btn" id="cd-archive">Archive</button>
         <button class="dt-btn" id="cd-link-player">Link Player</button>
         <button class="dt-btn retire-btn" id="cd-retire">${c.retired ? 'Unretire' : 'Retire'}</button>
         <button class="dt-btn cd-hard-delete-btn" id="cd-hard-delete">Hard-Delete</button>
@@ -679,8 +678,10 @@ function openCharDetail(c) {
     editorState.editMode = !editorState.editMode;
     const btn = document.getElementById('cd-edit-toggle');
     const saveBtn = document.getElementById('cd-save-api');
+    const reasonInput = document.getElementById('cd-xp-reason');
     btn.textContent = editorState.editMode ? 'View' : 'Edit';
     saveBtn.style.display = editorState.editMode ? '' : 'none';
+    if (reasonInput) reasonInput.style.display = editorState.editMode ? '' : 'none';
 
     // When entering edit mode, fetch fresh data from the server so that one
     // ST's session cannot silently overwrite another's recent saves with a
@@ -709,9 +710,9 @@ function openCharDetail(c) {
   document.getElementById('cd-retire').addEventListener('click', toggleRetire);
   document.getElementById('cd-hard-delete').addEventListener('click', () => openHardDeleteModal(c));
   document.getElementById('cd-link-player').addEventListener('click', () => openPlayerLinkModal(c));
-  document.getElementById('cd-archive').addEventListener('click', () => {
-    initAdminArchive(document.getElementById('sh-content'), c);
-  });
+  // The Archive button is RETIRED (Story 31-5, TM Wiki): `archive_documents` and its
+  // authoring both moved to TM Wiki, where uploading is `npm run archive:upload` rather
+  // than a form here. See the note in server/index.js.
 
   panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 }
@@ -998,12 +999,20 @@ async function saveCharToApi() {
   const saveBtn = document.getElementById('cd-save-api');
   saveBtn.textContent = 'Saving...';
 
+  // xpl.1: an optional ST-entered reason for this save's XP delta(s), read
+  // fresh each save so it can never leak onto a later, unrelated save.
+  const reasonInput = document.getElementById('cd-xp-reason');
+  const xpReason = reasonInput ? reasonInput.value.trim() : '';
+
   try {
     const _id = c._id;
-    const updated = await apiPut('/api/characters/' + _id, buildSaveBody(c));
+    const body = buildSaveBody(c);
+    if (xpReason) body.xp_ledger_reason = xpReason;
+    const updated = await apiPut('/api/characters/' + _id, body);
     Object.assign(chars[idx], updated);
     selectedChar = chars[idx];
     editorState.dirty.clear();
+    if (reasonInput) reasonInput.value = '';
 
     const badge = document.getElementById('cd-dirty-badge');
     if (badge) badge.style.display = 'none';
@@ -1353,6 +1362,8 @@ Object.assign(window, {
     editorState.editMode = true;
     document.getElementById('cd-edit-toggle').textContent = 'View';
     document.getElementById('cd-save-api').style.display = '';
+    const reasonInput = document.getElementById('cd-xp-reason');
+    if (reasonInput) reasonInput.style.display = '';
     renderSheetWithOverlay(chars[editorState.editIdx]);
   },
   createNewCharacter, openPlayerLinkModal,

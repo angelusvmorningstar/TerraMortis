@@ -520,14 +520,25 @@ router.put('/:id', requireRole('st'), stripEphemeral, validateCharacterPartial, 
   // (buildSaveBody, public/js/admin.js:964-991), not a per-field patch, so
   // comparing against a fresh pre-fetch is required - the PUT body alone
   // never tells us what changed.
+  //
+  // Code-review (2026-08-15, Medium): the pre-fetch itself was unguarded,
+  // so a transient read failure would 500 the WHOLE character save - the
+  // opposite of the "ledger machinery never blocks a real save" intent the
+  // insert's own try/catch below already honours. Wrapped the same way: a
+  // failed pre-fetch just means no ledger rows for this save, logged, not
+  // thrown.
   const TRAIT_KEYS = ['attributes', 'skills', 'disciplines', 'merits'];
   let xpLedgerRows = [];
   if (TRAIT_KEYS.some(k => Object.prototype.hasOwnProperty.call(updates, k))) {
-    const priorChar = await col().findOne(
-      { _id: oid },
-      { projection: { attributes: 1, skills: 1, disciplines: 1, merits: 1 } }
-    );
-    xpLedgerRows = diffXpLedgerRows(priorChar || {}, updates);
+    try {
+      const priorChar = await col().findOne(
+        { _id: oid },
+        { projection: { attributes: 1, skills: 1, disciplines: 1, merits: 1 } }
+      );
+      xpLedgerRows = diffXpLedgerRows(priorChar || {}, updates);
+    } catch (err) {
+      console.error('xp_ledger pre-fetch failed for character', String(oid), err.message);
+    }
     if (xpLedgerRows.length && typeof xp_ledger_reason === 'string' && xp_ledger_reason.trim() === '') {
       return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'xp_ledger_reason cannot be blank' });
     }
@@ -548,8 +559,11 @@ router.put('/:id', requireRole('st'), stripEphemeral, validateCharacterPartial, 
     try {
       const at = new Date().toISOString();
       const reason = (typeof xp_ledger_reason === 'string' && xp_ledger_reason.trim()) ? xp_ledger_reason.trim() : undefined;
+      // Code-review (2026-08-15, Medium): req.user.username was assumed
+      // always present; fall back rather than write an unattributed row.
+      const stUsername = req.user?.username || 'unknown';
       const docs = xpLedgerRows.map(row => {
-        const doc = { character_id: oid, ...row, at, st_username: req.user.username };
+        const doc = { character_id: oid, ...row, at, st_username: stUsername };
         if (reason) doc.reason = reason;
         return doc;
       });
@@ -567,9 +581,11 @@ router.put('/:id', requireRole('st'), stripEphemeral, validateCharacterPartial, 
 router.get('/:id/xp_ledger', requireRole('st'), async (req, res) => {
   const oid = parseId(req.params.id);
   if (!oid) return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'Invalid character ID format' });
+  // _id tiebreak: rows from one save share an identical `at` (see the
+  // insert above), so `at` alone leaves same-save ordering unspecified.
   const rows = await getCollection('xp_ledger')
     .find({ character_id: oid })
-    .sort({ at: -1 })
+    .sort({ at: -1, _id: -1 })
     .toArray();
   res.json(rows);
 });

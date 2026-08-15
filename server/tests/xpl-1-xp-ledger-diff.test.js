@@ -1,7 +1,12 @@
 /**
  * xpl.1 — pure unit tests for diffXpLedgerRows, no DB required.
  * Covers: single deltas per category, zero-delta no-op, a brand-new merit,
- * and multiple simultaneous deltas in one save.
+ * multiple simultaneous deltas in one save, duplicate-named merits
+ * distinguished by qualifier/area (code-review 2026-08-15, High finding —
+ * reproduced against real fixture data, name-only matching fabricated and
+ * dropped rows on 5 of 31 live characters), and removed traits/merits
+ * (code-review 2026-08-15, High finding — the original after-only iteration
+ * made deletions invisible to the ledger).
  */
 
 import { describe, it, expect } from 'vitest';
@@ -86,5 +91,83 @@ describe('diffXpLedgerRows', () => {
     const before = { attributes: { Strength: { dots: 3, xp: 4 } } };
     const after = { name: 'Renamed Character' };
     expect(diffXpLedgerRows(before, after)).toEqual([]);
+  });
+
+  it('distinguishes two same-named merits by area (Allies-by-sphere) — buying one leaves the other alone', () => {
+    // Reproduces the real fixture shape from code-review: two Allies entries,
+    // only one purchased this save.
+    const before = {
+      merits: [
+        { name: 'Allies', area: 'Police', xp: 2 },
+        { name: 'Allies', area: 'Media', xp: 0 },
+      ],
+    };
+    const after = {
+      merits: [
+        { name: 'Allies', area: 'Police', xp: 2 },
+        { name: 'Allies', area: 'Media', xp: 1 },
+      ],
+    };
+    const rows = diffXpLedgerRows(before, after);
+    expect(rows).toEqual([{ category: 'merit', trait_name: 'Allies', delta: 1, new_total: 1 }]);
+  });
+
+  it('distinguishes two same-named merits by qualifier', () => {
+    const before = {
+      merits: [
+        { name: 'Contacts', qualifier: 'Police', xp: 0 },
+        { name: 'Contacts', qualifier: 'Underworld', xp: 2 },
+      ],
+    };
+    const after = {
+      merits: [
+        { name: 'Contacts', qualifier: 'Police', xp: 3 },
+        { name: 'Contacts', qualifier: 'Underworld', xp: 2 },
+      ],
+    };
+    const rows = diffXpLedgerRows(before, after);
+    expect(rows).toEqual([{ category: 'merit', trait_name: 'Contacts', delta: 3, new_total: 3 }]);
+  });
+
+  it('handles three merits sharing one name, distinguished by area, with only one changing', () => {
+    const before = {
+      merits: [
+        { name: 'Status', area: 'finance', xp: 0 },
+        { name: 'Status', area: 'high society', xp: 0 },
+        { name: 'Status', area: 'underworld', xp: 1 },
+      ],
+    };
+    const after = {
+      merits: [
+        { name: 'Status', area: 'finance', xp: 0 },
+        { name: 'Status', area: 'high society', xp: 3 },
+        { name: 'Status', area: 'underworld', xp: 1 },
+      ],
+    };
+    const rows = diffXpLedgerRows(before, after);
+    expect(rows).toEqual([{ category: 'merit', trait_name: 'Status', delta: 3, new_total: 3 }]);
+  });
+
+  it('produces a negative-delta row when an attribute is removed from an included category', () => {
+    const before = { attributes: { Strength: { dots: 3, xp: 4 }, Dexterity: { dots: 1, xp: 0 } } };
+    const after = { attributes: { Dexterity: { dots: 1, xp: 0 } } };
+    const rows = diffXpLedgerRows(before, after);
+    expect(rows).toEqual([{ category: 'attribute', trait_name: 'Strength', delta: -4, new_total: 0 }]);
+  });
+
+  it('produces a negative-delta row when a merit is deleted', () => {
+    const before = { merits: [{ name: 'Majesty', xp: 3 }] };
+    const after = { merits: [] };
+    const rows = diffXpLedgerRows(before, after);
+    expect(rows).toEqual([{ category: 'merit', trait_name: 'Majesty', delta: -3, new_total: 0 }]);
+  });
+
+  it('does NOT produce a row for a category entirely absent from the incoming body (not a deletion, just not part of this save)', () => {
+    const before = { attributes: { Strength: { dots: 3, xp: 4 } } };
+    const after = { merits: [{ name: 'Majesty', xp: 3 }] };
+    // before.merits is empty/absent too, so Majesty is a brand-new merit (+3);
+    // attributes is absent from `after` entirely, so Strength must NOT appear.
+    const rows = diffXpLedgerRows(before, after);
+    expect(rows).toEqual([{ category: 'merit', trait_name: 'Majesty', delta: 3, new_total: 3 }]);
   });
 });

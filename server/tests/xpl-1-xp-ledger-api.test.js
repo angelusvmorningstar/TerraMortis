@@ -8,8 +8,9 @@
  * tm_suite_test only.
  */
 
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { describe, it, expect, vi, beforeAll, afterAll } from 'vitest';
 import request from 'supertest';
+import { Collection } from 'mongodb';
 import { createTestApp, stUser, playerUser } from './helpers/test-app.js';
 import { setupDb, teardownDb, isDbAvailable } from './helpers/db-setup.js';
 import { getCollection } from '../db.js';
@@ -31,8 +32,12 @@ describe.skipIf(!dbAvailable)('xpl.1 — xp_ledger write hook + read route', () 
   });
 
   afterAll(async () => {
+    const charDoc = await getCollection('characters').findOne({ name: { $regex: '^XPL-1 ' } });
     await getCollection('characters').deleteMany({ name: { $regex: '^XPL-1 ' } });
-    await getCollection('xp_ledger').deleteMany({ character_id: { $exists: true } });
+    // Code-review (2026-08-15, Low): scope to this suite's own character —
+    // the original filter ({ character_id: { $exists: true } }) matched
+    // every document in the collection, wiping any other suite's rows too.
+    if (charDoc) await getCollection('xp_ledger').deleteMany({ character_id: charDoc._id });
     await teardownDb();
   });
 
@@ -109,7 +114,52 @@ describe.skipIf(!dbAvailable)('xpl.1 — xp_ledger write hook + read route', () 
     expect(res.status).toBe(200);
     const after = await getCollection('xp_ledger').countDocuments({});
     expect(after).toBe(before);
-    // restore the name for cleanup regex to keep matching
-    await getCollection('characters').updateOne({ _id: (await getCollection('characters').findOne({ name: CHAR_NAME + ' Renamed' }))._id }, { $set: { name: CHAR_NAME } });
+    // No restore needed: the afterAll cleanup regex (^XPL-1 ) already
+    // matches this renamed document, same as it matches CHAR_NAME itself.
+  });
+
+  it('a ledger insert failure does not block the character save (AC4)', async () => {
+    // Code-review (2026-08-15, Medium): the "never blocks the save" design
+    // guarantee was never exercised by a test. Force the insert to throw and
+    // confirm the character write still succeeds. Uses Dexterity (untouched
+    // by every other test in this file) so no other assertion's expected
+    // Strength/merit state is disturbed.
+    const spy = vi.spyOn(Collection.prototype, 'insertMany').mockImplementationOnce(() => {
+      throw new Error('simulated xp_ledger insert failure');
+    });
+    const res = await request(app).put('/api/characters/' + charId).set('X-Test-User', stUser())
+      .send({ attributes: { Dexterity: { dots: 2, xp: 4, bonus: 0 } } });
+    spy.mockRestore();
+
+    expect(res.status).toBe(200);
+    const charDoc = await getCollection('characters').findOne({ name: { $regex: '^XPL-1 ' } });
+    expect(charDoc.attributes.Dexterity.xp).toBe(4);
+    // The insert genuinely failed — no row for it exists.
+    const row = await getCollection('xp_ledger').findOne({ character_id: charDoc._id, trait_name: 'Dexterity' });
+    expect(row).toBeNull();
+  });
+
+  it('two merits sharing a name, distinguished by qualifier, do not cross-contaminate through the real API', async () => {
+    // Code-review (2026-08-15, High): reproduces the fixed bug end-to-end,
+    // not just at the pure-function level. Buys one dot on the SECOND
+    // same-named merit only; the first must be untouched.
+    await request(app).put('/api/characters/' + charId).set('X-Test-User', stUser())
+      .send({ merits: [
+        { category: 'general', name: 'Contacts', qualifier: 'Police', cp: 0, xp: 0 },
+        { category: 'general', name: 'Contacts', qualifier: 'Underworld', cp: 0, xp: 0 },
+      ] });
+    await getCollection('xp_ledger').deleteMany({ trait_name: 'Contacts' }); // isolate this test's own rows
+
+    const res = await request(app).put('/api/characters/' + charId).set('X-Test-User', stUser())
+      .send({ merits: [
+        { category: 'general', name: 'Contacts', qualifier: 'Police', cp: 0, xp: 0 },
+        { category: 'general', name: 'Contacts', qualifier: 'Underworld', cp: 0, xp: 3 },
+      ] });
+    expect(res.status).toBe(200);
+
+    const charDoc = await getCollection('characters').findOne({ name: { $regex: '^XPL-1 ' } });
+    const rows = await getCollection('xp_ledger').find({ character_id: charDoc._id, trait_name: 'Contacts' }).toArray();
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({ delta: 3, new_total: 3 });
   });
 });

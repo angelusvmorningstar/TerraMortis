@@ -1872,9 +1872,20 @@ export async function patchOfficeMerits(c) {
 // invisible rather than error, so a load failure is worth surfacing.
 let _xpLedgerGen = 0;
 
+// Code-review (2026-08-15): covers Attributes/Skills/Disciplines/Merits
+// only, not Blood Potency, Humanity, Willpower or the powers[] categories
+// (devotions/pacts/fighting styles) - rendered directly under the full XP
+// Spent breakdown, which sums all of those, so an unqualified "XP History"
+// label reads as a complete account when it is not. Named explicitly rather
+// than silently narrower.
+const XP_LEDGER_TITLE = 'XP History (Attributes / Skills / Disciplines / Merits)';
+
 export async function patchXpLedger(c) {
-  const gen = ++_xpLedgerGen;
+  // Code-review (2026-08-15, Low): guard BEFORE bumping the counter - the
+  // original order let a no-op call (missing c/_id) cancel a real in-flight
+  // fetch's generation check.
   if (!c || !c._id) return;
+  const gen = ++_xpLedgerGen;
   const slotSel = '[data-xp-ledger-char="' + CSS.escape(String(c._id)) + '"]';
 
   try {
@@ -1889,16 +1900,16 @@ export async function patchXpLedger(c) {
         const when = r.at ? new Date(r.at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '';
         const sign = r.delta > 0 ? '+' : '';
         return '<tr><td>' + esc(when) + '</td><td>' + esc(r.category || '') + '</td><td>' + esc(r.trait_name || '') +
-          '</td><td>' + sign + r.delta + '</td><td>' + esc(r.reason || '') + '</td></tr>';
+          '</td><td>' + esc(sign + r.delta) + ' XP</td><td>' + esc(r.reason || '') + '</td></tr>';
       }).join('');
-      bodyHtml = '<table><tr><th>Date</th><th>Category</th><th>Trait</th><th>Δ</th><th>Reason</th></tr>' + rowsHtml + '</table>';
+      bodyHtml = '<table class="sh-xp-ledger-table"><tr><th>Date</th><th>Category</th><th>Trait</th><th>Δ</th><th>Reason</th></tr>' + rowsHtml + '</table>';
     }
 
-    const sectionHtml = '<div class="sh-xp-breakdown"><div class="sh-sec-title">XP History</div>' + bodyHtml + '</div>';
+    const sectionHtml = '<div class="sh-xp-breakdown"><div class="sh-sec-title">' + esc(XP_LEDGER_TITLE) + '</div>' + bodyHtml + '</div>';
     document.querySelectorAll(slotSel).forEach(slot => { slot.innerHTML = sectionHtml; });
   } catch {
     if (gen !== _xpLedgerGen) return;
-    const failHtml = '<div class="sh-xp-breakdown"><div class="sh-sec-title">XP History</div><div class="sh-track-empty">Could not load XP history.</div></div>';
+    const failHtml = '<div class="sh-xp-breakdown"><div class="sh-sec-title">' + esc(XP_LEDGER_TITLE) + '</div><div class="sh-track-empty">Could not load XP history.</div></div>';
     document.querySelectorAll(slotSel).forEach(slot => { slot.innerHTML = failHtml; });
   }
 }

@@ -1,6 +1,6 @@
 # Story xpl.1: XP ledger — write hook + ST read view
 
-Status: review
+Status: done
 
 ## Story
 
@@ -345,9 +345,19 @@ Claude Sonnet 5
   `.sh-xp-breakdown` edit-mode block; new exported `patchXpLedger(c)` (own module-scoped
   `_xpLedgerGen` counter) called un-awaited right after `renderSheet`'s own `el.innerHTML = h`, only
   when `editMode`.
-- `server/tests/xpl-1-xp-ledger-diff.test.js` — NEW. 10 pure unit tests, all passing.
-- `server/tests/xpl-1-xp-ledger-api.test.js` — NEW. 7 live integration tests (DB-backed,
-  `describe.skipIf(!dbAvailable)`), all passing.
+- `server/tests/xpl-1-xp-ledger-diff.test.js` — NEW, then MODIFIED during review. 16 pure unit
+  tests (10 original + 6 added during review: duplicate-merit-by-area, duplicate-merit-by-qualifier,
+  three-merits-one-name, removed-attribute, removed-merit, category-absent-vs-deleted).
+- `server/tests/xpl-1-xp-ledger-api.test.js` — NEW, then MODIFIED during review. 9 live integration
+  tests (7 original + 2 added during review: insert-failure-does-not-block-save,
+  duplicate-merit-through-real-API), plus the `afterAll` cleanup scoping fix and the removed
+  misleading restore-name step.
+- `public/css/components.css` — MODIFIED during review. New `.sh-xp-ledger-table` rules (fixes the
+  wrong 2-column label/value styling the ledger table inherited from `.sh-xp-breakdown`).
+- `public/css/admin-layout.css` — MODIFIED during review. Scoped `.cd-header-actions .sh-edit-input`
+  sizing for the new XP-reason input.
+- `public/js/admin.js` — MODIFIED during review. New `#cd-xp-reason` input in the character-detail
+  header (shown/hidden alongside `#cd-save-api`); `saveCharToApi()` reads, sends, and clears it.
 
 ## Change Log
 
@@ -355,3 +365,155 @@ Claude Sonnet 5
   128/128 across the full changed-area regression (8 files). One real bug found and fixed during
   dev (see Debug Log References — `xp_ledger_reason` needed stripping before schema validation, not
   after). Status: ready-for-dev → review. Not committed, not pushed, not merged.
+- 2026-08-15: Committed (`4452e617`) and code-reviewed — internal 3-layer pass (external Codex CLI
+  unavailable, usage limit until 2026-08-20). See Senior Developer Review below. 2 High + 5 Medium +
+  3 Low patched, 1 Medium resolved by Angelus (add the UI now) and patched, 5 items deferred, 3 Low
+  dismissed with evidence. 8 new tests added during review (6 unit + 2 integration), bringing the
+  suite to 25 new tests / 136 passing across the 8-file changed-area regression. All decision-needed
+  and patch findings resolved, no unresolved High/Medium remaining. Status: review → done. Not
+  pushed, not merged, not deployed — Angelus's call.
+
+## Senior Developer Review (AI)
+
+**Reviewer:** Internal — 3 layers as parallel subagents in this session (Blind Hunter / Edge Case
+Hunter / Acceptance Auditor), Opus, 2026-08-15. External Codex CLI review was attempted first and
+failed with a usage-limit error (retryable 2026-08-20), so this session ran the equivalent 3-pass
+adversarial protocol internally instead, reusing the same hand-written, diff-specific hunt lists
+prepared for the external pass. Diff reviewed: `git diff 77ba0866 4452e617` (commit `77ba0866` is an
+unrelated prior commit on this branch from a different session/story and was explicitly excluded
+from scope). Full raw findings: `specs/stories/code-review/xpl-1-diff.txt` (the scoped diff) and
+this section (findings consolidated from all three layers' verbatim output).
+
+### Outcome
+
+**Two real, confirmed High-severity defects found and patched — both independently reproduced by
+all three review layers, one with live-data proof against 5 of 31 real characters.** Several real
+Medium/Low findings patched alongside them. One Medium is a genuine product decision, not a code
+fix, and is left open for Angelus below.
+
+### High — patched, prove-discriminated
+
+- **[All 3 layers] Merits matched by bare `.name` fabricated and dropped ledger rows.** CONFIRMED —
+  the Acceptance Auditor reproduced it directly against `data/dev-fixtures/characters.json`: on a
+  no-op save, 5 of 31 real characters emitted fabricated rows (Jack Fallow, Carver, Reed Justice,
+  Charlie Ballsack, Eve Lockridge), and a genuine Eve Lockridge Allies purchase produced ZERO rows —
+  the exact Majesty-4 failure mode this story exists to prevent, reproduced by the code meant to
+  prevent it. The story's own Dev Notes had accepted this as a narrow, low-probability limitation;
+  the review found the justification itself was false (duplicate merit names, distinguished by
+  `qualifier`/`area`, are the norm in this schema, not an edge case — Reed Justice alone holds three
+  `Status` merits). **Fixed**: `diffXpLedgerRows` now keys merits on `name + qualifier + area`
+  (`server/lib/xp-ledger-diff.js`), matching this codebase's own documented merit-identity
+  convention (`character.schema.js`'s `sworn_by.attachments` comment: "Attachments reference merits
+  by name + qualifier, NOT by array index"). New unit tests reproduce the exact Allies/Contacts/
+  Status duplicate-name shapes from the real fixture data; a new integration test proves the fix
+  through the real HTTP path. Prove-discriminated: reverted to the old `.name`-only match via
+  `git stash`, 5 of 7 new unit tests failed exactly as predicted (red), restored, all 16 pass (green).
+- **[Blind Hunter + Edge Case Hunter] A removed trait or merit produced no ledger row at all.** The
+  original diff only iterated `after`'s keys, so a deleted merit or a trait dropped from an included
+  category vanished from the character with zero audit trail — the ledger was structurally blind to
+  exactly the kind of disappearing XP it exists to catch. **Fixed**: the diff now walks the UNION of
+  `before`/`after` keys per category (and per merit key), so a key present in `before` but absent
+  from `after` produces a negative-delta row. A category absent from the incoming body ENTIRELY is
+  still correctly treated as "not part of this save," not "everything in it was deleted" — new tests
+  cover both cases explicitly.
+
+### Medium — patched
+
+- **[Acceptance Auditor] XP History table rendered as 9px uppercase label chrome on every column.**
+  Reusing `.sh-xp-breakdown`'s CSS for a 5-column data table inherited a `td:nth-child(odd/even)`
+  rule written for a 2-column label/value grid — Date, Trait and Reason (the most important field)
+  all rendered shouted at 9px. **Fixed**: new `.sh-xp-ledger-table` class with its own td/th rules,
+  same design tokens, no odd/even split. Not visually re-verified in a browser (same constraint as
+  the original dev pass — Angelus cannot run the app locally); flagged again here for the same
+  deployed-environment look.
+- **[Blind Hunter] `xp_ledger.schema.js` was dead code AND latently broken.** Not wired to any
+  validator (a disclosed, deliberate choice per the story's own Dev Notes), but the review found
+  that if it ever WERE wired up, `additionalProperties: false` with no `_id` declared would reject
+  every real document, and `character_id: { type: 'object' }` is a JSON-Schema type a validator
+  would never actually see satisfied (it sees the serialised form, not raw BSON). **Fixed**: matches
+  `office_seat.schema.js`'s own established convention — `_id` declared, `character_id` as a 24-hex
+  pattern string.
+- **[Blind Hunter] `st_username` written unguarded from `req.user.username`.** No fallback if a
+  session somehow carries no `username`. **Fixed**: falls back to `'unknown'` rather than writing an
+  unattributed row.
+- **[Blind Hunter] The "ledger insert failure never blocks the character save" guarantee was
+  asserted in a comment and exercised by zero tests.** **Fixed**: new integration test mocks
+  `Collection.prototype.insertMany` to throw and confirms the character PUT still returns 200 with
+  the real trait change persisted, while no ledger row exists for it.
+- **[Blind Hunter + Edge Case Hunter] The pre-fetch itself was unguarded — a transient read failure
+  would 500 the WHOLE character save, contradicting the "ledger machinery never blocks a save"
+  design intent the insert's own try/catch already honoured for the write half.** **Fixed**: wrapped
+  the pre-fetch the same way; a failed pre-fetch now just means no ledger rows for that save,
+  logged, not thrown.
+- **[Edge Case Hunter] The XP History section sits directly under the full XP Spent breakdown with
+  no scope caveat**, but only covers 4 of the 5 spend buckets `xpSpent` sums. **Fixed**: section
+  title now states its scope explicitly ("XP History (Attributes / Skills / Disciplines /
+  Merits)"). Full bucket coverage is a deferred follow-up, not folded into this patch.
+
+### Medium — decision needed (Angelus) — RESOLVED, patched
+
+- **[Acceptance Auditor + Edge Case Hunter] `xp_ledger_reason` has no writer anywhere in the real
+  app.** `buildSaveBody` never sets it; Task 4 deliberately shipped a read-only list with "no editing
+  affordance" per its own subtask text — which the story's OWN Dev Notes contradict elsewhere
+  ("Task 4's UI work is expected to surface a simple 'this is a correction' checkbox"). Net effect:
+  every ledger row the real app wrote had `reason` empty, so the one field that would distinguish a
+  downtime-driven purchase from an ad-hoc ST correction (like Majesty-4) was unreachable in
+  production. **Angelus's call: add a minimal UI affordance now.** Implemented: a small optional text
+  input (`#cd-xp-reason`, `.sh-edit-input` styled, scoped width in `.cd-header-actions`) next to
+  "Save to DB" in the admin character-detail header, shown/hidden in step with the save button
+  (both edit-mode entry points — `cd-edit-toggle`'s click handler and the global `editFromSheet`).
+  `saveCharToApi()` reads and trims it fresh on every save, includes it as `xp_ledger_reason` on the
+  PRIMARY character's save body only (deliberately NOT on cascade partner saves — a reason belongs to
+  the character whose XP the ST is annotating, not to unrelated partners re-saved for domain-sharing
+  reasons), and clears the input after a successful save so it can never leak onto a later, unrelated
+  save. Not visually verified in a browser (same disclosed constraint as the rest of this story's UI
+  work) — flag alongside the CSS fix above for the same deployed-environment look.
+
+### Low — patched
+
+- **[Blind Hunter] `patchXpLedger` bumped its generation counter BEFORE its own null/`_id` guard** —
+  a no-op call could cancel a legitimate in-flight fetch. **Fixed**: guard now runs first.
+- **[Edge Case Hunter] `r.delta` was interpolated into the row HTML unescaped**, the one field in the
+  row builder not passed through `esc()`. Not reachable via the write path in this diff (delta is
+  always numeric there), but the collection has no schema enforcement, so a future writer could
+  change that. **Fixed**: escaped, and a `" XP"` unit suffix added (closes a separate Low — "no unit,
+  reads as dots" — as a side effect of the same edit).
+- **[Acceptance Auditor + Edge Case Hunter] Test teardown deleted the WHOLE `xp_ledger` collection**
+  (`{character_id: {$exists: true}}` matches every document), not just this suite's own rows; and a
+  test comment claimed a name-restore step was needed "for the cleanup regex to keep matching," which
+  was false — the regex already matched the renamed document. **Fixed both**: `afterAll` now scopes
+  to this suite's own `character_id`, and the unnecessary restore step (with its false justification)
+  was removed.
+- **[Edge Case Hunter] Rows from one save share an identical `at` timestamp**, so intra-save ordering
+  was unspecified and the "newest first" test could not actually detect a broken sort (ties satisfy
+  `[...times].sort().reverse()` trivially). **Fixed**: added `_id: -1` as a secondary sort key on the
+  GET route.
+
+### Dismissed with evidence
+
+- **[Edge Case Hunter, Low] "The reason-persistence test asserts on the response body, not the
+  persisted document, and the outcome depends on `returnDocument`."** Checked: the route uses
+  `returnDocument: 'after'`, so `res.body` IS the true persisted state — the assertion is sound as
+  written. No change.
+- **[Edge Case Hunter, Low] "`apiGet` is called in `sheet.js` with no import visible in the diff."**
+  Checked: `apiGet` is imported at `sheet.js:46`, pre-existing (already used by `patchOfficeMerits`
+  directly above the new code). Not a gap.
+- **[Edge Case Hunter, Low] "The slot-emission condition and the `patchXpLedger` call are gated
+  separately, and could diverge."** Checked: both are the same `editMode` local variable, captured
+  once at the top of `renderSheet` — they cannot diverge within a single render call.
+
+### Deferred (real, not blocking, logged to `deferred-work.md`)
+
+No index on `xp_ledger.character_id` (avoided touching `server/index.js`, which carries an unrelated
+uncommitted change from a concurrent session), the pre-fetch/write TOCTOU race (mirrors this route's
+own pre-existing no-locking behaviour, low probability at this team's scale), partial XP-bucket
+coverage (named explicitly in the UI now, full coverage is its own follow-up), non-integer `.xp`
+guarding, and test order-dependence in the API suite. Full detail in `deferred-work.md`'s new entry.
+
+### Final regression
+
+136/136 passing across 8 files (up from 128 — 8 new tests added during review: 6 unit covering the
+two High fixes' exact failure shapes, 1 integration proving the insert-failure guarantee, 1
+integration proving the merit-key fix through the real HTTP path). Zero skipped, mongod genuinely
+reachable. Both High-severity fixes prove-discriminated by `git stash`/re-run/`git stash pop` against
+the pre-fix code.
