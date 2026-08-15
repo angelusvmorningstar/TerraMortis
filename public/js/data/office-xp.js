@@ -1,0 +1,299 @@
+/**
+ * Derived office XP (Epic OXP, story oxp.2).
+ *
+ * Pure functions only. Everything here takes already-fetched data as an
+ * argument and derives a number from it — no fetch, no cache, no DOM, no
+ * clock read. That is deliberately the same shape as `public/js/editor/xp.js`
+ * (`xpEarned`/`xpSpent`/`xpLeft` take the character object and derive), rather
+ * than `public/js/data/game-xp.js`'s shape (which is the fetch-and-cache half
+ * of the same pattern). The fetch-and-cache half for offices is not written
+ * yet on purpose: nothing consumes these numbers until oxp.6 (purchase
+ * markers) or oxp.7 (sheet section), and each will shape its own read pattern
+ * from its own real requirements.
+ *
+ * THE RULING THIS IMPLEMENTS (do not re-derive it here — it is settled):
+ * `content/rules/office-powers.md` §"Office XP", Angelus 2026-08-11.
+ *
+ *   - An office accrues 1 XP per month from creation, whether or not anyone
+ *     holds it. A vacant seat still earns. The pool belongs to the OFFICE,
+ *     never to the holder, and never mixes with personal XP in either
+ *     direction.
+ *   - Spend is 1 XP per dot, at "the standard merit rate", for the fixed merit
+ *     suite (`office_merit_dots`) and for the graduated manoeuvre ladder
+ *     (`office_manoeuvre_ranks`) alike.
+ *   - The balance is total accrued since creation minus everything ever spent,
+ *     including manoeuvre spend that a handover has since destroyed. This
+ *     module reads whatever is stored today; it does not implement the
+ *     handover reset (that is oxp.5).
+ *
+ * Nothing here is ever stored. Office XP is a derived value like health, vitae
+ * and character XP, computed at render time from `created_at` plus the two
+ * purchase collections, per this project's standing "derived stats are never
+ * stored" rule.
+ */
+
+/**
+ * The flat accrual rate from the ruling: one point per calendar month.
+ * Named rather than inlined so a future rate change is one edit, and so a
+ * reader can see the multiplication is a rate and not a coincidence.
+ */
+export const OFFICE_XP_PER_MONTH = 1;
+
+/**
+ * Pull the calendar year and month out of a value that is either an ISO date
+ * string ('2026-02-21' or '2026-02-21T09:30:00.000Z') or a Date object.
+ *
+ * A Date is read with LOCAL getters, because a Date used as "now" means the
+ * reader's wall clock. A string is read by its own characters and never goes
+ * through Date parsing at all, so no timezone can shift '2026-02-01' back into
+ * January on a machine west of UTC.
+ *
+ * Throws on anything unparseable. That is deliberate: the ISO pattern on
+ * `created_at` in `server/schemas/office_seat.schema.js` exists precisely
+ * because a malformed date reaching this arithmetic would otherwise produce a
+ * wrong-but-plausible number rather than a visible failure.
+ *
+ * @param {string|Date} value
+ * @param {string} label - which argument this is, for the error message
+ * @returns {{ year: number, month: number }} month is 1-12
+ */
+function yearMonthOf(value, label) {
+  if (value instanceof Date) {
+    if (Number.isNaN(value.getTime())) {
+      throw new Error(`office-xp: ${label} is an Invalid Date`);
+    }
+    return { year: value.getFullYear(), month: value.getMonth() + 1 };
+  }
+
+  if (typeof value === 'string') {
+    // Anchored at both ends and day-bounded, matching office_seat.schema.js's
+    // own `isoDate` pattern exactly (Codex review, oxp.2: the previous
+    // start-anchored-only pattern accepted a valid-looking prefix and ignored
+    // any garbage after it, e.g. '2026-02-99' or '2026-02-21junk', silently
+    // deriving a plausible month figure from a value that should have thrown).
+    const m = /^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])([T ][0-9:.+-Z]+)?$/.exec(value);
+    if (m) return { year: Number(value.slice(0, 4)), month: Number(m[1]) };
+  }
+
+  throw new Error(
+    `office-xp: ${label} '${value}' is not an ISO date (YYYY-MM-DD) or a Date. ` +
+    'Refusing to derive a months-since-creation figure from it.'
+  );
+}
+
+/**
+ * How many calendar months a seat has been accruing for, INCLUSIVE of the
+ * month it was created in (AC1).
+ *
+ * This is a named-month count, not a day difference and not a 30-day bucket.
+ * Day-of-month never enters it. The ruling's own worked example is the pin:
+ * a seat created February 2026, read in August 2026, has accrued 7 — which is
+ * what `(nowYear*12 + nowMonth) - (createdYear*12 + createdMonth) + 1` gives,
+ * on any day of August. A day-based implementation would give 5 or 6 for most
+ * of that month and is the easy wrong answer here.
+ *
+ * `now` is a REQUIRED parameter and the clock is never read inside this
+ * module, so every result is deterministic and testable. That matches the
+ * convention `server/scripts/seed-office-seats.mjs` already set for this
+ * epic's calendar arithmetic.
+ *
+ * @param {string|Date} createdAt - the seat's own `created_at`
+ * @param {string|Date} now - caller-supplied evaluation date
+ * @returns {number} months accrued, never negative
+ */
+export function officeMonthsAccrued(createdAt, now) {
+  const from = yearMonthOf(createdAt, 'created_at');
+  const to = yearMonthOf(now, 'now');
+
+  const months = (to.year * 12 + to.month) - (from.year * 12 + from.month) + 1;
+  // A "now" earlier than the creation month means the office does not exist
+  // yet, which is zero accrual — never a negative balance.
+  return Math.max(0, months);
+}
+
+/**
+ * Total XP a seat has EARNED since it was created (AC2).
+ *
+ * Reads `created_at` and nothing else. It deliberately does not look at
+ * `holder_id`: a vacant seat accrues exactly as a filled one does, because the
+ * pool belongs to the office. "A long-dormant office is a prize" in the
+ * ruling's own words — whoever is appointed to it inherits every point banked
+ * since creation.
+ *
+ * @param {{ created_at: string }} seat - one `office_seats` document
+ * @param {string|Date} now - caller-supplied evaluation date
+ * @returns {number}
+ */
+export function officeXpEarned(seat, now) {
+  return officeMonthsAccrued(seat.created_at, now) * OFFICE_XP_PER_MONTH;
+}
+
+/**
+ * Total XP SPENT against one office category (AC3).
+ *
+ * Both purchase collections are counted at the flat 1 XP per dot the ruling
+ * sets: every merit dot in `office_merit_dots`, plus the graduated manoeuvre
+ * ladder's current rank in `office_manoeuvre_ranks` (rank 3 means ranks 1, 2
+ * and 3 are bought, so the rank IS the dot count).
+ *
+ * A missing document counts as 0, never as an error. That is not defensive
+ * padding: it is the sibling routes' own established convention. `GET
+ * /api/office_merit_dots` and `GET /api/office_manoeuvre_rank` both omit a
+ * never-purchased category from the response entirely, and as of 2026-08-13
+ * that is MOST offices — office_merit_dots holds two documents and
+ * office_manoeuvre_ranks holds none at all.
+ *
+ * Two input shapes are accepted for each argument, so no caller has to reshape
+ * first: the API response shape (`{ [meritName]: dots }` and a bare rank
+ * number) and the raw MongoDB document shape (`{ dots: {...} }` and
+ * `{ rank: n }`). They are unambiguous — a raw document's `dots` is an object,
+ * where an API-shaped map's values are all numbers.
+ *
+ * NOTE ON SCOPE, UPDATED BY oxp.11 (2026-08-13): this used to be unavoidably a
+ * CATEGORY total, because both purchase collections were keyed by
+ * `office_category` alone, one document per office, with no seat reference
+ * anywhere. oxp.11 re-keyed both collections by SEAT, so that limitation is
+ * gone. A caller should now pass the SEAT's own purchase documents — the ones
+ * stored under that seat's `office_seats._id` — which after oxp.11 is the only
+ * shape that exists. The function itself is unchanged: it derives a total from
+ * whatever documents it is handed, and it never cared which key they came from.
+ *
+ * @param {object|undefined|null} meritDotsDoc
+ * @param {number|object|undefined|null} manoeuvreRankDoc
+ * @returns {number}
+ */
+export function officeXpSpentForCategory(meritDotsDoc, manoeuvreRankDoc) {
+  const dots = (meritDotsDoc && typeof meritDotsDoc.dots === 'object' && meritDotsDoc.dots !== null)
+    ? meritDotsDoc.dots
+    : meritDotsDoc;
+
+  let meritXp = 0;
+  if (dots && typeof dots === 'object') {
+    for (const value of Object.values(dots)) {
+      // A non-numeric value is skipped rather than coerced. `Number(null)` is
+      // 0 and `Number('three')` is NaN; the first is a lie and the second
+      // poisons the whole total.
+      if (typeof value === 'number' && Number.isFinite(value)) meritXp += value;
+    }
+  }
+
+  let rankXp = 0;
+  if (typeof manoeuvreRankDoc === 'number' && Number.isFinite(manoeuvreRankDoc)) {
+    rankXp = manoeuvreRankDoc;
+  } else if (manoeuvreRankDoc && typeof manoeuvreRankDoc.rank === 'number' && Number.isFinite(manoeuvreRankDoc.rank)) {
+    rankXp = manoeuvreRankDoc.rank;
+    // oxp.6: fold in the destroyed-XP counter oxp.5's handover reset writes to
+    // the same document. Spend is DERIVED from the current rank, so resetting
+    // it without this would silently REFUND the destroyed XP the moment any
+    // balance renders — the precise opposite of office-powers.md's ruling
+    // ("the running balance is total accrued since creation, minus everything
+    // ever spent, INCLUDING THE SPEND THAT HAS SINCE BEEN LOST"). Only on the
+    // raw-document branch: a bare rank number has no way to also carry a
+    // destroyed count, so that branch above is deliberately untouched.
+    if (typeof manoeuvreRankDoc.manoeuvre_xp_destroyed === 'number' && Number.isFinite(manoeuvreRankDoc.manoeuvre_xp_destroyed)) {
+      rankXp += manoeuvreRankDoc.manoeuvre_xp_destroyed;
+    }
+  }
+
+  return meritXp + rankXp;
+}
+
+/**
+ * Per office category, can spend be attributed to an INDIVIDUAL seat? (AC4)
+ *
+ * True only when the category has exactly one seat document. Two or more and
+ * the answer is false.
+ *
+ * WHY THIS EXISTED, AND WHY IT IS NOW OBSOLETE IN SUBSTANCE (oxp.11,
+ * 2026-08-13). When oxp.2 wrote this, `office_merit_dots` and
+ * `office_manoeuvre_ranks` were keyed by category alone: there was no field
+ * anywhere saying which of an office's seats a purchase belonged to, so
+ * Primogen (2 seats) and Socialite (2 seats) genuinely were unattributable.
+ * oxp.11 migrated both collections to seat-keying and closed that gap. Spend
+ * IS attributable per seat now, for every office.
+ *
+ * The flag is nevertheless RETAINED, unchanged, for two reasons. It fails
+ * SAFE: an over-cautious `false` makes a caller say "cannot tell" when it
+ * could in fact tell, which is a wasted opportunity and never a wrong number.
+ * And it has no consumer yet — nothing reads it. Retiring it belongs with the
+ * first real consumer, oxp.6 (purchase markers) or oxp.7 (sheet section),
+ * which will know what they want rendered in its place. Flipping its behaviour
+ * here would also rewrite oxp.2's own AC8 tests, which assert that Primogen
+ * and Socialite resolve `spendKnown: false`, from inside a different story.
+ *
+ * Vacancy is irrelevant. Two seats create the same structural ambiguity
+ * whether or not anyone is sitting in them, so this counts SEATS and never
+ * looks at `holder_id`.
+ *
+ * This is deliberately a first-class value rather than something a caller
+ * infers. "Spend is 0" and "we cannot tell whose spend this is" are different
+ * facts that happen to look identical in a rendered number, and conflating
+ * them is exactly the bug oxp.2 was scoped around.
+ *
+ * @param {Array<{ office_category: string }>} allSeats - the full seats array
+ * @returns {{ [category: string]: boolean }}
+ */
+export function officeSpendKnownByCategory(allSeats) {
+  const counts = new Map();
+  for (const s of Array.isArray(allSeats) ? allSeats : []) {
+    const cat = s && s.office_category;
+    if (!cat) continue;
+    counts.set(cat, (counts.get(cat) || 0) + 1);
+  }
+
+  const out = {};
+  for (const [cat, n] of counts) out[cat] = n === 1;
+  return out;
+}
+
+/**
+ * The combined per-seat XP position (AC5).
+ *
+ * @param {object} seat - one `office_seats` document
+ * @param {Array<object>} allSeats - every seat document, so the seat count for
+ *   this seat's category can be established (see `officeSpendKnownByCategory`).
+ *   `seat` should be one of `allSeats`; if it genuinely is not, `spendKnown`
+ *   is forced `false` rather than trusting a possibly-incomplete count.
+ * @param {object|undefined|null} meritDotsDoc - this SEAT's merit dots. Before
+ *   oxp.11 the only thing that existed was the category's shared document;
+ *   after it, purchase documents are keyed by `office_seats._id` and this seat's
+ *   own document is what a caller should pass.
+ * @param {number|object|undefined|null} manoeuvreRankDoc - this SEAT's rank
+ * @param {string|Date} now - caller-supplied evaluation date
+ * @returns {{ earned: number, spent: number, left: number, spendKnown: boolean }}
+ *
+ * `earned` is always this seat's own, exact figure: it derives from this
+ * seat's `created_at` and nothing else, so two seats in the same office
+ * created in different months correctly differ.
+ *
+ * `spent` and `left` are always real numbers so no caller crashes on
+ * undefined. `spendKnown` is retained from oxp.2 and still reports `false` for
+ * a multi-seat office, even though oxp.11's seat-keying means spend genuinely
+ * IS attributable now. It fails safe in that direction, it has no consumer, and
+ * its retirement belongs with the first one (oxp.6 or oxp.7). Never simplify it
+ * away by defaulting it to true.
+ *
+ * `left` is allowed to go negative. Both purchase collections are direct
+ * ST-set state with no budget check (oxp.9 would add one), so an office can
+ * genuinely show more purchased than earned; clamping to 0 would hide that.
+ *
+ * `spendKnown` is forced `false` — never inferred from `allSeats` alone — if
+ * `seat` itself cannot be found in `allSeats` (Codex review, oxp.2: a caller
+ * passing a stale or filtered `allSeats` that omits the very seat being
+ * evaluated made a genuinely multi-seat category undercount to 1 and report
+ * `spendKnown: true`, exactly the false-confidence outcome this flag exists
+ * to prevent). The failure direction is deliberately one-sided: an
+ * inconsistent call can only make this MORE cautious, never falsely
+ * confident, so a well-formed call (`seat` really is one of `allSeats`) is
+ * completely unaffected.
+ */
+export function officeSeatXp(seat, allSeats, meritDotsDoc, manoeuvreRankDoc, now) {
+  const earned = officeXpEarned(seat, now);
+  const spent = officeXpSpentForCategory(meritDotsDoc, manoeuvreRankDoc);
+  const seatIsIncluded = Array.isArray(allSeats) && allSeats.some(s =>
+    s === seat || (seat && s && seat._id != null && s._id != null && String(seat._id) === String(s._id))
+  );
+  const spendKnown = seatIsIncluded && officeSpendKnownByCategory(allSeats)[seat.office_category] === true;
+
+  return { earned, spent, left: earned - spent, spendKnown };
+}

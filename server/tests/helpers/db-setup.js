@@ -31,6 +31,30 @@ export async function teardownDb() {
 }
 
 /**
+ * issue-1143 (AC5): non-throwing connectivity probe, for suites that want a
+ * clean vitest skip rather than a failed beforeAll + a second erroring
+ * afterAll cleanup. setupDb() itself keeps its existing throw-on-failure
+ * contract unchanged (other suites already depend on that shape) — this is
+ * a separate, additive helper. Usage:
+ *
+ *   const dbAvailable = await isDbAvailable();
+ *   describe.skipIf(!dbAvailable)('suite name', () => {
+ *     beforeAll(async () => { await setupDb(); ... });
+ *     ...
+ *   });
+ *
+ * The top-level `await` works because vitest test files are ESM modules.
+ */
+export async function isDbAvailable() {
+  try {
+    await setupDb();
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Get a few character IDs for testing player filtering.
  *
  * Against tm_suite_test (the default under vitest), the characters collection

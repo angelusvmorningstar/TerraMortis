@@ -44,6 +44,13 @@ export function getCollection(name) {
   return getDb().collection(name);
 }
 
+// issue-1143: needed to start a session for multi-document transactions
+// (office-actions.js's atomic budget-claim + dedupe + write).
+export function getClient() {
+  if (!client) throw new Error('MongoDB client not connected — call connectDb() first');
+  return client;
+}
+
 // Returns true if the DB connection is alive
 export function isConnected() {
   try {

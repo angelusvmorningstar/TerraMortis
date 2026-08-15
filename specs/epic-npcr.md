@@ -24,6 +24,18 @@ inputDocuments:
 
 # Epic NPCR: NPC Register and Relationships
 
+> **PARTIALLY SUPERSEDED 2026-08-15 by DBO-8** (`specs/epic-dbo-database-ownership.md`, story
+> `specs/stories/dbo-8-touchstone-mechanic-identity-split.md`). Everything in this epic that links a
+> character's touchstone slot to a `relationships` edge is dead: DBO-8 removed `touchstone_meta` from
+> `relationship.schema.js` and both `touchstone_edge_ids` (this file's shape) and the per-item
+> `edge_id` (the shape NPCR.4 r2 actually shipped) from `character.schema.js`. The affected parts are
+> **FR7**, the touchstone clause of **FR8**, **NPCR.4** and **NPCR.5**, each marked in place below.
+> Nothing else in this epic is affected: `'touchstone'` remains a valid `KIND_ENUM` value (restored
+> 2026-08-15, see `relationship.schema.js`'s header), so a `kind='touchstone'` edge is still an
+> ordinary relationship, it simply is not joined to a touchstone slot by any id. Whether the
+> mechanic/identity split should ever be rebuilt in some other shape is still open, and would need a
+> fresh story written against whatever shape is chosen, not these acceptance criteria.
+
 ## Goal
 
 Replace the disconnected NPC data surfaces (basic embedded admin panel, character-sheet touchstone text fields, DT form hardcoded three-way choice) with a coherent graph of typed relationships between PCs and NPCs, backed by a first-class admin NPC Register and a new player-facing Relationships tab. Unblock the pending DTOSL stories and gate-open downtime story work that has been waiting on real NPC data.
@@ -93,8 +105,8 @@ Relationship web visualisation (Cytoscape), timeline view per edge, NPC-NPC grap
 - FR4: ST can create, edit, and retire relationship edges from any NPC's detail pane.
 - FR5: A relationship edge stores: endpoints (PC or NPC), kind (closed enum), direction, optional disposition, freeform state, `st_hidden` boolean, status, history log.
 - FR6: Append-only history log records every change to a relationship edge, with timestamp, actor, and change summary.
-- FR7: The character sheet touchstone field is a picker backed by relationships where `kind = 'touchstone'` (Shape B bridge: character holds IDs, relationships hold records).
-- FR8: Existing `linked_character_ids`, `is_correspondent`, and touchstone text migrate cleanly to relationship records with no data loss.
+- ~~FR7: The character sheet touchstone field is a picker backed by relationships where `kind = 'touchstone'` (Shape B bridge: character holds IDs, relationships hold records).~~ **SUPERSEDED 2026-08-15 by DBO-8**. The id link the Shape B bridge depends on no longer exists in either schema. Touchstones are free text on `characters.touchstones[]` and stay that way.
+- FR8: Existing `linked_character_ids`, `is_correspondent`, and touchstone text migrate cleanly to relationship records with no data loss. **The touchstone half is SUPERSEDED 2026-08-15 by DBO-8**; the `linked_character_ids` / `is_correspondent` half is unaffected in principle, though NPCR.5's own r3 audit found almost nothing left to migrate.
 
 **Tier 2 — Player Agency**
 - FR9: Each player has a Relationships tab under the Player section of the unified index.html, showing only edges involving their PC.
@@ -158,7 +170,7 @@ Relationship web visualisation (Cytoscape), timeline view per edge, NPC-NPC grap
 | FR4 | 1 | Edge editor on NPC detail pane |
 | FR5 | 1 | Edge schema |
 | FR6 | 1 | Edge history log |
-| FR7 | 1 | Character-sheet touchstone picker |
+| ~~FR7~~ | 1 | ~~Character-sheet touchstone picker~~, SUPERSEDED 2026-08-15 (DBO-8) |
 | FR8 | 1 | Data migration |
 | FR9 | 2 | Player Relationships tab |
 | FR10 | 2 | PC-to-NPC edge creation and quick-add |
@@ -316,7 +328,22 @@ So that players can signal concerns about NPCs (via NPCR.11) and I can resolve t
 
 ---
 
-### NPCR.4: Character-sheet touchstone picker (Shape B bridge)
+### ~~NPCR.4: Character-sheet touchstone picker (Shape B bridge)~~ - SUPERSEDED
+
+**Superseded by:** DBO-8 (2026-08-14, delivered and merged to `main` 2026-08-15). Every acceptance
+criterion below is written against fields that no longer exist. DBO-8 retired the whole edge-linking
+mechanism outright, on Angelus's call, after a live query found **0 of 44** touchstone entries across
+30 characters carrying an `edge_id` and the only `kind='touchstone'` edge in the database retired and
+orphaned: `touchstone_meta` is gone from `relationship.schema.js`, and `character.schema.js`'s
+`touchstones[]` items are now `{humanity, name, desc?}` with `additionalProperties: false`, so neither
+`touchstone_edge_ids` (the shape specified here) nor the per-item `edge_id` (the shape NPCR.4 r2
+actually shipped) can be written at all. The story file
+`specs/stories/npcr.4.character-sheet-touchstone-picker.story.md` is closed as superseded to match.
+
+Kept here as the historical record, not as work. What survives the retirement is worth naming: the
+V:tR anchor rules this story established (7 for Ventrue, 6 otherwise, descending by one per grant,
+capped at six touchstones) are still live in `character.schema.js` and the sheet, and were not part of
+what DBO-8 removed. Only the NPC link died.
 
 As an ST (player UI lands in NPCR.8),
 I want character-sheet touchstone rows to pick real NPC records with the Humanity rating preserved,
@@ -347,7 +374,17 @@ So that touchstones stop being disconnected text and become part of the graph.
 
 ---
 
-### NPCR.5: Data migration — four legacy shapes to relationships
+### ~~NPCR.5: Data migration — four legacy shapes to relationships~~ - SUPERSEDED
+
+**Superseded by:** DBO-8 (2026-08-14, merged 2026-08-15), on top of its own 2026-04-24 deferral. The
+migration's touchstone step writes exactly the two fields DBO-8 deleted (`touchstone_meta.humanity`
+on the edge, `touchstone_edge_ids` here / per-item `edge_id` in the r2 story file), so its deferral
+trigger can never usefully fire as written. The other shapes are not resurrected by this: NPCR.5's own
+r3 pre-migration audit found `character.npcs[]` used by **0 characters**, `is_correspondent: true` on
+**0 NPCs**, and `linked_character_ids` on **1 NPC** (one edge), which is why it was deferred in the
+first place. The story file `specs/stories/npcr.5.data-migration.story.md` is closed as superseded to
+match. If a bulk migration is ever wanted, it needs a fresh story written against the shape the data
+actually has.
 
 As the ST team,
 I want a one-time migration script that converts all legacy NPC-shaped data into the new relationships model without data loss,

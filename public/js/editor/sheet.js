@@ -3,7 +3,7 @@
  * Extracted from tm_editor.html lines 315–1310.
  */
 import state from '../data/state.js';
-import { CLAN_DISCS, BLOODLINE_DISCS, CORE_DISCS, RITUAL_DISCS, CLAN_ATTR_OPTIONS, ATTR_CATS, PRI_LABELS, PRI_BUDGETS, SKILL_PRI_BUDGETS, SKILLS_MENTAL, SKILLS_PHYSICAL, SKILLS_SOCIAL, SKILL_CATS, CLANS, COVENANTS, MASKS_DIRGES, COURT_TITLES, BLOODLINE_CLANS, BANE_LIST, INFLUENCE_SPHERES, ALL_SKILLS, CITY_SVG, OTHER_SVG, BP_SVG, HUM_SVG, HEALTH_SVG, WP_SVG, STAT_SVG, STYLE_TAGS, DOMAIN_MERIT_TYPES } from '../data/constants.js';
+import { CLAN_DISCS, BLOODLINE_DISCS, CORE_DISCS, RITUAL_DISCS, CLAN_ATTR_OPTIONS, ATTR_CATS, PRI_LABELS, PRI_BUDGETS, SKILL_PRI_BUDGETS, SKILLS_MENTAL, SKILLS_PHYSICAL, SKILLS_SOCIAL, SKILL_CATS, CLANS, COVENANTS, MASKS_DIRGES, COURT_TITLES, BLOODLINE_CLANS, BANE_LIST, INFLUENCE_SPHERES, ALL_SKILLS, CITY_SVG, OTHER_SVG, BP_SVG, HUM_SVG, HEALTH_SVG, WP_SVG, STAT_SVG, STYLE_TAGS, DOMAIN_MERIT_TYPES, NON_COMBAT_STYLES } from '../data/constants.js';
 import { ICONS } from '../data/icons.js';
 import { CLAN_ICON_KEY, COV_ICON_KEY, clanIcon, covIcon, shDots, shDotsWithBonus, esc, formatSpecs, hasAoE, displayName, cardName, dropdownName, sortName, getWillpower, redactPlayer, redactCharName, isRedactMode, resolveSharedWithMember } from '../data/helpers.js';
 import { getAttrVal, getAttrBonus, getSkillObj, calcCityStatus, titleStatusBonus, regentAmienceBonus, getRegentTerritoryFor, isInClanDisc, riteCost } from '../data/accessors.js';
@@ -16,7 +16,7 @@ import { calcHealth, calcWillpowerMax, calcSize, calcSpeed, calcDefence } from '
 //
 // wornArmourCount drives the >1 worn armour editor hint (ADR-006 D2 + Concern
 // #8, wording locked).
-import { defenceForDisplay, wornArmourCount, effectiveAvailability } from '../data/equipment-derivation.js';
+import { defenceForDisplay, wornArmourCount, effectiveAvailability, isCombatGearWeaponShaped, isCombatGearArmourShaped, equipmentLocationLabel, equipmentContainerLabel } from '../data/equipment-derivation.js';
 import { xpToDots, xpEarned, xpSpent, xpLeft, xpStarting, xpHumanityDrop, xpOrdeals, xpGame, xpPT5, xpSpentAttrs, xpSpentSkills, xpSpentMerits, xpSpentPowers, xpSpentSpecial, setDevotionsDB, meritBdRow, meritRating } from './xp.js';
 // OATH-A (#1111): the pledge editor needs to know whether a merit is a
 // Swear By oath and what its requirement resolves to. edit-domain.js owns
@@ -39,6 +39,13 @@ import { getRulesByCategory, getRuleByKey } from '../data/loader.js';
 import { applyDerivedMerits, getPoolTotal, getPoolUsed, getPoolsForCategory, mciPoolTotal, getMCIPoolUsed } from './mci.js';
 import { domMeritTotal, domMeritAccess, domMeritContrib, domMeritShareable, calcTotalInfluence, influenceBreakdown, calcContactsInfluence, calcMeritInfluence, hasHoneyWithVinegar, hasViralMythology, vmUsed, ssjHerdBonus, flockHerdBonus, hasLorekeeper, lorekeeperUsed, hasOHM, ohmUsed, hasInvested, investedPool, investedUsed, effectiveInvictusStatus, attacheBonusDots, meritFreeSum, syncMeritRating, meritEffectiveRating, domKey } from './domain.js';
 import { auditCharacter } from '../data/audit.js';
+// oxp.7: the read-only Office Merits section's own data. apiGet is not
+// otherwise used in this file (every other section reads off the character
+// object synchronously) — office merit dots are the one thing on this sheet
+// that live in a separate seat-keyed collection, fetched over the API.
+import { apiGet } from '../data/api.js';
+import { OFFICE_DATA, MERIT_DOT_CAPS } from '../tabs/office-data.js';
+import { resolveHeldSeat } from '../data/office-seat-resolve.js';
 // Issue #162 (2026-05-08): shEnsureTouchstoneData import dropped — the
 // Touchstone editor no longer needs the NPC list (DB-relational picker
 // removed; free-text Name + Description only).
@@ -388,10 +395,9 @@ export function toggleDisc(id) {
   row.classList.toggle('open', !isOpen); drawer.classList.toggle('visible', !isOpen);
 }
 /**
- * NPCR.4 touchstone section — character.touchstones[] is authoritative (cap 6).
- * Slot rating descends from the clan anchor (Ventrue=7, else=6). Each entry
- * may carry an optional edge_id linking to a relationships doc (kind='touchstone').
- * The server enriches each item with _npc_name when linked.
+ * NPCR.4 touchstone section — character.touchstones[] is authoritative (cap 6),
+ * free-text only (DBO-8, 2026-08-14): {humanity, name, desc}.
+ * Slot rating descends from the clan anchor (Ventrue=7, else=6).
  */
 export function renderTouchstones(c, editMode) {
   const ts = Array.isArray(c.touchstones) ? c.touchstones : [];
@@ -403,7 +409,7 @@ export function renderTouchstones(c, editMode) {
     if (sorted.length === 0) return '';
     const rows = sorted.map(t => {
       const att = hum >= t.humanity;
-      const name = t._npc_name || t.name || '(unnamed)';
+      const name = t.name || '(unnamed)';
       return '<div class="exp-ts-row"><span class="exp-ts-hum">Humanity ' + t.humanity
         + ' — <span class="exp-ts-state ' + (att ? 'attached' : 'detached') + '">' + (att ? 'Attached' : 'Detached') + '</span></span>'
         + '<span class="exp-ts-name">' + esc(name)
@@ -426,14 +432,13 @@ export function renderTouchstones(c, editMode) {
   sorted.forEach(t => {
     const actualIdx = ts.indexOf(t);
     const att = hum >= t.humanity;
-    const name = t._npc_name || t.name || '(unnamed)';
+    const name = t.name || '(unnamed)';
     const isEditing = picker && picker.mode === 'edit' && picker.index === actualIdx;
     h += '<div class="sh-ts-slot">';
     h += '<div class="sh-ts-slot-head"><span class="sh-ts-slot-hum">Humanity ' + t.humanity
       + '</span> · <span class="sh-ts-slot-att" style="color:'
       + (att ? 'rgba(140,200,140,.9)' : 'var(--txt3)') + '">'
       + (att ? 'Attached' : 'Detached') + '</span>'
-      + (t.edge_id ? ' <span class="sh-ts-slot-kind">character</span>' : ' <span class="sh-ts-slot-kind dim">object</span>')
       + '</div>';
     h += '<div class="sh-ts-slot-body">';
     if (isEditing) {
@@ -475,13 +480,12 @@ function renderTouchstoneAddForm(c, anchor, existingCount) {
   // per the broader NPC-suppression policy (Piatra 2026-05-06). The
   // 'is_character' branch (Pick existing NPC / Create new NPC) was a
   // DB-relational picker that POSTed to /api/relationships to create an
-  // edge — that endpoint flow no longer round-trips cleanly under the
+  // edge - that endpoint flow no longer round-trips cleanly under the
   // suppression sweep, returning 4xx and blocking sheet save. Touchstone
-  // is now free-text only (Name + optional Description), categorically a
-  // typed-string input — same shape dt-form.18 used for the Personal
-  // Story person field. Legacy touchstones carrying `edge_id` continue
-  // to render and edit by name + desc; their edges sit dormant in the
-  // relationships collection (silent-leave per A1 precedent).
+  // is free-text only (Name + optional Description), categorically a
+  // typed-string input - same shape dt-form.18 used for the Personal
+  // Story person field. DBO-8 (2026-08-14) retired the dormant edge_id
+  // link entirely; every touchstone is this shape.
   let h = '<div class="sh-ts-picker">';
   h += '<div class="sh-ts-picker-head">New touchstone · Humanity ' + humanity + '</div>';
   h += '<label class="sh-ts-picker-field"><span>Name *</span>'
@@ -1749,6 +1753,116 @@ export function shRenderDomainMerits(c, editMode) {
   h += '</div></div>'; return h;
 }
 
+// oxp.7: read-only Office Merits section, mirroring status.js's own
+// appendOfficeActionsLog pattern (reserve a slot synchronously, patch it from
+// a separate un-awaited async function) rather than shRenderDomainMerits's
+// own synchronous-because-c.merits-is-local shape — office merit dots live in
+// a seat-keyed collection fetched over the API, not read off `c` directly.
+let _officeMeritsGen = 0;
+
+/**
+ * oxp.7 AC1/AC3/AC6: the synchronous shell. Returns an EMPTY, invisible
+ * placeholder (no `sh-sec`/title chrome at all) when this character could
+ * possibly hold a real office merit suite; returns '' outright when they
+ * provably cannot (no court_category, or Administrator, which has no
+ * OFFICE_DATA entry yet — oxp.8, not app code).
+ *
+ * The placeholder carries NO visible content of its own specifically so
+ * "renders nothing at all" (AC3) is genuinely true for the unconfirmed-seat
+ * case too — that case cannot be known synchronously (seats/dots are fetched
+ * async by `patchOfficeMerits`), so the section title/wrapper is never
+ * written until a CONFIRMED seat with merits is actually found; an
+ * unconfirmed match leaves this placeholder permanently empty rather than
+ * flashing a title that then has nothing under it. AC3's literal "return ''"
+ * wording is satisfied exactly by the two cases this function itself can
+ * decide synchronously (no `court_category`, no `OFFICE_DATA` entry) — the
+ * remaining AC3 cases (unconfirmed seat, failed fetch, zero-merit office)
+ * are visually-equivalent-but-mechanically-different: this function still
+ * returns the reserved (invisible) placeholder markup, and
+ * `patchOfficeMerits` simply never fills it. Codex review, oxp.7, flagged
+ * this distinction as worth spelling out explicitly rather than leaving the
+ * two contracts to read as identical.
+ *
+ * Never editable — office-tab.js stays the one write path for
+ * `office_merit_dots` (see this story's own "What this story is NOT"), so
+ * unlike `shRenderDomainMerits` there is no `editMode` parameter at all.
+ */
+export function shRenderOfficeMerits(c) {
+  if (!c || !c.court_category || !OFFICE_DATA[c.court_category]) return '';
+  return '<div data-office-merits-char="' + esc(String(c._id)) + '"></div>';
+}
+
+/**
+ * oxp.7 AC7: fetches seats + office merit dots, resolves this character's
+ * OWN confirmed seat (never a guess — see `resolveHeldSeat`'s own doc
+ * comment), and fills in every placeholder `shRenderOfficeMerits` reserved
+ * for this character. `querySelectorAll` (not `getElementById`) is still
+ * used for the lookup even though `suite/sheet.js`'s own `renderSheet` only
+ * ever writes into ONE of its desktop/mobile-split containers per call (the
+ * other is explicitly cleared, never both at once) — this is forward-safety
+ * for a data-attribute-keyed slot, not evidence multiple copies are live
+ * today; correcting an earlier draft of this comment that overstated it.
+ *
+ * Call this UN-AWAITED immediately after the innerHTML write(s) that placed
+ * `shRenderOfficeMerits`'s placeholder into the DOM — mirrors
+ * `status.js`'s own `appendOfficeActionsLog(slotEl)` call site exactly.
+ *
+ * Render-generation guard: `_officeMeritsGen` is a MODULE-scoped counter, not
+ * per-element like `office-tab.js`'s own `el._officeManoeuvreGen` — there is
+ * no single stable root element here (the sheet can be re-rendered for an
+ * entirely different character, or the same one again, into any of several
+ * containers). Bumped once per call, captured before the first `await`,
+ * checked before the DOM write — a late-resolving fetch from a PREVIOUS
+ * sheet view can never paint into whatever character is on screen by the
+ * time it resolves. This exact failure shape (a stale async write repainting
+ * the wrong view after the viewer moved on) is not hypothetical: two
+ * separate prior review rounds on `office-tab.js` (oxp.3, oxp.6) found and
+ * fixed real bugs in precisely this shape.
+ *
+ * The ENTIRE body past the guard clauses is wrapped in one try/catch, not
+ * just the `Promise.all` fetch — this function is called un-awaited with no
+ * `.catch()` at its call site (matching `status.js`'s own precedent), so any
+ * throw anywhere past a successful fetch (a DOM API rejecting an unexpected
+ * character, malformed response data) would otherwise become an unhandled
+ * promise rejection rather than the same silent AC3 empty-render outcome a
+ * fetch failure already produces. Codex review, oxp.7: found and closed.
+ */
+export async function patchOfficeMerits(c) {
+  const gen = ++_officeMeritsGen;
+  if (!c || !c.court_category) return;
+  const data = OFFICE_DATA[c.court_category];
+  if (!data) return; // Administrator — no merit suite exists yet (oxp.8)
+
+  try {
+    const [seats, dotsBySeat] = await Promise.all([
+      apiGet('/api/office_seats'),
+      apiGet('/api/office_merit_dots'),
+    ]);
+    if (gen !== _officeMeritsGen) return;
+
+    const seat = resolveHeldSeat(c, seats);
+    if (!seat) return; // AC3: no confirmed seat — never guess, never disclose.
+
+    const dots = (dotsBySeat && dotsBySeat[String(seat._id)]) || {};
+    const meritNames = data.merits || [];
+    if (!meritNames.length) return; // AC3: an office with no merit suite at all
+
+    const rowsHtml = meritNames.map((merit, i) => {
+      const n = Math.max(0, Math.min(MERIT_DOT_CAPS[merit] || 5, dots[merit] || 0));
+      return shRenderMeritRow(merit, 'office', i, '<span class="trait-dots">' + shDots(n) + '</span>');
+    }).join('');
+
+    const sectionHtml = '<div class="sh-sec"><div class="sh-sec-title">Office Merits</div>' +
+      '<div class="merit-list">' + rowsHtml + '</div></div>';
+
+    const slots = document.querySelectorAll('[data-office-merits-char="' + CSS.escape(String(c._id)) + '"]');
+    slots.forEach(slot => { slot.innerHTML = sectionHtml; });
+  } catch {
+    return; // AC3: a failed fetch — or any later throw — renders nothing,
+    // not an error message. This section has no "Could not load" state.
+  }
+}
+
 export function shRenderStandingMerits(c, editMode) {
   const standM = (c.merits || []).filter(m => m.category === 'standing');
   if (!editMode && !standM.length) return '';
@@ -2139,9 +2253,6 @@ function _tagCounts(c) {
   return counts;
 }
 
-/** Non-combat style names — live in general merits, not fighting_styles. */
-const NON_COMBAT_STYLES = new Set(['Fast-Talking', 'Cacophony Savvy', 'Etiquette', 'Three Heads of Kerberos']);
-
 /** Max accessible rank for a style = max(own dots, highest relevant tag count). */
 function _maxRank(c, styleName, dots) {
   const tags = STYLE_TAGS[styleName] || [];
@@ -2312,7 +2423,7 @@ function _availablePicks(c) {
   const tc = _tagCounts(c);
   const results = [];
   for (const [key, man] of Object.entries(MAN_DB)) {
-    if (NON_COMBAT_STYLES.has(man.style)) continue;
+    if (NON_COMBAT_STYLES.includes(man.style)) continue;
     if (picked.has(key)) continue;
     if (!_qualifiesForManoeuvre(c, man, tc)) continue;
     if (!_prereqsMet(c, man.prereq)) continue;
@@ -2344,7 +2455,7 @@ function _allStyles() {
 export function shFightingMeritOptions(c) {
   let h = '';
   const ownedStyles = new Set((c.fighting_styles || []).map(fs => fs.name));
-  const styles = _allStyles().filter(s => !ownedStyles.has(s) && !NON_COMBAT_STYLES.has(s));
+  const styles = _allStyles().filter(s => !ownedStyles.has(s) && !NON_COMBAT_STYLES.includes(s));
   if (styles.length) {
     h += '<optgroup label="Fighting Styles">';
     styles.forEach(s => { h += '<option value="__style__:' + esc(s) + '">' + esc(s) + ' (Fighting Style)</option>'; });
@@ -2434,7 +2545,7 @@ export function shRenderManoeuvres(c, editMode) {
     const existingNames = new Set(styles.map(s => s.name));
     h += '<div class="dev-add-row"><select class="dev-add-btn" style="font-size:11px" onchange="if(this.value){shAddStyle(this.value,\'style\');this.value=\'\'}">';
     h += '<option value="">+ Add Fighting Style\u2026</option>';
-    _allStyles().filter(s => !existingNames.has(s) && !NON_COMBAT_STYLES.has(s)).forEach(s => {
+    _allStyles().filter(s => !existingNames.has(s) && !NON_COMBAT_STYLES.includes(s)).forEach(s => {
       h += '<option value="' + esc(s) + '">' + esc(s) + '</option>';
     });
     h += '</select></div></div>';
@@ -2565,9 +2676,19 @@ export function shRenderManoeuvres(c, editMode) {
 }
 
 // ── Equipment renderer (EQ-2, issue #656) ────────────────────────────────────
-// Renders catalogue-ref equipment[]. All four buckets (weapon/armour/equipment/asset)
-// flow through the same array as of 2026-06-19 (character.assets[] retired).
+// Renders catalogue-ref equipment[]. All buckets flow through the same array
+// as of 2026-06-19 (character.assets[] retired).
 // Edit mode shows the same view -- equipment is managed via the ST CRUD API (EQ-1).
+//
+// EQC-1 (issue #1152, epic #1038, 2026-08-13): re-partitioned from the old
+// four buckets (weapon/armour/equipment/asset) to five (combat_gear/
+// skill_gear/tool_utility/narrative/container). combat_gear merges the old
+// weapon+armour buckets -- the Weapons/Armour section split below is now
+// driven by which stat fields are POPULATED on the item (weapon_type/
+// damage_mod = weapon-shaped; armour_value/defence_penalty = armour-shaped),
+// not by a bucket comparison, since both shapes now share one bucket value.
+// An item with neither shape populated (an ST entry with no stats filled in
+// yet) falls to "Other Combat Gear" rather than being silently dropped.
 export function shRenderEquipment(c, editMode) {
   const equip  = c.equipment || [];
   if (!editMode && !equip.length) return '';
@@ -2577,22 +2698,48 @@ export function shRenderEquipment(c, editMode) {
   const WPNTYPE      = { melee: 'Melee', ranged: 'Ranged', thrown: 'Thrown' };
   const cycleLabel   = n  => n === 0 ? 'Pre-campaign' : `Cycle ${n}`;
   const stateChip    = st => `<span class="gen-granted-tag-view">${STATE_LABELS[st] || st}</span>`;
+  // EQC-2 (issue #1153, epic #1038): "on me" (bonus applies in game) vs
+  // "owned but elsewhere" (available in downtime only) — the epic's own
+  // display distinction. Rendered as a muted trait-qual fragment (this
+  // renderer's existing convention for secondary info, e.g. item.notes)
+  // rather than a second competing pill beside the state chip.
+  // EQC-2 review patch (#1153, Codex external review Low finding): the
+  // label logic itself now lives in equipmentLocationLabel
+  // (equipment-derivation.js), not a local closure here, so it's directly
+  // unit-testable — this alias just keeps the call sites below unchanged.
+  const locationLabel = equipmentLocationLabel;
+  // EQC-3 (issue #1154, epic #1038): "(in: <container name>)" for a
+  // contained item. Logic lives in equipmentContainerLabel
+  // (equipment-derivation.js), not a local closure here, so it's directly
+  // unit-testable - this alias just keeps the call sites below unchanged.
+  const containedLabel = item => equipmentContainerLabel(item, equip);
 
   let h = '<div class="sh-sec"><div class="sh-sec-title">Equipment</div><div class="merit-list">';
 
   // Group equipment items by bucket, preserving flat-array index for remove buttons
-  const byBucket = { weapon: [], armour: [], equipment: [], asset: [] };
+  const byBucket = { combat_gear: [], skill_gear: [], tool_utility: [], narrative: [], container: [] };
   for (let i = 0; i < equip.length; i++) {
     const item   = equip[i];
     const entry  = getCatalogueEntry(item.catalogue_id) || {};
-    const bucket = (entry.bucket && byBucket[entry.bucket]) ? entry.bucket : 'equipment';
+    const bucket = (entry.bucket && byBucket[entry.bucket]) ? entry.bucket : 'skill_gear';
     byBucket[bucket].push({ item, entry, idx: i });
   }
 
+  // combat_gear sub-split by populated stat fields, not bucket (both shapes
+  // now share the combat_gear bucket). An item matching neither shape (no
+  // stats filled in) still renders, under "Other Combat Gear".
+  // EQC-1 review patch (#1152): use the shared predicates from
+  // equipment-derivation.js rather than a locally re-derived copy, so the
+  // weapon/armour discriminator can never drift out of sync between this
+  // renderer and armourDefencePenalty/the roll calculators again.
+  const combatWeapons = byBucket.combat_gear.filter(x => isCombatGearWeaponShaped(x.entry));
+  const combatArmour  = byBucket.combat_gear.filter(x => !isCombatGearWeaponShaped(x.entry) && isCombatGearArmourShaped(x.entry));
+  const combatOther   = byBucket.combat_gear.filter(x => !isCombatGearWeaponShaped(x.entry) && !isCombatGearArmourShaped(x.entry));
+
   // ── Weapons ──
-  if (byBucket.weapon.length) {
+  if (combatWeapons.length) {
     h += '<div class="sh-sub-title">Weapons</div>';
-    for (const { item, entry, idx } of byBucket.weapon) {
+    for (const { item, entry, idx } of combatWeapons) {
       const name  = entry.name || item.catalogue_id;
       // #896: per-character effective availability (raw - Fixer reduction).
       const eff = entry.availability != null ? effectiveAvailability(entry, c) : null;
@@ -2601,6 +2748,8 @@ export function shRenderEquipment(c, editMode) {
         DMGTYPE[entry.damage_type] || entry.damage_type || null,
         WPNTYPE[entry.weapon_type] || entry.weapon_type || null,
         eff != null ? `avail ${eff}` : null,
+        locationLabel(item),
+        containedLabel(item),
       ].filter(Boolean);
       const qual   = parts.join(' · ');
       const rmBtn  = editMode ? `<button class="sk-spec-rm" style="float:right;margin-top:2px" onclick="shRemoveEquip(${idx})" title="Remove">× Remove</button>` : '';
@@ -2612,7 +2761,7 @@ export function shRenderEquipment(c, editMode) {
   }
 
   // ── Armour ──
-  if (byBucket.armour.length) {
+  if (combatArmour.length) {
     h += '<div class="sh-sub-title">Armour</div>';
     // Issue #879 (ADR-006 D2 + Concern #8): soft non-blocking hint when
     // multiple armour items are in state==='worn'. Stacking rule is
@@ -2623,7 +2772,7 @@ export function shRenderEquipment(c, editMode) {
       h += '<div class="sh-armour-hint" style="font-size:0.85em;opacity:0.75;margin-bottom:6px;">Only one armour applies; highest defence_penalty wins.</div>';
     }
     const baseDefence = calcDefence(c);
-    for (const { item, entry, idx } of byBucket.armour) {
+    for (const { item, entry, idx } of combatArmour) {
       const name  = entry.name || item.catalogue_id;
       // #896: per-character effective availability (raw - Fixer reduction).
       const eff = entry.availability != null ? effectiveAvailability(entry, c) : null;
@@ -2631,6 +2780,8 @@ export function shRenderEquipment(c, editMode) {
         entry.armour_value    != null ? `AR ${entry.armour_value}` : null,
         entry.defence_penalty != null ? `Defence ${baseDefence}(${baseDefence - entry.defence_penalty})` : null,
         eff != null ? `avail ${eff}` : null,
+        locationLabel(item),
+        containedLabel(item),
       ].filter(Boolean);
       const qual  = parts.join(' · ');
       const rmBtn = editMode ? `<button class="sk-spec-rm" style="float:right;margin-top:2px" onclick="shRemoveEquip(${idx})" title="Remove">× Remove</button>` : '';
@@ -2641,10 +2792,26 @@ export function shRenderEquipment(c, editMode) {
     }
   }
 
-  // ── Equipment (tools / tech) ──
-  if (byBucket.equipment.length) {
-    h += '<div class="sh-sub-title">Equipment</div>';
-    for (const { item, entry, idx } of byBucket.equipment) {
+  // ── Other Combat Gear (combat_gear bucket, neither weapon- nor armour-shaped
+  // — e.g. an ST entry with no stat fields filled in yet) ──
+  if (combatOther.length) {
+    h += '<div class="sh-sub-title">Other Combat Gear</div>';
+    for (const { item, entry, idx } of combatOther) {
+      const name  = entry.name || item.catalogue_id;
+      const eff   = entry.availability != null ? effectiveAvailability(entry, c) : null;
+      const qual  = [eff != null ? `avail ${eff}` : null, locationLabel(item), containedLabel(item)].filter(Boolean).join(' · ');
+      const rmBtn = editMode ? `<button class="sk-spec-rm" style="float:right;margin-top:2px" onclick="shRemoveEquip(${idx})" title="Remove">× Remove</button>` : '';
+      h += `<div class="merit-plain"><div class="trait-row">` +
+        `<div class="trait-main"><span class="trait-name">${esc(name)}</span><div class="trait-right">${stateChip(item.state)}${rmBtn}</div></div>` +
+        (qual || item.notes ? `<div class="trait-sub">${qual ? `<span class="trait-qual">${esc(qual)}</span>` : ''}${item.notes ? `<span class="trait-qual dim">${esc(item.notes)}</span>` : ''}</div>` : '') +
+        `</div></div>`;
+    }
+  }
+
+  // ── Skill Gear (old "Equipment" bucket, unchanged meaning) ──
+  if (byBucket.skill_gear.length) {
+    h += '<div class="sh-sub-title">Skill Gear</div>';
+    for (const { item, entry, idx } of byBucket.skill_gear) {
       const name  = entry.name || item.catalogue_id;
       const pool  = (entry.skill_domain && entry.bonus_dice != null)
         ? `${entry.skill_domain} +${entry.bonus_dice} dice` : '';
@@ -2653,6 +2820,8 @@ export function shRenderEquipment(c, editMode) {
       const qualParts = [
         pool || null,
         eff != null ? `avail ${eff}` : null,
+        locationLabel(item),
+        containedLabel(item),
       ].filter(Boolean);
       const qual = qualParts.join(' · ');
       const rmBtn = editMode ? `<button class="sk-spec-rm" style="float:right;margin-top:2px" onclick="shRemoveEquip(${idx})" title="Remove">× Remove</button>` : '';
@@ -2663,16 +2832,58 @@ export function shRenderEquipment(c, editMode) {
     }
   }
 
-  // ── Assets (catalogue-backed since 2026-06-19) ──
-  if (byBucket.asset.length) {
-    h += '<div class="sh-sub-title">Assets</div>';
-    for (const { item, entry, idx } of byBucket.asset) {
+  // ── Tools / Utility (NEW bucket — "does a thing, no bonus") ──
+  if (byBucket.tool_utility.length) {
+    h += '<div class="sh-sub-title">Tools / Utility</div>';
+    for (const { item, entry, idx } of byBucket.tool_utility) {
+      const name  = entry.name || item.catalogue_id;
+      const eff   = entry.availability != null ? effectiveAvailability(entry, c) : null;
+      const parts = [entry.mechanical_effect || null, eff != null ? `avail ${eff}` : null, locationLabel(item), containedLabel(item)].filter(Boolean);
+      const qual  = parts.join(' · ');
+      const rmBtn = editMode ? `<button class="sk-spec-rm" style="float:right;margin-top:2px" onclick="shRemoveEquip(${idx})" title="Remove">× Remove</button>` : '';
+      h += `<div class="merit-plain"><div class="trait-row">` +
+        `<div class="trait-main"><span class="trait-name">${esc(name)}</span><div class="trait-right">${stateChip(item.state)}${rmBtn}</div></div>` +
+        (qual || item.notes ? `<div class="trait-sub">${qual ? `<span class="trait-qual">${esc(qual)}</span>` : ''}${item.notes ? `<span class="trait-qual dim">${esc(item.notes)}</span>` : ''}</div>` : '') +
+        `</div></div>`;
+    }
+  }
+
+  // ── Narrative (NEW bucket — purely descriptive, no stat fields) ──
+  if (byBucket.narrative.length) {
+    h += '<div class="sh-sub-title">Narrative</div>';
+    for (const { item, entry, idx } of byBucket.narrative) {
+      const name  = entry.name || item.catalogue_id;
+      const loc   = [locationLabel(item), containedLabel(item)].filter(Boolean).join(' · ') || null;
+      const rmBtn = editMode ? `<button class="sk-spec-rm" style="float:right;margin-top:2px" onclick="shRemoveEquip(${idx})" title="Remove">× Remove</button>` : '';
+      h += `<div class="merit-plain"><div class="trait-row">` +
+        `<div class="trait-main"><span class="trait-name">${esc(name)}</span><div class="trait-right">${stateChip(item.state)}${rmBtn}</div></div>` +
+        (entry.description ? `<div class="trait-sub"><span class="trait-qual">${esc(entry.description)}</span></div>` : '') +
+        (loc || item.notes ? `<div class="trait-sub">${loc ? `<span class="trait-qual">${esc(loc)}</span>` : ''}${item.notes ? `<span class="trait-qual dim">${esc(item.notes)}</span>` : ''}</div>` : '') +
+        `</div></div>`;
+    }
+  }
+
+  // ── Containers (old "Assets" bucket — catalogue-backed since 2026-06-19) ──
+  if (byBucket.container.length) {
+    h += '<div class="sh-sub-title">Containers</div>';
+    for (const { item, entry, idx } of byBucket.container) {
       const name  = entry.name || item.catalogue_id;
       const eff   = entry.availability != null ? effectiveAvailability(entry, c) : null;
       const parts = [
         entry.mechanical_effect || null,
         eff != null ? `avail ${eff}` : null,
         cycleLabel(item.acquired_cycle),
+        // EQC-3 review patch (#1154, Codex external review Medium finding):
+        // a container-bucket item can itself be placed inside ANOTHER
+        // container (a Safe inside a Haven — the epic's own example).
+        // Single-level containment forbids a container's CONTENTS from
+        // themselves holding further items, but says nothing against a
+        // container being contained — the write path now enforces that
+        // distinction (validateEquipmentContainerRefs). This section had
+        // never called containedLabel at all, so a real, stored, ST-visible
+        // nesting relationship was invisible here — the only one of the
+        // seven render sections missing it.
+        containedLabel(item),
       ].filter(Boolean);
       const qual  = parts.join(' · ');
       const rmBtn = editMode ? `<button class="sk-spec-rm" style="float:right;margin-top:2px" onclick="shRemoveEquip(${idx})" title="Remove">× Remove</button>` : '';
@@ -2685,24 +2896,45 @@ export function shRenderEquipment(c, editMode) {
   }
 
   // ── Edit-mode add form ──
-  // 2026-06-19: single add form covers all four buckets (weapon/armour/equipment/asset).
-  // Asset is now in the bucket dropdown; the separate free-text "Add Asset" form is gone
-  // along with character.assets[] — catalogue-ref is the single canonical storage shape.
+  // 2026-06-19: single add form covers all buckets. Asset (now "container") is
+  // in the bucket dropdown; the separate free-text "Add Asset" form is gone
+  // along with character.assets[] — catalogue-ref is the single canonical
+  // storage shape. EQC-1 (#1152, 2026-08-13): dropdown values updated to the
+  // new five-bucket taxonomy; labels use BUCKET_LABELS rather than a bare
+  // capitalise (combat_gear/skill_gear/tool_utility need real spacing).
   if (editMode) {
     const STATES   = ['carried', 'worn', 'stashed', 'active', 'lost'];
-    const BUCKETS  = ['weapon', 'armour', 'equipment', 'asset'];
+    const BUCKETS  = ['combat_gear', 'skill_gear', 'tool_utility', 'narrative', 'container'];
+    const BUCKET_LABELS = {
+      combat_gear: 'Combat Gear', skill_gear: 'Skill Gear', tool_utility: 'Tools / Utility',
+      narrative: 'Narrative', container: 'Container',
+    };
     const defCycle = state.activeCycleNum ?? 0;
 
     h += '<div class="sh-sub-title" style="margin-top:10px">Add Equipment Item</div>';
+    // EQC-3 (issue #1154, epic #1038): "Place inside" — sourced from the
+    // character's OWN current container-bucket rows (byBucket.container,
+    // already computed above for the Containers section). Default is no
+    // selection (loose item, unchanged behaviour). Not offered at all if the
+    // character owns no containers yet — an empty-but-present dropdown with
+    // only "— none —" would be a confusing no-op affordance.
+    const containerOptions = byBucket.container.map(({ item: ci, entry: ce }) =>
+      `<option value="${esc(ci.catalogue_id)}">${esc(ce.name || ci.catalogue_id)}</option>`
+    ).join('');
+
     h += '<div class="dev-add-row" style="display:flex;flex-wrap:wrap;gap:4px;align-items:center;padding:4px 0">'
       + '<select id="eq-add-bucket" class="dev-add-btn" onchange="shEquipBucketFilter()">'
       + '<option value="">Bucket…</option>'
-      + BUCKETS.map(b => `<option value="${b}">${b.charAt(0).toUpperCase() + b.slice(1)}</option>`).join('')
+      + BUCKETS.map(b => `<option value="${b}">${BUCKET_LABELS[b]}</option>`).join('')
       + '</select>'
       + '<select id="eq-add-item" class="dev-add-btn"><option value="">-- select bucket first --</option></select>'
       + '<select id="eq-add-state" class="dev-add-btn">'
       + STATES.map(s => `<option value="${s}">${STATE_LABELS[s] || s}</option>`).join('')
       + '</select>'
+      + (containerOptions
+          ? '<select id="eq-add-container" class="dev-add-btn" title="Place inside a container you already own">'
+            + '<option value="">— none —</option>' + containerOptions + '</select>'
+          : '')
       + `<input id="eq-add-cycle" type="number" min="0" value="${defCycle}" style="width:60px" class="attr-bd-input" title="Acquired cycle">`
       + '<input id="eq-add-notes" type="text" placeholder="Notes (optional)" style="width:130px" class="spec-input">'
       + '<button class="sk-spec-add" onclick="shAddEquip()">Add</button>'
@@ -2931,9 +3163,7 @@ export function renderSheet(c, target = null) {
   if (curse) h += expRow('curse', 'Curse', esc(curse.name), '<div>' + esc(curse.effect || '') + '</div>');
   if (editMode) { regB.forEach((b, bi) => { const ri = allB.indexOf(b); h += '<div class="exp-row" style="flex-direction:column;align-items:stretch;padding:8px 10px"><div class="sh-bane-edit-row"><span class="exp-lbl" style="min-width:36px">Bane</span><select class="sh-edit-select" style="flex:1" onchange="shEditBaneName(' + ri + ',this.value)"><option value="">(select)</option>' + BANE_LIST.map(bn => '<option' + (b.name === bn ? ' selected' : '') + '>' + esc(bn) + '</option>').join('') + '</select><button class="sh-bane-rm" onclick="shRemoveBane(' + ri + ')" title="Remove">&times;</button></div><input class="sh-edit-input" value="' + esc(b.effect || '') + '" onchange="shEditBaneEffect(' + ri + ',this.value)" placeholder="Effect text" style="margin-top:4px;font-size:11px"></div>'; }); h += '<button class="sh-bane-add" onclick="shAddBane()">+ Add Bane</button>'; }
   else regB.forEach((b, i) => { h += expRow('bane' + i, 'Bane', esc(b.name), '<div>' + esc(b.effect || '') + '</div>'); });
-  // Touchstones \u2014 NPCR.4 Shape B bridge.
-  // Branch on touchstone_edge_ids presence: truthy \u2192 new picker/view backed by
-  // the relationships graph; falsy \u2192 legacy read-only + migration button.
+  // Touchstones - NPCR.4, free-text only (DBO-8).
   h += renderTouchstones(c, editMode);
   // Date of Embrace + Apparent Age
   if (editMode || c.date_of_embrace) { const _ded = c.date_of_embrace || ''; const _dedDisp = _ded ? new Date(_ded + 'T00:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }) : ''; h += '<div class="exp-row"><span class="exp-lbl labeled">Embrace</span>' + (editMode ? '<input type="date" class="sh-edit-input" value="' + esc(_ded) + '" onchange="shEdit(\'date_of_embrace\',this.value)">' : '<span class="exp-val">' + esc(_dedDisp) + '</span>') + '</div>'; }

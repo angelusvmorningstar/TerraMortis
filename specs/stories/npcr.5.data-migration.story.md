@@ -1,10 +1,26 @@
 ---
 id: npcr.5
 epic: npcr
-status: deferred
+status: superseded
 priority: low
 depends_on: [npcr.2, npcr.3, npcr.4]
+superseded_by: dbo.8
 ---
+
+**Superseded 2026-08-15 by DBO-8** (`specs/stories/dbo-8-touchstone-mechanic-identity-split.md`,
+merged to `main` today), which overtakes the 2026-04-24 deferral recorded below. Shape 4, the
+touchstone augmentation step and the whole reason this story survived its own audit, writes exactly
+the two fields DBO-8 deleted: `touchstone_meta.humanity` on the edge and the per-item `edge_id` on
+`character.touchstones[]`. Neither exists in `relationship.schema.js` or `character.schema.js` any
+more, so the deferral trigger below can never usefully fire as written, however many NPCs the register
+grows to.
+
+The remaining three shapes do not carry the story on their own, on this story's own evidence: r3's
+pre-migration audit (`server/scripts/audit-npcr5-preconditions.js`, still committed) found
+`character.npcs[]` used by **0 characters**, `is_correspondent: true` on **0 NPCs**, and
+`linked_character_ids` on **1 NPC**, a single edge. That is the finding that deferred it in April, and
+nothing since has changed it. If a bulk migration is ever wanted, re-run the audit script and write a
+fresh story against the shape the data actually has by then.
 
 > **Deferred 2026-04-24 after pre-migration audit** (see Revision History r3). Re-open once the NPC register is populated enough that a bulk migration beats the NPCR.4 interactive picker. Trigger for revisit: more than ~10 NPCs in the register or player-created stubs appearing via NPCR.8.
 

@@ -616,8 +616,6 @@ html:not([data-theme="dark"]) .edit-icon {
 .sh-ts-picker-check{display:flex;align-items:center;gap:6px;cursor:pointer;}
 .sh-ts-picker-mode-chips{display:flex;gap:6px;margin-bottom:4px;}
 .sh-ts-picker-loading{font-family:var(--fl);font-size:10px;color:var(--txt3);font-style:italic;padding:4px;}
-.sh-ts-slot-kind{font-family:var(--fl);font-size:9px;letter-spacing:.08em;text-transform:uppercase;color:var(--accent);margin-left:4px;}
-.sh-ts-slot-kind.dim{color:var(--txt3);}
 
 /* ── Covenant strip ── */
 .cov-strip{display:flex;background:var(--surf);border-bottom:1px solid var(--bdr2);}

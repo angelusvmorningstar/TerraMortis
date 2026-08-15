@@ -1,4 +1,3 @@
-#!/usr/bin/env node
 
 /**
  * N-3 / MNEC (issue #692, epic specs/epic-mnec-necropolis-merits.md) — atomic

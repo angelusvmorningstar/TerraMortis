@@ -58,26 +58,34 @@ describe('#751 — state.activeCycleNum wiring', () => {
 
 // ─────────────────────────────────────────────────────────────────────────────
 // #752 — 'active' included in roll.js predicates (option a per Khepri)
+//
+// EQC-2 (issue #1153) consolidated the inline `item.state === 'carried' ||
+// ... === 'worn' || ... === 'active'` repetition in both filters onto the
+// shared isEquipmentOnMe(item) predicate (equipment-derivation.js). The
+// literal state values themselves now live in exactly ONE place and are
+// covered behaviourally there (server/tests/issue-879-defence-penalty-wirein
+// .test.js, "#1153 EQC-2 — isEquipmentOnMe" describe block) rather than by
+// source-string matching in this file - these tests now prove the two
+// consumers actually CALL the shared predicate, not that a literal 'active'
+// string appears nearby.
 // ─────────────────────────────────────────────────────────────────────────────
 
-describe('#752 — roll.js predicates include the active state', () => {
-  it('equipment-chip filter accepts state === active', () => {
+describe('#752 / EQC-2 (#1153) — roll.js predicates use the shared isEquipmentOnMe predicate', () => {
+  it('imports isEquipmentOnMe from equipment-derivation.js', () => {
     const src = read('public/js/suite/roll.js');
-    // The predicate block: any line with `item.state === 'active'` near a
-    // `bucket === 'equipment'` filter clause counts. We confirm BOTH the
-    // 'equipment' filter and the 'active' check coexist within a small
-    // window so a future predicate rewrite doesn't silently drop 'active'.
-    expect(src).toMatch(/bucket === 'equipment'[\s\S]{0,400}item\.state === 'active'/);
+    expect(src).toMatch(/import\s*\{[^}]*isEquipmentOnMe[^}]*\}\s*from\s*['"]\.\.\/data\/equipment-derivation\.js['"]/);
   });
 
-  it('weapon-reference filter accepts state === active', () => {
+  it('equipment-chip filter calls isEquipmentOnMe(item), near the skill_gear bucket filter', () => {
     const src = read('public/js/suite/roll.js');
-    expect(src).toMatch(/bucket === 'weapon'[\s\S]{0,400}item\.state === 'active'/);
+    // EQC-1 (#1152): the old 'equipment' bucket is now 'skill_gear'.
+    expect(src).toMatch(/bucket === 'skill_gear'[\s\S]{0,400}isEquipmentOnMe\(item\)/);
   });
 
-  it('the legacy carried + worn states still appear in the same predicates (no accidental swap)', () => {
+  it('weapon-reference filter calls isEquipmentOnMe(item), near the combat_gear/weapon-shaped filter', () => {
     const src = read('public/js/suite/roll.js');
-    // Sanity guard: 'active' is an addition, not a replacement.
-    expect(src).toMatch(/'carried'\s*\|\|\s*item\.state === 'worn'/);
+    // EQC-1 (#1152): the old 'weapon' bucket merged into 'combat_gear',
+    // weapon-shaped distinguished via isCombatGearWeaponShaped.
+    expect(src).toMatch(/bucket === 'combat_gear' && isCombatGearWeaponShaped\(entry\)[\s\S]{0,400}isEquipmentOnMe\(item\)/);
   });
 });

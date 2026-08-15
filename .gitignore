@@ -47,6 +47,7 @@ st-working/
 
 # Atlas exports — source of truth is MongoDB, not git
 data copy/
+data/exports/
 
 # Scratch working directory — ad-hoc inputs/outputs, never tracked
 scratch/
@@ -55,8 +56,12 @@ scratch/
 public/dt-proto-data/
 server/scripts/build-rubric-digests.js
 
-# One-off DB cleanup script backups — local-only audit trail
-server/scripts/_backups/
+# One-off DB cleanup/map-build scripts — local-only scratch, never tracked
+server/scripts/_*
+server/scripts/archive/_backups/
+
+# Netlify CLI local cache
+.netlify/
 
 # Python bytecode (specs/qa/harness instruments)
 __pycache__/

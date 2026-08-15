@@ -337,15 +337,20 @@ export const downtimeSubmissionSchema = {
         //  ACQUISITIONS (always shown — ADVANCED-only post-dt-form.17)
         // ══════════════════════════════════════════════════════
         // dt-form.29 (story #87, ADR-003 §Audit-baseline): structured-row
-        // canonical persistence for both sub-tables. Mirror builder
-        // rebuilds the legacy single-row + blob keys below on every save
-        // so existing admin/parser/db consumers keep working unchanged.
-        // Per-row shapes:
+        // canonical persistence. Mirror builder rebuilds the legacy
+        // single-row + blob keys below on every save so existing
+        // admin/parser/db consumers keep working unchanged.
+        // EQC-5 (#1156) removed the Skill sub-table (shaking down a
+        // shopkeeper is now a Personal Project) — every `skill_acq_*` /
+        // `skill_acquisitions` / `acq_skill_rows` key below is [legacy]:
+        // no longer written by the form, retained only for back-compat
+        // reads of pre-EQC-5 submissions. Same shape as the pre-existing
+        // `skill_acq_pool_attr` precedent (dropped post-hotfix #42).
+        // Per-row shape:
         //   acq_resource_rows: [{ description, availability, merits[] }]
-        //   acq_skill_rows:    [{ skill, spec, description, availability, merits[] }]
-        // Both stored as JSON-stringified strings.
+        // Stored as a JSON-stringified string.
         acq_resource_rows:     { type: 'string' },
-        acq_skill_rows:        { type: 'string' },
+        acq_skill_rows:        { type: 'string' },  // [legacy] no longer written; EQC-5 removed the Skill sub-table
 
         // ── Legacy single-row + blob keys (mirror-rebuilt on every save) ──
         // Resources acquisition (structured): single-row legacy + dynamic
@@ -355,17 +360,19 @@ export const downtimeSubmissionSchema = {
         acq_merits:            { type: 'string' },  // JSON array of "Name|qualifier" merit keys
         resources_acquisitions: { type: 'string' },  // Backwards compat: combined text
 
-        // Skill-based acquisition (structured)
-        skill_acq_description:  { type: 'string' },  // What to acquire and how
+        // Skill-based acquisition — [legacy] no longer written; EQC-5 (#1156)
+        // removed this whole sub-table from the form. Retained for back-compat
+        // reads of pre-EQC-5 submissions only.
+        skill_acq_description:  { type: 'string' },  // [legacy] What to acquire and how
         // skill_acq_pool_attr is dropped post-hotfix #42 (pool is SKILL only).
         // Field retained in schema for back-compat reads of pre-#42 submissions
         // but no longer written by the form.
         skill_acq_pool_attr:    { type: 'string' },  // [legacy] no longer written; #42 dropped ATTR contribution
-        skill_acq_pool_skill:   { type: 'string' },  // Pool skill name
-        skill_acq_pool_spec:    { type: 'string' },  // Pool skill specialisation
-        skill_acq_availability: { type: 'string' },  // "1"–"5" dot rating
-        skill_acq_merits:       { type: 'string' },  // JSON array of "Name|qualifier" merit keys
-        skill_acquisitions:     { type: 'string' },  // Backwards compat: combined text
+        skill_acq_pool_skill:   { type: 'string' },  // [legacy] Pool skill name
+        skill_acq_pool_spec:    { type: 'string' },  // [legacy] Pool skill specialisation
+        skill_acq_availability: { type: 'string' },  // [legacy] "1"–"5" dot rating
+        skill_acq_merits:       { type: 'string' },  // [legacy] JSON array of "Name|qualifier" merit keys
+        skill_acquisitions:     { type: 'string' },  // [legacy] Backwards compat: combined text
 
         // ══════════════════════════════════════════════════════
         //  VAMPING (always present)

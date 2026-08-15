@@ -184,7 +184,8 @@ describe('#811 — placement sanity guards', () => {
   it('sumChannels source includes the free_grants map iteration', async () => {
     const fs = await import('node:fs');
     const path = await import('node:path');
-    const __dirname = path.dirname(new URL(import.meta.url).pathname);
+    const { fileURLToPath } = await import('node:url');
+    const __dirname = path.dirname(fileURLToPath(import.meta.url));
     const REPO_ROOT = path.resolve(__dirname, '..', '..');
     const src = fs.readFileSync(path.join(REPO_ROOT, 'server/lib/normalize-character.js'), 'utf8');
     // Anchor the assertion inside the sumChannels function body.
@@ -198,7 +199,8 @@ describe('#811 — placement sanity guards', () => {
   it('cleanup script exports cleanupMerit and main() is not auto-invoked on import', async () => {
     const fs = await import('node:fs');
     const path = await import('node:path');
-    const __dirname = path.dirname(new URL(import.meta.url).pathname);
+    const { fileURLToPath } = await import('node:url');
+    const __dirname = path.dirname(fileURLToPath(import.meta.url));
     const REPO_ROOT = path.resolve(__dirname, '..', '..');
     const src = fs.readFileSync(path.join(REPO_ROOT, 'server/scripts/cleanup-free-channel-contamination.js'), 'utf8');
     expect(src).toMatch(/export function cleanupMerit/);

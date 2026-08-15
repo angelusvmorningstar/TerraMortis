@@ -33,6 +33,10 @@ import buildEquipmentCatalogueRouter from '../../routes/equipment-catalogue.js';
 import { chaptersRouter } from '../../routes/chapters.js';
 import cyoaRouter from '../../routes/cyoa.js';
 import officeActionsRouter from '../../routes/office-actions.js';
+import officeMeritDotsRouter from '../../routes/office-merit-dots.js';
+import officeManoeuvreRankRouter from '../../routes/office-manoeuvre-rank.js';
+import officeSeatsRouter from '../../routes/office-seats.js';
+import contestedRollsRouter from '../../routes/contested-rolls.js';
 
 /**
  * Create a test app with a mock user injected via header.
@@ -118,6 +122,14 @@ export function createTestApp() {
   app.use('/api/cyoa', mockAuth, noCache(), cyoaRouter);
   // Issue #691 / otc.2: office actions (Status Actions)
   app.use('/api/office_actions', mockAuth, noCache(), officeActionsRouter);
+  app.use('/api/office_merit_dots', mockAuth, noCache(), officeMeritDotsRouter);
+  // oxp.3: office manoeuvre purchase rank (open read, ST-only write)
+  app.use('/api/office_manoeuvre_rank', mockAuth, noCache(), officeManoeuvreRankRouter);
+  // oxp.2: office seats, read-only (open read, no write verb at all)
+  app.use('/api/office_seats', mockAuth, noCache(), officeSeatsRouter);
+  // oaq.2 review: needed to test contested-rolls.js's request_type guard
+  // against status_action documents sharing the same collection.
+  app.use('/api/contested_roll_requests', mockAuth, noCache(), contestedRollsRouter);
 
   return app;
 }
