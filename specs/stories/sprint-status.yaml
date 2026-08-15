@@ -1021,3 +1021,16 @@ development_status:
   # Deliberately NOT given backlog story entries - held only as a record of
   # the ask until Angelus names a real need or says to build it regardless.
   # Epic file: specs/epic-rlog-roll-logging.md
+
+  # ── Epic XPL: XP Ledger ──────────────────────────────────────────────────
+  # NOTE: this epic's own entries also exist on the still-unmerged
+  # ms/xpl-1-xp-ledger-write-hook branch (xpl.1 was dev-storied and code-
+  # reviewed there before xpl.2's branch was cut fresh off origin/main, per
+  # this project's own one-branch-per-story convention) - the two copies will
+  # need reconciling at merge time, same as every other sprint-status.yaml
+  # conflict this project has resolved before. This copy reflects xpl.1 as
+  # DONE (code review closed, 136/136, not yet merged) and adds xpl.2.
+  epic-xpl: in-progress                                        # xpl.1 code-reviewed and done (see ms/xpl-1-xp-ledger-write-hook, not yet merged). xpl.2 story created 2026-08-15 after a real investigation found the epic's own original one-line scope wrong on two counts: DT1 has zero structured XP data (0 of 25 submissions), and no cycle has any approval signal (approval_status is schema-declared but null on all 104 real xp-bearing submissions live-checked). Angelus's ruling: confirmed-only backfill (only write a row when the character's current live state corroborates the historic request; everything else surfaces in a report for manual review). Full detail: specs/stories/xpl-2-historic-reconciliation.md.
+
+  xpl-1-xp-ledger-write-hook: done                             # See ms/xpl-1-xp-ledger-write-hook branch for full history - dev-storied, code-reviewed (2 real High findings fixed, live-data-reproduced), 136/136 regression. Committed locally, not merged.
+  xpl-2-historic-reconciliation: ready-for-dev
