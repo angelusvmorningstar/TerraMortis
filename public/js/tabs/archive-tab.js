@@ -1,25 +1,41 @@
-﻿/* Archive tab — documents (dossier, downtime responses, history) + retired characters.
+/* Story tab — the character's dossier (live sheet + questionnaire), their published
+ * downtime narratives, and the chronicle's retired characters.
  *
- * Dossier detail view (ORD-12) renders three sections:
- *   1. Core Info Card — live from character sheet
- *   2. Questionnaire Details — live from questionnaire_responses
- *   3. History Narrative — archive_documents.content_html, ST-editable via ORD-3 editor
+ * RETIREMENT NOTE, Story 31-5 (TM Wiki), 2026-08-15. This tab used to have a fourth
+ * data source: `archive_documents`, the ST-authored narrative documents (dossier
+ * prose, downtime responses, character histories) that `archive-documents.js`
+ * served. That collection, its reader AND its writer have all moved to TM Wiki -
+ * the reader/writer/storage-together constraint from TM Wiki's deferred-work item
+ * 163 - so every `archive_documents` fetch, list group, detail view and inline-edit
+ * affordance is gone from this file, along with `archive-admin.js` and
+ * `archive-inline-editor.js`.
+ *
+ * WHAT DELIBERATELY SURVIVED, because none of it was ever archive_documents data:
+ *   1. the Core Info Card, live from the character sheet;
+ *   2. Questionnaire Details, live from `questionnaire_responses`;
+ *   3. Downtime Reports, live from `downtime_submissions.published_outcome`;
+ *   4. the Retired Characters grid and its sheet view.
+ *
+ * (1) and (2) previously had NO entry point of their own - they were stitched into
+ * the detail view of a `dossier`-type archive document, so removing that document
+ * type would have taken them with it as collateral damage. They now hang off a
+ * Dossier row that is always present, rendered from the live character the tab was
+ * opened with. Same two sections, same renderers, same click depth; only the thing
+ * that used to carry them is gone.
+ *
+ * (3) is NOT the same content as the migrated `downtime_response` documents even
+ * though it reads similarly: `downtime_submissions` is a much larger, actively
+ * mechanical collection (feeding rolls, project and merit resolution) that stays in
+ * `tm_suite`, and the migrated documents were a curated player-safe excerpt an ST
+ * made from its `published_outcome`. Do not "tidy" the two together.
  */
 
 import { apiGet } from '../data/api.js';
 import { esc, displayName, clanIcon, covIcon } from '../data/helpers.js';
 import { renderSheet } from '../editor/sheet.js';
-import { openInlineEditor } from '../editor/archive-inline-editor.js';
 import { renderReadOnlyField } from '../editor/questionnaire-render.js';
 import { QUESTIONNAIRE_SECTIONS } from './questionnaire-data.js';
-import { isSTRole } from '../auth/discord.js';
 import { renderOutcomeWithCards } from './story-tab.js';
-
-const TYPE_LABELS = {
-  dossier:           'Dossier',
-  downtime_response: 'Downtime Response',
-  history_submission: 'Character History',
-};
 
 let _el          = null;
 let _char        = null;
@@ -37,10 +53,9 @@ export async function initArchiveTab(el, char, retiredChars) {
 async function renderArchiveList() {
   _el.innerHTML = '<p class="placeholder-msg">Loading…</p>';
 
-  let docs = [], subs = [], cycles = [];
+  let subs = [], cycles = [];
   try {
-    [docs, subs, cycles] = await Promise.all([
-      apiGet(`/api/archive_documents?character_id=${_char._id}`).catch(() => []),
+    [subs, cycles] = await Promise.all([
       apiGet('/api/downtime_submissions').catch(() => []),
       apiGet('/api/downtime_cycles').catch(() => []),
     ]);
@@ -50,9 +65,6 @@ async function renderArchiveList() {
       }
     });
   } catch { /* non-fatal */ }
-
-  const dossiers  = docs.filter(d => d.type === 'dossier');
-  const histories = docs.filter(d => d.type === 'history_submission');
 
   const cycleMap = {};
   const cycleOrderMap = {};
@@ -71,13 +83,21 @@ async function renderArchiveList() {
 
   let h = '';
 
-  if (dossiers.length || downtimeSubs.length || histories.length) {
-    h += '<div class="arc-docs">';
-    if (dossiers.length)     h += renderDocGroup('Dossier', dossiers);
-    if (downtimeSubs.length) h += renderDowntimeGroup('Downtime Reports', downtimeSubs, cycleMap);
-    if (histories.length)    h += renderDocGroup('Character History', histories);
-    h += '</div>';
-  }
+  // The Dossier row is unconditional: it is rendered from the live character this
+  // tab was opened with, so it always has something to show. It replaces the
+  // former archive_documents-backed dossier item, which is what used to carry the
+  // Core Info Card and Questionnaire Details.
+  h += '<div class="arc-docs">';
+  h += '<div class="arc-doc-group">';
+  h += '<div class="arc-doc-group-title">Dossier</div>';
+  h += '<div class="arc-doc-item" data-dossier="1">';
+  h += '<span class="arc-doc-title">Dossier</span>';
+  h += '<span class="arc-doc-meta">Sheet and questionnaire</span>';
+  h += '<span class="arc-doc-arrow">&rsaquo;</span>';
+  h += '</div>';
+  h += '</div>';
+  if (downtimeSubs.length) h += renderDowntimeGroup('Downtime Reports', downtimeSubs, cycleMap);
+  h += '</div>';
 
   // ── Retired characters ──
   if (_retiredChars.length) {
@@ -98,14 +118,10 @@ async function renderArchiveList() {
     h += '</div>';
   }
 
-  if (!dossiers.length && !downtimeSubs.length && !histories.length && !_retiredChars.length) {
-    h = '<p class="placeholder-msg">Nothing archived yet.</p>';
-  }
-
   _el.innerHTML = h;
 
-  _el.querySelectorAll('.arc-doc-item[data-doc-id]').forEach(item => {
-    item.addEventListener('click', () => openDocDetail(item.dataset.docId));
+  _el.querySelectorAll('.arc-doc-item[data-dossier]').forEach(item => {
+    item.addEventListener('click', () => openDossierDetail());
   });
   _el.querySelectorAll('.arc-doc-item[data-sub-id]').forEach(item => {
     item.addEventListener('click', () => openDowntimeDetail(item.dataset.subId, downtimeSubs, cycleMap));
@@ -117,21 +133,6 @@ async function renderArchiveList() {
       if (c) openCharSheet(c);
     });
   });
-}
-
-function renderDocGroup(heading, docs) {
-  let h = `<div class="arc-doc-group">`;
-  h += `<div class="arc-doc-group-title">${esc(heading)}</div>`;
-  for (const doc of docs) {
-    const subtitle = doc.type === 'downtime_response' ? `Cycle ${doc.cycle}` : null;
-    h += `<div class="arc-doc-item" data-doc-id="${esc(String(doc._id))}">`;
-    h += `<span class="arc-doc-title">${esc(doc.title || TYPE_LABELS[doc.type] || doc.type)}</span>`;
-    if (subtitle) h += `<span class="arc-doc-meta">${esc(subtitle)}</span>`;
-    h += '<span class="arc-doc-arrow">&rsaquo;</span>';
-    h += '</div>';
-  }
-  h += '</div>';
-  return h;
 }
 
 function renderDowntimeGroup(heading, submissions, cycleMap) {
@@ -171,89 +172,47 @@ function openDowntimeDetail(subId, allSubs, cycleMap) {
   document.getElementById('arc-back').addEventListener('click', renderArchiveList);
 }
 
-// ── Document detail view ──────────────────────────────────────────────────────
+// ── Dossier detail view ───────────────────────────────────────────────────────
+//
+// Two LIVE sections, unchanged in content from before Story 31-5:
+//   1. Core Info Card — live from the character sheet
+//   2. Questionnaire Details — live from questionnaire_responses
+//
+// The third section this view used to render, "History Narrative"
+// (archive_documents.content_html, ST-editable via the ORD-3 inline editor), is
+// gone: that document now lives in TM Wiki and is read there, on the player's own
+// character profile page. Nothing here fetches it, and there is no edit button,
+// because this app is no longer a writer of that collection.
 
-async function openDocDetail(docId) {
-  _el.innerHTML = '<p class="placeholder-msg">Loading\u2026</p>';
+async function openDossierDetail() {
+  _el.innerHTML = '<p class="placeholder-msg">Loading…</p>';
 
-  let doc;
-  try {
-    doc = await apiGet(`/api/archive_documents/${docId}`);
-  } catch (err) {
-    _el.innerHTML = `<p class="placeholder-msg">Failed to load: ${esc(err.message)}</p>`;
-    return;
-  }
-
-  // For dossiers, also fetch the questionnaire response so we can render
-  // the live Questionnaire Details section. Other document types don't
-  // need it. Fetch is best-effort: null response just hides that section.
+  // Best-effort, exactly as before: a null response just hides that section
+  // rather than failing the whole view.
   let questionnaireResponses = null;
-  if (doc.type === 'dossier' && _char?._id) {
+  if (_char?._id) {
     try {
       const qDoc = await apiGet(`/api/questionnaire?character_id=${_char._id}`);
       questionnaireResponses = qDoc?.responses || null;
-    } catch { /* non-fatal \u2014 render without it */ }
+    } catch { /* non-fatal — render without it */ }
   }
-
-  renderDocDetail(doc, questionnaireResponses);
-}
-
-function renderDocDetail(doc, questionnaireResponses) {
-  const subtitle = doc.type === 'downtime_response' ? ` \u2014 Cycle ${doc.cycle}` : '';
-  const canEdit  = isSTRole();
-  const isDossier = doc.type === 'dossier';
 
   let h = '<div class="arc-detail">';
   h += `<button class="qf-back-btn" id="arc-back">&larr; Back to Archive</button>`;
   h += `<div class="arc-detail-header">`;
-  h += `<div class="arc-detail-title">${esc(doc.title || TYPE_LABELS[doc.type] || doc.type)}${esc(subtitle)}</div>`;
-  if (canEdit) {
-    h += '<button class="arc-btn-edit" id="arc-edit">Edit</button>';
-  }
+  h += `<div class="arc-detail-title">Dossier</div>`;
   h += '</div>';
-
-  if (isDossier) {
-    // Three sections stacked inside a single reading-pane so the dossier
-    // reads as one cohesive document rather than three boxed cards.
-    h += '<div class="arc-detail-body reading-pane">';
-    // Section 1: Core Info Card (live from character sheet)
-    h += renderCoreInfoCard(_char);
-    // Section 2: Questionnaire Details (live from questionnaire_responses)
-    if (questionnaireResponses) {
-      h += renderQuestionnaireDetails(questionnaireResponses);
-    }
-    // Section 3: History Narrative (ST-editable content_html)
-    h += '<div class="arc-history-section">';
-    h += '<h3 class="arc-history-heading">History</h3>';
-    h += `<div class="arc-history-body">${doc.content_html || ''}</div>`;
-    h += '</div>';
-    h += '</div>';
-  } else {
-    h += `<div class="arc-detail-body reading-pane">${doc.content_html || ''}</div>`;
-  }
-
+  h += '<div class="arc-detail-body reading-pane">';
+  h += renderCoreInfoCard(_char);
+  if (questionnaireResponses) h += renderQuestionnaireDetails(questionnaireResponses);
+  h += '</div>';
   h += '</div>';
 
   _el.innerHTML = h;
-
   document.getElementById('arc-back').addEventListener('click', renderArchiveList);
-
-  if (canEdit) {
-    document.getElementById('arc-edit').addEventListener('click', () => {
-      openInlineEditor(_el, doc._id, doc.content_html || '', {
-        onSaved: (html) => {
-          doc.content_html = html;
-          renderDocDetail(doc, questionnaireResponses);
-        },
-        onCancelled: () => {
-          renderDocDetail(doc, questionnaireResponses);
-        },
-      });
-    });
-  }
 }
 
-// \u2500\u2500 Core Info Card \u2014 live from character sheet \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+// ── Core Info Card — live from character sheet ────────────────────────────────
 function renderCoreInfoCard(c) {
   if (!c) return '';
 
@@ -263,12 +222,12 @@ function renderCoreInfoCard(c) {
 
   const bp = c.blood_potency;
   const bpDisp = (bp != null && bp !== '')
-    ? (('\u25cf'.repeat(parseInt(bp) || 0)) || String(bp))
+    ? (('●'.repeat(parseInt(bp) || 0)) || String(bp))
     : '';
 
   let h = '<div class="arc-core-card">';
 
-  // Identity row \u2014 name, clan, covenant with icons (matches questionnaire char-header pattern)
+  // Identity row — name, clan, covenant with icons (matches questionnaire char-header pattern)
   h += `<div class="arc-core-name">${esc(displayName(c))}</div>`;
   h += '<div class="arc-core-identity">';
   if (c.clan) {
@@ -306,7 +265,7 @@ function renderCoreInfoCard(c) {
   return h;
 }
 
-// \u2500\u2500 Questionnaire Details \u2014 live from questionnaire_responses \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+// ── Questionnaire Details — live from questionnaire_responses ────────────────
 function renderQuestionnaireDetails(responses) {
   if (!responses) return '';
 

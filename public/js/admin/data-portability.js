@@ -21,7 +21,6 @@ const COLLECTION_LABELS = {
   attendance:           'Attendance',
   downtime_cycles:      'Downtime Cycles',
   downtime_submissions: 'Downtime Submissions',
-  investigations:       'Investigations',
   npcs:                 'NPCs',
   ordeal_rubrics:       'Ordeal Rubrics',
   ordeal_submissions:   'Ordeal Submissions',
@@ -119,7 +118,6 @@ function buildShell() {
     { id: 'attendance',           label: 'Attendance',           desc: 'Per-character attendance per session (expanded rows)',                                                  verify: true  },
     { id: 'downtime_cycles',      label: 'Downtime Cycles',      desc: 'Downtime cycle definitions and status',                                                                verify: false },
     { id: 'downtime_submissions', label: 'Downtime Submissions', desc: 'Player downtime submissions. CSV imports player CSV (character matching). JSON imports backup.',        csvImportLabel: 'Import Player CSV', verify: false },
-    { id: 'investigations',       label: 'Investigations',       desc: 'Downtime investigation tracker entries',                                                               verify: true  },
     { id: 'npcs',                 label: 'NPCs',                 desc: 'NPC register entries',                                                                                 verify: true  },
     { id: 'ordeal_rubrics',       label: 'Ordeal Rubrics',       desc: 'Ordeal definitions and rubric templates',                                                              verify: false },
     { id: 'ordeal_submissions',   label: 'Ordeal Submissions',   desc: 'Player ordeal submission records',                                                                     verify: false },
@@ -227,7 +225,6 @@ async function handleExport(collection) {
       case 'attendance':           await exportCollection('game_sessions',           attendanceToRows,           attendanceHeaders()); break;
       case 'downtime_cycles':      await exportCollection('downtime_cycles',         downtimeCyclesToRows,       downtimeCycleHeaders()); break;
       case 'downtime_submissions': await exportCollection('downtime_submissions',    downtimeSubsToRows,         downtimeSubHeaders()); break;
-      case 'investigations':       await exportCollection('downtime_investigations', investigationsToRows,       investigationHeaders()); break;
       case 'npcs':                 await exportCollection('npcs',                    npcsToRows,                 npcHeaders()); break;
       case 'ordeal_rubrics':       await exportCollection('ordeal_rubrics',          ordealRubricsToRows,        ordealRubricHeaders()); break;
       case 'ordeal_submissions':   await exportCollection('ordeal_submissions',      ordealSubsToRows,           ordealSubHeaders()); break;
@@ -305,7 +302,6 @@ function collectionApiPath(collection) {
     attendance:           'game_sessions',
     downtime_cycles:      'downtime_cycles',
     downtime_submissions: 'downtime_submissions',
-    investigations:       'downtime_investigations',
     npcs:                 'npcs',
     ordeal_rubrics:       'ordeal_rubrics',
     ordeal_submissions:   'ordeal_submissions',
@@ -544,10 +540,6 @@ async function writeJsonDoc(collection, doc) {
       if (id) return apiPut(`/api/downtime_submissions/${id}`, body);
       return apiPost('/api/downtime_submissions', body);
 
-    case 'investigations':
-      if (id) return apiPut(`/api/downtime_investigations/${id}`, body);
-      return apiPost('/api/downtime_investigations', doc);
-
     case 'npcs':
       if (id) return apiPut(`/api/npcs/${id}`, body);
       return apiPost('/api/npcs', doc);
@@ -582,7 +574,6 @@ const COLLECTION_API = {
   territories:    'territories',
   game_sessions:  'game_sessions',
   attendance:     'game_sessions',
-  investigations: 'downtime_investigations',
   npcs:           'npcs',
 };
 
@@ -590,7 +581,6 @@ const COLLECTION_ROWS = {
   territories:    [territoryHeaders,    territoriesToRows],
   game_sessions:  [gameSessionHeaders,  gameSessionsToRows],
   attendance:     [attendanceHeaders,   attendanceToRows],
-  investigations: [investigationHeaders, investigationsToRows],
   npcs:           [npcHeaders,          npcsToRows],
 };
 
@@ -740,19 +730,6 @@ function downtimeSubsToRows(docs) {
     d.status || '',
     d.submitted_at || '',
     d.approval_status || '']);
-}
-
-// ── Investigations ────────────────────────────────────────────────────────────
-
-function investigationHeaders() {
-  return ['_id', 'cycle_id', 'target_description', 'threshold_type', 'threshold', 'status', 'progress', 'investigating_character_id', 'notes', 'created_at'];
-}
-function investigationsToRows(docs) {
-  return docs.map(d => [String(d._id), d.cycle_id != null ? String(d.cycle_id) : '',
-    d.target_description || '', d.threshold_type || '',
-    d.threshold != null ? d.threshold : '', d.status || '',
-    d.progress != null ? d.progress : '', d.investigating_character_id || '',
-    d.notes || '', d.created_at || '']);
 }
 
 // ── NPCs ──────────────────────────────────────────────────────────────────────

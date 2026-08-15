@@ -17,7 +17,6 @@ import trackerRouter from '../../routes/tracker.js';
 import rankingBallotsRouter from '../../routes/ranking_ballots.js';
 import ordealSubmissionsRouter from '../../routes/ordeal-submissions.js';
 import ordealResponsesRouter from '../../routes/ordeal-responses.js';
-import archiveDocumentsRouter from '../../routes/archive-documents.js';
 import rulesRouter from '../../routes/rules.js';
 import {
   grantRouter, specialityGrantRouter, skillBonusRouter, nineAgainRouter, rulesAggregateRouter,
@@ -91,7 +90,8 @@ export function createTestApp() {
   app.use('/api/tracker_state', mockAuth, requireRole('st'), noCache(), trackerRouter);
   app.use('/api/ordeal_submissions', mockAuth, noCache(), ordealSubmissionsRouter);
   app.use('/api/ordeal-responses', mockAuth, noCache(), ordealResponsesRouter);
-  app.use('/api/archive_documents', mockAuth, noCache(), archiveDocumentsRouter);
+  // RETIRED, Story 31-5 (TM Wiki) - the route moved to TM Wiki along with its data.
+  // See the matching note in server/index.js.
   // Rules engine — must mount before /api/rules (purchasable_powers)
   const reRoleST = requireRole('st');
   app.use('/api/rules/grant',                 mockAuth, reRoleST, CACHE_5MIN, grantRouter);

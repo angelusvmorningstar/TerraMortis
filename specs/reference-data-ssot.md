@@ -60,7 +60,14 @@ Migration to `tracker_state` API is task #10. Until done, tracker state is local
 |--------|-----------|-----|---------------|
 | Downtime cycles | `downtime_cycles` | `GET/POST /api/downtime_cycles` | admin.html → Downtime tab |
 | Downtime submissions (player forms + ST outcomes) | `downtime_submissions` | `GET/PUT /api/downtime_submissions` | player.html (submit) + admin.html Downtime tab (process) |
-| Downtime investigations | `downtime_investigations` | `/api/downtime_investigations` | admin.html → Downtime tab |
+
+**Downtime investigations: RETIRED 2026-08-15 (TM Wiki Story 31-7).** `downtime_investigations`,
+its `/api/downtime_investigations` route and the "Investigations" panel in admin.html's Downtime tab
+are gone. It and `tm_wiki.prior_investigations` were the same concept modelled twice; neither ever
+held a document, and `tm_suite.downtime_investigations` was never even created. TM Wiki's version is
+the single surviving home, because it is wired into the player-facing downtime form rather than an
+ST-only panel, and investigation continuity is story material under Epic 31's ownership test. No
+migration was written: there was nothing to move.
 
 **Influence spend:** Not a stored field. Must be derived at render time by summing influence-category action_responses from the character's last resolved downtime submission.
 

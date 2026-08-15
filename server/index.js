@@ -12,7 +12,6 @@ import trackerRouter from './routes/tracker.js';
 import rankingBallotsRouter from './routes/ranking_ballots.js';
 import sessionsRouter from './routes/sessions.js';
 import { cyclesRouter, submissionsRouter, projectInvitationsRouter } from './routes/downtime.js';
-import investigationsRouter from './routes/investigations.js';
 import npcsRouter from './routes/npcs.js';
 import relationshipsRouter from './routes/relationships.js';
 import npcFlagsRouter from './routes/npc-flags.js';
@@ -24,7 +23,6 @@ import ordealResponsesRouter from './routes/ordeal-responses.js';
 import ordealSubmissionsRouter from './routes/ordeal-submissions.js';
 import ordealRubricsRouter from './routes/ordeal-rubrics.js';
 import attendanceRouter from './routes/attendance.js';
-import archiveDocumentsRouter from './routes/archive-documents.js';
 import rulesRouter from './routes/rules.js';
 import officeActionsRouter from './routes/office-actions.js';
 import officeMeritDotsRouter from './routes/office-merit-dots.js';
@@ -109,7 +107,18 @@ app.use('/api/ordeal_submissions', requireAuth, noCache(), ordealSubmissionsRout
 app.use('/api/ordeal_rubrics', requireAuth, noCache(), ordealRubricsRouter);
 app.use('/api/attendance', requireAuth, noCache(), attendanceRouter);
 app.use('/api/cyoa', requireAuth, noCache(), cyoaRouter);
-app.use('/api/archive_documents', requireAuth, noCache(), archiveDocumentsRouter);
+// RETIRED, Story 31-5 (TM Wiki). `archive_documents` (60 narrative documents:
+// character dossiers, downtime narratives, character histories) moved to `tm_wiki`,
+// reader AND writer together - the constraint TM Wiki's deferred-work item 163
+// exists to enforce. Leaving this route mounted would have made TM Suite a SECOND
+// writer against a collection whose canonical copy now lives elsewhere, which is
+// precisely the split that once stranded a real player's Downtime 6.
+// Replacements, all in TM Wiki: the player read is its own
+// server/routes/wiki-archive-documents.js; ST authoring is its server/scripts/
+// archive-doc-upload.mjs / archive-doc-edit.mjs / archive-doc-list.mjs (ruling 12,
+// 2026-07-25: ST-facing capability is scripts, not a built surface).
+// The collection itself is dropped separately and manually, by Angelus, via
+// server/scripts/_drop-31-5-archive-documents.mjs - copy, verify, cut over, THEN drop.
 // Rules engine — must mount before /api/rules (purchasable_powers) so Express
 // routes /api/rules/grant etc. to the engine, not the /:key wildcard.
 //
@@ -169,7 +178,14 @@ app.use('/api/session_logs', requireAuth, requireRole('st'), noCache(), sessions
 // requireRole('coordinator') implicitly allows st/dev too.
 // Issue #255: live session state → no-cache.
 app.use('/api/game_sessions', requireAuth, requireRole('coordinator'), noCache(), gameSessionsRouter);
-app.use('/api/downtime_investigations', requireAuth, noCache(), investigationsRouter);
+// TM Wiki Story 31-7 (2026-08-15): /api/downtime_investigations is RETIRED. It
+// and tm_wiki's prior_investigations were the same concept modelled twice, and
+// neither collection ever held a document - tm_suite.downtime_investigations was
+// never even created. TM Wiki's version survives as the single home, because it
+// is wired into the player-facing downtime form rather than being an ST-only
+// admin panel, and an investigation tracker is downtime/story continuity
+// material under Epic 31's ownership test. No migration was needed or written:
+// there was nothing to move.
 app.use('/api/npcs', requireAuth, noCache(), npcsRouter);
 app.use('/api/relationships', requireAuth, noCache(), relationshipsRouter);
 app.use('/api/npc-flags', requireAuth, noCache(), npcFlagsRouter);
