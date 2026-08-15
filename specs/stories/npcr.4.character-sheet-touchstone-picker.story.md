@@ -1,10 +1,35 @@
 ---
 id: npcr.4
 epic: npcr
-status: review
+status: superseded
 priority: high
 depends_on: [npcr.2]
+superseded_by: dbo.8
 ---
+
+**Superseded 2026-08-15 by DBO-8** (`specs/stories/dbo-8-touchstone-mechanic-identity-split.md`,
+merged to `main` today). This story shipped in April and was then retired in full: DBO-8 removed
+`touchstone_meta` from `relationship.schema.js` and the per-item `edge_id` from `character.schema.js`,
+along with every code path that read or wrote them (`server/routes/relationships.js`,
+`server/routes/characters.js`, `public/js/editor/edit.js`, `public/js/editor/sheet.js`). Its acceptance
+criteria below therefore reference fields that do not exist, and cannot be re-verified as written.
+
+The trigger was Angelus's call on a live-data finding, not a tidy-up: **0 of 44** touchstone entries
+across 30 characters carried an `edge_id`, and the single `kind='touchstone'` edge in the whole
+database was retired and orphaned. Issue #162 had already removed the only code path that created a
+linked touchstone, so the picker's character mode had been writing nothing for months. Presented as a
+genuine choice, revive or retire, and retired.
+
+**What did NOT die with it**, so this is not read as a wholesale reversal: the V:tR anchor rules this
+story established are still live in `character.schema.js` and the sheet (7 for Ventrue, 6 otherwise,
+descending by one per grant, `maxItems: 6`), and `'touchstone'` is once again a valid `KIND_ENUM`
+value (restored 2026-08-15 after DBO-8 over-reached on that one point, see `relationship.schema.js`'s
+header). A `kind='touchstone'` edge is now an ordinary relationship, joined to no touchstone slot.
+Only the id link is gone. Rebuilding the mechanic/identity split in some other shape remains an open
+question; it would need a fresh story, not this one reopened.
+
+Status was `review` when this was written, never closed. Left there deliberately: the code was
+reviewed in effect by DBO-8's own removal of it.
 
 # Story NPCR-4: Character-sheet touchstone picker
 

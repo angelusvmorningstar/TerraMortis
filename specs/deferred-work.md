@@ -204,8 +204,12 @@ Full record: `specs/stories/oxp-2-derived-office-xp-calculation.md` → Senior D
 
 **RESOLVED 2026-08-15.** All five items below were built out as Epic DBO's dbo-1/2/3/4 and merged to
 `main` today (`specs/epic-dbo-database-ownership.md`). Left in place as the historical record of what
-the audit originally found, not as open work. The two Angelus-ruling items at the end of this section
-(`story_threads` Suite-vs-Wiki, and the `feral` feed method) are Wiki-side and not resolved by this.
+the audit originally found, not as open work. Each bullet now carries its own dated pointer to the
+story that closed it, so a reader landing mid-section does not have to infer it from this banner.
+
+Of the two Angelus-ruling items at the end of this section, **`story_threads` has since been ruled**
+(see that paragraph, and DBO-6) and only the migration mechanics remain; **`feral` is still genuinely
+open** and still nobody's to resolve alone.
 
 Four-sweep audit comparing `tm_suite`/`tm_wiki` for duplication, forks and misplaced ownership. Full
 map: `D:\Terra Mortis\data-map.md` (umbrella-level, not versioned — TM Wiki session currently holds
@@ -221,13 +225,33 @@ here per the brief's own coordination protocol rather than acted on unilaterally
   script exists but either was never run or something re-seeds the fields. **Open question that must
   be answered before anyone writes a new script**: never run, or does something put the fields back?
   Also blocks any reader from safely building on `special`.
+  **RESOLVED 2026-08-15, see DBO-1** (`specs/stories/dbo-1-purchasable-powers-schema-vs-data.md`).
+  The open question was answered before any script was written: neither field is re-seeded, both are
+  stale legacy import residue. `selected` is a clean collection-wide strip; `special` had to be
+  DECLARED rather than stripped, because DBO-3 made its two `'standing'` rows load-bearing in live
+  code. One residual follow-up survives this closure and is logged separately below:
+  `seed-rules-necropolis.js`'s `_baseDoc()` still defaults `selected: true`, so re-running that
+  seeder would put the field back on nine rows.
 - **`character_dossier.schema.js` does not exist.** `server/scripts/_dossier-audit.js:3` imports it
   and TM Wiki's `server/routes/characters.js:219-220` cites it as the authority for a field type. The
   file is not in this repo. A 30-document / 442-fact collection has no schema at all.
+  **RESOLVED 2026-08-15, see DBO-2** (`specs/stories/dbo-2-character-dossier-schema-and-reveal.md`).
+  The schema now exists, written from a fresh live inventory that reproduced all of the figures above
+  exactly, and it exports `DOSSIER_TAGS` so `_dossier-audit.js:3`'s import resolves. TM Wiki's half of
+  the same dead citation was already self-corrected by their story 31-1.
 - **`character_dossier` reveal path was never wired.** All 442 facts are `st_hidden: true` and
   `revealed_to` appears on zero of them, so TM Wiki's shipped summary tier shows nothing to any
   non-owner. Nothing in this repo writes `revealed_to` for dossier facts. Needs an Angelus decision:
   full concealment intended, or the mechanism is simply unbuilt.
+  **RESOLVED 2026-08-15, see DBO-2.** The Angelus decision this bullet asked for was taken on
+  2026-08-14: all-hidden is correct as today's default, because he has not yet chosen what to reveal,
+  not because it must stay concealed. The reveal writer is deliberately NOT built in this repo. TM
+  Wiki's already-built `visibility_prefs` mechanism is the writer, dark behind
+  `wiki_config.fact_level_enabled: false`, and the one thing it could not supply itself was a durable
+  opaque per-fact key. DBO-2 shipped that mint (`fact_key`, `randomUUID()`) plus a dry-run-default
+  backfill script. **Not yet fully closed on the operational side**: `--apply` against live
+  `tm_suite` is Angelus's own action, after the 2026-08-15 game, and TM Wiki is owed a notification
+  the moment it runs so they can decide when to flip their flag.
 - **XP-spend merit picker filter bug — live, concrete, not a data/schema question.** The picker skips
   `sub_category === 'standing'`, but Mystery Cult Initiation and Professional Training carry
   `special: 'standing'` with `sub_category: null` — so the filter has never actually excluded the two
@@ -235,6 +259,11 @@ here per the brief's own coordination protocol rather than acted on unilaterally
   naming-mismatch bug the Wiki audit found independently on its own side. Unlike the other four items
   here, this is a straightforward code fix once someone picks it up — not blocked on an Angelus
   ruling or a data-shape investigation.
+  **RESOLVED 2026-08-15, see DBO-3** (`specs/stories/dbo-3-xp-spend-standing-filter-bug.md`), which
+  is merged and live. This bullet undersold it: the same broken check was duplicated at three sites
+  across two files, and a fourth site (the sheet's own Add Merit picker) had no standing exclusion at
+  all. Fixed with a single shared predicate, `isMeritEventGranted(rule)`, which reads
+  `rule.special === 'standing'` and is the reason DBO-1 had to declare `special` rather than strip it.
 - **`office_manoeuvre_ranks` does not exist in live Atlas** — not empty, absent. The route at
   `server/routes/office-manoeuvre-rank.js:7` refers to it; `office_actions` holds 0 documents live,
   `office_merit_dots` holds 2. Relevant to Epic OXP (in progress this session, oxp-1 through oxp-7
@@ -243,14 +272,39 @@ here per the brief's own coordination protocol rather than acted on unilaterally
   bug — but any FUTURE OXP work that reads this collection will behave differently against dev
   fixtures than against production, and should treat "renders empty" as an explicit choice, not a
   surprise discovery at review time.
+  **RESOLVED 2026-08-15, see DBO-4** (`specs/stories/dbo-4-office-collections-absent-empty-route.md`).
+  Read-only investigation, no code defect found and none changed: the "no document = 0" convention on
+  `office_manoeuvre_ranks` / `office_merit_dots` is deliberate and confirmed by reading every writer,
+  and `office_actions` is empty simply because no office action has ever been approved. This bullet's
+  own "oxp-1 through oxp-7 done, not yet merged" aside was stale on both halves and has since been
+  corrected twice on the `epic-oxp` row in `sprint-status.yaml`. Read that row, not this line. The
+  one real live hazard the story did surface is operational, not code, and stays open: the two
+  pre-migration category-keyed `office_merit_dots` documents are invisible to the seat-keyed code
+  until `migrate-office-purchases-to-seats.mjs --apply` is run, which is Angelus's action.
 
-**Two items explicitly awaiting Angelus's ruling, not Suite's to resolve alone** (recorded here for
-visibility only — the actual decision goes through the data map's Open Items, per the brief):
-`tm_suite.story_threads` (44 real populated threads) vs. `tm_wiki.story_threads` (empty,
-structurally incompatible, created by a 2026-07-25 ruling that never knew canon's existed — now
-REOPENED in the data map); and TM Wiki's `feral` feeding method, which is not a member of this repo's
-`feedMethodEnum` (`server/schemas/downtime_submission.schema.js:58-60`) and appears nowhere in
-`tm_suite` — either the Wiki drops it or this repo's enum gains it.
+**Two items were logged here as explicitly awaiting Angelus's ruling, not Suite's to resolve alone**
+(recorded for visibility only — the actual decision goes through the data map's Open Items, per the
+brief). **UPDATED 2026-08-15: one has been ruled, one has not.**
+
+- **`tm_suite.story_threads` (44 real populated threads) vs. `tm_wiki.story_threads`** (empty,
+  structurally incompatible, created by a 2026-07-25 ruling that never knew canon's existed).
+  **RULED 2026-08-14. The ruling is made and only the migration mechanics remain.** Recorded in
+  `specs/epic-dbo-database-ownership.md` under DBO-6: the 44 threads have no route, no mount and no
+  client code in this repo, only ST scripts, and no mechanical function at the table, so the empty
+  `tm_wiki.story_threads` twin is the correct destination and the threads travel. Location data was
+  ruled the same day and the same way under DBO-5, in Angelus's own words: *"All location data moves
+  to wiki. Location has no relevance at game."* That one covers `st_map_locations` (130 docs) and
+  `locations` (42 docs, 26 polygons); `territories` identity and governance stay here, because *"a
+  polygon is presentation; a regent is a rule."* What is left on both is execution, tracked as
+  DBO-5 and DBO-6 in `sprint-status.yaml` and joint with the Wiki's own 31-2 and 31-3, under the
+  standing order: copy, verify, cut over, then drop, never delete the source first. Carry `status:
+  'seeded'` forward when the threads move (2 documents hold it; no authoring script declares it) and
+  flag it rather than silently dropping it.
+- **TM Wiki's `feral` feeding method**, which is not a member of this repo's `feedMethodEnum`
+  (`server/schemas/downtime_submission.schema.js:58-60`) and appears nowhere in `tm_suite` — either
+  the Wiki drops it or this repo's enum gains it. **STILL OPEN as of 2026-08-15**, still awaiting
+  Angelus, and still explicitly out of scope for Epic DBO (see that epic's "Not this epic" section).
+  Opposite fixes in opposite repos, so neither side moves alone.
 
 ## Deferred from: code review of oxp-11-office-purchase-seat-keying (2026-08-13, external Codex review)
 
