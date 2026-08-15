@@ -116,6 +116,24 @@ export const purchasablePowerSchema = {
     action:     { type: ['string', 'null'] },
     duration:   { type: ['string', 'null'] },
 
+    // gdx.6 (#987): structured activation cost, additive alongside the
+    // free-text `cost` above (never replaces it — `cost` stays the
+    // permanent display fallback of last resort). Populated by
+    // server/scripts/gdx-6-structured-power-costs.mjs for discipline/
+    // devotion/rite rows only; absent (not merely null) on every other
+    // category, since "activation cost" is not a concept that applies to
+    // an attribute, skill, manoeuvre, or merit. `null` on a touched row
+    // means "could not be parsed from `cost`" (see `cost_note`), NOT
+    // "free" — a confirmed-free row gets the real integer `0`.
+    vitae_cost:     { type: ['integer', 'null'], minimum: 0 },
+    willpower_cost: { type: ['integer', 'null'], minimum: 0 },
+    // Set whenever `cost` could not be fully reduced to the two integers
+    // above (the original `cost` string verbatim — never fabricated or
+    // summarised), or as a short qualifier alongside a real parse (e.g.
+    // "per effect", "0 in bond") when the parsed number alone would lose
+    // real mechanical information.
+    cost_note: { type: ['string', 'null'] },
+
     // Prerequisites
     prereq: {
       oneOf: [

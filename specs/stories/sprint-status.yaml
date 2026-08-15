@@ -1034,3 +1034,35 @@ development_status:
 
   xpl-1-xp-ledger-write-hook: done                             # See ms/xpl-1-xp-ledger-write-hook branch for full history - dev-storied, code-reviewed (2 real High findings fixed, live-data-reproduced), 136/136 regression. Committed locally, not merged.
   xpl-2-historic-reconciliation: ready-for-dev
+
+  # ── Epic GDX: Game-Day Experience ─────────────────────────────────────────
+  # GitHub-issue-tracked, not a local specs/epic-gdx-*.md file yet (none of
+  # the referenced epic spec / review doc exist in this repo despite being
+  # cited by the issues - only the raw 2026-07-25 meeting artifacts do, at
+  # D:\Terra Mortis\2026-07-25_meeting-lessons.md section 2.8 and
+  # D:\Terra Mortis\2026-07-25_meeting-decisions-log.md). Originally scoped
+  # "Peter-owned" (umbrella meeting notes, 25 Jul) - stale per this project's
+  # own CLAUDE.md ("Piatra is Peter's branch and he stepped back from TM
+  # Suite dev 2026-08-09. Angelus owns code and schema now."), so nothing
+  # blocks picking this up here. Ten stories across three groups (A: mobile
+  # hygiene #982-985, B: game-day roller #986-989, C: sheet+legacy #990-991);
+  # sequencing per the parent issue: A independent; B: 986 ∥ 987 -> 988 -> 989;
+  # C after A. gdx-5 picked up first (2026-08-15) because it unblocks the
+  # vitae/willpower one-tap-spend feature (gdx-7, #988) Angelus asked about
+  # directly - the player dice roller has NO spend controls at all today,
+  # confirmed by reading public/js/suite/roll.js and roll-v2.js (neither
+  # mentions vitae or willpower). GitHub: epic #981, gdx-1 #982, gdx-2 #983,
+  # gdx-3 #984, gdx-4 #985, gdx-5 #986, gdx-6 #987, gdx-7 #988, gdx-8 #989,
+  # gdx-9 #990, gdx-10 #991.
+  epic-gdx: in-progress                                        # gdx-5 story created 2026-08-15 (bmad-create-story). Nine sibling stories (gdx-1..4, gdx-6..10) still backlog, tracked here as placeholders only - not yet storied, no epic doc written locally.
+
+  gdx-1-mobile-zoom: backlog                                   # #982. Group A: mobile hygiene, independent of B/C.
+  gdx-2-mobile-type-scale: backlog                              # #983. Group A.
+  gdx-3-mobile-touch-targets: backlog                            # #984. Group A.
+  gdx-4-mobile-css-cleanup: backlog                              # #985. Group A.
+  gdx-5-game-in-progress-setting: done                          # #986. Group B, first of 986∥987 -> 988 -> 989. Story: gdx-5-game-in-progress-setting.md. Dev-storied to completion 2026-08-15, all 5 tasks/9 ACs done. Internal 3-layer code review same day: 0 decision-needed, 6 patch (all applied - notably admin.js's own initWS had NO onSettingsUpdate wiring at all, a real gap fixed with a new exported refreshStModsPanelSettings(); GET now backfills missing default keys on a partial doc, prove-discriminated), 3 defer (logged to deferred-work.md, all pre-existing patterns shared with sibling code, not unique to this story), 7 dismissed. 39/39 final regression. game_in_progress key + open GET + WS broadcast (both app.js AND admin.js) + admin toggle, all shipped and reviewed. Deliberate side effect: st_mods_enabled becomes live-broadcast too (previously had none) - flagged throughout. Committed locally, not pushed/merged - Angelus's call. Unblocks gdx.7 (vitae/willpower one-tap roll spend) alongside gdx.6.
+  gdx-6-structured-power-costs: done                             # #987. Codex external review attempted, hit its own usage limit mid-run (unavailable until 2026-08-20) before completing any pass - fell back to internal 3-layer review. 8 patch findings applied (parseCostString non-string/whitespace/empty guards - prove-discriminated; console wording; comment accuracy; test global-pollution fix; corrected a false Debug Log claim), 4 deferred (fmtRuleStats not the only display site after all - print/CSV bypass it, logged to deferred-work.md; admin editor has no field for the new costs; CSV round-trip drops them; unchecked updateOne), 4 dismissed. Acceptance Auditor's independent verdict was Ship even before the patch round. 36/36 final regression. Group B, blocker for gdx-7 alongside gdx-5. Story: gdx-6-structured-power-costs.md. Live investigation (2026-08-15) found the issue's "purchasable_powers AND devotions data" framing stale - Epic PP already unified devotions into purchasable_powers, one place to touch. Real scope: only discipline(50)/devotion(51)/rite(132) of 674 total rows ever carry a cost string; rites are 132/132 cleanly parseable, disciplines/devotions have real edge cases (ranges, choices, body-mutilation devotions with unquantified Vitae) requiring an unparsed/cost_note bucket.
+  gdx-7-apply-costs-on-roll: backlog                             # #988. Group B. THE vitae/willpower one-tap-spend feature. Depends on gdx-5 + gdx-6.
+  gdx-8-roll-history: backlog                                   # #989. Group B, after gdx-7.
+  gdx-9-single-scroll-sheet: backlog                             # #990. Group C, after Group A.
+  gdx-10-legacy-retirement: backlog                              # #991. Group C, after Group A.

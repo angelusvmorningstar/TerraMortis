@@ -1,15 +1,21 @@
-/* Global app settings cache (Epic STM, issue #378).
+/* Global app settings cache (Epic STM, issue #378; extended gdx.5, #986).
  *
  * Single GET at boot primes a module-level `globalSettings` object.
  * Consumers in public/js/data/st-mods.js and the admin/player render
- * call sites read `getGlobalSettings()?.st_mods_enabled` synchronously
- * after boot. No live polling — the player app picks up flips on next
- * reload (per ADR-004 Rev 2 §D2 last paragraph; this is a debug/
- * emergency lever, not a live broadcast).
+ * call sites read `getGlobalSettings()?.st_mods_enabled` (or, since
+ * gdx.5, `?.game_in_progress`) synchronously after boot.
  *
- * STM-5 will call `loadGlobalSettings()` again from the admin settings
- * panel after a PATCH to refresh the cache locally — no full reload
- * needed for the writing ST. */
+ * gdx.5: this is now genuinely live, not reload-only. `app.js`'s
+ * `initWS({ onSettingsUpdate })` calls `loadGlobalSettings()` again on
+ * every `broadcastSettingsUpdate` WS frame (server/ws.js), which fires on
+ * any successful `PATCH /api/settings` — so a remote ST toggle reaches
+ * every open tab without a reload. This supersedes the original STM-era
+ * design note here ("not a live broadcast", ADR-004 Rev 2 §D2), which no
+ * longer holds for either flag now sharing this one settings doc.
+ *
+ * The admin settings panel (public/js/admin/st-mods-panel.js) also calls
+ * `loadGlobalSettings()` directly after its own PATCH, so the writing ST
+ * sees the change without waiting on its own WS echo. */
 
 const API_BASE = location.hostname === 'localhost' ? 'http://localhost:3000' : '';
 

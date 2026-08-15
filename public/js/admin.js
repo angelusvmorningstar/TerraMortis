@@ -43,7 +43,7 @@ import { initRulesDataView } from './admin/rules-data-view.js';
 import { initEquipmentCatalogueAdmin } from './admin/equipment-catalogue-admin.js';
 import { initStModsAudit } from './admin/st-mods-audit.js';
 import { initDevlogAdmin } from './admin/devlog-admin.js';
-import { initStModsPanel } from './admin/st-mods-panel.js';
+import { initStModsPanel, refreshStModsPanelSettings } from './admin/st-mods-panel.js';
 import { initCycleView } from './admin/cycle-views.js';
 import { initDtStory } from './admin/downtime-story.js';
 import { initNextSession } from './admin/next-session.js';
@@ -244,6 +244,17 @@ async function boot() {
         // read. Op is advisory per the server-side comment; we refetch
         // regardless rather than per-op state-machine.
         onCatalogueUpdate: () => { refetchEquipmentCatalogue(); },
+        // gdx.5 (#986, review finding): on any remote app_settings PATCH
+        // (broadcast by server/ws.js's broadcastSettingsUpdate), refresh
+        // the cache AND redraw the ST Mods panel if it's currently open —
+        // without the redraw, a remote game_in_progress/st_mods_enabled
+        // toggle silently held stale state on this second app entry point
+        // until the ST reselected a character, contradicting the toggle's
+        // own "propagates to every open tab" hint text.
+        onSettingsUpdate: async () => {
+          await loadGlobalSettings();
+          refreshStModsPanelSettings();
+        },
       });
 
       // Epic STM (issue #385): install delegated click handler for the

@@ -1522,6 +1522,11 @@ async function boot() {
           // broadcastCatalogueUpdate), refetch the cache. Next render of
           // the DT form's equipment dropdown picks up the fresh items.
           onCatalogueUpdate: () => { refetchEquipmentCatalogue(); },
+          // gdx.5 (#986): on any remote app_settings PATCH (broadcast by
+          // server/ws.js's broadcastSettingsUpdate), refetch the cache so
+          // an ST's game_in_progress toggle (or st_mods_enabled) reaches
+          // every open tab without a reload.
+          onSettingsUpdate: () => { loadGlobalSettings(); },
         });
 
         // Issue #425: install the STM popover delegated click handler for
