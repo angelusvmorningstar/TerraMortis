@@ -120,6 +120,12 @@ const { loadPool, chgPool, chgMod, updPool, setAgain, togMod, togSpec, doRoll, c
 // setAgainSeg exists on rollV2 (slice A+D, #1024). Guarded so the tab
 // works when the flag is off and only rollV1 is active.
 const setAgainSeg = _roller.setAgainSeg || setAgain;
+// spendVitae/spendWillpower (gdx.7 follow-up) exist on rollV2 only — the
+// standalone spend buttons are hidden by rollV2's own game_in_progress
+// gate when rollV1 is active, but the onclick handlers still need a no-op
+// fallback so a stray click on residual DOM (if any) doesn't throw.
+const spendVitae = _roller.spendVitae || (() => {});
+const spendWillpower = _roller.spendWillpower || (() => {});
 import { onSheetChar, renderSheet as suiteRenderSheet, repaintSheetTrackers } from './suite/sheet.js';
 import { toggleExp as suiteToggleExp, toggleDisc as suiteToggleDisc } from './suite/sheet-helpers.js';
 import { updResist, showResistSec } from './shared/resist.js';
@@ -1335,6 +1341,8 @@ Object.assign(window, {
   effPool,
   togEquipChip,
   updWeaponRef,
+  spendVitae,
+  spendWillpower,
 
   // Suite sheet tab
   onSheetChar,
@@ -1522,6 +1530,11 @@ async function boot() {
           // broadcastCatalogueUpdate), refetch the cache. Next render of
           // the DT form's equipment dropdown picks up the fresh items.
           onCatalogueUpdate: () => { refetchEquipmentCatalogue(); },
+          // gdx.5 (#986): on any remote app_settings PATCH (broadcast by
+          // server/ws.js's broadcastSettingsUpdate), refetch the cache so
+          // an ST's game_in_progress toggle (or st_mods_enabled) reaches
+          // every open tab without a reload.
+          onSettingsUpdate: () => { loadGlobalSettings(); },
         });
 
         // Issue #425: install the STM popover delegated click handler for
@@ -2269,19 +2282,28 @@ async function _loadLifecycleData() {
     // window and the player's actual roll state during prep (Codex review
     // finding, 2026-08-10: the card was date-only and could keep advertising
     // "roll ready" after the player had already rolled).
-    const feedingCycle = Array.isArray(cycles)
-      ? cycles.filter(c => isFeedingOpen(c)).sort((a, b) => (b.game_number || 0) - (a.game_number || 0))[0] || null
-      : null;
+    const feedingCandidates = Array.isArray(cycles)
+      ? cycles.filter(c => isFeedingOpen(c)).sort((a, b) => (b.game_number || 0) - (a.game_number || 0))
+      : [];
+    let feedingCycle = feedingCandidates[0] || null;
     editorState.activeCycleNum = activeCycle?.game_number ?? null;
     let mySubmission = null;
     if (activeCycle || feedingCycle) {
       const subs = await apiGet('/api/downtime_submissions').catch(() => []);
       const char = _activeMoreChar();
-      if (char && Array.isArray(subs)) {
-        mySubmission = activeCycle
-          ? subs.find(s => String(s.character_id) === String(char._id)) || null
-          : subs.find(s => String(s.character_id) === String(char._id)
-              && String(s.cycle_id) === String(feedingCycle._id)) || null;
+      if (Array.isArray(subs)) {
+        // 2026-08-15 (live Game 7 incident): an empty higher-game_number cycle
+        // (flipped to game phase before any submissions exist against it) must
+        // not shadow a lower-numbered feeding-open cycle that actually carries
+        // the month's submissions - see db.js's getFeedingCycle for the
+        // canonical fix and the incident this guards against.
+        feedingCycle = feedingCandidates.find(c => subs.some(s => String(s.cycle_id) === String(c._id))) || feedingCycle;
+        if (char) {
+          mySubmission = activeCycle
+            ? subs.find(s => String(s.character_id) === String(char._id)) || null
+            : subs.find(s => String(s.character_id) === String(char._id)
+                && String(s.cycle_id) === String(feedingCycle?._id)) || null;
+        }
       }
     }
     _lifecycleCache = { nextSession, activeCycle, feedingCycle, mySubmission };

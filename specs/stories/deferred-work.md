@@ -220,3 +220,125 @@ and verified before deferral. Provenance:
   transactional route inventing its own ad hoc version under review-cycle time pressure. Full finding
   text: `specs/stories/code-review/oxp-5-codex-findings.md` (Pass 1 and Pass 3a, same underlying gap
   found twice independently).
+
+## Deferred from: code review of gdx-5-game-in-progress-setting (2026-08-15)
+
+- **`broadcastSettingsUpdate` has no try/catch around `ws.send` in its client loop** —
+  `server/ws.js`. A single flaky/torn-down socket throwing mid-iteration would abort the loop, so
+  later clients in the same broadcast never receive the frame. Not new: identical to the pre-existing
+  shape of `broadcastCatalogueUpdate`, `broadcastStModUpdate`, and `broadcastTrackerUpdate` in the same
+  file — all four share this gap. Fix once, for all four, in a dedicated hardening pass; patching only
+  the newest one would be inconsistent.
+- **No UI feedback beyond `console.error` on a settings-toggle PATCH failure, no guard against rapid
+  double-toggle races** — `public/js/admin/st-mods-panel.js`, both `_onGlobalToggle` (pre-existing) and
+  the new `_onGameInProgressToggle` (gdx.5), which deliberately mirrors it. An operator whose PATCH
+  fails sees the checkbox silently revert on re-render with no visible error, and two quick clicks can
+  race with no ordering guarantee. Real, but shared by the master switch too — worth a UX pass across
+  both toggles together, not a one-off fix for the newer one.
+- **Rapid successive settings PATCHes can trigger out-of-order concurrent client refetches** —
+  `public/js/data/ws.js`'s `_handleSettingsMsg` fires an unawaited `loadGlobalSettings()` per WS frame
+  with no request sequencing/generation token; two frames close together can have their `fetch`
+  responses resolve out of order, leaving the client cache briefly behind the server's actual state.
+  Same unguarded-refetch class of risk as the pre-existing `onCatalogueUpdate` → `refetchEquipmentCatalogue()`
+  pattern (ECM-5) — not unique to or introduced by this story. Worth a shared fix (a monotonic
+  generation counter that discards a stale response) applied to both call sites together.
+
+## Deferred from: story gdx-6-structured-power-costs investigation (2026-08-15)
+
+- **Duplicate devotion name in live data** — two separate `purchasable_powers` documents (distinct
+  `_id`s) both carry `name: "Summoning"`, `category: 'devotion'`, both `cost: "1 V"`. Found live while
+  sampling every devotion row for gdx.6's own cost-parsing investigation; pre-existing, not introduced
+  by anything this story touched. Not itself broken — anything that looks a devotion up by `key`
+  (unique) rather than `name` is unaffected — but any UI or picker that lists devotions by name alone
+  (e.g. a future dropdown, search, or the legacy `DEVOTIONS_DB` shim in `editor/sheet.js` which does
+  key on `d.n === p.name`) cannot currently disambiguate the two. Worth a one-off data-hygiene pass to
+  confirm whether they're genuine duplicates (same rulebook power entered twice) or two different
+  powers that happen to share a name and need distinguishing text.
+
+## Deferred from: code review of gdx-6-structured-power-costs (2026-08-15)
+
+- **`fmtRuleStats` is not actually the ONLY place a power's cost gets displayed** — the story's own
+  Dev Notes claimed it was "the single shared display function... already de-duplicated once from
+  three separate copies," which is true for the three copies that WERE de-duplicated
+  (`editor/sheet.js`, `suite/sheet-helpers.js`, `editor/export-character.js` — the last of which calls
+  `fmtRuleStats`, unaffected), but incomplete: `public/js/print/page2.js:109` and
+  `public/js/editor/csv-format.js:309` each build their own independent `"Cost: " + p.cost` string,
+  reading the raw legacy field directly and never calling `fmtCostLine`/`fmtRuleStats` at all. A power
+  whose cost this migration successfully parsed (or classified `unparsed` with a `cost_note`) now
+  displays correctly on the character sheet but shows only the old raw `cost` string (or nothing, if
+  `cost` itself is null on a row this migration explicitly zeroed) on the printed sheet and in CSV
+  export. Not touched by gdx.6 itself — that story's own AC7 named only `fmtRuleStats` — but worth a
+  follow-up to bring both sites onto the same structured-cost-aware display logic, likely by extracting
+  a shared "cost text" helper both `fmtCostLine` and these two sites can call.
+- **Admin rule editor has no field for the new structured costs** — `public/js/admin/rules-view.js:390`
+  exposes only the free-text `cost` input. An ST editing a rule's `cost` string after gdx.6 has no way
+  to update `vitae_cost`/`willpower_cost`/`cost_note` in the same UI — they silently drift out of sync
+  with the edited text (or are simply never set at all for a brand-new rule an ST authors by hand,
+  since the migration only ever ran once, historically, over existing rows). Needs either a manual
+  re-run of the migration after any bulk cost-text edit, or (better) three new fields in this admin
+  form with the migration's own parser wired in as a "re-derive from cost" button.
+- **CSV export/import round-trip drops the new fields** — `public/js/editor/csv-format.js:309` and
+  `public/js/admin/data-portability.js:362,825` read/write only `cost`. Lower severity than the two
+  items above: since `vitae_cost`/`willpower_cost`/`cost_note` are derived FROM `cost` (which does
+  survive the round-trip), re-running `gdx-6-structured-power-costs.mjs --apply` after a CSV re-import
+  restores them — nothing is permanently lost, just temporarily stale until the migration is re-run.
+- **`applyCostMigration`'s `updateOne` result is unchecked** — `server/scripts/gdx-6-structured-power-costs.mjs`.
+  No inspection of `matchedCount`/`modifiedCount`; if a document is deleted (or its `_id` no longer
+  matches) between `planCostMigration`'s read and this row's write, the update silently no-ops while
+  `written` still increments and the per-row log still claims success. Low-probability race in a
+  single-operator, one-off, manually-run admin script — same risk class as several other migration
+  scripts in this project that don't guard against it either (unlike `migrate-office-purchases-to-
+  seats.mjs`, which specifically does, because THAT script's own multi-step insert-then-delete shape
+  makes a mid-flight change genuinely dangerous; this script's plain single `$set` per row is lower
+  stakes). Worth a guard if this script is ever re-run against a much larger or more actively-edited
+  collection than `purchasable_powers` currently is.
+- **"0 V"-shaped cost strings (no live occurrence) classify `parsed`, not `zero`** — a cost string like
+  `"0 V"` or `"0 V (in bond)"` (nothing in live data has this shape today) matches the numeric parse
+  patterns and lands in the `parsed` bucket with `vitae_cost: 0`, rather than the `zero` bucket the
+  migration's own header comment describes as the sole path for "confirmed free." The final displayed
+  string is identical either way (`fmtCostLine` renders nothing for `0/0/null` regardless of which
+  bucket produced it), so this is a report/bucket-grouping inconsistency only, not a display bug — an
+  ST reading the migration's plan-mode counts would see it filed as "parsed" rather than "confirmed
+  free." Cosmetic; fix only if it ever actually occurs.
+
+## Deferred from: gdx-7-apply-costs-on-roll dev-story (2026-08-15)
+
+- **Test-harness/production routing drift on `/api/tracker_state`** — `server/tests/helpers/test-app.js:90`
+  mounts the router as `mockAuth, requireRole('st'), noCache(), trackerRouter`, an app-level ST-only
+  gate that does not exist in production (`server/index.js:173` mounts the same router as
+  `requireAuth, noCache(), trackerRouter` only, leaving all scoping to the router's own `canAccess()`,
+  which already correctly lets a player read/write their own character's tracker). Found while building
+  gdx.7's live-DB integration test, which needed to reason precisely about who the real API lets write
+  what. Effect: `api-tracker-state.test.js`'s existing "player is blocked (ST-only endpoint)" tests
+  currently pass for the wrong reason (the test harness's own extra gate, not `canAccess()`'s real
+  own-character scoping) — `playerUser([])` owns no characters either way, so removing the extra gate
+  wouldn't flip those tests' outcomes, but today they give no signal about the actual production
+  behaviour. Not fixed in gdx.7: the change is a one-line, low-risk mount-line correction, but
+  `test-app.js` is shared infrastructure used by ~30+ suites and a routing-shape change there deserves
+  its own reviewed story rather than riding in on an unrelated one. Fix: drop `requireRole('st')` from
+  that one mount line so the test harness matches production exactly, then add a positive test proving
+  a player CAN write their own character's tracker (currently untested in either direction with the
+  correct auth boundary).
+
+## Deferred from: gdx-7-apply-costs-on-roll internal code review (2026-08-15)
+
+- **`trackerAdj`'s writes are fire-and-forget with no surfaced error** — `public/js/game/tracker.js`'s
+  `saveToApi` swallows a failed `PUT` (`.catch(() => {/* silent fail */})`) everywhere it's called, not
+  just from gdx.7's new roll-triggered spend. If the network drop happens mid-roll, the roll still
+  proceeds as if the spend succeeded and nothing tells the player or ST the tracker is now out of sync.
+  Pre-existing shape, confirmed by reading `tracker.js` directly; fixing it means redesigning
+  `trackerAdj`/`saveToApi` itself, out of any single story's scope. Flagged by internal review (Blind
+  Hunter + Edge Case Hunter, independently) as newly load-bearing now that a real live-game feature
+  depends on it.
+- **Vitae/Willpower spend on roll is two independent, non-atomic writes** — `roll-v2.js`'s `doRoll()`
+  calls `trackerAdj` once per field (vitae, then willpower) for a devotion costing both. If the first
+  write succeeds and the second fails, the character is left half-charged with no rollback. A true fix
+  needs a server-side atomic multi-field spend endpoint — explicitly out of gdx.7's own scope ("NOT a
+  new API endpoint"). Flagged by internal review (Blind Hunter).
+- **TOCTOU race between the affordability check and the actual spend** — `roll-v2.js`'s
+  `_currentSpendDecision()` reads the tracker balance once, but `trackerAdj`'s actual mutation can land
+  after a WS update or an ST's manual edit has already changed it. `trackerAdj`'s own clamp-at-0 would
+  then silently truncate an unaffordable spend rather than reject it, narrowly weakening the "never a
+  partial spend" guarantee gdx.7's own tests otherwise enforce. Low-probability; a full fix needs a
+  server-side atomic "spend-if-affordable" check, same scope boundary as the item above. Flagged by
+  internal review (Edge Case Hunter).

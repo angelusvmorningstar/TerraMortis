@@ -83,6 +83,50 @@ export function meritLookup(m) {
 // ── Power helpers ──
 
 /**
+ * gdx.6 (#987): the Cost segment of fmtRuleStats, split out so its own
+ * precedence rules can be tested directly. Prefers the structured
+ * vitae_cost/willpower_cost fields when either is a real positive number,
+ * falls back to cost_note alone for a fully unparsed row, and falls back
+ * to the legacy free-text `cost` string as the last resort \u2014 exactly
+ * today's pre-gdx.6 behaviour for any row this migration never touches
+ * (attribute/skill/manoeuvre/merit, where vitae_cost/willpower_cost are
+ * simply absent, not null).
+ *
+ * A confirmed-free row (vitae_cost: 0, willpower_cost: 0, no cost_note)
+ * renders nothing \u2014 matches the pre-gdx.6 `if (r.cost)` falsy-skip for a
+ * null-cost power; a real "Cost: 0 Vitae" line would be noise no player
+ * asked for.
+ */
+export function fmtCostLine(r) {
+  const v = r.vitae_cost, w = r.willpower_cost, note = r.cost_note;
+  // Review finding: loose `!=` treats explicit `null` the same as absent
+  // `undefined`, so this is ALSO false for a fully unparsed row (both
+  // vitae_cost/willpower_cost genuinely null, not merely missing) — not
+  // only for an untouched category. That is not a bug: the `note` fallback
+  // a few lines below produces the exact same correct output for that case
+  // (the whole reason it's there), but the two cases reaching the same
+  // branch by different, unlabelled paths is worth this comment saying so
+  // plainly rather than the reader assuming `structured` means what its
+  // name implies on its own.
+  const structured = v != null || w != null;
+
+  if (structured) {
+    if (!v && !w && !note) return ''; // confirmed free
+    const bits = [];
+    if (v) bits.push(v + ' Vitae');
+    if (w) bits.push(w + ' Willpower');
+    let text = bits.join(' & ');
+    if (!text && note) text = note; // both 0/null but a note still carries real info
+    else if (text && note) text += ' (' + note + ')';
+    return text ? 'Cost: ' + text : '';
+  }
+
+  if (note) return 'Cost: ' + note;
+  if (r.cost) return 'Cost: ' + r.cost;
+  return '';
+}
+
+/**
  * Format a discipline/devotion/rite rule entry into a one-line stats string
  * (Cost / Pool / Action / Duration). Single source of truth \u2014 was
  * triple-duplicated across editor/sheet.js, suite/sheet-helpers.js, and
@@ -90,7 +134,8 @@ export function meritLookup(m) {
  */
 export function fmtRuleStats(r) {
   const parts = [];
-  if (r.cost) parts.push('Cost: ' + r.cost);
+  const costLine = fmtCostLine(r);
+  if (costLine) parts.push(costLine);
   if (r.pool) {
     const p = [r.pool.attr, r.pool.skill].filter(Boolean).join(' + ');
     const res = r.resistance ? ' \u2013 ' + r.resistance : '';

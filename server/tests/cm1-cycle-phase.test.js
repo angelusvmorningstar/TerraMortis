@@ -250,6 +250,47 @@ describe('cm1 — getFeedingCycle picks by game_number, never creation order', (
     const db = await importDb([{ _id: '1', game_number: 6, status: 'closed', game_phase: 'processing' }]);
     expect(await db.getFeedingCycle()).toBeNull();
   });
+
+  // 2026-08-15 live incident: a fresh "Game 7" cycle was flipped to game phase
+  // for the session while "Game 6" still held the month's actual feeding
+  // grids. Game 7 outranked Game 6 on game_number alone and carried zero
+  // submissions, so every player's live feeding roll silently defaulted to
+  // the Barrens -4 ambience fallback. These cases need per-cycle submission
+  // counts, so they get their own mock that branches on URL.
+  async function importDbWithSubs(cyclesPayload, subsByCycleId) {
+    globalThis.location = { origin: 'http://localhost', hostname: 'localhost' };
+    globalThis.localStorage = { getItem: () => null, setItem: () => {}, removeItem: () => {} };
+    globalThis.window = globalThis;
+    globalThis.fetch = async (url) => {
+      const u = String(url);
+      if (u.includes('/api/downtime_submissions')) {
+        const m = u.match(/cycle_id=([^&]+)/);
+        const cid = m ? decodeURIComponent(m[1]) : null;
+        return { ok: true, status: 200, json: async () => (subsByCycleId || {})[cid] || [] };
+      }
+      return { ok: true, status: 200, json: async () => cyclesPayload };
+    };
+    return import('../../public/js/downtime/db.js');
+  }
+
+  it('an empty higher-game_number cycle in game phase does not shadow a lower feeding-open cycle with submissions (the 2026-08-15 Game 7 incident)', async () => {
+    const dt6 = { _id: 'dt6', game_number: 6, phase: 'prep' };
+    const game7 = { _id: 'game7', game_number: 7, phase: 'game' };
+    const db = await importDbWithSubs([game7, dt6], {
+      dt6: [{ _id: 's1', character_id: 'ryan', cycle_id: 'dt6' }],
+      game7: [],
+    });
+    const picked = await db.getFeedingCycle();
+    expect(picked._id).toBe('dt6');
+  });
+
+  it('when every feeding-open candidate is empty, the highest game_number still wins (a brand-new downtime nobody has submitted to yet)', async () => {
+    const dt6 = { _id: 'dt6', game_number: 6, phase: 'prep' };
+    const game7 = { _id: 'game7', game_number: 7, phase: 'game' };
+    const db = await importDbWithSubs([game7, dt6], { dt6: [], game7: [] });
+    const picked = await db.getFeedingCycle();
+    expect(picked._id).toBe('game7');
+  });
 });
 
 // ── Schema matrix ──────────────────────────────────────────────────────────

@@ -38,6 +38,11 @@ export function getPool(char, raw) {
     // can render a "Rules" expander without a second rules-cache query.
     if (!p || (!p.attr && !p.skill)) return {
       noRoll: true,
+      // gdx.7 (#988): vitae_cost/willpower_cost threaded alongside the
+      // legacy cost string, `?? null` (not `||`) so a real 0 (gdx.6's
+      // "confirmed free" value) never collapses to null.
+      vitae_cost: rule.vitae_cost ?? null,
+      willpower_cost: rule.willpower_cost ?? null,
       info: { d: rule.parent, c: rule.cost, ac: rule.action, du: rule.duration, ef: rule.description },
       rules_text: rule.rules_text || null,
       rules_source: rule.rules_source || null,
@@ -54,6 +59,10 @@ export function getPool(char, raw) {
       nineAgain: p.skill ? skNineAgain(char, p.skill) : false,
       resistance: rule.resistance || null,
       cost: rule.cost || null,
+      // gdx.7 (#988): see the noRoll branch's own comment above — same
+      // `?? null` reasoning applies here.
+      vitae_cost: rule.vitae_cost ?? null,
+      willpower_cost: rule.willpower_cost ?? null,
       action: rule.action || null,
       duration: rule.duration || null,
       effect: rule.description || null,

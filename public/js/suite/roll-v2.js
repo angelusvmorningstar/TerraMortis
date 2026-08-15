@@ -27,6 +27,11 @@ import { skSpecs, skNineAgain } from '../data/accessors.js';
 import { hasAoE } from '../data/helpers.js';
 import { getCatalogueEntry } from '../data/equipment-catalogue-cache.js';
 import { isCombatGearWeaponShaped, isEquipmentOnMe } from '../data/equipment-derivation.js';
+// gdx.7 (#988): read the game-day flag (gdx.5) and spend from the already-
+// built, already-correct tracker write path (gdx.6 supplies the cost data
+// on the rule itself, via pools.js — see spendableCost below).
+import { getGlobalSettings } from '../data/app-settings.js';
+import { trackerAdj, trackerRead, ensureLoaded as ensureTrackerLoaded } from '../game/tracker.js';
 
 // ── Imports from other suite modules (will exist once extracted) ──
 // showResistSec / updResist live in shared/resist.js
@@ -46,6 +51,129 @@ function toast(msg) {
   clearTimeout(toast._timer);
   toast._timer = setTimeout(() => t.classList.remove('on'), 2500);
 }
+
+// ── SPEND ON ROLL (gdx.7, #988) ──
+//
+// Three pure functions, deliberately no DOM/globals, so the decision logic
+// is testable without a browser. `doRoll()` and `updPool()` each call all
+// three fresh, from the same state, rather than caching a combined verdict
+// — the label shown and the amount actually spent can never disagree,
+// because both are always the same computation.
+
+/**
+ * How much this roll would really spend: the loaded power's own
+ * vitae_cost/willpower_cost (gdx.6, via pools.js — `null`/absent both mean
+ * "nothing", same as `0` at this layer) plus the WP(+3) boost chip's own
+ * separate 1-Willpower cost when it's toggled on. Additive, never either/or
+ * — a devotion that itself costs 1 WP, rolled with the boost chip also on,
+ * spends 2 WP total from two different sources. `hasPowerCost`/
+ * `powerWillpowerCost` are exposed separately (review finding, Acceptance
+ * Auditor: AC3/AC6) so the button label can trigger and display ONLY the
+ * power's own cost — never flip into spend-mode, or claim a power cost,
+ * purely because the chip is on — while the chip's own spend stays
+ * distinctly labelled in the sub-line instead (updPool()). The combined
+ * `vitaeCost`/`willpowerCost` total is still what's actually checked for
+ * affordability and actually spent — both must be paid together or not at
+ * all (AC5's "never partial").
+ */
+export function spendableCost(poolInfo, wpChipOn) {
+  const powerVitae = poolInfo?.vitae_cost || 0;
+  const powerWillpower = poolInfo?.willpower_cost || 0;
+  const chipWillpower = wpChipOn ? 1 : 0;
+  return {
+    vitaeCost: powerVitae,
+    willpowerCost: powerWillpower + chipWillpower,
+    hasPowerCost: powerVitae > 0 || powerWillpower > 0,
+    powerWillpowerCost: powerWillpower,
+  };
+}
+
+/** Can `balance` ({vitae, willpower}) cover `cost` in full? Never partial —
+ *  a roll either affords its whole real cost or it doesn't spend at all. */
+export function canAffordCost(cost, balance) {
+  const vitae = balance?.vitae ?? 0;
+  const willpower = balance?.willpower ?? 0;
+  return cost.vitaeCost <= vitae && cost.willpowerCost <= willpower;
+}
+
+/**
+ * The `#roll-btn` label. Falls back to the plain dice-count label — not a
+ * separate "insufficient funds" message — whenever there is nothing to
+ * spend, the flag is off, or the balance can't cover the real cost in
+ * full: that plain label already IS "roll without spending" (AC5), the
+ * same button, same one tap, just no deduction attempted.
+ *
+ * Review fix (Acceptance Auditor, AC3/AC6): `wantsSpend` gates on the
+ * power's OWN cost (`cost.hasPowerCost`) only — the WP-chip alone must
+ * never flip a genuinely free power's button into spend-mode. The VITAE/WP
+ * bits shown name only the power's own amounts (`cost.powerWillpowerCost`,
+ * not the chip-inflated `cost.willpowerCost`) — the chip's own +1 WP stays
+ * disclosed separately in the sub-line (updPool()), so the two sources are
+ * never merged into one ambiguous figure.
+ */
+export function rollButtonLabel(eff, cost, gameInProgress, canAfford) {
+  const isChance = eff <= 0;
+  const diceLabel = isChance ? 'ROLL CHANCE DIE' : `ROLL ${eff} DICE`;
+  const wantsSpend = gameInProgress && cost.hasPowerCost;
+  if (!wantsSpend || !canAfford) return '✦ ' + diceLabel;
+  const bits = [];
+  if (cost.vitaeCost > 0) bits.push(cost.vitaeCost + ' VITAE');
+  if (cost.powerWillpowerCost > 0) bits.push(cost.powerWillpowerCost + ' WP');
+  return '✦ ROLL & SPEND ' + bits.join(', ');
+}
+
+/** Shared by updPool()'s label and doRoll()'s actual spend, so the two can
+ *  never disagree — both call this fresh rather than one caching for the
+ *  other. Reads the character CURRENTLY loaded into the roller
+ *  (`state.rollChar`); `trackerRead` is a synchronous cache read.
+ *
+ *  Review fix (Edge Case Hunter): the original comment here claimed
+ *  `trackerRead` was safe because `app.js`'s `_switchChar` always `await`s
+ *  `ensureTrackerLoaded` before `rollChar` is set — false. `app.js` sets
+ *  `suiteState.rollChar` at three sites; `pickChar()` (the roll tab's own
+ *  character picker — the most common path in play) and one sheet-view
+ *  setter do so with NO load guaranteed first. An unconfirmed character's
+ *  `trackerRead` silently returns SEEDED MAX defaults (`fromCache()`'s
+ *  cache-miss path), not real persisted balance — `canAffordCost` could
+ *  then read a broke character as fully-funded. Fired here (fire-and-forget,
+ *  a no-op if already loaded) so the cache is warmed as early as possible;
+ *  `doRoll()` additionally `await`s it before the real spend, so the label
+ *  painted here is best-effort but the actual spend is always correct. */
+function _currentSpendDecision() {
+  const cost = spendableCost(state.POOL_INFO, state.WP);
+  const gameInProgress = !!getGlobalSettings()?.game_in_progress;
+  const charId = state.rollChar ? String(state.rollChar._id) : null;
+  if (state.rollChar) ensureTrackerLoaded(state.rollChar);
+  const balance = charId ? trackerRead(charId) : null;
+  const canAfford = canAffordCost(cost, balance);
+  return { cost, gameInProgress, canAfford, charId };
+}
+
+/**
+ * Standalone Vitae/Willpower spend, decoupled from rolling — Angelus's own
+ * original ask, distinct from the roll-button spend above: "a button that
+ * spends vitae and another that spends willpower for that player from
+ * their totals." Reuses `trackerAdj` exactly as the roll-triggered spend
+ * does (same clamp-at-0, same persistence chain) — the only new thing here
+ * is the click surface itself. `#rv2-manual-spend-row` is only visible when
+ * `game_in_progress` is on (updPool()'s own gate), but the same check is
+ * repeated here as a real guard, not just a UI hide, so a stray click on
+ * stale DOM can never spend a real resource outside a live game.
+ */
+async function _manualSpend(field, label) {
+  if (!state.rollChar || !getGlobalSettings()?.game_in_progress) return;
+  await ensureTrackerLoaded(state.rollChar);
+  const charId = String(state.rollChar._id);
+  const before = trackerRead(charId)?.[field] ?? 0;
+  if (before <= 0) { toast('No ' + label + ' left to spend'); return; }
+  await trackerAdj(charId, field, -1);
+  const after = trackerRead(charId)?.[field] ?? 0;
+  toast('Spent 1 ' + label + ' (' + after + ' left)');
+  updPool();
+}
+
+export function spendVitae() { return _manualSpend('vitae', 'Vitae'); }
+export function spendWillpower() { return _manualSpend('willpower', 'Willpower'); }
 
 // ── LOAD POOL ──
 
@@ -146,21 +274,50 @@ export function updPool() {
   if (unitEl) {
     unitEl.textContent = isChance ? 'die' : (eff === 1 ? 'die' : 'dice');
   }
+  // gdx.7 (#988): computed once, used by both the sub-line's WP-chip
+  // wording and the roll button's own label below.
+  const spend = _currentSpendDecision();
   if (subEl) {
     const parts = [
       'base ' + (state.PS <= 0 ? 'chance' : state.PS),
     ];
     if (state.MOD !== 0) parts.push((state.MOD > 0 ? '+' : '') + state.MOD + ' mod');
     parts.push(_againPhrase());
-    if (state.WP) parts.push('WP +3');
+    // AC6: the chip's own +3 pool boost is a separate fact from whether it
+    // will ALSO really spend 1 Willpower this roll (game_in_progress) —
+    // labelled distinctly from a power's own vitae_cost/willpower_cost,
+    // which shows up in the roll button's own label instead, not here.
+    // Review fix (Blind Hunter): also gate on spend.canAfford — without it,
+    // this line claimed "(spends 1 WP)" even when the combined cost (power
+    // + chip) couldn't be afforded and doRoll() would spend nothing at all,
+    // disagreeing with the button's own (correctly gated) fallback label.
+    if (state.WP) parts.push((spend.gameInProgress && spend.canAfford) ? 'WP +3 (spends 1 WP)' : 'WP +3');
     if (state.ROTE) parts.push('rote');
     if (state.RESIST_MODE === '-' && state.RESIST_VAL > 0) parts.push('−' + state.RESIST_VAL + ' resist');
     // U+00B7 middle-dot separator (matches sub-line separators elsewhere).
     subEl.textContent = parts.join(' · ');
   }
   if (rollBtn) {
-    // ✦ = decorative four-point star.
-    rollBtn.textContent = isChance ? '✦ ROLL CHANCE DIE' : ('✦ ROLL ' + eff + ' DICE');
+    rollBtn.textContent = rollButtonLabel(eff, spend.cost, spend.gameInProgress, spend.canAfford);
+  }
+
+  // gdx.7 follow-up: standalone Vitae/Willpower spend, independent of
+  // rolling — Angelus's actual original ask ("a button that spends vitae
+  // and another that spends willpower for that player from their totals"),
+  // distinct from the roll-button spend above. Same game_in_progress
+  // kill-switch as the rest of this epic: a real resource spend only
+  // happens live, never during downtime/testing.
+  const manualRow = document.getElementById('rv2-manual-spend-row');
+  if (manualRow) {
+    const show = spend.gameInProgress && !!spend.charId;
+    manualRow.style.display = show ? '' : 'none';
+    if (show) {
+      const balance = trackerRead(spend.charId) || {};
+      const vBtn = document.getElementById('spend-vitae-btn');
+      const wBtn = document.getElementById('spend-wp-btn');
+      if (vBtn) { vBtn.textContent = '− Vitae (' + (balance.vitae ?? 0) + ')'; vBtn.disabled = (balance.vitae ?? 0) <= 0; }
+      if (wBtn) { wBtn.textContent = '− WP (' + (balance.willpower ?? 0) + ')'; wBtn.disabled = (balance.willpower ?? 0) <= 0; }
+    }
   }
 
   _paintAgainSeg();
@@ -430,12 +587,53 @@ export function mkColsEl(cols, base) {
 
 // ── MAIN ROLL ──
 
-export function doRoll() {
+// Review fix (Blind Hunter + Edge Case Hunter, independently): nothing
+// guarded against doRoll() firing twice before the first spend's cache
+// update lands (no debounce anywhere in #roll-btn's wiring — plain
+// `onclick="doRoll()"` in both index.html layouts). A double-tap could
+// double-charge a power's real cost. Module-level, not per-character —
+// this dice roller only ever has one character loaded at a time.
+let _spendInFlight = false;
+
+export async function doRoll() {
   const eff = effPool();
   const area = document.getElementById('dice-area');
   const hdr = document.getElementById('res-hdr');
   area.innerHTML = '';
   hdr.classList.remove('on');
+
+  // gdx.7 (#988): the cost of ACTIVATING the power is paid up front, once,
+  // regardless of which of the three result branches below actually fires
+  // — a chance die, a contested roll, and a standard roll all still cost
+  // the same Vitae/Willpower to attempt (VtR 2e: you pay to activate, then
+  // roll; a failed roll doesn't refund the cost). Recomputed fresh here
+  // (not read from whatever `updPool()` last painted) so a stale label
+  // can never cause a stale spend.
+  //
+  // Review fix (Edge Case Hunter): `state.rollChar` can be set by `app.js`'s
+  // `pickChar()` (the roll tab's own picker) without ever loading the
+  // tracker first — `trackerRead` would then read seeded MAX defaults, not
+  // real balance. `ensureTrackerLoaded` is a no-op if already confirmed, so
+  // this costs nothing on the common path and only actually awaits a
+  // network round-trip the first time a given character is ever read.
+  if (state.rollChar) await ensureTrackerLoaded(state.rollChar);
+  const spend = _currentSpendDecision();
+  if (!_spendInFlight && spend.gameInProgress && spend.canAfford && spend.charId &&
+      (spend.cost.vitaeCost > 0 || spend.cost.willpowerCost > 0)) {
+    _spendInFlight = true;
+    try {
+      // Sequenced, not fired concurrently (review fix, Edge Case Hunter):
+      // two concurrent trackerAdj() calls on a not-yet-confirmed character
+      // would each independently race `ensureLoaded()`, risking one write
+      // clobbering the other. Awaited in turn instead — negligible cost,
+      // since trackerAdj never actually suspends once confirmed (which the
+      // await above guarantees it now is).
+      if (spend.cost.vitaeCost > 0) await trackerAdj(spend.charId, 'vitae', -spend.cost.vitaeCost);
+      if (spend.cost.willpowerCost > 0) await trackerAdj(spend.charId, 'willpower', -spend.cost.willpowerCost);
+    } finally {
+      _spendInFlight = false;
+    }
+  }
 
   if (eff <= 0) {
     const v = d10();

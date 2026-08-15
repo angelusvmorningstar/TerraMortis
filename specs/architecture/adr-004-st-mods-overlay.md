@@ -90,6 +90,16 @@ No app-settings store exists today. Confirmed by surveying `server/routes/` (24 
   - `PATCH /api/settings` — partial update, allowed keys whitelisted (just `st_mods_enabled` in v1).
 - Client cache: a single `globalSettings` object, fetched once at app boot (admin AND player), refetched on the admin settings panel's save. Player app does NOT poll — if the ST flips the kill-switch mid-session, players see the change on next reload. Acceptable; this is a debug/emergency lever, not a live broadcast.
 
+  **Superseded 2026-08-15 (gdx.5, #986).** The "not a live broadcast" design choice above no longer
+  holds. `GET /api/settings` is now open to any authenticated role (not ST-only — players need to
+  read the new `game_in_progress` flag), and `PATCH /api/settings` now calls a `broadcastSettingsUpdate`
+  WS frame on every successful write, for either flag, that every open client refetches on receipt
+  (`public/js/data/ws.js`'s `onSettingsUpdate` → `loadGlobalSettings()`). `st_mods_enabled` becomes
+  live-broadcast as a side effect of this — intended and reasoned through as an improvement (an ST
+  no longer needs to ask players to reload after a kill-switch flip), not chosen as a deliberate
+  trade-off against some other value; flag if a future session finds a real cost to it. See
+  `specs/stories/gdx-5-game-in-progress-setting.md`.
+
 Future flags piggyback on the same collection. Whitelist gates additions per route change; no untyped settings.
 
 ### D3 — Stat-path enumeration: hybrid static + character-derived. (Open Q3)

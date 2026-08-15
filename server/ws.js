@@ -134,6 +134,25 @@ export function broadcastCatalogueUpdate(itemId, op) {
   }
 }
 
+/**
+ * Broadcast a global app_settings change to all connected clients.
+ * gdx.5 (#986) — mirrors broadcastCatalogueUpdate's shape exactly. No
+ * payload: the settings doc is a single small document, so the client's
+ * job on receipt is just "refetch the whole thing" (same as the
+ * catalogue frame's own refetch-not-patch contract), not apply a partial
+ * diff. Fired on every successful PATCH /api/settings, whichever key
+ * changed.
+ */
+export function broadcastSettingsUpdate() {
+  if (!_wss) return;
+  const msg = JSON.stringify({ type: 'settings' });
+  for (const ws of _wss.clients) {
+    if (ws.readyState === 1) { // OPEN
+      ws.send(msg);
+    }
+  }
+}
+
 // ── Token resolution (mirrors middleware/auth.js logic) ──
 
 const _tokenCache = new Map();

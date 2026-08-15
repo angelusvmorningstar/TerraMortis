@@ -189,12 +189,30 @@ export function isFeedingOpen(cycle) {
  * order in this data (2,3,1,4,5; DT1 was re-imported). Codex review finding,
  * 2026-08-10: a stale legacy cycle with game_phase 'game' and a newer _id
  * would otherwise capture every feed roll meant for the current prep cycle.
+ *
+ * 2026-08-15 (live Game 7 incident): highest game_number alone isn't enough.
+ * A cycle can be flipped to game phase before it carries any downtime
+ * submissions at all - live, a fresh "Game 7" cycle was opened for the
+ * session while "Game 6" still held the month's actual feeding grids.
+ * zeroSubmissionFlipWarning already warns an ST about this at flip time, but
+ * that only fires from the one admin action that calls it; a cycle can still
+ * end up in this state (warning dismissed, flipped some other way). So the
+ * reader defends itself too: walk the feeding-open candidates highest
+ * game_number first and skip any with zero submissions, so the first one
+ * WITH data wins. Only when every candidate is empty does the highest
+ * game_number win outright - correct for a genuinely brand-new downtime
+ * nobody has submitted to yet.
  */
 export async function getFeedingCycle() {
   const cycles = await getCycles();
   const open = cycles.filter(c => isFeedingOpen(c));
   if (open.length === 0) return null;
-  return open.sort((a, b) => (b.game_number || 0) - (a.game_number || 0))[0];
+  const ranked = open.sort((a, b) => (b.game_number || 0) - (a.game_number || 0));
+  for (const c of ranked) {
+    const subs = await getSubmissionsForCycle(c._id).catch(() => []);
+    if (Array.isArray(subs) && subs.length > 0) return c;
+  }
+  return ranked[0];
 }
 
 /**

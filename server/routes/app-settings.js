@@ -6,28 +6,36 @@
  * mutated via a whitelist-gated PATCH. No schemaless writes; unknown
  * keys 400.
  *
- * Currently the only flag is `st_mods_enabled` (the global kill-switch
- * for the STM overlay). Future flags piggyback by extending ALLOWED_KEYS
- * + VALIDATORS — each addition is a code change, not config.
+ * Two flags today: `st_mods_enabled` (the global kill-switch for the STM
+ * overlay) and `game_in_progress` (gdx.5 — whether a game session is
+ * currently live; gates game-day features like gdx.7's roll-spend
+ * automation). Future flags piggyback by extending ALLOWED_KEYS +
+ * VALIDATORS — each addition is a code change, not config.
+ *
+ * gdx.5: GET is open to any authenticated role (players need to read
+ * game_in_progress); PATCH stays ST-only for both flags.
  */
 
 import { Router } from 'express';
 import { getCollection } from '../db.js';
 import { requireRole } from '../middleware/auth.js';
+import { broadcastSettingsUpdate } from '../ws.js';
 
 const router = Router();
 const col = () => getCollection('app_settings');
 const GLOBAL_ID = 'global';
 
-const ALLOWED_KEYS = ['st_mods_enabled'];
+const ALLOWED_KEYS = ['st_mods_enabled', 'game_in_progress'];
 const VALIDATORS = {
   st_mods_enabled: (v) => typeof v === 'boolean',
+  game_in_progress: (v) => typeof v === 'boolean',
 };
 
 function defaultSettings() {
   return {
     _id: GLOBAL_ID,
     st_mods_enabled: true,
+    game_in_progress: false,
     updated_at: new Date().toISOString(),
     updated_by: null,
   };
@@ -43,10 +51,26 @@ function creatorFromUser(user) {
 // ─── GET /api/settings ───────────────────────────────────────────────
 // Returns the global settings doc, seeding with defaults if absent.
 // Idempotent — only the very first call across the app's lifetime
-// creates a document.
-router.get('/', requireRole('st'), async (req, res) => {
+// creates a document. gdx.5: open to any authenticated role (mount-level
+// requireAuth in server/index.js already covers "must be logged in") —
+// players need to read game_in_progress. Write stays ST-only below.
+router.get('/', async (req, res) => {
   const existing = await col().findOne({ _id: GLOBAL_ID });
-  if (existing) return res.json(existing);
+  if (existing) {
+    // gdx.5 review finding: a doc that predates a given ALLOWED_KEYS entry
+    // (this collection existed before game_in_progress; also reachable if
+    // a PATCH ever lands before any GET, since PATCH's own upsert only
+    // $setOnInsert's _id) would otherwise return that key as `undefined`
+    // rather than its real default — self-heal on read. Audit fields
+    // (updated_at/updated_by) are never touched here; they describe the
+    // real last write, not a synthetic one.
+    const defaults = defaultSettings();
+    const merged = { ...existing };
+    for (const key of ALLOWED_KEYS) {
+      if (!(key in merged)) merged[key] = defaults[key];
+    }
+    return res.json(merged);
+  }
 
   const seed = defaultSettings();
   try {
@@ -95,6 +119,12 @@ router.patch('/', requireRole('st'), async (req, res) => {
     { $set: update, $setOnInsert: { _id: GLOBAL_ID } },
     { returnDocument: 'after', upsert: true },
   );
+  // gdx.5: broadcast on every successful PATCH (any key), not just
+  // game_in_progress — the client's handler just refetches the whole
+  // doc, so there is no benefit to threading "which key changed"
+  // through this route, and it makes st_mods_enabled live-broadcast
+  // too (a strict improvement — it previously had no live path at all).
+  broadcastSettingsUpdate();
   res.json(result);
 });
 

@@ -9,6 +9,7 @@ import { esc } from '../data/helpers.js';
 import { CONDITIONS_DB } from '../data/conditions.js';
 import { getRole } from '../auth/discord.js';
 import { markLocalWrite } from '../data/ws.js';
+import { getFeedingCycle } from '../downtime/db.js';
 
 const API_BASE = location.hostname === 'localhost' ? 'http://localhost:3000' : '';
 function authHeaders() {
@@ -178,18 +179,23 @@ export function trackerToggle(charId) {
   patchCard(charId, c, fromCache(c));
 }
 
-async function reconcileInfluenceDT() {
+// 2026-08-15 (live, recurring incident): this used to key off "the last CLOSED cycle", which is
+// never the cycle actually governing tonight's game — Influence resets fresh every game, so the
+// only correct reference is THIS cycle's own spend (Angelus, confirmed directly). Two live
+// symptoms from keying off the wrong cycle: Brandy LaRoux (spent 0 in DT6) briefly showed 13/20 —
+// infMax(20) minus Game 4's spend(7), a closed cycle two games stale — and Conrad Sondergaard
+// (also spent 0 in DT6) is *currently* stuck at 0/7 in the database from the same formula. Now
+// resolves through getFeedingCycle() (public/js/downtime/db.js) — the same "which cycle is
+// actually live" logic already fixed there for feeding, so this stops being a second, divergent
+// copy of that question. Every active character is written on each run (not just cycle spenders),
+// because a character who spent nothing in the live cycle should read full max, not whatever an
+// earlier bad reconcile left behind — the old `spent === 0` skip could subtract but never restore.
+export async function reconcileInfluenceDT() {
   try {
-    const res = await fetch(`${API_BASE}/api/downtime_cycles`, { headers: authHeaders() });
-    if (!res.ok) return;
-    const allCycles = await res.json();
-    // Sort by game_number (not _id) to handle re-imported cycles — matches signin-tab.js pattern
-    const lastClosed = (allCycles || [])
-      .filter(c => c.status === 'closed')
-      .sort((a, b) => (b.game_number || 0) - (a.game_number || 0))[0] || null;
-    if (!lastClosed) return;
+    const cycle = await getFeedingCycle();
+    if (!cycle) return;
 
-    const cycleId = String(lastClosed._id);
+    const cycleId = String(cycle._id);
     if (_reconciledCycles.has(cycleId)) return;   // already run this session
 
     const subRes = await fetch(`${API_BASE}/api/downtime_submissions?cycle_id=${cycleId}`, { headers: authHeaders() });
@@ -208,13 +214,10 @@ async function reconcileInfluenceDT() {
       if (total > 0) infSpent.set(charId, total);
     }
 
-    if (!infSpent.size) { _reconciledCycles.add(cycleId); return; }
-
     const chars = (suiteState.chars || []).filter(c => !c.retired);
     for (const c of chars) {
       const charId = String(c._id);
       const spent = infSpent.get(charId) || 0;
-      if (spent === 0) continue;
       const infMax = calcTotalInfluence(c);
       if (infMax === 0) continue;
       const cs = _cache[charId];
