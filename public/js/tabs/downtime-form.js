@@ -4293,11 +4293,16 @@ function getItemsForCategory(category) {
     }
     case 'devotion': {
       const discs = c.disciplines || {};
+      const cults = (c.merits || [])
+        .filter(m => m.name === 'Mystery Cult Initiation' && m.active !== false)
+        .map(m => m.cult_name)
+        .filter(Boolean);
       // Try rules cache first
       const devRules = getRulesByCategory('devotion');
       return devRules
         .filter(rule => {
           if (rule.bloodline && rule.bloodline !== c.bloodline) return false;
+          if (rule.cult && !cults.includes(rule.cult)) return false;
           if (!rule.prereq) return true;
           return meetsPrereq(c, rule.prereq);
         })
