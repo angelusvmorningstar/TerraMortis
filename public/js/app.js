@@ -2269,19 +2269,28 @@ async function _loadLifecycleData() {
     // window and the player's actual roll state during prep (Codex review
     // finding, 2026-08-10: the card was date-only and could keep advertising
     // "roll ready" after the player had already rolled).
-    const feedingCycle = Array.isArray(cycles)
-      ? cycles.filter(c => isFeedingOpen(c)).sort((a, b) => (b.game_number || 0) - (a.game_number || 0))[0] || null
-      : null;
+    const feedingCandidates = Array.isArray(cycles)
+      ? cycles.filter(c => isFeedingOpen(c)).sort((a, b) => (b.game_number || 0) - (a.game_number || 0))
+      : [];
+    let feedingCycle = feedingCandidates[0] || null;
     editorState.activeCycleNum = activeCycle?.game_number ?? null;
     let mySubmission = null;
     if (activeCycle || feedingCycle) {
       const subs = await apiGet('/api/downtime_submissions').catch(() => []);
       const char = _activeMoreChar();
-      if (char && Array.isArray(subs)) {
-        mySubmission = activeCycle
-          ? subs.find(s => String(s.character_id) === String(char._id)) || null
-          : subs.find(s => String(s.character_id) === String(char._id)
-              && String(s.cycle_id) === String(feedingCycle._id)) || null;
+      if (Array.isArray(subs)) {
+        // 2026-08-15 (live Game 7 incident): an empty higher-game_number cycle
+        // (flipped to game phase before any submissions exist against it) must
+        // not shadow a lower-numbered feeding-open cycle that actually carries
+        // the month's submissions - see db.js's getFeedingCycle for the
+        // canonical fix and the incident this guards against.
+        feedingCycle = feedingCandidates.find(c => subs.some(s => String(s.cycle_id) === String(c._id))) || feedingCycle;
+        if (char) {
+          mySubmission = activeCycle
+            ? subs.find(s => String(s.character_id) === String(char._id)) || null
+            : subs.find(s => String(s.character_id) === String(char._id)
+                && String(s.cycle_id) === String(feedingCycle?._id)) || null;
+        }
       }
     }
     _lifecycleCache = { nextSession, activeCycle, feedingCycle, mySubmission };
