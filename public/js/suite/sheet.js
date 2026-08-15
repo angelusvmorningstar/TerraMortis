@@ -29,7 +29,7 @@ import { defenceForDisplay } from '../data/equipment-derivation.js';
 import { xpEarned, xpSpent, xpLeft } from '../editor/xp.js';
 import { trackerRead, trackerReadRaw, trackerAdj, trackerWriteField } from '../game/tracker.js';
 import { calcTotalInfluence, influenceBreakdown } from '../editor/domain.js';
-import { shRenderInfluenceMerits, shRenderDomainMerits, shRenderGeneralMerits, shRenderManoeuvres, shRenderEquipment } from '../editor/sheet.js';
+import { shRenderInfluenceMerits, shRenderDomainMerits, shRenderGeneralMerits, shRenderManoeuvres, shRenderEquipment, shRenderOfficeMerits, patchOfficeMerits } from '../editor/sheet.js';
 import { renderRulesExpander } from '../shared/rules-text.js';
 import { getRulesByCategory } from '../data/loader.js';
 
@@ -646,6 +646,10 @@ export function renderSheet() {
   // places automatically — no parallel update required.
   html += shRenderInfluenceMerits(c, false);
   html += shRenderDomainMerits(c, false);
+  // oxp.7: read-only, own-office-only. Reserves an empty placeholder now
+  // (synchronous); patchOfficeMerits(c) below fills it once seats + merit
+  // dots resolve, or leaves it empty (AC3 — never a guessed seat).
+  html += shRenderOfficeMerits(c);
 
   // ── Standing Merits ──
   const stndMerits = standingMerits(c).sort((a, b) => (a.name || '').localeCompare(b.name || ''));
@@ -754,6 +758,11 @@ export function renderSheet() {
 
   // Wire attribute+skills carousel indicators
   _wireAttrCarousel(skillsEl || el);
+
+  // oxp.7: un-awaited, same as status.js's own appendOfficeActionsLog call —
+  // must run AFTER the innerHTML writes above, since it finds its own
+  // placeholder(s) by querying the DOM they just landed in.
+  patchOfficeMerits(c);
 }
 
 function _wireAttrCarousel(container) {

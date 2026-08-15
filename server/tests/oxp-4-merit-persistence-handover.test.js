@@ -299,11 +299,18 @@ describe.skipIf(!dbAvailable)('oxp.4 merit dots survive a change of officeholder
 
 /** Source text of _wireMeritDots + _adjustMeritDots only, excluding neighbours.
  *  The end anchor is the next function after the pair, so the slice really is
- *  the two merit-dot functions and nothing else. */
+ *  the two merit-dot functions and nothing else.
+ *
+ *  oxp.6: `_wireMeritDots` lost its `async` keyword (it no longer fetches its
+ *  own data — see `refreshPurchaseStateBlock()` below for where that guarantee
+ *  now lives) and both functions' signatures widened to carry `data`
+ *  (OFFICE_DATA[category], for the merit-dot render loop) and `isOwnOffice`
+ *  (so a post-adjustment refresh can re-derive the seat balance both purchase
+ *  sections now share). Neither addition is a character reference. */
 function meritDotsBlock() {
   const src = readFile('public/js/tabs/office-tab.js');
-  const start = src.indexOf('async function _wireMeritDots');
-  const end = src.indexOf('async function _wireManoeuvreRank');
+  const start = src.indexOf('function _wireMeritDots');
+  const end = src.indexOf('function _wireManoeuvreRank');
   expect(start).toBeGreaterThan(-1);
   expect(end).toBeGreaterThan(start);
   return src.slice(start, end);
@@ -313,7 +320,25 @@ function meritDotsBlock() {
 function seatResolutionBlock() {
   const src = readFile('public/js/tabs/office-tab.js');
   const start = src.indexOf('async function _wirePurchaseState');
-  const end = src.indexOf('async function _wireMeritDots');
+  const end = src.indexOf('function _wireMeritDots');
+  expect(start).toBeGreaterThan(-1);
+  expect(end).toBeGreaterThan(start);
+  return src.slice(start, end);
+}
+
+/**
+ * oxp.6: source text of `_refreshPurchaseState` alone — the function that now
+ * does the `office_merit_dots` fetch `_wireMeritDots` itself used to do.
+ * Scoped narrowly (not merged into `seatResolutionBlock`) because
+ * `_wirePurchaseState`, which precedes it, legitimately reads `char._id` for
+ * the holder-match comparison — sweeping that in would make the "no character
+ * reaches the merit-dots API" guarantee below trivially fail for an unrelated
+ * reason.
+ */
+function refreshPurchaseStateBlock() {
+  const src = readFile('public/js/tabs/office-tab.js');
+  const start = src.indexOf('async function _refreshPurchaseState');
+  const end = src.indexOf('function _wireMeritDots');
   expect(start).toBeGreaterThan(-1);
   expect(end).toBeGreaterThan(start);
   return src.slice(start, end);
@@ -322,18 +347,26 @@ function seatResolutionBlock() {
 describe('oxp.4 client wiring: no character id reaches the office_merit_dots API', () => {
   it('extracts a block containing both merit-dot functions and neither neighbour', () => {
     const block = meritDotsBlock();
-    expect(block).toContain('async function _wireMeritDots');
+    expect(block).toContain('function _wireMeritDots');
     expect(block).toContain('async function _adjustMeritDots');
     expect(block).not.toContain('async function _wirePurchaseState');
-    expect(block).not.toContain('async function _wireManoeuvreRank');
+    expect(block).not.toContain('function _wireManoeuvreRank');
   });
 
-  it('reads the whole collection with no character-scoped query string', () => {
-    const block = meritDotsBlock();
+  it('oxp.6: the fetch moved to _refreshPurchaseState (shared with the manoeuvre section), still no character-scoped query string', () => {
+    // Both purchase sections now share ONE fetch of each collection (AC7: the
+    // holder decides the split between merits and manoeuvres, so both must see
+    // the same balance) — the fetch itself is no longer inside _wireMeritDots.
+    const block = refreshPurchaseStateBlock();
     expect(block).toMatch(/apiGet\(['"]\/api\/office_merit_dots['"]\)/);
     // No query parameters of any kind: nothing to smuggle a holder id into.
     expect(block).not.toMatch(/\/api\/office_merit_dots\?/);
-    // The seat filter happens client-side, off the returned map.
+    expect(block).not.toMatch(/\bchars?\b/);
+    expect(block).not.toMatch(/\bchar\./);
+  });
+
+  it('the seat filter happens client-side, off the returned map, inside _wireMeritDots', () => {
+    const block = meritDotsBlock();
     expect(block).toMatch(/dotsBySeat\[outcome\.seatId\]/);
   });
 
@@ -356,28 +389,61 @@ describe('oxp.4 client wiring: no character id reaches the office_merit_dots API
 
   it('takes the resolved seat, never a character, in either function signature', () => {
     const block = meritDotsBlock();
-    expect(block).toMatch(/async function _wireMeritDots\(el, outcome, meritNames, gen\)/);
-    expect(block).toMatch(/async function _adjustMeritDots\(el, outcome, meritNames, merit, delta\)/);
+    // oxp.6: widened to carry `data` (this office's merit list) and
+    // `isOwnOffice` (so a post-adjustment refresh can re-derive the shared
+    // seat balance) — neither is a character reference.
+    expect(block).toMatch(/function _wireMeritDots\(el, outcome, data, dotsBySeat, fetchFailed, balance, isOwnOffice, gen\)/);
+    expect(block).toMatch(/async function _adjustMeritDots\(el, outcome, data, isOwnOffice, merit, delta\)/);
+  });
+
+  it('oxp.6 Codex review (Low): neither function reads outcome.seat or outcome.allSeats, only outcome.seatId', () => {
+    // Codex review, Pass 2: oxp.6's `_wirePurchaseState` widened `outcome` to
+    // also carry `seat` (the full seat document, including `holder_id`) and
+    // `allSeats` — needed by officeSeatXp, but NOT by these two functions. The
+    // pre-existing `/holder/i` ban above already catches a literal `.holder_id`
+    // read if one is ever added, but this is the stronger, positive form of the
+    // same guarantee: prove the wider `outcome` object's new holder-bearing
+    // fields are never touched here at all, not just that the word "holder"
+    // never appears.
+    const block = meritDotsBlock();
+    expect(block).not.toMatch(/outcome\.seat\b/); // seatId is fine; outcome.seat (no suffix) is not
+    expect(block).not.toMatch(/outcome\.allSeats/);
   });
 
   it('oxp.11: a seat\'s holder_id is READ in exactly one place, only to CHOOSE a seat', () => {
     // Deliberately `\bs\.holder_id` — a real property read off a seat object —
     // rather than the bare word, which also appears in the comments that
     // explain the dependency. Prose about it is not a use of it.
+    //
+    // oxp.7 (AC2) moved this read out of office-tab.js entirely, into the new
+    // shared resolveHeldSeat(char, seats) in office-seat-resolve.js - the SAME
+    // guarantee this test always proved (holder_id read in exactly one place,
+    // only to choose a seat), now stronger: office-tab.js doesn't read it at
+    // all any more, only the one shared resolver does.
     const READ = /\bs\.holder_id\b/g;
-    const src = readFile('public/js/tabs/office-tab.js');
-    const everywhere = [...src.matchAll(READ)].length;
-    expect(everywhere).toBeGreaterThan(0); // the dependency is real, not denied
+    const officeTabSrc = readFile('public/js/tabs/office-tab.js');
+    expect([...officeTabSrc.matchAll(READ)].length).toBe(0);
 
-    const inResolution = [...seatResolutionBlock().matchAll(READ)].length;
-    expect(inResolution).toBe(everywhere);
+    const resolverSrc = readFile('public/js/data/office-seat-resolve.js');
+    const inResolver = [...resolverSrc.matchAll(READ)].length;
+    // Two matches, both on the single find() line (a null-guard, then the
+    // real comparison) - one real place, not two. The dependency is real,
+    // not denied.
+    expect(inResolver).toBe(2);
   });
 
   it('oxp.11: seat resolution reduces the holder match to a seat id before anything else sees it', () => {
+    // oxp.7 (AC2) extracted the holder_id comparison itself into a shared
+    // resolveHeldSeat(char, seats), which office-tab.js's _wirePurchaseState
+    // now calls rather than comparing inline - proving the SAME guarantee
+    // this test always asserted, just from its new shared location, so it
+    // isn't duplicated a second time inside office-tab.js's own block.
+    const sharedResolver = readFile('public/js/data/office-seat-resolve.js');
+    expect(sharedResolver).toMatch(/String\(s\.holder_id\)\s*===\s*String\(char\._id\)/);
+
     const block = seatResolutionBlock();
-    // The comparison itself, and the fact that what leaves this block is a
-    // seat id rather than the seat, the holder, or the character.
-    expect(block).toMatch(/String\(s\.holder_id\)\s*===\s*String\(char\._id\)/);
+    expect(block).toMatch(/resolveHeldSeat\(char,\s*seats\)/);
+    // What leaves this block is a seat id, never the seat, holder, or character.
     expect(block).toMatch(/seatId:\s*String\(seat\._id\)/);
     // Only ever a read of office_seats — this block writes to no API at all.
     expect(block).toMatch(/apiGet\(['"]\/api\/office_seats['"]\)/);

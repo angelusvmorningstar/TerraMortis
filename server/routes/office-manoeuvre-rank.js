@@ -9,15 +9,25 @@ const col = () => getCollection('office_manoeuvre_ranks');
 // GET /api/office_manoeuvre_rank
 // Reference info, open to any authenticated user — the same posture as
 // office-merit-dots.js's own GET / (open read, ST-gated write). Returns
-// { [seatId]: rank } for every office SEAT that has a document; a seat nobody
-// has purchased into yet simply has no key here, and the client treats a
-// missing entry as rank 0 (nothing purchased).
+// { [seatId]: { rank, manoeuvre_xp_destroyed } } for every office SEAT that
+// has a document; a seat nobody has purchased into yet simply has no key
+// here, and the client treats a missing entry as rank 0 (nothing purchased).
+//
+// oxp.6: the value used to be a bare integer (just `rank`). This is the ONLY
+// route `manoeuvre_xp_destroyed` (written by oxp.5's handover reset, on this
+// same document) can reach the client through, so office-xp.js's
+// officeXpSpentForCategory can fold it into spend before any balance is
+// rendered — without it, a handover's destroyed XP silently reappears as a
+// refund the moment anything shows a balance (see office-xp.js's own header
+// comment). Changing the value's shape is a breaking change for this route's
+// one consumer, office-tab.js's _wireManoeuvreRank, updated in the same story.
 router.get('/', async (req, res) => {
   const docs = await col().find({}).toArray();
   const out = {};
-  // oxp.11: `doc._id` is the seat id, not the office category. Only the key
-  // changed; the value is the same bare integer it always was.
-  for (const doc of docs) out[doc._id] = doc.rank || 0;
+  // oxp.11: `doc._id` is the seat id, not the office category.
+  for (const doc of docs) {
+    out[doc._id] = { rank: doc.rank || 0, manoeuvre_xp_destroyed: doc.manoeuvre_xp_destroyed || 0 };
+  }
   res.json(out);
 });
 

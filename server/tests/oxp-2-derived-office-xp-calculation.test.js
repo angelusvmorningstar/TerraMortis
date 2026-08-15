@@ -249,6 +249,30 @@ describe('oxp.2 officeXpSpentForCategory (AC3)', () => {
     const src = officeXpSpentForCategory.toString();
     expect(src).not.toMatch(/holder_id|character/);
   });
+
+  // oxp.6: office_manoeuvre_ranks.manoeuvre_xp_destroyed (written by oxp.5's
+  // handover reset) must be folded into spend, or a handover's destroyed XP
+  // silently reappears as a refund the moment any balance renders — the
+  // precise opposite of content/rules/office-powers.md's ruling.
+  it('oxp.6: a raw manoeuvreRankDoc with manoeuvre_xp_destroyed adds it to spend', () => {
+    expect(officeXpSpentForCategory({}, { rank: 2, manoeuvre_xp_destroyed: 3 })).toBe(5);
+    // Merits combine too, at the same 1 XP per dot rate.
+    expect(officeXpSpentForCategory({ 'Safe Place': 3 }, { rank: 2, manoeuvre_xp_destroyed: 3 })).toBe(8);
+  });
+
+  it('oxp.6: a raw manoeuvreRankDoc with NO manoeuvre_xp_destroyed key at all is unaffected — the shape every document that predates oxp.5 still has', () => {
+    // This is the regression case that matters most: it is the shape of every
+    // real office_manoeuvre_ranks document in tm_suite today.
+    expect(officeXpSpentForCategory({}, { rank: 2 })).toBe(2);
+    expect(officeXpSpentForCategory({ _id: 'Enforcer', dots: { 'Safe Place': 4 } }, { _id: 'Enforcer', rank: 1 })).toBe(5);
+  });
+
+  it('oxp.6: a bare-number manoeuvreRankDoc is provably unaffected by the destroyed-XP change', () => {
+    // A caller passing a bare rank has no way to also supply a destroyed
+    // count, so this branch must be untouched by the raw-document change.
+    expect(officeXpSpentForCategory({}, 5)).toBe(5);
+    expect(officeXpSpentForCategory({ 'Safe Place': 3, Contacts: 3, Resources: 3 }, 5)).toBe(14);
+  });
 });
 
 // ─────────────────────────────────────────────────────────────────────────────

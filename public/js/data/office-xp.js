@@ -182,6 +182,17 @@ export function officeXpSpentForCategory(meritDotsDoc, manoeuvreRankDoc) {
     rankXp = manoeuvreRankDoc;
   } else if (manoeuvreRankDoc && typeof manoeuvreRankDoc.rank === 'number' && Number.isFinite(manoeuvreRankDoc.rank)) {
     rankXp = manoeuvreRankDoc.rank;
+    // oxp.6: fold in the destroyed-XP counter oxp.5's handover reset writes to
+    // the same document. Spend is DERIVED from the current rank, so resetting
+    // it without this would silently REFUND the destroyed XP the moment any
+    // balance renders — the precise opposite of office-powers.md's ruling
+    // ("the running balance is total accrued since creation, minus everything
+    // ever spent, INCLUDING THE SPEND THAT HAS SINCE BEEN LOST"). Only on the
+    // raw-document branch: a bare rank number has no way to also carry a
+    // destroyed count, so that branch above is deliberately untouched.
+    if (typeof manoeuvreRankDoc.manoeuvre_xp_destroyed === 'number' && Number.isFinite(manoeuvreRankDoc.manoeuvre_xp_destroyed)) {
+      rankXp += manoeuvreRankDoc.manoeuvre_xp_destroyed;
+    }
   }
 
   return meritXp + rankXp;

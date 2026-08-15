@@ -178,8 +178,8 @@ describe.skipIf(!dbAvailable)('oxp.11 AC8 — two seats of one office are indepe
       .send({ delta: 1 }).expect(200);
 
     const res = await request(app).get('/api/office_manoeuvre_rank').set('X-Test-User', stUser());
-    expect(res.body[P_A]).toBe(4);
-    expect(res.body[P_B]).toBe(1);
+    expect(res.body[P_A].rank).toBe(4);
+    expect(res.body[P_B].rank).toBe(1);
 
     const reReadA = await getCollection('office_manoeuvre_ranks').findOne({ _id: P_A });
     expect(reReadA).toEqual(storedA);
@@ -201,8 +201,8 @@ describe.skipIf(!dbAvailable)('oxp.11 AC8 — two seats of one office are indepe
       .send({ rank: 0 }).expect(200);
 
     const res = await request(app).get('/api/office_manoeuvre_rank').set('X-Test-User', stUser());
-    expect(res.body[P_A]).toBe(0);
-    expect(res.body[P_B]).toBe(5);
+    expect(res.body[P_A].rank).toBe(0);
+    expect(res.body[P_B].rank).toBe(5);
     expect(await getCollection('office_manoeuvre_ranks').findOne({ _id: P_B })).toEqual(storedB);
   });
 
@@ -224,8 +224,8 @@ describe.skipIf(!dbAvailable)('oxp.11 AC8 — two seats of one office are indepe
     const ranks = await request(app).get('/api/office_manoeuvre_rank').set('X-Test-User', stUser());
     expect(dots.body[S_A]['Cacophony Savvy']).toBe(3);
     expect(dots.body[S_B]['Cacophony Savvy']).toBe(1);
-    expect(ranks.body[S_A]).toBe(2);
-    expect(ranks.body[S_B]).toBe(5);
+    expect(ranks.body[S_A].rank).toBe(2);
+    expect(ranks.body[S_B].rank).toBe(5);
 
     expect(await getCollection('office_merit_dots').findOne({ _id: S_A })).toEqual(dotsA);
     expect(await getCollection('office_manoeuvre_ranks').findOne({ _id: S_A })).toEqual(rankA);

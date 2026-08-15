@@ -97,15 +97,27 @@ describe.skipIf(!dbAvailable)('oxp.3 — GET /api/office_manoeuvre_rank', () => 
     expect(res.body).toEqual({});
   });
 
-  it('oxp.11: reflects a prior PUT, keyed by SEAT id, value is the bare integer', async () => {
+  it('oxp.11: reflects a prior PUT, keyed by SEAT id; oxp.6: value is {rank, manoeuvre_xp_destroyed}', async () => {
     await request(app).put(`/api/office_manoeuvre_rank/${ENFORCER}`).set('X-Test-User', stUser())
       .send({ rank: 3 });
 
     const res = await request(app).get('/api/office_manoeuvre_rank').set('X-Test-User', stUser());
     expect(res.status).toBe(200);
-    expect(res.body[ENFORCER]).toBe(3);
+    expect(res.body[ENFORCER]).toEqual({ rank: 3, manoeuvre_xp_destroyed: 0 });
     // The office category is never the key any more.
     expect(res.body).not.toHaveProperty('Enforcer');
+  });
+
+  it('oxp.6 AC1: a non-zero manoeuvre_xp_destroyed (as oxp.5\'s handover reset writes) round-trips', async () => {
+    await request(app).put(`/api/office_manoeuvre_rank/${ENFORCER}`).set('X-Test-User', stUser())
+      .send({ rank: 1 });
+    // oxp.5's route writes this field directly; simulate that here rather than
+    // depending on the handover route from this suite.
+    await getCollection('office_manoeuvre_ranks').updateOne(
+      { _id: ENFORCER }, { $set: { manoeuvre_xp_destroyed: 5 } });
+
+    const res = await request(app).get('/api/office_manoeuvre_rank').set('X-Test-User', stUser());
+    expect(res.body[ENFORCER]).toEqual({ rank: 1, manoeuvre_xp_destroyed: 5 });
   });
 
   it('AC3: a seat with no document is simply absent — the client treats missing as 0', async () => {
@@ -113,7 +125,7 @@ describe.skipIf(!dbAvailable)('oxp.3 — GET /api/office_manoeuvre_rank', () => 
       .send({ rank: 2 });
 
     const res = await request(app).get('/api/office_manoeuvre_rank').set('X-Test-User', stUser());
-    expect(res.body[ENFORCER]).toBe(2);
+    expect(res.body[ENFORCER]).toEqual({ rank: 2, manoeuvre_xp_destroyed: 0 });
     expect(res.body).not.toHaveProperty(PRIMOGEN);
     expect(res.body).not.toHaveProperty(SOCIALITE);
   });
@@ -160,8 +172,8 @@ describe.skipIf(!dbAvailable)('oxp.3 — PUT /api/office_manoeuvre_rank/:seatId'
       .send({ rank: 1 });
 
     const res = await request(app).get('/api/office_manoeuvre_rank').set('X-Test-User', stUser());
-    expect(res.body[ENFORCER]).toBe(5);
-    expect(res.body[PRIMOGEN]).toBe(1);
+    expect(res.body[ENFORCER].rank).toBe(5);
+    expect(res.body[PRIMOGEN].rank).toBe(1);
   });
 
   it('AC5: rejects a player (403)', async () => {
@@ -242,7 +254,7 @@ describe.skipIf(!dbAvailable)('oxp.3 — PUT /api/office_manoeuvre_rank/:seatId'
     expect(res.body.rank).toBe(0);
 
     const get = await request(app).get('/api/office_manoeuvre_rank').set('X-Test-User', stUser());
-    expect(get.body[ENFORCER]).toBe(0);
+    expect(get.body[ENFORCER].rank).toBe(0);
   });
 });
 
