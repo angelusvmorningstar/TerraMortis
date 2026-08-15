@@ -1,3 +1,21 @@
+// Per-merit dot caps, keyed by merit name (not per-category — the same
+// merit name has the same cap wherever it appears). Sourced from
+// docs/merits/merits-ssot.md. Trained Observer and Cacophony Savvy are the
+// two three-dot exceptions Symon's rules doc flags explicitly; everything
+// else here caps at five.
+export const MERIT_DOT_CAPS = {
+  'Safe Place':       5,
+  'Haven':             5,
+  'Staff':             5,
+  'Resources':         5,
+  'Contacts':          5,
+  'Retainer (Aide)':   5,
+  'Retainer (Hound)':  5,
+  'Retainer (Spy)':    5,
+  'Cacophony Savvy':   3,
+  'Trained Observer':  3,
+};
+
 export const OFFICE_DATA = {
   'Head of State': {
     asset: 'Government House',

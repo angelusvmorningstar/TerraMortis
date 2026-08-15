@@ -1703,6 +1703,12 @@ body {
 .dt-btn-gold { background: var(--accent); color: var(--bg); font-weight: 600; }
 .dt-btn-gold:hover { opacity: 0.9; border-color: var(--accent); }
 
+/* oaq.3: destructive one-shot action (Decline). Mirrors .btn-danger's
+   crimson-token treatment, as a .dt-btn variant since this module uses the
+   .dt-btn family (admin-app-wide base) rather than .btn-sm. */
+.dt-btn-danger { border-color: var(--crim2); color: var(--crim2); }
+.dt-btn-danger:hover { background: var(--crim-a15); }
+
 .dt-roll-badge {
   font-size: 13px;
   padding: 1px 8px;
@@ -3449,6 +3455,16 @@ body {
   background: var(--surf2);
   border-left-color: var(--accent);
 }
+
+/* oaq.3: approval-queue row action cluster (badge + timestamp + Accept/
+   Decline), grouped inside an .or-list-item's right-hand flex slot. */
+.oaq-row-actions { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+.oaq-row-error { padding: 0 14px 8px; }
+/* review finding: .or-list-item is styled elsewhere as a clickable
+   select-to-view row (Ordeals); this row isn't clickable — only its buttons
+   are — so override the inherited pointer cursor and hover highlight. */
+.oaq-row-wrap .or-list-item { cursor: default; }
+.oaq-row-wrap .or-list-item:hover { background: none; }
 
 .or-list-name {
   font-size: 13px;
@@ -10128,10 +10144,13 @@ html:not([data-theme="dark"]) .rules-tbl tbody tr:hover            { background:
   background: var(--surf2);
   color: var(--txt2);
 }
-.ec-bucket-weapon    { background: rgba(139, 0, 0, 0.18); color: var(--crim); }
-.ec-bucket-armour    { background: rgba(70, 90, 120, 0.22); color: var(--txt2); }
-.ec-bucket-equipment { background: rgba(108, 117, 125, 0.22); color: var(--txt2); }
-.ec-bucket-asset     { background: rgba(224, 196, 122, 0.18); color: var(--gold2); }
+/* EQC-1 (#1152): re-tagged for the new five-value taxonomy. combat_gear takes
+   the old weapon tone (it's the bucket an ST reaches for most in a fight). */
+.ec-bucket-combat_gear  { background: rgba(139, 0, 0, 0.18); color: var(--crim); }
+.ec-bucket-skill_gear   { background: rgba(108, 117, 125, 0.22); color: var(--txt2); }
+.ec-bucket-tool_utility { background: rgba(70, 90, 120, 0.22); color: var(--txt2); }
+.ec-bucket-narrative    { background: var(--surf2); color: var(--txt3); }
+.ec-bucket-container    { background: rgba(224, 196, 122, 0.18); color: var(--gold2); }
 
 /* ── Forms ────────────────────────────────────────────────────────────────── */
 

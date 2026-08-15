@@ -87,6 +87,7 @@ import { handleCallback, isLoggedIn, validateToken, login, logout, getUser, getR
 
 import suiteState, { CHARS_DATA } from './suite/data.js';
 import { mountTerr } from './suite/territory.js';
+import { initOfficeApprovals } from './suite/office-approvals.js';
 import {
   handleImport as _handleImport,
   handleDtImport as _handleDtImport,
@@ -393,6 +394,7 @@ const NAV_ITEMS = [
   { id: 'ordeals',   label: 'XP',        icon: '<svg viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>', goTab: 'ordeals' },
   // ST only
   { id: 'territory', label: 'Territory', icon: '<svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18"/></svg>', goTab: 'territory', stOnly: true },
+  { id: 'office-approvals', label: 'Approvals', icon: '<svg viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>', goTab: 'office-approvals', stOnly: true },
   { id: 'tracker',   label: 'Tracker',   icon: '<svg viewBox="0 0 24 24"><line x1="4" y1="6" x2="20" y2="6"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="18" x2="20" y2="18"/><circle cx="8" cy="6" r="2" fill="currentColor"/><circle cx="16" cy="12" r="2" fill="currentColor"/><circle cx="10" cy="18" r="2" fill="currentColor"/></svg>', goTab: 'tracker', stOnly: true },
   { id: 'combat',    label: 'Combat',    icon: '<svg viewBox="0 0 24 24"><path d="M14.5 17.5L3 6V3h3l11.5 11.5"/><path d="M13 19l6-6"/><path d="M3 14l7-7"/></svg>', goTab: 'combat', stOnly: true },
   { id: 'signin',    label: 'Check-In',  icon: '<svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/><polyline points="16 11 18 13 22 9"/></svg>', goTab: 'signin', coordinatorOnly: true },
@@ -475,6 +477,10 @@ function goTab(t) {
 
   // Tab-specific init
   if (t === 'territory') mountTerr();
+  if (t === 'office-approvals') {
+    const el = document.getElementById('t-office-approvals');
+    if (el) initOfficeApprovals(el);
+  }
   if (t === 'tracker') initTracker(document.getElementById('t-tracker'));
   if (t === 'status') renderSuiteStatusTab(document.getElementById('t-status'));
   if (t === 'signin') initSignIn(document.getElementById('t-signin'), suiteState.chars);
@@ -1635,6 +1641,7 @@ const MORE_APPS = [
   // Note: Status is a primary nav tab — not duplicated here
   { id: 'feeding',      label: 'Feeding',     icon: _svg.feeding,  section: 'game' },
   { id: 'territory',    label: 'Territory',   icon: '<svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18"/></svg>', section: 'st', stOnly: true },
+  { id: 'office-approvals', label: 'Approval Queue', icon: '<svg viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>', section: 'st', stOnly: true },
   // ── Player section (player role only) ──
   { id: 'downtime',      label: 'Downtime',    icon: _svg.dtSubmit, section: 'player',
     badge: () => {

@@ -29,7 +29,7 @@ import { defenceForDisplay } from '../data/equipment-derivation.js';
 import { xpEarned, xpSpent, xpLeft } from '../editor/xp.js';
 import { trackerRead, trackerReadRaw, trackerAdj, trackerWriteField } from '../game/tracker.js';
 import { calcTotalInfluence, influenceBreakdown } from '../editor/domain.js';
-import { shRenderInfluenceMerits, shRenderDomainMerits, shRenderGeneralMerits, shRenderManoeuvres, shRenderEquipment } from '../editor/sheet.js';
+import { shRenderInfluenceMerits, shRenderDomainMerits, shRenderGeneralMerits, shRenderManoeuvres, shRenderEquipment, shRenderOfficeMerits, patchOfficeMerits } from '../editor/sheet.js';
 import { renderRulesExpander } from '../shared/rules-text.js';
 import { getRulesByCategory } from '../data/loader.js';
 
@@ -259,15 +259,14 @@ export function renderSheet() {
   regularBanes.forEach((b, i) => {
     infoHtml += expRow('bane' + i, 'Bane', b.name, `<div>${b.effect || ''}</div>`);
   });
-  // Touchstones \u2014 NPCR.4: render touchstones[]; NPC-linked entries display
-  // _npc_name (server-enriched) in place of the inline name.
+  // Touchstones - NPCR.4, free-text only (DBO-8): render touchstones[].
   const hum = c.humanity || 0;
   const ts = Array.isArray(c.touchstones) ? c.touchstones : [];
   if (ts.length) {
     const sorted = [...ts].sort((a, b) => (b.humanity || 0) - (a.humanity || 0));
     const tsBody = sorted.map(t => {
       const attached = hum >= t.humanity;
-      const name = t._npc_name || t.name || '(unnamed)';
+      const name = t.name || '(unnamed)';
       return `<div class="exp-ts-row">
         <span class="exp-ts-hum">Humanity ${t.humanity} \u2014 <span class="exp-ts-state ${attached ? 'attached' : 'detached'}">${attached ? 'Attached' : 'Detached'}</span></span>
         <span class="exp-ts-name">${name}${t.desc ? ` <span class="exp-ts-desc">(${t.desc})</span>` : ''}</span>
@@ -647,6 +646,10 @@ export function renderSheet() {
   // places automatically — no parallel update required.
   html += shRenderInfluenceMerits(c, false);
   html += shRenderDomainMerits(c, false);
+  // oxp.7: read-only, own-office-only. Reserves an empty placeholder now
+  // (synchronous); patchOfficeMerits(c) below fills it once seats + merit
+  // dots resolve, or leaves it empty (AC3 — never a guessed seat).
+  html += shRenderOfficeMerits(c);
 
   // ── Standing Merits ──
   const stndMerits = standingMerits(c).sort((a, b) => (a.name || '').localeCompare(b.name || ''));
@@ -755,6 +758,11 @@ export function renderSheet() {
 
   // Wire attribute+skills carousel indicators
   _wireAttrCarousel(skillsEl || el);
+
+  // oxp.7: un-awaited, same as status.js's own appendOfficeActionsLog call —
+  // must run AFTER the innerHTML writes above, since it finds its own
+  // placeholder(s) by querying the DOM they just landed in.
+  patchOfficeMerits(c);
 }
 
 function _wireAttrCarousel(container) {

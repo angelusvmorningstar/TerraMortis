@@ -37,9 +37,17 @@ running the affected suites because a change "looks safe".
   - **Never run two Playwright invocations concurrently** — they share port 8080 with
     `reuseExistingServer`.
 - **Run the changed area's suites, not the whole thing.** Full runs are slow and bury the signal.
-- **Known pre-existing failures** — present at base, not caused by your change:
-  - `n7-n9-allocator-readers.test.js` — one 600-char source-window assertion over `merits.js` (#1115).
-    This is the "1" in every "N passed / 1 failed" figure in the story records.
+- **Known pre-existing failures** — present at base, not caused by your change (list corrected
+  2026-08-15; a shebang-parse bug that had been silently masking several of these as unexplained
+  `SyntaxError` failures was found and fixed that day — see `specs/deferred-work.md`'s dbo-2 entry):
+  - `n7-n9-allocator-readers.test.js`, `epic.708.3-cycle-phase-controls.test.js`,
+    `oath-a-pledge-helpers.test.js` — each asserts on a literal source-code snippet that has drifted
+    since the test was written (`n7-n9`'s is the original, documented case, #1115; the other two are
+    the same shape, previously undocumented).
+  - `issue-836-legacy-tracker-cache-removed.test.js` — asserts against `public/js/suite/tracker.js`,
+    which was renamed to `toast.js` elsewhere; the test never got updated to match.
+  - `issue-1013-indomitable-rules-text.test.js` — two assertions blocked on the `markdown/` rulebook
+    corpus genuinely not existing in this checkout (#1117); not a code defect.
   - `tests/desktop-and-css.spec.js` (12) — `#btn-desktop-toggle` never becomes visible under the
     stubbed API.
   - `tests/post-game-1.spec.js` nav-1-3 (3) — `#n-more` has never existed in `NAV_ITEMS`.

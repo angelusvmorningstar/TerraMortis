@@ -27,6 +27,9 @@ import attendanceRouter from './routes/attendance.js';
 import archiveDocumentsRouter from './routes/archive-documents.js';
 import rulesRouter from './routes/rules.js';
 import officeActionsRouter from './routes/office-actions.js';
+import officeMeritDotsRouter from './routes/office-merit-dots.js';
+import officeManoeuvreRankRouter from './routes/office-manoeuvre-rank.js';
+import officeSeatsRouter from './routes/office-seats.js';
 import {
   grantRouter, specialityGrantRouter, skillBonusRouter, nineAgainRouter, rulesAggregateRouter,
   discAttrRouter, derivedStatModRouter, tierBudgetRouter, statusFloorRouter,
@@ -183,6 +186,11 @@ app.use('/api/st_mod_audit', requireAuth, noCache(), stModAuditRouter);
 app.use('/api/settings', requireAuth, noCache(), appSettingsRouter);
 app.use('/api/devlog',         requireAuth, noCache(), devlogRouter);
 app.use('/api/office_actions', requireAuth, noCache(), officeActionsRouter);
+app.use('/api/office_merit_dots', requireAuth, noCache(), officeMeritDotsRouter);
+app.use('/api/office_manoeuvre_rank', requireAuth, noCache(), officeManoeuvreRankRouter);
+// oxp.2: office seats, read-only. Open read like its two siblings above; the
+// XP derivation from these seats happens client-side in office-xp.js.
+app.use('/api/office_seats', requireAuth, noCache(), officeSeatsRouter);
 app.use('/api/chapters',       requireAuth, noCache(), chaptersRouter);
 
 // Start server first, then attempt DB connection
@@ -212,6 +220,18 @@ async function start() {
         unique: true,
         background: true,
         partialFilterExpression: { action_type: { $in: ['raise', 'lower'] } },
+      },
+    );
+    // Ensure partial unique index on contested_roll_requests (oaq.2) —
+    // prevents a second concurrent PENDING status_action request for the
+    // same (session, actor, target); scoped to status:'pending' so a
+    // resolved/declined record never blocks a later resubmission.
+    getDb().collection('contested_roll_requests').createIndex(
+      { game_session_id: 1, actor_id: 1, target_id: 1 },
+      {
+        unique: true,
+        background: true,
+        partialFilterExpression: { request_type: 'status_action', status: 'pending' },
       },
     );
     await runRulesEngineGate();

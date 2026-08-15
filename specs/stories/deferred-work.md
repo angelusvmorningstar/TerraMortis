@@ -103,7 +103,16 @@ and verified before deferral. Provenance:
   open ones include real unfixed bugs ("Incorrect 9-again on new dice roller", "Feed herd bonus
   incorrectly calculated", "Shared merits require a minimum one dot investment"). They now have no
   in-app home, so they want triaging into GitHub issues before the collection is dropped.
-- **The admin Primer surface is unstyled** — `public/js/admin/primer-admin.js` (live at
+- ~~**The admin Primer surface is unstyled**~~ — **RESOLVED 2026-08-12: the whole surface removed.**
+  A full admin-feature audit found `primer-admin.js` had no remaining consumer anywhere (the primer
+  players actually read is a separate static page, `public/primer/primer.html`, unrelated to the
+  `archive_documents` collection this panel wrote to) — the styling gap below was a symptom of dead
+  code, not a real gap to fix. Removed: the `documents` sidebar domain and section (`admin.html`),
+  `initPrimerAdmin`'s import/dispatch (`admin.js`), `public/js/admin/primer-admin.js` itself, and the
+  now-unreachable `primer`-type branches in `server/routes/archive-documents.js` (`GET /primer`, and
+  the `isPrimer` handling in `POST /` and `POST /upload`). The `dossier`/`history_submission`/
+  `downtime_response` types on the same route are untouched — those remain real, live features.
+  Original entry follows for the record. `public/js/admin/primer-admin.js` (live at
   `admin.js`, domain `documents`) emits `primer-admin-shell`, `primer-file` and `primer-upload-*`,
   and none of those classes is defined in ANY stylesheet. Pre-existing and unrelated to #1135, which
   deleted only the disjoint `primer-content`/`primer-layout`/`primer-toc*` set belonging to the
@@ -170,3 +179,44 @@ and verified before deferral. Provenance:
   duplicate dispatch keys among the six admitted pool rules (independently confirmed by the external
   reviewer). `getCollectiveCompounds` already de-duplicates on `source|slug`; the producer does not.
   Cheap guard if it ever bites: de-duplicate by `source|category` before the push.
+
+## Found during a TM Wiki cross-project audit, not a code review (2026-08-12)
+
+- **TM Suite's own live covenant-ordeal picker has two real bugs**, confirmed by direct read of
+  `public/js/tabs/covenant-data.js` and `public/js/tabs/ordeal-form.js` (both live, wired via
+  `app.js` → `initOrdeals`, in the player nav today). Surfaced while researching TM Wiki's Epic 30
+  (which built a parallel Ordeals authoring surface and sidestepped both bugs by design — auto-deriving
+  covenant from canon instead of offering a picker at all), not by a review of TM Suite code itself, so
+  no story exists to carry this. **Bug A** — the picked covenant is never actually persisted:
+  `covenant_choice` lives only in the separate `COVENANT_ROUTING` export, never inside the
+  `COVENANT_SECTIONS[cov]` array that `collectResponses()` in `ordeal-form.js` walks, so a draft saved
+  through the real picker UI never has `responses.covenant_choice` set. **Bug B** — every covenant
+  reuses the same question keys (`q2`..`q23`) with no covenant-discriminator field on the stored
+  `ordeal_responses` document; combined with Bug A, a character whose canon `covenant` changes after a
+  draft exists (a corrected record, or a genuine covenant-change RP arc) would silently show the OLD
+  covenant's answers as if they answered the NEW covenant's differently-worded questions at the same
+  keys, with no code path anywhere that detects or resets this. Not fixed this session — flagged only.
+
+## Deferred from: code review of oxp-5-handover-logic (2026-08-14)
+
+- **No transaction-rollback fault-injection test.** `PUT /api/office_seats/:seatId/holder`
+  (`server/routes/office-seats.js`) wraps a genuine multi-document `session.withTransaction` — claim
+  the seat, clear the departing holder, set the incoming holder, reset the manoeuvre rank — but no test
+  anywhere forces a failure AFTER the seat claim commits inside the session and BEFORE the transaction
+  as a whole commits, to prove the claim rolls back along with everything else rather than surviving as
+  a half-applied write. This is a real, valid coverage gap, found independently by two review passes
+  (Blind Hunter and Acceptance Auditor). Checked precedent before deferring rather than assuming it was
+  fine: `server/routes/office-actions.js`'s `PUT /:id/accept`, the exact route this one's transaction
+  scaffolding was deliberately copied from, has never had a fault-injection rollback test either, in
+  this codebase's whole history — so this is not new debt oxp-5 introduced, it is an existing,
+  unaddressed gap in how this codebase proves transactional atomicity, now visible on a second route.
+  The atomicity itself rests on MongoDB's own ACID `session.withTransaction` guarantee, a well-
+  established primitive, not custom-rolled logic — but "the primitive is trustworthy" and "we have
+  proved our specific usage of it" are different claims, and only the second is missing. Building this
+  properly needs a real fault-injection technique against a live Mongo session (e.g.
+  `vi.spyOn(Collection.prototype, 'updateOne')` scoped precisely enough to fail only the intended call,
+  without becoming a flaky or vacuously-passing mock) — worth building ONCE as shared test
+  infrastructure and applying to both `office-actions.js` and `office-seats.js`, rather than each
+  transactional route inventing its own ad hoc version under review-cycle time pressure. Full finding
+  text: `specs/stories/code-review/oxp-5-codex-findings.md` (Pass 1 and Pass 3a, same underlying gap
+  found twice independently).

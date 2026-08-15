@@ -1,0 +1,13 @@
+Review complete: [findings report](</D:/Terra Mortis/TM Suite/specs/stories/code-review/dbo-1-purchasable-powers-schema-vs-data-codex-findings.md>).
+
+Verdict: needs patches before shipping as-is.
+
+Key results:
+
+- 0 High, 8 Medium, 6 Low findings.
+- Active Necropolis seeder can reintroduce both cleaned fields.
+- Required gate: 161 passed, 2 failed, 30 skipped — 193 total.
+- DBO-1 suite: 5 passed, 5 DB-backed tests skipped.
+- DBO-3: 17/17 passed and unchanged from base.
+- Live cleanup CLI was never invoked.
+- Temporary discrimination edit was restored exactly; source hash and diff are clean.

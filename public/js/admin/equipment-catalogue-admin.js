@@ -29,15 +29,22 @@
 import { apiGet, apiPost, apiPatch, apiRaw } from '../data/api.js';
 import { esc } from '../data/helpers.js';
 
-const BUCKETS = ['weapon', 'armour', 'equipment', 'asset'];
+// EQC-1 (issue #1152, epic #1038, 2026-08-13): re-partitioned from the old
+// four buckets (weapon/armour/equipment/asset) to these five. combat_gear
+// absorbs both weapon and armour — an item fills whichever stat-field subset
+// applies (weapon fields, armour fields, or in principle both) and leaves
+// the rest null; see BUCKET_FIELDS below and equipment-derivation.js's own
+// armour_value-based discriminator.
+const BUCKETS = ['combat_gear', 'skill_gear', 'tool_utility', 'narrative', 'container'];
 
 // Bucket → list of optional fields shown in create/edit forms. Mirrors
 // the EQ-1 null-template pattern (EQ_NULLS / WP_NULLS / AR_NULLS / AS_NULLS).
 const BUCKET_FIELDS = {
-  weapon:    ['damage_mod', 'damage_type', 'weapon_type'],
-  armour:    ['armour_value', 'defence_penalty'],
-  equipment: ['skill_domain', 'bonus_dice'],
-  asset:     ['mechanical_effect'],
+  combat_gear:  ['damage_mod', 'damage_type', 'weapon_type', 'armour_value', 'defence_penalty'],
+  skill_gear:   ['skill_domain', 'bonus_dice'],
+  tool_utility: ['mechanical_effect'],
+  narrative:    [],
+  container:    ['mechanical_effect'],
 };
 
 // Module-level state — re-rendered on every mutation. Single-view module
@@ -201,7 +208,7 @@ function wireListEvents() {
 
 function openCreateForm() {
   _editingId = null;
-  renderForm({ bucket: 'equipment', tags: [] });
+  renderForm({ bucket: 'skill_gear', tags: [] });
 }
 
 async function openEditForm(id) {
@@ -223,7 +230,7 @@ function renderForm(initial, impact = null) {
   const host = document.getElementById('ec-form-host');
   if (!host) return;
   const isEdit = !!_editingId;
-  const bucket = initial.bucket || 'equipment';
+  const bucket = initial.bucket || 'skill_gear';
   const bucketOpts = BUCKETS.map(b =>
     `<option value="${b}"${bucket === b ? ' selected' : ''}>${b}</option>`
   ).join('');
@@ -326,7 +333,7 @@ function wireFormEvents(initial) {
  */
 function collectFormValues(coerce = true) {
   const $ = id => document.getElementById(id);
-  const bucket = $('ec-f-bucket')?.value || (_editingId ? (_items.find(it => String(it._id) === String(_editingId))?.bucket) : 'equipment');
+  const bucket = $('ec-f-bucket')?.value || (_editingId ? (_items.find(it => String(it._id) === String(_editingId))?.bucket) : 'skill_gear');
   const name = ($('ec-f-name')?.value || '').trim();
   const description = ($('ec-f-description')?.value || '').trim() || null;
   const availRaw = $('ec-f-availability')?.value;

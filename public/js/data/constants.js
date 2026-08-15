@@ -125,6 +125,9 @@ export const INFLUENCE_SPHERES = ['Bureaucracy','Church','Finance','Health','Hig
 export const INFLUENCE_MERIT_TYPES = ['Allies','Attach\u00e9','Contacts','Mentor','Resources','Retainer','Staff','Status'];
 export const DOMAIN_MERIT_TYPES = ['Safe Place','Haven','Feeding Grounds','Herd','Mandragora Garden'];
 
+/** Non-combat style names: live in general merits, not fighting_styles. */
+export const NON_COMBAT_STYLES = ['Fast-Talking', 'Cacophony Savvy', 'Etiquette', 'Three Heads of Kerberos'];
+
 /** Style Tags — maps fighting style names to their tag(s). Styles without tags use orthodox-only advancement. */
 export const STYLE_TAGS = {
   'Avoidance': ['Movement (Agile)'],

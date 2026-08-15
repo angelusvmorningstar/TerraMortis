@@ -13,6 +13,39 @@ import { getRulesByCategory, getRuleByKey, getRulesDB } from '../data/loader.js'
 // Re-export the new prereq engine for direct use by consumers
 export { _meetsPrereq as meetsPrereq, _prereqLabel as prereqLabel };
 
+/**
+ * DBO.3: true for a merit gained through in-character events, not bought
+ * incrementally with XP — today that is exactly Mystery Cult Initiation and
+ * Professional Training, which carry `special: 'standing'` on their rule
+ * document.
+ *
+ * Deliberately checks `special`, NOT `sub_category`. THREE of this
+ * predicate's four call sites used to check `rule.sub_category ===
+ * 'standing'`, intending to catch MCI/PT — but MCI/PT's real live shape is
+ * `special: 'standing'`, `sub_category: null`, so that check has never once
+ * excluded them. It DID, coincidentally, exclude Confessor and Pledged
+ * (`sub_category: 'standing'`), two ordinary fixed-XP merits gated by a
+ * real Lance Status prereq the engine already evaluates correctly — nothing
+ * about their own data marks them as event-only. The FOURTH call site (the
+ * sheet's own general merit-add picker, below) had no standing-merit check
+ * at all before this fix — a previously-unnamed defect, not a broken check.
+ * Verified against live `tm_suite` 2026-08-14; see
+ * `specs/stories/dbo-3-xp-spend-standing-filter-bug.md`.
+ *
+ * Placed here, ahead of the dropdown-builder functions below, so it does
+ * not sit between any of their own name references (including in other
+ * comments earlier in this file) and their own prereq-check calls —
+ * `server/tests/n7-n9-allocator-readers.test.js` pins a source-contract
+ * regex over a fixed character window between those two points for two of
+ * them, and this function's own name/prose must not appear inside that
+ * window either (a first draft of this comment did, by naming both
+ * functions literally, and produced a false pass — caught by actually
+ * running the suite rather than assumed safe).
+ */
+export function isMeritEventGranted(rule) {
+  return !!rule && rule.special === 'standing';
+}
+
 /** Check if a merit is excluded by a merit the character already owns.
  *  Issue #188 (2026-05-08): exposed as `isMeritExcluded` so the DT form's
  *  XP Spend picker can apply the same exclusion logic the sheet's Merit
@@ -311,6 +344,11 @@ export function buildMeritOptions(c, currentName) {
   if (rulesDB.length) {
     // Rules cache available — use structured data
     for (const rule of rulesDB) {
+      // DBO.3: MCI/PT are event-granted, not directly XP-purchasable —
+      // exclude here too, alongside (not replacing) the sub_category check
+      // below, which independently and correctly excludes influence/domain/
+      // carthian-law/oath merits from this general-only picker.
+      if (isMeritEventGranted(rule)) continue;
       if (rule.sub_category && rule.sub_category !== 'general') continue;
       if (INFLUENCE_MERIT_TYPES.includes(rule.name)) continue;
       // Issue #937: 'Style'-parent merits are plain merits — surface them.
@@ -407,7 +445,7 @@ export function buildMCIGrantOptions(c, dotLevel, currentName) {
   const rulesDB = getRulesByCategory('merit');
   if (rulesDB.length) {
     for (const rule of rulesDB) {
-      if (rule.sub_category === 'standing') continue;
+      if (isMeritEventGranted(rule)) continue; // DBO.3
       if (rule.parent && ['Style', 'Invictus Oath', 'Carthian Law'].includes(rule.parent)) continue;
       if (!meritPrereqOK(c, rule)) continue;
       if (_isExcluded(c, rule.name) && rule.name.toLowerCase() !== (currentName || '').toLowerCase()) continue;
@@ -460,7 +498,7 @@ export function buildFThiefOptions(currentName) {
   const rulesDB = getRulesByCategory('merit');
   if (rulesDB.length) {
     for (const rule of rulesDB) {
-      if (rule.sub_category === 'standing') continue;
+      if (isMeritEventGranted(rule)) continue; // DBO.3
       const rr = rule.rating_range;
       const minR = rr ? rr[0] : 1;
       if (minR > 1) continue;

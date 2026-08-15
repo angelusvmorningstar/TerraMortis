@@ -1,4 +1,3 @@
-#!/usr/bin/env node
 
 /**
  * Issue #837 — Phase 3: one-shot cleanup of `xp_total` and `xp_spent` on

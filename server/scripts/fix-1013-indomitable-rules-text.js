@@ -1,4 +1,3 @@
-#!/usr/bin/env node
 /**
  * Fix #1013 — Indomitable merit missing rules_text.
  *

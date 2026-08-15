@@ -1,0 +1,12 @@
+Completed the fact-check and wrote the findings to:
+
+[dbo-4-office-collections-absent-empty-route-codex-findings.md](</D:/Terra Mortis/TM Suite/specs/stories/code-review/dbo-4-office-collections-absent-empty-route-codex-findings.md>)
+
+Key results:
+
+- High: the migration can delete old category-keyed purchase fields after a current-route seat write.
+- Medium: `office-merit-dots` coerces malformed values such as `null` to zero.
+- `oxp-6` is not an ancestor of the stored `origin/main`; the merge-status correction is overstated.
+- The live-data claims remain deliberately unverified.
+- No database connection, migration execution, commit, or push occurred.
+- Only the requested findings file was created; reviewed files were untouched.

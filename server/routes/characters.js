@@ -42,15 +42,74 @@ function parseId(id) {
 }
 
 /**
- * NPCR.4: validate that every id in touchstone_edge_ids[] points to an
- * active relationship edge with kind='touchstone' and the character on
- * one endpoint. Returns null on success, or an error message string.
+ * EQC-3 review patch (issue #1154, Codex external review Medium finding):
+ * `container_id` validation was originally added ONLY to
+ * `POST /:id/equipment`. `PUT /:id` (the main admin Save-to-DB path,
+ * `public/js/admin.js`'s `buildSaveBody()`) and the two character-create
+ * routes (`POST /wizard`, `POST /`) all accept a full `equipment[]` array
+ * with zero container_id validation - the review found this meant
+ * enforcement depended entirely on which endpoint a caller used, and a full
+ * character save could silently persist a dangling, self-referencing, or
+ * non-container `container_id` that the single-item endpoint would have
+ * rejected. Extracted as ONE shared validator every equipment-array write
+ * path calls, so the rule can never drift out of sync between them again -
+ * the same lesson EQC-1's own review already taught this epic once.
+ *
+ * Validates the WHOLE array's container_id references against EACH OTHER
+ * (not against a separately-fetched "existing" state), which also lets this
+ * same function serve `POST /:id/equipment` (validate existing + the one new
+ * item, combined) and `PUT /:id` (validate the incoming array as submitted)
+ * with identical logic.
+ *
+ * Additionally enforces the single-level containment rule EQC-1's own
+ * schema comment establishes but this story's first version never actually
+ * checked: a `container_id` target must not ITSELF already be contained
+ * (have its own `container_id` set) - otherwise nesting depth would be
+ * unbounded rather than the documented single level.
+ *
+ * @param {object[]} equipment - the full candidate equipment array to validate
+ * @returns {Promise<string|null>} an error message, or null if valid
  */
+async function validateEquipmentContainerRefs(equipment) {
+  if (!Array.isArray(equipment)) return null;
+  const containerRefs = equipment.filter(e => e && e.container_id != null);
+  if (!containerRefs.length) return null;
+
+  const referencedIds = [...new Set(containerRefs.map(e => e.container_id))];
+  const validRefIds = referencedIds.filter(id => typeof id === 'string' && ObjectId.isValid(id) && String(new ObjectId(id)) === id);
+  const catalogueDocs = validRefIds.length
+    ? await getCollection('equipment_catalogue').find(
+        { _id: { $in: validRefIds.map(id => new ObjectId(id)) } },
+        { projection: { bucket: 1 } },
+      ).toArray()
+    : [];
+  const bucketById = new Map(catalogueDocs.map(d => [String(d._id), d.bucket]));
+
+  for (const item of containerRefs) {
+    const cid = item.container_id;
+    if (typeof cid !== 'string' || !ObjectId.isValid(cid) || String(new ObjectId(cid)) !== cid) {
+      return `container_id must be a 24-hex ObjectId string or null; got '${cid}'`;
+    }
+    const targetRows = equipment.filter(e => e && e !== item && String(e.catalogue_id) === cid);
+    if (!targetRows.length) {
+      return `container_id does not reference an item this character already owns: ${cid}`;
+    }
+    const bucket = bucketById.get(cid);
+    if (bucket !== 'container') {
+      return `container_id must reference a container-bucket catalogue item; got bucket '${bucket ?? '(unknown)'}'`;
+    }
+    // Single-level: none of the matching target rows may themselves be contained.
+    if (targetRows.some(row => row.container_id != null)) {
+      return `container_id references a container that is itself contained (single-level containment only): ${cid}`;
+    }
+  }
+  return null;
+}
+
 /**
- * NPCR.4 helpers — touchstones live on character.touchstones[], capped at 6.
- * Slot rating descends from the clan anchor (Ventrue=7, else=6).
- * Each entry may carry an optional edge_id linking to a relationships doc
- * (kind='touchstone') when the touchstone is a character; omitted for objects.
+ * NPCR.4 helpers — touchstones live on character.touchstones[], capped at 6,
+ * free-text only (DBO-8, 2026-08-14). Slot rating descends from the clan
+ * anchor (Ventrue=7, else=6).
  */
 
 function anchorFor(character) {
@@ -58,12 +117,11 @@ function anchorFor(character) {
 }
 
 /**
- * Validate a touchstones[] array on a save body: cap, humanity-in-anchor-range,
- * and each edge_id (when present) points to an active relationships edge of
- * kind='touchstone' with this character on one endpoint.
- * Returns null on success or an error message string.
+ * Validate a touchstones[] array on a save body: cap and
+ * humanity-in-anchor-range. Returns null on success or an error message
+ * string.
  */
-async function validateTouchstones(touchstones, characterId, currentCharDoc) {
+function validateTouchstones(touchstones, currentCharDoc) {
   if (!Array.isArray(touchstones)) return null;
   if (touchstones.length > 6) {
     return `touchstones cap is 6 (received ${touchstones.length})`;
@@ -76,84 +134,7 @@ async function validateTouchstones(touchstones, characterId, currentCharDoc) {
       return `touchstone humanity ${t?.humanity} out of range (anchor=${anchor}, min=${minRating})`;
     }
   }
-
-  const edgeIds = touchstones
-    .map(t => t?.edge_id)
-    .filter(id => typeof id === 'string' && id.length > 0);
-  if (edgeIds.length === 0) return null;
-
-  const oids = [];
-  for (const id of edgeIds) {
-    try { oids.push(new ObjectId(id)); }
-    catch { return `touchstone edge_id '${id}' is not a valid id`; }
-  }
-  const rels = getCollection('relationships');
-  const edges = await rels.find({ _id: { $in: oids } }).toArray();
-  const foundById = new Map(edges.map(e => [String(e._id), e]));
-  const charIdStr = String(characterId);
-  for (const id of edgeIds) {
-    const edge = foundById.get(String(id));
-    if (!edge) return `touchstone edge '${id}' not found`;
-    if (edge.kind !== 'touchstone') return `edge '${id}' is kind='${edge.kind}', expected 'touchstone'`;
-    if (edge.status === 'retired') return `edge '${id}' is retired`;
-    const onEdge =
-      (edge.a?.type === 'pc' && String(edge.a.id) === charIdStr) ||
-      (edge.b?.type === 'pc' && String(edge.b.id) === charIdStr);
-    if (!onEdge) return `edge '${id}' does not have this character as an endpoint`;
-  }
   return null;
-}
-
-/**
- * Attach _npc_name on each touchstones[] entry that carries an edge_id,
- * so the client can render the linked NPC's name without a separate fetch.
- * Edges that are retired or (for player callers) st_hidden are treated as
- * missing — no name attached; the client still renders the entry via its
- * inline name field.
- */
-async function enrichTouchstoneNpcNames(chars, { forPlayer } = {}) {
-  const allEdgeOids = [];
-  for (const c of chars) {
-    for (const t of (c.touchstones || [])) {
-      if (typeof t?.edge_id === 'string' && t.edge_id.length > 0) {
-        try { allEdgeOids.push(new ObjectId(t.edge_id)); } catch { /* skip */ }
-      }
-    }
-  }
-  if (allEdgeOids.length === 0) return;
-
-  const rels = getCollection('relationships');
-  const edgeFilter = {
-    _id: { $in: allEdgeOids },
-    kind: 'touchstone',
-    status: { $ne: 'retired' },
-  };
-  if (forPlayer) edgeFilter.st_hidden = { $ne: true };
-  const edges = await rels.find(edgeFilter).toArray();
-  const edgeById = new Map(edges.map(e => [String(e._id), e]));
-
-  const npcOids = [];
-  for (const e of edges) {
-    const npcEp = e.a?.type === 'npc' ? e.a : (e.b?.type === 'npc' ? e.b : null);
-    if (npcEp?.id) {
-      try { npcOids.push(new ObjectId(String(npcEp.id))); } catch { /* skip */ }
-    }
-  }
-  const npcs = npcOids.length > 0
-    ? await getCollection('npcs').find({ _id: { $in: npcOids } }, { projection: { name: 1 } }).toArray()
-    : [];
-  const npcById = new Map(npcs.map(n => [String(n._id), n]));
-
-  for (const c of chars) {
-    for (const t of (c.touchstones || [])) {
-      if (typeof t?.edge_id !== 'string' || !t.edge_id) continue;
-      const edge = edgeById.get(String(t.edge_id));
-      if (!edge) continue;
-      const npcEp = edge.a?.type === 'npc' ? edge.a : edge.b;
-      const npc = npcEp ? npcById.get(String(npcEp.id)) : null;
-      if (npc?.name) t._npc_name = npc.name;
-    }
-  }
 }
 
 // N-1 (ADR-005 Rev 2 §D3): Collective Compound synthesis on the server side.
@@ -209,7 +190,6 @@ router.get('/', async (req, res) => {
   if (isStRole(req.user) && !req.query.mine) {
     const chars = await col().find().toArray();
     await _enrichCollectiveSharing(chars);
-    await enrichTouchstoneNpcNames(chars, { forPlayer: false });
     return res.json(chars);
   }
 
@@ -266,7 +246,6 @@ router.get('/', async (req, res) => {
   }
 
   await _enrichCollectiveSharing(chars);
-  await enrichTouchstoneNpcNames(chars, { forPlayer: true });
   res.json(chars);
 });
 
@@ -403,8 +382,6 @@ router.get('/:id', async (req, res) => {
   const char = await col().findOne({ _id: oid });
   if (!char) return res.status(404).json({ error: 'NOT_FOUND', message: 'Character not found' });
 
-  const forPlayer = req.user.role === 'player';
-  await enrichTouchstoneNpcNames([char], { forPlayer });
   res.json(char);
 });
 
@@ -423,6 +400,17 @@ router.post('/wizard', requireRole('player'), stripEphemeral, validateCharacter,
   doc.retired = false;
   doc.created_at = new Date().toISOString();
 
+  // EQC-3 review patch (issue #1154, Codex external review Medium finding):
+  // same shared validator every other equipment-array write path calls —
+  // chargen doesn't typically arrive with pre-populated containment, but
+  // enforcement must not depend on which endpoint happens to be used.
+  if (Array.isArray(doc.equipment)) {
+    const containerErr = await validateEquipmentContainerRefs(doc.equipment);
+    if (containerErr) {
+      return res.status(400).json({ error: 'VALIDATION_ERROR', message: containerErr });
+    }
+  }
+
   const result = await col().insertOne(doc);
   const created = await col().findOne({ _id: result.insertedId });
 
@@ -439,6 +427,15 @@ router.post('/wizard', requireRole('player'), stripEphemeral, validateCharacter,
 router.post('/', requireRole('st'), stripEphemeral, validateCharacter, normalizeMeritsMiddleware, validateWhiteAntsTerritoriesMiddleware, validateTrapDoorAnchorMiddleware, async (req, res) => {
   const doc = req.body;
   if (!doc || !doc.name) return res.status(400).json({ error: 'VALIDATION_ERROR', message: "Field 'name' is required" });
+
+  // EQC-3 review patch (issue #1154): same shared validator as every other
+  // equipment-array write path (see POST /wizard's own comment).
+  if (Array.isArray(doc.equipment)) {
+    const containerErr = await validateEquipmentContainerRefs(doc.equipment);
+    if (containerErr) {
+      return res.status(400).json({ error: 'VALIDATION_ERROR', message: containerErr });
+    }
+  }
 
   const result = await col().insertOne(doc);
   const created = await col().findOne({ _id: result.insertedId });
@@ -477,14 +474,29 @@ router.put('/:id', requireRole('st'), stripEphemeral, validateCharacterPartial, 
       }
     }
     updates.equipment = hydrated;
+
+    // EQC-3 review patch (issue #1154, epic #1038, Codex external review
+    // Medium finding): this is the main admin Save-to-DB path
+    // (public/js/admin.js's buildSaveBody() submits the FULL equipment
+    // array here) and originally had ZERO container_id validation — the
+    // single-item POST /:id/equipment endpoint's checks simply didn't run
+    // for a full-character save, so an invalid container_id rejected by
+    // one endpoint was silently accepted by this one. Same shared validator
+    // POST /:id/equipment now calls, run against the incoming array as
+    // submitted (this route replaces the whole equipment array, so there
+    // is no separate "existing rows" to merge in — updates.equipment IS
+    // the candidate final state).
+    const containerErr = await validateEquipmentContainerRefs(updates.equipment);
+    if (containerErr) {
+      return res.status(400).json({ error: 'VALIDATION_ERROR', message: containerErr });
+    }
   }
 
-  // NPCR.4: if the save includes touchstones[], validate cap, humanity-in-range,
-  // and each embedded edge_id points to a valid touchstone relationship for this char.
+  // NPCR.4: if the save includes touchstones[], validate cap and humanity-in-range.
   if (Object.prototype.hasOwnProperty.call(updates, 'touchstones')) {
     const existingChar = await col().findOne({ _id: oid }, { projection: { clan: 1 } });
     const effectiveChar = { ...existingChar, ...updates }; // updates may also change clan
-    const err = await validateTouchstones(updates.touchstones, oid, effectiveChar);
+    const err = validateTouchstones(updates.touchstones, effectiveChar);
     if (err) return res.status(400).json({ error: 'VALIDATION_ERROR', message: err });
   }
 
@@ -881,14 +893,35 @@ router.post('/:id/equipment', requireRole('st'), async (req, res) => {
     return res.status(404).json({ error: 'NOT_FOUND', message: `Unknown catalogue item: ${item.catalogue_id}` });
   }
 
-  const char = await col().findOne({ _id: oid }, { projection: { _id: 1 } });
+  // EQC-3: widened from { _id: 1 } to also read `equipment` — needed to
+  // validate the container_id claim below against what this character
+  // already owns.
+  const char = await col().findOne({ _id: oid }, { projection: { equipment: 1 } });
   if (!char) return res.status(404).json({ error: 'NOT_FOUND', message: 'Character not found' });
+
+  // EQC-3 review patch (issue #1154, Codex external review Medium finding):
+  // validated via the SAME shared validator PUT /:id and the character-create
+  // routes now also call, against the WOULD-BE final array (existing rows +
+  // this one new item) — no separate, divergent inline copy of the same
+  // three rules any more (that divergence is exactly what let PUT /:id
+  // bypass this validation entirely in the first version of this story).
+  const candidateEquipment = [...(char.equipment || []), { catalogue_id: item.catalogue_id, container_id: item.container_id ?? null }];
+  const containerErr = await validateEquipmentContainerRefs(candidateEquipment);
+  if (containerErr) {
+    return res.status(400).json({ error: 'VALIDATION_ERROR', message: containerErr });
+  }
 
   const cleanItem = {
     catalogue_id:   catalogueOid,
     state:          item.state,
     acquired_cycle: item.acquired_cycle,
     notes:          item.notes ?? null,
+    // EQC-3: stored as a plain STRING, not coerced to an ObjectId like
+    // catalogue_id is — container_id's own schema type is a string pattern
+    // field, not an ObjectId reference type, per EQC-1's own schema comment.
+    // Coercing it here would create a type mismatch against the
+    // string-comparison read sites (e.g. `e.catalogue_id === containerId`).
+    container_id:   item.container_id ?? null,
   };
   const result = await col().findOneAndUpdate(
     { _id: oid },

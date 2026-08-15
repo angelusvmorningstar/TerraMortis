@@ -1,4 +1,3 @@
-#!/usr/bin/env node
 
 /**
  * N-1 / ADR-005 Rev 2 (issue #670) — atomic pool-grant seed for the new
