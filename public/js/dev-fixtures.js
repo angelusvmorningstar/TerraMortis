@@ -78,7 +78,6 @@ window.fetch=function devFix(url,opts){
   if(method==='POST'&&seg[0]==='downtime_submissions'&&seg[2]==='section-flag'){var b=opts.body?JSON.parse(opts.body):{};return _mock({_id:'flag_dev_'+Date.now(),section_key:b.section_key,section_idx:b.section_idx??null,category:b.category,reason:b.reason||'',created_at:new Date().toISOString(),player_id:'dev',status:'open',resolved_at:null,resolution_note:null},201);}
   if(method==='PATCH'&&seg[0]==='downtime_submissions'&&seg[2]==='section-flag'&&seg[3]){var pb=opts.body?JSON.parse(opts.body):{};return _mock({_id:seg[3],status:pb.status||'resolved',resolution_note:pb.resolution_note||null,resolved_at:new Date().toISOString()});}
   if(method==='GET'&&seg[0]==='game_sessions')return _mock(GAME_SESSIONS);
-  if(method==='GET'&&seg[0]==='archive_documents')return _mock([]);
   if(method==='GET'&&seg[0]==='health')return _mock({ok:true});
   if(method==='GET'&&seg[0]==='players'&&seg[1]==='display-names'){return _mock(CHARS.filter(function(c){return c.player;}).map(function(c){return{character_id:String(c._id),display_name:c.player};}));}
   if(method==='GET'&&seg[0]==='players')return _mock([]);

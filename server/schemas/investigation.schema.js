@@ -1,43 +1,24 @@
 /**
- * JSON Schema (Draft-07) for TM Downtime Investigation and NPC.
- * Collections: downtime_investigations, npcs
+ * JSON Schema (Draft-07) for TM NPC.
+ * Collections: npcs
+ *
+ * THE FILENAME IS HISTORICAL. This file also declared `investigationSchema` for
+ * the `downtime_investigations` collection, which is where its name came from.
+ * TM Wiki Story 31-7 (2026-08-15) retired that collection, its route
+ * (server/routes/investigations.js, deleted) and its ST admin panel: it and
+ * tm_wiki's `prior_investigations` were the same concept modelled twice, neither
+ * side had ever held a document, and `tm_suite.downtime_investigations` had never
+ * even been created. TM Wiki's version survives as the single home. No migration
+ * was needed - there was nothing to move.
+ *
+ * THE FILE ITSELF SURVIVES BECAUSE `npcSchema` LIVES HERE and is imported by
+ * server/routes/npcs.js, which is live and unrelated. That is why the retirement
+ * removed the one export rather than the file: deleting it would have broken the
+ * NPC route, which is exactly the adjacent-collateral trap 31-7's own acceptance
+ * criteria told the developer to re-check for. Renaming the file to match its
+ * remaining contents is a separate, larger change (four story docs and one route
+ * cite it by name) and was deliberately not folded in here.
  */
-
-const thresholdTypeEnum = [
-  'public_identity', 'hidden_identity', 'private_activity',
-  'haven', 'touchstone', 'bloodline'
-];
-
-export const investigationSchema = {
-  $schema: 'http://json-schema.org/draft-07/schema#',
-  title: 'TM Downtime Investigation',
-  type: 'object',
-  required: ['target_description'],
-  additionalProperties: true,
-
-  properties: {
-    target_description:       { type: 'string', minLength: 1 },
-    threshold_type:           { type: 'string', enum: thresholdTypeEnum },
-    threshold:                { type: 'integer', minimum: 1 },
-    investigating_character_id: { type: ['string', 'null'] },
-    cycle_id:                 { type: ['string', 'null'] },
-    successes_accumulated:    { type: 'integer', minimum: 0 },
-    status:                   { type: 'string', enum: ['active', 'resolved', 'abandoned'] },
-    notes: {
-      type: 'array',
-      items: {
-        type: 'object',
-        properties: {
-          text:     { type: 'string' },
-          added_at: { type: 'string' },
-        },
-        additionalProperties: false,
-      },
-    },
-    created_at: { type: 'string' },
-    updated_at: { type: 'string' },
-  },
-};
 
 export const npcSchema = {
   $schema: 'http://json-schema.org/draft-07/schema#',

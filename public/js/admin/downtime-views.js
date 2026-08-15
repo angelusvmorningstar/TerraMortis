@@ -1318,8 +1318,6 @@ async function loadCycleById(cycleId) {
   renderSubmissionChecklist();
   await ensureTerritories();
   renderCityOverview();
-  await loadInvestigations(cycleId);
-  renderInvestigations();
   renderSubmissions();
 }
 
@@ -1896,7 +1894,6 @@ async function processFilePreview(file) {
   renderMatchSummary();
   renderSubmissionChecklist();
   renderCityOverview();
-  renderInvestigations();
   renderSubmissions();
 }
 
@@ -4919,16 +4916,6 @@ function renderProcessingMode(container) {
       }
       } // close JDT-5 joint-phase branch's else
 
-      // Investigations tracker lives inside the Investigative phase
-      if (phaseKey === 'investigate') {
-        h += '<div id="dt-investigations"></div>';
-      }
-
-  }
-
-  // If no investigate actions were submitted, still show the investigations tracker
-  if (!byPhase.has('investigate')) {
-    h += '<div id="dt-investigations"></div>';
   }
 
   // XP Review — Step 10
@@ -4942,9 +4929,6 @@ function renderProcessingMode(container) {
 
   h += '</div>'; // proc-queue
   container.innerHTML = h;
-
-  // Render investigations into its placeholder inside the investigate phase
-  renderInvestigations();
 
   // Wire character strip chips — expand first pending action and scroll to it
   container.querySelectorAll('.proc-char-chip').forEach(chip => {
@@ -10949,150 +10933,6 @@ async function handlePublish(sub) {
   } catch (err) {
     alert('Mark ready failed: ' + err.message);
   }
-}
-
-// ── Investigation Tracker (Story 1.5) ────────────────────────────────────────
-
-const THRESHOLD_TYPES = [
-  { id: 'public_identity', label: 'Public Identity', default: 5 },
-  { id: 'hidden_identity', label: 'Hidden Identity', default: 10 },
-  { id: 'private_activity', label: 'Private Activity', default: 10 },
-  { id: 'haven', label: 'Haven (+ Security)', default: 10 },
-  { id: 'touchstone', label: 'Touchstone', default: 15 },
-  { id: 'bloodline', label: 'Bloodline', default: 15 },
-];
-
-let investigations = [];
-let invPanelOpen = true;
-
-async function loadInvestigations(cycleId) {
-  if (!cycleId) { investigations = []; return; }
-  try {
-    investigations = await apiGet(`/api/downtime_investigations?cycle_id=${cycleId}`);
-  } catch { investigations = []; }
-}
-
-function renderInvestigations() {
-  const el = document.getElementById('dt-investigations');
-  if (!el) return;
-
-  let h = '<div class="dt-inv-panel">';
-  h += `<div class="dt-matrix-toggle" id="dt-inv-toggle">${invPanelOpen ? '\u25BC' : '\u25BA'} Investigations <span class="domain-count">${investigations.length}</span></div>`;
-
-  if (invPanelOpen) {
-    h += '<div class="dt-inv-body">';
-
-    // New investigation form
-    h += `<details class="dt-inv-new-wrap"><summary class="dt-btn dt-summary-btn">+ New Investigation</summary>`;
-    h += '<div class="dt-inv-form">';
-    h += `<input class="dt-inv-input" id="dt-inv-target" placeholder="Target (name or description)">`;
-    h += '<div class="dt-inv-row">';
-    h += `<select class="dt-pool-sel" id="dt-inv-type">`;
-    for (const t of THRESHOLD_TYPES) h += `<option value="${esc(t.id)}">${esc(t.label)} (${t.default})</option>`;
-    h += '</select>';
-    h += `<input class="dt-pool-mod" type="number" id="dt-inv-custom" placeholder="Override threshold" title="Override threshold">`;
-    h += `<input class="dt-inv-input" id="dt-inv-investigator" placeholder="Investigating character" style="flex:1">`;
-    h += `<button class="dt-btn" id="dt-inv-create">Create</button>`;
-    h += '</div></div></details>';
-
-    if (investigations.length === 0) {
-      h += '<p class="dt-empty-msg">No active investigations.</p>';
-    } else {
-      for (const inv of investigations) {
-        const pct = Math.min(100, Math.round((inv.successes_accumulated / inv.threshold) * 100));
-        const isResolved = inv.status === 'resolved';
-        h += `<div class="dt-inv-item${isResolved ? ' dt-inv-resolved' : ''}">`;
-        h += `<div class="dt-inv-header">`;
-        h += `<span class="dt-inv-target">${esc(inv.target_description)}</span>`;
-        const tLabel = THRESHOLD_TYPES.find(t => t.id === inv.threshold_type)?.label || inv.threshold_type;
-        h += ` <span class="dt-inv-type-badge">${esc(tLabel)}</span>`;
-        if (isResolved) h += ' <span class="dt-proj-done-badge">\u2713 Resolved</span>';
-        h += '</div>';
-        if (inv.investigating_character_id) h += `<div class="dt-inv-investigator">Investigator: ${esc(inv.investigating_character_id)}</div>`;
-
-        // Progress bar
-        h += `<div class="dt-inv-progress-wrap">`;
-        h += `<div class="dt-inv-progress-bar" style="width:${pct}%"></div>`;
-        h += `<span class="dt-inv-progress-label">${inv.successes_accumulated} / ${inv.threshold} successes</span>`;
-        h += '</div>';
-
-        if (!isResolved) {
-          h += `<div class="dt-inv-add-row">`;
-          h += `<input class="dt-pool-mod" type="number" min="1" value="1" id="dt-inv-add-${esc(inv._id)}" title="Successes to add">`;
-          h += `<input class="dt-inv-input" id="dt-inv-note-${esc(inv._id)}" placeholder="Note (source, roll)" style="flex:1">`;
-          h += `<button class="dt-btn dt-inv-add-btn" data-inv-id="${esc(inv._id)}">Add successes</button>`;
-          h += `<button class="dt-btn dt-btn-muted dt-inv-resolve-btn" data-inv-id="${esc(inv._id)}">Mark resolved</button>`;
-          h += '</div>';
-        }
-
-        if (inv.notes?.length) {
-          h += '<div class="dt-inv-notes">';
-          for (const n of inv.notes.slice(-3)) {
-            const when = n.added_at ? new Date(n.added_at).toLocaleDateString('en-GB') : '';
-            h += `<div class="dt-inv-note-entry">${when ? `<span class="dt-inv-note-when">${when}</span> ` : ''}${esc(n.text)}${n.successes_added ? ` (+${n.successes_added})` : ''}</div>`;
-          }
-          h += '</div>';
-        }
-
-        h += '</div>';
-      }
-    }
-
-    h += '</div>';
-  }
-
-  h += '</div>';
-  el.innerHTML = h;
-
-  document.getElementById('dt-inv-toggle')?.addEventListener('click', () => {
-    invPanelOpen = !invPanelOpen;
-    renderInvestigations();
-  });
-
-  document.getElementById('dt-inv-create')?.addEventListener('click', async () => {
-    const target = document.getElementById('dt-inv-target')?.value.trim();
-    const thresholdType = document.getElementById('dt-inv-type')?.value;
-    const customThreshold = document.getElementById('dt-inv-custom')?.value;
-    const investigator = document.getElementById('dt-inv-investigator')?.value.trim();
-    if (!target) return;
-    try {
-      await apiPost('/api/downtime_investigations', {
-        target_description: target,
-        threshold_type: thresholdType,
-        custom_threshold: customThreshold ? +customThreshold : undefined,
-        investigating_character_id: investigator || null,
-        cycle_id: selectedCycleId,
-      });
-      await loadInvestigations(selectedCycleId);
-      renderInvestigations();
-    } catch (err) { console.error('Create investigation error:', err.message); }
-  });
-
-  el.querySelectorAll('.dt-inv-add-btn').forEach(btn => {
-    btn.addEventListener('click', async () => {
-      const invId = btn.dataset.invId;
-      const successes = +document.getElementById(`dt-inv-add-${invId}`)?.value || 1;
-      const note = document.getElementById(`dt-inv-note-${invId}`)?.value.trim() || '';
-      try {
-        const updated = await apiPut(`/api/downtime_investigations/${invId}`, { add_successes: successes, note_text: note || undefined });
-        const idx = investigations.findIndex(i => i._id === invId);
-        if (idx >= 0) investigations[idx] = updated;
-        renderInvestigations();
-      } catch (err) { console.error('Add successes error:', err.message); }
-    });
-  });
-
-  el.querySelectorAll('.dt-inv-resolve-btn').forEach(btn => {
-    btn.addEventListener('click', async () => {
-      const invId = btn.dataset.invId;
-      try {
-        const updated = await apiPut(`/api/downtime_investigations/${invId}`, { status: 'resolved' });
-        const idx = investigations.findIndex(i => i._id === invId);
-        if (idx >= 0) investigations[idx] = updated;
-        renderInvestigations();
-      } catch (err) { console.error('Resolve investigation error:', err.message); }
-    });
-  });
 }
 
 // ── Submission Checklist (feature.55) ───────────────────────────────────────
