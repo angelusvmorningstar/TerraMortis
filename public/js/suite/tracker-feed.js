@@ -13,8 +13,11 @@ import { trackerAdj } from '../game/tracker.js';
 import { getAttrEffective as getAttrVal, skDots, skTotal, skSpecStr } from '../data/accessors.js';
 import { displayName } from '../data/helpers.js';
 import { FEED_METHODS, TERRITORY_DATA } from '../tabs/downtime-data.js';
+import { apiGet, apiPut } from '../data/api.js';
+import { getFeedingCycle } from '../downtime/db.js';
 
 let feedMethod = null;
+let lastRoll = null; // the most recent feedRoll() result, attached to the submission on Apply
 
 // ══════════════════════════════════════════════
 //  FEED UI
@@ -136,6 +139,25 @@ function feedRoll() {
   const vessels = suc;
   const safeVitae = vessels * 2;
 
+  // Same shape as feeding-tab.js's own rollResult (public/js/tabs/feeding-tab.js:1060-1071) —
+  // written to the submission on Apply so the player's Feeding tab recognises this hunt is
+  // already done and shows the result instead of offering a second roll (2026-08-15: an ST
+  // roll here applied Vitae straight to tracker_state but never told the submission, so the
+  // player tab kept reading "not yet rolled" and players re-rolled on top of an applied feed).
+  const discName = document.getElementById('feed-disc')?.value || '';
+  lastRoll = {
+    cols,
+    successes: suc,
+    vessels,
+    safeVitae,
+    methodName: feedMethod?.name || 'Unknown',
+    pool: poolN,
+    again: state.NA ? 10 : state.AGAIN,
+    breakdown: `ST confirmed (Roll tab): ${poolN} dice`,
+    rolledAt: new Date().toISOString(),
+    dramaticFailure: !!discName && suc === 0,
+  };
+
   // Dice display
   const diceHtml = cols.map(col => {
     const all = [col.r, ...col.ch];
@@ -195,6 +217,26 @@ async function feedApplyVitae(safeMax) {
   await trackerAdj(String(c._id), 'vitae', n);
   const over = n > safeMax ? ' \u26A0 Humanity check required' : '';
   toast(`${displayName(c)}: +${n} Vitae${over}`);
+  await recordFeedOnSubmission(c);
+}
+
+// Attach the roll just applied to this character's active-cycle submission, so the player's own
+// Feeding tab (which gates purely on responses.feeding_roll_player \u2014 feeding-tab.js:190) stops
+// showing "ready to roll" for a hunt the ST already ran and applied here. Best-effort: the Vitae
+// is already on the tracker regardless of whether this write succeeds, so a failure here is a
+// stale player-tab display, not a data-loss risk \u2014 surfaced via toast rather than a thrown error.
+async function recordFeedOnSubmission(c) {
+  if (!lastRoll) return;
+  try {
+    const cycle = await getFeedingCycle();
+    if (!cycle) { toast('Feed applied, but no open cycle to record the roll against \u2014 player tab may still show "ready to roll".'); return; }
+    const subs = await apiGet('/api/downtime_submissions?cycle_id=' + cycle._id);
+    const sub = subs.find((s) => String(s.character_id) === String(c._id));
+    if (!sub) { toast(`Feed applied, but ${displayName(c)} has no submission this cycle \u2014 player tab may still show "ready to roll".`); return; }
+    await apiPut(`/api/downtime_submissions/${sub._id}`, { feeding_roll_player: lastRoll });
+  } catch {
+    toast(`Feed applied, but couldn't record the roll to ${displayName(c)}'s submission \u2014 player tab may still show "ready to roll".`);
+  }
 }
 
 function feedReset() {
@@ -209,6 +251,7 @@ function feedReset() {
 
 function feedClearState() {
   feedMethod = null;
+  lastRoll = null;
   const mc = document.getElementById('feed-methods');
   if (mc) mc.querySelectorAll('.feed-method-card').forEach(c => c.classList.remove('selected'));
   const fps = document.getElementById('feed-pool-section');
