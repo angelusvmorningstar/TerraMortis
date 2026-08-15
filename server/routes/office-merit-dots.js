@@ -59,7 +59,12 @@ router.put('/:seatId', requireRole('st'), async (req, res) => {
     return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'That merit does not belong to this office' });
 
   const cap = MERIT_DOT_CAPS[merit] || 5;
-  const n = Number(dots);
+  // Codex review, DBO-4 (2026-08-14): accept a numeric string, but never
+  // coerce null/undefined/''/[]/booleans - all of which bare Number() turns
+  // into a valid-looking 0, silently accepting malformed input as "clear this
+  // merit's dots to zero" instead of rejecting it. Same guard as
+  // office-manoeuvre-rank.js's PUT routes.
+  const n = typeof dots === 'string' && dots.trim() !== '' ? Number(dots) : dots;
   if (!Number.isInteger(n) || n < 0 || n > cap)
     return res.status(400).json({ error: 'VALIDATION_ERROR', message: `Dots must be an integer between 0 and ${cap}` });
 

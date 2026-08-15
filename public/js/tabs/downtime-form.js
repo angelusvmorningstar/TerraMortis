@@ -16,7 +16,7 @@ import { applyDerivedMerits } from '../editor/mci.js';
 import { DOWNTIME_SECTIONS, DOWNTIME_GATES, SPHERE_ACTIONS, TERRITORY_DATA, FEEDING_TERRITORIES, PROJECT_ACTIONS, FEED_METHODS, MAINTENANCE_MERITS, FEED_VIOLENCE_DEFAULTS, ACTION_DESCRIPTIONS, ACTION_APPROACH_PROMPTS, SUBMIT_FINAL_MODAL_QUESTIONS } from './downtime-data.js';
 import { actionSpentSummary, formatActionSpentSummary } from '../data/dt-action-summary.js';
 import { computeBestFeedingPool } from '../data/feeding-pool.js';
-import { ALL_ATTRS, ALL_SKILLS, CLAN_DISCS, BLOODLINE_DISCS, CORE_DISCS, RITUAL_DISCS, INFLUENCE_SPHERES } from '../data/constants.js';
+import { ALL_ATTRS, ALL_SKILLS, CLAN_DISCS, BLOODLINE_DISCS, CORE_DISCS, RITUAL_DISCS, INFLUENCE_SPHERES, NON_COMBAT_STYLES } from '../data/constants.js';
 // OATH-B (#1111): applySuspensionTo is the single expression for what an
 // oath suspension does to a dot figure — used here by the three sites that
 // legitimately compute dots without going through meritEffectiveRating.
@@ -24,7 +24,7 @@ import { freeOf, normaliseAttachedTo, applySuspensionTo } from '../data/rules-he
 import { calcTotalInfluence, domMeritTotal, attacheBonusDots, effectiveInvictusStatus, ssjHerdBonus, flockHerdBonus, meritEffectiveRating, influenceBreakdown, domKey, canAllocateCarthianPull } from '../editor/domain.js';
 import { calcVitaeMax, skTotal, riteCost, getAttrEffective, getAttrTotal, discDots } from '../data/accessors.js';
 import { xpLeft } from '../editor/xp.js';
-import { meetsPrereq, isMeritExcluded } from '../editor/merits.js';
+import { meetsPrereq, isMeritExcluded, isMeritEventGranted } from '../editor/merits.js';
 import { getRuleByKey, getRulesByCategory } from '../data/loader.js';
 import { getRole, isSTRole } from '../auth/discord.js';
 import { FAMILIES, kindByCode } from '../data/relationship-kinds.js';
@@ -4207,7 +4207,7 @@ function getItemsForCategory(category) {
           // — without this fix Carthian Laws were entirely unreachable via XP.
           // Invictus Oath stays excluded (pact UI handles its mutual-bond mechanics).
           if (rule.parent && ['Invictus Oath'].includes(rule.parent)) continue;
-          if (rule.sub_category === 'standing') continue;
+          if (isMeritEventGranted(rule)) continue; // DBO.3
           if (!meetsPrereq(c, rule.prereq)) continue;
           const name = rule.name;
           const rr = rule.rating_range;
@@ -4271,13 +4271,13 @@ function getItemsForCategory(category) {
       // the purchase as intent like every other XP spend; the ST applies it to
       // c.fighting_styles via the now-style-capable sheet Merit dropdown (Task 2).
       // Non-combat "styles" (Fast-Talking, Cacophony Savvy, Etiquette, Three
-      // Heads of Kerberos) live as ordinary merits — excluded here (mirror of
-      // sheet.js NON_COMBAT_STYLES). Manoeuvres are NOT listed here: they are
-      // 0-XP picks granted by style dots, not an XP spend (issue #937 follow-up).
-      const NON_COMBAT_STYLES_DT = new Set(['Fast-Talking', 'Cacophony Savvy', 'Etiquette', 'Three Heads of Kerberos']);
+      // Heads of Kerberos) live as ordinary merits — excluded here via the
+      // same shared NON_COMBAT_STYLES sheet.js uses (DBO-9). Manoeuvres are
+      // NOT listed here: they are 0-XP picks granted by style dots, not an
+      // XP spend (issue #937 follow-up).
       const styleNames = [...new Set((getRulesByCategory('manoeuvre') || [])
         .map(r => r.parent)
-        .filter(p => p && p !== 'Regular' && !NON_COMBAT_STYLES_DT.has(p)))].sort();
+        .filter(p => p && p !== 'Regular' && !NON_COMBAT_STYLES.includes(p)))].sort();
       for (const styleName of styleNames) {
         const cur = (c.fighting_styles || [])
           .filter(fs => fs.name === styleName)

@@ -1,5 +1,5 @@
 /* Relationship kind taxonomy (NPCR.2).
-   Closed enum of 18 kinds grouped into four families.
+   Closed enum of 19 kinds grouped into four families.
    Each kind carries UI display metadata and default-endpoint hints. */
 
 export const FAMILIES = ['Lineage', 'Political', 'Mortal', 'Other'];
@@ -33,6 +33,8 @@ export const RELATIONSHIP_KINDS = [
   { code: 'debt-bearer', label: 'Debt-bearer', family: 'Political', direction: 'directed', typicalEndpoints: { a: 'any', b: 'any' }, custom_label_allowed: false, description: 'a owes a debt to b (inverse of debt-holder)' },
 
   // ── Mortal ─────────────────────────────────────────────────────────────────
+  // 'touchstone' restored 2026-08-15 (see relationship.schema.js's KIND_ENUM
+  // comment) — an ordinary kind, not linked to characters.touchstones[].
   { code: 'touchstone',    label: 'Touchstone',    family: 'Mortal', direction: 'directed', typicalEndpoints: { a: 'pc', b: 'npc' },  custom_label_allowed: false, description: "a's Humanity is anchored by b" },
   { code: 'family',        label: 'Family',        family: 'Mortal', direction: 'mutual',   typicalEndpoints: { a: 'any', b: 'npc' }, custom_label_allowed: false, description: 'mortal family tie' },
   { code: 'contact',       label: 'Contact',       family: 'Mortal', direction: 'directed', typicalEndpoints: { a: 'any', b: 'npc' }, custom_label_allowed: false, description: "a's mortal contact is b" },

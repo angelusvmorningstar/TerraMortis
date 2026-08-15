@@ -13,8 +13,23 @@
  * kind='other' requires a non-empty custom_label — enforced at the
  * route layer (the schema allows custom_label for any kind).
  *
- * kind='touchstone' requires touchstone_meta.humanity (1..10) and
- * endpoints shaped as one pc + one npc — enforced at the route layer.
+ * 'touchstone' IS a valid KIND_ENUM value. DBO-8 (2026-08-14) removed it,
+ * reasoning that 0/44 live touchstones used the edge_id-linked identity
+ * mechanism — but that conflated "this specific link was never built out"
+ * with "the relationship kind itself is unwanted". Restored same-day
+ * (2026-08-15) once the fuller picture surfaced: the NPC Register epic
+ * that spec'd 'touchstone' as a first-class kind never closed (its own
+ * last story is still "review"), the Relationships/Ties mechanic is live
+ * and actively used (88 active edges as of #1135, three days before
+ * DBO-8), and TM Wiki already ships tested code (relationship-board-
+ * defaults.js, Story 8.1) expecting 'touchstone' as one of its 19 closed
+ * canon kinds — DBO-8 silently broke that cross-repo contract.
+ *
+ * touchstone_meta and the route-layer identity-linking requirement
+ * (a pc/npc endpoint shape, mandatory humanity) stay retired — this
+ * restores 'touchstone' as an ordinary, unremarkable kind (like 'family'
+ * or 'contact'), not the old dual-storage mechanism. That mechanism is
+ * DBO-8's other, larger question, still open.
  */
 
 export const KIND_ENUM = [
@@ -63,15 +78,6 @@ const fieldDeltaSchema = {
   },
 };
 
-const touchstoneMetaSchema = {
-  type: 'object',
-  required: ['humanity'],
-  additionalProperties: false,
-  properties: {
-    humanity: { type: 'integer', minimum: 1, maximum: 10 },
-  },
-};
-
 const historyItemSchema = {
   type: 'object',
   required: ['at', 'by', 'change'],
@@ -109,7 +115,6 @@ export const relationshipSchema = {
     // POSTs. Used by NPCR.9 to scope edit rights to the creating char.
     created_by_char_id: { type: 'string' },
     history:      { type: 'array', items: historyItemSchema },
-    touchstone_meta: touchstoneMetaSchema,
     created_at:   { type: 'string' },
     updated_at:   { type: 'string' },
   },

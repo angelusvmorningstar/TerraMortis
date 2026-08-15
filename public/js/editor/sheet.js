@@ -3,7 +3,7 @@
  * Extracted from tm_editor.html lines 315–1310.
  */
 import state from '../data/state.js';
-import { CLAN_DISCS, BLOODLINE_DISCS, CORE_DISCS, RITUAL_DISCS, CLAN_ATTR_OPTIONS, ATTR_CATS, PRI_LABELS, PRI_BUDGETS, SKILL_PRI_BUDGETS, SKILLS_MENTAL, SKILLS_PHYSICAL, SKILLS_SOCIAL, SKILL_CATS, CLANS, COVENANTS, MASKS_DIRGES, COURT_TITLES, BLOODLINE_CLANS, BANE_LIST, INFLUENCE_SPHERES, ALL_SKILLS, CITY_SVG, OTHER_SVG, BP_SVG, HUM_SVG, HEALTH_SVG, WP_SVG, STAT_SVG, STYLE_TAGS, DOMAIN_MERIT_TYPES } from '../data/constants.js';
+import { CLAN_DISCS, BLOODLINE_DISCS, CORE_DISCS, RITUAL_DISCS, CLAN_ATTR_OPTIONS, ATTR_CATS, PRI_LABELS, PRI_BUDGETS, SKILL_PRI_BUDGETS, SKILLS_MENTAL, SKILLS_PHYSICAL, SKILLS_SOCIAL, SKILL_CATS, CLANS, COVENANTS, MASKS_DIRGES, COURT_TITLES, BLOODLINE_CLANS, BANE_LIST, INFLUENCE_SPHERES, ALL_SKILLS, CITY_SVG, OTHER_SVG, BP_SVG, HUM_SVG, HEALTH_SVG, WP_SVG, STAT_SVG, STYLE_TAGS, DOMAIN_MERIT_TYPES, NON_COMBAT_STYLES } from '../data/constants.js';
 import { ICONS } from '../data/icons.js';
 import { CLAN_ICON_KEY, COV_ICON_KEY, clanIcon, covIcon, shDots, shDotsWithBonus, esc, formatSpecs, hasAoE, displayName, cardName, dropdownName, sortName, getWillpower, redactPlayer, redactCharName, isRedactMode, resolveSharedWithMember } from '../data/helpers.js';
 import { getAttrVal, getAttrBonus, getSkillObj, calcCityStatus, titleStatusBonus, regentAmienceBonus, getRegentTerritoryFor, isInClanDisc, riteCost } from '../data/accessors.js';
@@ -388,10 +388,9 @@ export function toggleDisc(id) {
   row.classList.toggle('open', !isOpen); drawer.classList.toggle('visible', !isOpen);
 }
 /**
- * NPCR.4 touchstone section — character.touchstones[] is authoritative (cap 6).
- * Slot rating descends from the clan anchor (Ventrue=7, else=6). Each entry
- * may carry an optional edge_id linking to a relationships doc (kind='touchstone').
- * The server enriches each item with _npc_name when linked.
+ * NPCR.4 touchstone section — character.touchstones[] is authoritative (cap 6),
+ * free-text only (DBO-8, 2026-08-14): {humanity, name, desc}.
+ * Slot rating descends from the clan anchor (Ventrue=7, else=6).
  */
 export function renderTouchstones(c, editMode) {
   const ts = Array.isArray(c.touchstones) ? c.touchstones : [];
@@ -403,7 +402,7 @@ export function renderTouchstones(c, editMode) {
     if (sorted.length === 0) return '';
     const rows = sorted.map(t => {
       const att = hum >= t.humanity;
-      const name = t._npc_name || t.name || '(unnamed)';
+      const name = t.name || '(unnamed)';
       return '<div class="exp-ts-row"><span class="exp-ts-hum">Humanity ' + t.humanity
         + ' — <span class="exp-ts-state ' + (att ? 'attached' : 'detached') + '">' + (att ? 'Attached' : 'Detached') + '</span></span>'
         + '<span class="exp-ts-name">' + esc(name)
@@ -426,14 +425,13 @@ export function renderTouchstones(c, editMode) {
   sorted.forEach(t => {
     const actualIdx = ts.indexOf(t);
     const att = hum >= t.humanity;
-    const name = t._npc_name || t.name || '(unnamed)';
+    const name = t.name || '(unnamed)';
     const isEditing = picker && picker.mode === 'edit' && picker.index === actualIdx;
     h += '<div class="sh-ts-slot">';
     h += '<div class="sh-ts-slot-head"><span class="sh-ts-slot-hum">Humanity ' + t.humanity
       + '</span> · <span class="sh-ts-slot-att" style="color:'
       + (att ? 'rgba(140,200,140,.9)' : 'var(--txt3)') + '">'
       + (att ? 'Attached' : 'Detached') + '</span>'
-      + (t.edge_id ? ' <span class="sh-ts-slot-kind">character</span>' : ' <span class="sh-ts-slot-kind dim">object</span>')
       + '</div>';
     h += '<div class="sh-ts-slot-body">';
     if (isEditing) {
@@ -475,13 +473,12 @@ function renderTouchstoneAddForm(c, anchor, existingCount) {
   // per the broader NPC-suppression policy (Piatra 2026-05-06). The
   // 'is_character' branch (Pick existing NPC / Create new NPC) was a
   // DB-relational picker that POSTed to /api/relationships to create an
-  // edge — that endpoint flow no longer round-trips cleanly under the
+  // edge - that endpoint flow no longer round-trips cleanly under the
   // suppression sweep, returning 4xx and blocking sheet save. Touchstone
-  // is now free-text only (Name + optional Description), categorically a
-  // typed-string input — same shape dt-form.18 used for the Personal
-  // Story person field. Legacy touchstones carrying `edge_id` continue
-  // to render and edit by name + desc; their edges sit dormant in the
-  // relationships collection (silent-leave per A1 precedent).
+  // is free-text only (Name + optional Description), categorically a
+  // typed-string input - same shape dt-form.18 used for the Personal
+  // Story person field. DBO-8 (2026-08-14) retired the dormant edge_id
+  // link entirely; every touchstone is this shape.
   let h = '<div class="sh-ts-picker">';
   h += '<div class="sh-ts-picker-head">New touchstone · Humanity ' + humanity + '</div>';
   h += '<label class="sh-ts-picker-field"><span>Name *</span>'
@@ -2139,9 +2136,6 @@ function _tagCounts(c) {
   return counts;
 }
 
-/** Non-combat style names — live in general merits, not fighting_styles. */
-const NON_COMBAT_STYLES = new Set(['Fast-Talking', 'Cacophony Savvy', 'Etiquette', 'Three Heads of Kerberos']);
-
 /** Max accessible rank for a style = max(own dots, highest relevant tag count). */
 function _maxRank(c, styleName, dots) {
   const tags = STYLE_TAGS[styleName] || [];
@@ -2312,7 +2306,7 @@ function _availablePicks(c) {
   const tc = _tagCounts(c);
   const results = [];
   for (const [key, man] of Object.entries(MAN_DB)) {
-    if (NON_COMBAT_STYLES.has(man.style)) continue;
+    if (NON_COMBAT_STYLES.includes(man.style)) continue;
     if (picked.has(key)) continue;
     if (!_qualifiesForManoeuvre(c, man, tc)) continue;
     if (!_prereqsMet(c, man.prereq)) continue;
@@ -2344,7 +2338,7 @@ function _allStyles() {
 export function shFightingMeritOptions(c) {
   let h = '';
   const ownedStyles = new Set((c.fighting_styles || []).map(fs => fs.name));
-  const styles = _allStyles().filter(s => !ownedStyles.has(s) && !NON_COMBAT_STYLES.has(s));
+  const styles = _allStyles().filter(s => !ownedStyles.has(s) && !NON_COMBAT_STYLES.includes(s));
   if (styles.length) {
     h += '<optgroup label="Fighting Styles">';
     styles.forEach(s => { h += '<option value="__style__:' + esc(s) + '">' + esc(s) + ' (Fighting Style)</option>'; });
@@ -2434,7 +2428,7 @@ export function shRenderManoeuvres(c, editMode) {
     const existingNames = new Set(styles.map(s => s.name));
     h += '<div class="dev-add-row"><select class="dev-add-btn" style="font-size:11px" onchange="if(this.value){shAddStyle(this.value,\'style\');this.value=\'\'}">';
     h += '<option value="">+ Add Fighting Style\u2026</option>';
-    _allStyles().filter(s => !existingNames.has(s) && !NON_COMBAT_STYLES.has(s)).forEach(s => {
+    _allStyles().filter(s => !existingNames.has(s) && !NON_COMBAT_STYLES.includes(s)).forEach(s => {
       h += '<option value="' + esc(s) + '">' + esc(s) + '</option>';
     });
     h += '</select></div></div>';
@@ -3052,9 +3046,7 @@ export function renderSheet(c, target = null) {
   if (curse) h += expRow('curse', 'Curse', esc(curse.name), '<div>' + esc(curse.effect || '') + '</div>');
   if (editMode) { regB.forEach((b, bi) => { const ri = allB.indexOf(b); h += '<div class="exp-row" style="flex-direction:column;align-items:stretch;padding:8px 10px"><div class="sh-bane-edit-row"><span class="exp-lbl" style="min-width:36px">Bane</span><select class="sh-edit-select" style="flex:1" onchange="shEditBaneName(' + ri + ',this.value)"><option value="">(select)</option>' + BANE_LIST.map(bn => '<option' + (b.name === bn ? ' selected' : '') + '>' + esc(bn) + '</option>').join('') + '</select><button class="sh-bane-rm" onclick="shRemoveBane(' + ri + ')" title="Remove">&times;</button></div><input class="sh-edit-input" value="' + esc(b.effect || '') + '" onchange="shEditBaneEffect(' + ri + ',this.value)" placeholder="Effect text" style="margin-top:4px;font-size:11px"></div>'; }); h += '<button class="sh-bane-add" onclick="shAddBane()">+ Add Bane</button>'; }
   else regB.forEach((b, i) => { h += expRow('bane' + i, 'Bane', esc(b.name), '<div>' + esc(b.effect || '') + '</div>'); });
-  // Touchstones \u2014 NPCR.4 Shape B bridge.
-  // Branch on touchstone_edge_ids presence: truthy \u2192 new picker/view backed by
-  // the relationships graph; falsy \u2192 legacy read-only + migration button.
+  // Touchstones - NPCR.4, free-text only (DBO-8).
   h += renderTouchstones(c, editMode);
   // Date of Embrace + Apparent Age
   if (editMode || c.date_of_embrace) { const _ded = c.date_of_embrace || ''; const _dedDisp = _ded ? new Date(_ded + 'T00:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }) : ''; h += '<div class="exp-row"><span class="exp-lbl labeled">Embrace</span>' + (editMode ? '<input type="date" class="sh-edit-input" value="' + esc(_ded) + '" onchange="shEdit(\'date_of_embrace\',this.value)">' : '<span class="exp-val">' + esc(_dedDisp) + '</span>') + '</div>'; }

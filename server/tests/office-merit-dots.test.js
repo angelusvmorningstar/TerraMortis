@@ -229,6 +229,29 @@ describe.skipIf(!dbAvailable)('office-merit-dots — PUT /api/office_merit_dots/
     expect(res.status).toBe(400);
   });
 
+  it('Codex review, DBO-4 (Medium): rejects malformed dots rather than silently coercing to 0', async () => {
+    // Bare Number() turns null/false/''/[] into a valid-looking 0, which
+    // would silently accept malformed input as "clear this merit to zero"
+    // instead of rejecting it — the same class office-manoeuvre-rank.js's PUT
+    // routes already guard against.
+    for (const bad of [null, false, '', '   ', []]) {
+      const res = await request(app).put(`/api/office_merit_dots/${ENFORCER}`).set('X-Test-User', stUser())
+        .send({ merit: 'Safe Place', dots: bad });
+      expect(res.status, `dots ${JSON.stringify(bad)} should be a 400`).toBe(400);
+      expect(res.body.error).toBe('VALIDATION_ERROR');
+    }
+    // Confirm nothing was written for any of the rejected calls.
+    const stored = await getCollection('office_merit_dots').findOne({ _id: ENFORCER });
+    expect(stored).toBeNull();
+  });
+
+  it('still accepts a numeric string, same as before', async () => {
+    const res = await request(app).put(`/api/office_merit_dots/${ENFORCER}`).set('X-Test-User', stUser())
+      .send({ merit: 'Safe Place', dots: '3' });
+    expect(res.status).toBe(200);
+    expect(res.body.dots['Safe Place']).toBe(3);
+  });
+
   it('allows setting a merit back down to 0', async () => {
     await request(app).put(`/api/office_merit_dots/${ENFORCER}`).set('X-Test-User', stUser())
       .send({ merit: 'Safe Place', dots: 3 });
