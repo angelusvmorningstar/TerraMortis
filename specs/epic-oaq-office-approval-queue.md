@@ -18,9 +18,14 @@ re-litigate the "why" in story-writing.
 
 | ID | Title | Status | Notes |
 |----|-------|--------|-------|
-| oaq.1 | Data-lock: `contested_roll_requests` shape vs Status Action needs | backlog | Confirm whether pending-vs-resolved is a status enum or inferred from a resolution field's presence, and whether a single-party action (Status Actions has no "opposing roll") needs an `action_type` discriminator plus a type-specific payload sub-document, before extending the collection. Dana's data-steward pass. |
-| oaq.2 | Pending Status Actions — submit, ST accept/decline | backlog | Extend the pattern from oaq.1. Resolve at build time: does submitting spend the actor's session budget immediately (refund on decline?), or only on approval — this is a two-line decision now, a data-integrity argument later if left implicit. |
-| oaq.3 | New ST tab — approval queue view | backlog | Pending-first sort/split, not buried under volume once Epic ROLLS (if activated) lands in the same tab. Race-safe for concurrent STs (three STs on this project) — an "already actioned by [ST]" refresh state so two STs can't both approve the same pending action. |
+| oaq.1 | Data-lock: `contested_roll_requests` shape vs Status Action needs | done | Confirm whether pending-vs-resolved is a status enum or inferred from a resolution field's presence, and whether a single-party action (Status Actions has no "opposing roll") needs an `action_type` discriminator plus a type-specific payload sub-document, before extending the collection. Dana's data-steward pass. |
+| oaq.2 | Pending Status Actions — submit, ST accept/decline | done | Extend the pattern from oaq.1. Resolve at build time: does submitting spend the actor's session budget immediately (refund on decline?), or only on approval — this is a two-line decision now, a data-integrity argument later if left implicit. |
+| oaq.3 | New ST tab — approval queue view | done | Pending-first sort/split, not buried under volume once Epic ROLLS (if activated) lands in the same tab. Race-safe for concurrent STs (three STs on this project) — an "already actioned by [ST]" refresh state so two STs can't both approve the same pending action. |
+
+**CORRECTED 2026-08-15**: this table said `backlog` for all three; `sprint-status.yaml` on `main` has
+shown `done` for all three. oaq.2/oaq.3 are merged and live; oaq.1 (data-lock only, docs) is
+dev/review-complete on its own branch, held under Epic OTC's standing order alongside otc-2, not
+actually unstarted.
 
 ---
 

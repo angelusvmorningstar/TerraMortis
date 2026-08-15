@@ -18,9 +18,12 @@ State can currently raise/lower City Status outside any game, which should not b
 
 | ID | Title | Status | Notes |
 |----|-------|--------|-------|
-| otc.1 | Status Power text — paragraph rendering | backlog | Check whether the source data already has `\n\n` the renderer ignores, or the field is genuinely flat, before deciding the fix. |
-| otc.2 | Status Actions — server-side hardening | backlog | Two defects, one endpoint (`server/routes/office-actions.js`): (a) the server's City Status budget check omits the regent-ambience bonus and the 10-dot cap the client already displays — collapse to one shared calculation (`calcCityStatus`), not two independently-matched ones; (b) gate Status Actions to the current downtime cycle's `phase === 'game'` (reuse `public/js/downtime/cycle-phase.js`, no new lifecycle). |
-| otc.3 | Office tab — browsable reference mode | backlog | Any player can browse any of the five offices' manoeuvres/merits as reference, gated off `app.js`'s `hasOffice` condition today. No purchase markers, no Status Actions panel, unless it's genuinely the viewer's own held office/seat. Confirm server-side scoping first — check whether office data is already fetched in full and only UI-hidden today, or needs a real "browse any office" route. |
+| otc.1 | Status Power text — paragraph rendering | done | Check whether the source data already has `\n\n` the renderer ignores, or the field is genuinely flat, before deciding the fix. |
+| otc.2 | Status Actions — server-side hardening | done | Two defects, one endpoint (`server/routes/office-actions.js`): (a) the server's City Status budget check omits the regent-ambience bonus and the 10-dot cap the client already displays — collapse to one shared calculation (`calcCityStatus`), not two independently-matched ones; (b) gate Status Actions to the current downtime cycle's `phase === 'game'` (reuse `public/js/downtime/cycle-phase.js`, no new lifecycle). |
+| otc.3 | Office tab — browsable reference mode | done | Any player can browse any of the five offices' manoeuvres/merits as reference, gated off `app.js`'s `hasOffice` condition today. No purchase markers, no Status Actions panel, unless it's genuinely the viewer's own held office/seat. Confirm server-side scoping first — check whether office data is already fetched in full and only UI-hidden today, or needs a real "browse any office" route. |
+
+**CORRECTED 2026-08-15**: this table said `backlog` for all three; `sprint-status.yaml` on `main` has
+shown `done` for all three since 2026-08-12/13. All three merged and live. Epic itself is complete.
 
 ---
 
