@@ -202,6 +202,11 @@ Full record: `specs/stories/oxp-2-derived-office-xp-calculation.md` → Senior D
 
 ## Deferred from: cross-app data audit (2026-08-14, TM Wiki session — Dana, Data Steward)
 
+**RESOLVED 2026-08-15.** All five items below were built out as Epic DBO's dbo-1/2/3/4 and merged to
+`main` today (`specs/epic-dbo-database-ownership.md`). Left in place as the historical record of what
+the audit originally found, not as open work. The two Angelus-ruling items at the end of this section
+(`story_threads` Suite-vs-Wiki, and the `feral` feed method) are Wiki-side and not resolved by this.
+
 Four-sweep audit comparing `tm_suite`/`tm_wiki` for duplication, forks and misplaced ownership. Full
 map: `D:\Terra Mortis\data-map.md` (umbrella-level, not versioned — TM Wiki session currently holds
 it; do not edit directly). Brief handed to this session: `D:\Terra Mortis\BRIEF-2026-08-14-tm-suite.md`.
@@ -334,6 +339,10 @@ Full record: `specs/stories/dbo-9-suite-duplicated-constants.md` → Dev Agent R
     token`, cause not investigated (out of this story's scope).
   Worth a `CLAUDE.md` "Known pre-existing failures" entry for both, so a future story's targeted-gate
   count isn't thrown off by unexplained extra failures. Not fixed here.
+  **RESOLVED 2026-08-15**: `n8-mandragora-prereq.test.js`'s failure was the shebang-parse bug fixed
+  below (dbo-2's own deferred entry) — passes now. `issue-836-legacy-tracker-cache-removed.test.js`'s
+  ENOENT is a separate, still-open issue: this entry's own read was correct, the test is stale against
+  a file renamed elsewhere (`tracker.js` → `toast.js`), left alone deliberately rather than guessed at.
 
 ## Deferred from: dbo-2-character-dossier-schema-and-reveal (2026-08-14, dev-story)
 
@@ -365,3 +374,15 @@ Full record: `specs/stories/dbo-2-character-dossier-schema-and-reveal.md` -> Dev
   shared symptom across seven unrelated files suggests one environmental root cause rather than seven
   independent bugs - plausibly the same line-ending/encoding family as the CRLF failure DBO-1's
   review found. Worth a single `CLAUDE.md` "Known pre-existing failures" entry covering the set.
+  **RESOLVED 2026-08-15**: the guess at "one environmental root cause" was right, but not CRLF/encoding
+  - it was a shebang line (`#!/usr/bin/env node`) in 9 `server/scripts/*.js` files, which Node's own
+  loader and Vite's dev-transform both special-case but Vitest's SSR module runner does not. Fixed by
+  stripping the shebangs (harmless - this project always invokes them via `node scripts/foo.js`, never
+  direct execution). All 5 files named here now pass, plus `n8-mandragora-prereq.test.js` and
+  `oxp-1-office-seats.test.js` (the shebang-in-`seed-office-seats.mjs` failure oxp-11's own record
+  names) - 7 of the original 7, one shared cause. A separate genuine bug the fix uncovered
+  (`issue-811-sumchannels-rootcause.test.js` building a Windows-unsafe path via
+  `new URL(import.meta.url).pathname` instead of `fileURLToPath()`) was also fixed alongside it.
+  `CLAUDE.md`'s "Known pre-existing failures" section still needs updating to drop the now-fixed
+  entries and add the 3 still-open ones (`epic.708.3`, `oath-a-pledge-helpers`, and this file's own
+  `issue-836` + `issue-1013`'s missing `markdown/` corpus, #1117) - not yet done.
