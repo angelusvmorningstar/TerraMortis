@@ -1,0 +1,51 @@
+# TM Suite override for the `bmad-code-review` skill.
+#
+# WHAT THIS CHANGES. The shipped skill runs its three adversarial review layers as
+# subagents in this session, and only falls back to "write prompt files for a human
+# to run elsewhere" when subagents are unavailable. This override makes that a
+# DELIBERATE CHOICE, asked at the start of every review, rather than a fallback.
+#
+# WHY. Two reasons, in order of importance:
+#   1. INDEPENDENCE. Otherwise the agent that wrote the code also reviews it. The
+#      layers are blinded from each other in useful ways, but they still share the
+#      author's priors and its assumptions about what the code is FOR. A different
+#      model does not. The skill's own closing tip already says to review with a
+#      different LLM than the one that implemented the story.
+#   2. COST. The 3-layer pass is by far the most expensive thing in this loop -
+#      roughly 90k to 150k subagent tokens per layer on recent stories. Moving it
+#      off this session's budget is most of the saving available.
+#
+# Mirrors TM Wiki's own `_bmad/custom/bmad-code-review.toml` byte-for-byte in
+# substance (Angelus asked for this to be normal practice across both repos,
+# 2026-08-11). Deliberately scoped to TM Suite (this file) rather than editing the
+# shipped skill, because the skill is shared with other projects. To apply it
+# everywhere instead, move these entries into
+# ~/.claude/skills/bmad-code-review/customize.toml.
+#
+# Added 2026-08-11, at Angelus's request, immediately after using it for the first
+# time on issue-1141-office-data-sync. TM Wiki's own override cites its origin as
+# 11-5a and 11-8 both shipping a High defect the dev pass had declared working, and
+# 11-8's review finding three FALSE claims in the author's own record - the failure
+# mode an independent reviewer is best placed to catch. Same rationale applies here.
+
+[workflow]
+
+activation_steps_append = [
+  "ASK THE USER WHICH REVIEW MODE TO USE, before gathering context, and wait for the answer. Offer exactly two: (A) LOCAL - run the three layers as subagents in this session, the shipped behaviour; or (B) EXTERNAL - write the diff and one self-contained prompt file per layer to disk, halt, and wait for the user to run them in another LLM (they use Codex, normally via the Codex CLI) and paste the findings back. Recommend B when the session is conserving budget, when the story was implemented by this same agent, or when the user has already said they intend to review elsewhere. Recommend A when the review needs to chase findings interactively, or when the change is small enough that three paste-backs cost more effort than they save.",
+]
+
+persistent_facts = [
+  "REVIEW MODE IS A CHOICE, ASKED EVERY RUN. Never silently pick one. If the user has already stated a preference in this session, honour it without asking again.",
+
+  "IN EXTERNAL MODE, write these files under the project's implementation_artifacts directory in a `code-review/` subfolder, named for the story key: (1) `<story-key>-diff.txt`, the complete diff INCLUDING new files - build it with `git diff <base>` plus a `git diff --no-index /dev/null <path>` for every untracked file, because a plain `git diff` silently omits new files and the reviewer would never know; (2) `<story-key>-blind-hunter.md`; (3) `<story-key>-edge-case-hunter.md`; (4) `<story-key>-acceptance-auditor.md`. Then print the four paths, state plainly that the review is NOT done, and HALT. Do not proceed to triage on your own findings.",
+
+  "EACH EXTERNAL PROMPT MUST BE SELF-CONTAINED. Assume the reviewer has the repo but none of this conversation: state the absolute repo path, what the change does in three or four sentences, which files to read, what to hunt for, and the exact output format (one-line title, severity High/Medium/Low, file:line, the triggering input or sequence, the observable consequence, confidence). Tell it explicitly: read and run freely, but do not modify, commit or push, and never touch the sibling repos (this is an umbrella workspace - TM Cockpit, TM Wiki and TM Herald are adjacent, independent repos). Tell it that temporarily editing a file to prove a test does or does not discriminate is allowed provided it restores the file, confirms the restore, and says so in its output.",
+
+  "THE BLINDING BETWEEN LAYERS IS THE POINT, so keep the three prompts separate and keep their inputs different: Blind Hunter gets the diff file ONLY and is told not to read the spec or explore the repo; Edge Case Hunter gets the diff plus repo read access; Acceptance Auditor gets the diff, the story file, and the ecosystem data map (`D:\\Terra Mortis\\data-map.md` if it exists). Merging them into one prompt is easier to run and materially weaker - say so if the user asks for a single combined prompt, then do it if they still want it.",
+
+  "THE ACCEPTANCE AUDITOR PROMPT MUST USE A TWO-PASS STRUCTURE, and this is the highest-value instruction in the whole override: pass 1, form findings from the code WITHOUT reading the story's Dev Agent Record or Senior Developer Review; pass 2, only then read those sections and report which of their claims are false or overstated, checked by running things rather than taken on trust. Reading the author's own record first anchors the reviewer on the author's framing and it ends up grading homework instead of reviewing code.",
+
+  "WHEN THE USER PASTES FINDINGS BACK, resume at the triage step exactly as if the subagents had returned them: triage every finding into patch / defer / dismiss, VERIFY each one against the real code rather than believing it (an external reviewer can be wrong too, and dismissing with evidence is a legitimate outcome), prove-discrimination on every patch with SINGLE-CHANGE reverts, and write the Senior Developer Review into the story naming which findings came from outside this session.",
+
+  "IF THE USER RUNS THE CODEX CLI rather than pasting into a web session, remind them to set reasoning_effort=high for the run. The CLI's ~/.codex/config.toml defaults to low, and a low-effort pass has come back visibly thin before.",
+]

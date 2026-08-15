@@ -457,11 +457,12 @@ describe.skipIf(!dbAvailable)('oxp.11 AC4 — migrate-office-purchases-to-seats'
     expect(await merits().find({}).toArray()).toEqual(afterFirst);
   });
 
-  it('recovers from an interrupted run: both documents present, seat-keyed one wins and is never overwritten', async () => {
+  it('recovers from a TRUE interrupted run: identical seat-keyed document present, stale category copy cleared', async () => {
     // Insert-then-delete, in that order, means an interruption leaves BOTH
-    // rather than neither. The seat-keyed document is the survivor and its
-    // content must not be clobbered by the stale category-keyed one.
-    await merits().insertOne({ _id: ENF, dots: { 'Safe Place': 5 }, office_category: 'Enforcer', updated_at: 'new' });
+    // rather than neither — but only when the seat-keyed document really IS
+    // the same content the category-keyed one held, is it safe to treat the
+    // category-keyed copy as redundant and clear it.
+    await merits().insertOne({ _id: ENF, dots: { 'Safe Place': 1 }, office_category: 'Enforcer', updated_at: 'new' });
     await merits().insertOne({ _id: 'Enforcer', dots: { 'Safe Place': 1 }, updated_at: 'stale' });
 
     const summary = await applyMigration(merits(), await planMigration(merits(), seats()), { apply: true });
@@ -469,10 +470,49 @@ describe.skipIf(!dbAvailable)('oxp.11 AC4 — migrate-office-purchases-to-seats'
     expect(summary.migrated).toBe(0);
     expect(summary.recovered).toBe(1);
     expect(summary.deleted).toBe(1);
+    expect(summary.refused).toBe(0);
 
     const survivor = await merits().findOne({ _id: ENF });
-    expect(survivor.dots).toEqual({ 'Safe Place': 5 });
+    expect(survivor.dots).toEqual({ 'Safe Place': 1 });
     expect(survivor.updated_at).toBe('new');
+    expect(await merits().findOne({ _id: 'Enforcer' })).toBeNull();
+  });
+
+  it('Codex review, DBO-4 (High): REFUSES to delete a category-keyed document when the seat-keyed one already present genuinely differs from it, rather than silently discarding whatever the old one alone held', async () => {
+    // This shape is NOT unique to an interrupted migration - the live
+    // seat-keyed routes (office-merit-dots.js's own PUT) can create it
+    // through completely ordinary use, any time before this migration runs.
+    // Blind-deleting the old document here would destroy real purchase data
+    // (any merit dot the old document held that the new one never touched).
+    await merits().insertOne({ _id: ENF, dots: { 'Safe Place': 5 }, office_category: 'Enforcer', updated_at: 'new' });
+    await merits().insertOne({ _id: 'Enforcer', dots: { 'Safe Place': 1 }, updated_at: 'stale' });
+
+    const summary = await applyMigration(merits(), await planMigration(merits(), seats()), { apply: true });
+
+    expect(summary.migrated).toBe(0);
+    expect(summary.recovered).toBe(0);
+    expect(summary.deleted).toBe(0);
+    expect(summary.refused).toBe(1);
+
+    // BOTH documents survive, byte-for-byte untouched - nothing was guessed.
+    const seatDoc = await merits().findOne({ _id: ENF });
+    expect(seatDoc.dots).toEqual({ 'Safe Place': 5 });
+    const categoryDoc = await merits().findOne({ _id: 'Enforcer' });
+    expect(categoryDoc.dots).toEqual({ 'Safe Place': 1 });
+  });
+
+  it('Codex review, DBO-4 (High): key-order alone does not cause a false REFUSE on a genuinely identical recovery', async () => {
+    // dots is built one merit at a time by the live PUT route, so a document
+    // seeded with keys in a different order than the migration's own insert
+    // must still compare equal - a canonical (sorted) comparison, not a raw
+    // JSON string compare, is what makes that true.
+    await merits().insertOne({ _id: ENF, dots: { 'Trained Observer': 2, 'Safe Place': 1 }, office_category: 'Enforcer', updated_at: 'new' });
+    await merits().insertOne({ _id: 'Enforcer', dots: { 'Safe Place': 1, 'Trained Observer': 2 }, updated_at: 'stale' });
+
+    const summary = await applyMigration(merits(), await planMigration(merits(), seats()), { apply: true });
+
+    expect(summary.recovered).toBe(1);
+    expect(summary.refused).toBe(0);
     expect(await merits().findOne({ _id: 'Enforcer' })).toBeNull();
   });
 

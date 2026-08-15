@@ -259,15 +259,14 @@ export function renderSheet() {
   regularBanes.forEach((b, i) => {
     infoHtml += expRow('bane' + i, 'Bane', b.name, `<div>${b.effect || ''}</div>`);
   });
-  // Touchstones \u2014 NPCR.4: render touchstones[]; NPC-linked entries display
-  // _npc_name (server-enriched) in place of the inline name.
+  // Touchstones - NPCR.4, free-text only (DBO-8): render touchstones[].
   const hum = c.humanity || 0;
   const ts = Array.isArray(c.touchstones) ? c.touchstones : [];
   if (ts.length) {
     const sorted = [...ts].sort((a, b) => (b.humanity || 0) - (a.humanity || 0));
     const tsBody = sorted.map(t => {
       const attached = hum >= t.humanity;
-      const name = t._npc_name || t.name || '(unnamed)';
+      const name = t.name || '(unnamed)';
       return `<div class="exp-ts-row">
         <span class="exp-ts-hum">Humanity ${t.humanity} \u2014 <span class="exp-ts-state ${attached ? 'attached' : 'detached'}">${attached ? 'Attached' : 'Detached'}</span></span>
         <span class="exp-ts-name">${name}${t.desc ? ` <span class="exp-ts-desc">(${t.desc})</span>` : ''}</span>

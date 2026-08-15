@@ -240,9 +240,13 @@ export const characterSchema = {
     // ── Touchstones ───────────────────────────────────────────
     // NPCR.4: slot array, max 6. Each entry has a humanity rating
     // (assigned descending from the anchor: 7 for Ventrue, 6 else),
-    // a name and optional desc, and an optional edge_id linking to a
-    // relationships doc (kind='touchstone') when the touchstone is a
-    // character (NPC). Object/concept touchstones omit edge_id.
+    // a name and optional desc. Free-text only, no edge_id — DBO-8
+    // (2026-08-14) retired the old edge_id link to a `relationships` doc
+    // (issue #162 had removed its only creation path; 0/44 live touchstones
+    // used it). This slot stays unlinked; a separate `relationships`
+    // document with kind='touchstone' can still exist alongside it
+    // (restored 2026-08-15, see relationship.schema.js) — the two are not
+    // joined by any id.
     touchstones: {
       type: 'array',
       maxItems: 6,
@@ -253,9 +257,7 @@ export const characterSchema = {
           humanity: { type: 'integer', minimum: 1, maximum: 10 },
           name:     { type: 'string' },
           // desc is absent when not yet written — never null
-          desc:     { type: 'string' },
-          // edge_id present when linked to a relationships doc; absent for object touchstones
-          edge_id:  { type: 'string' }
+          desc:     { type: 'string' }
         },
         additionalProperties: false
       }

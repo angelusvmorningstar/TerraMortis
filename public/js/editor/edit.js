@@ -1,7 +1,7 @@
 /* Sheet-mode edit handlers — all read state.editIdx and write to state.chars[state.editIdx] */
 
 import state from '../data/state.js';
-import { apiGet, apiPost, apiPut, apiDelete } from '../data/api.js';
+import { apiPost, apiPut, apiDelete } from '../data/api.js';
 import { isInClanDisc } from '../data/accessors.js';
 import {
   CLAN_BANES, BLOODLINE_CLANS, BLOODLINE_DISCS, CLAN_DISCS,
@@ -171,10 +171,12 @@ export function shAddBane() {
    TOUCHSTONES (NPCR.4)
    ----------------------------------------------------------
    Model: character.touchstones[] is authoritative (cap 6).
-   Slot rating descends from the anchor — 7 for Ventrue, 6 else.
-   Entries may carry optional edge_id linking to a relationships
-   doc (kind='touchstone') when the touchstone is a character; the
-   server resolves the NPC name onto each entry as _npc_name.
+   Slot rating descends from the anchor - 7 for Ventrue, 6 else.
+   Free-text only (DBO-8, 2026-08-14): {humanity, name, desc}. An
+   earlier design let an entry link to a relationships doc via
+   edge_id, but issue #162 removed the only path that ever created
+   one, and live data confirmed zero touchstones used it, so the
+   link was retired.
    Operations round-trip atomically via PUT /api/characters/:id
    so partial state never persists without a character save.
 ══════════════════════════════════════════════════════════ */
@@ -251,11 +253,11 @@ export async function shTouchstoneSaveAdd() {
   const draft = picker.draft;
   const charId = String(c._id);
 
-  // Issue #162: NPC picker branch dropped — Touchstone is free-text only.
+  // Issue #162: NPC picker branch dropped - Touchstone is free-text only.
   // The legacy DB-relational path (POST /api/npcs + POST /api/relationships)
   // returned 4xx under the broader NPC suppression and blocked sheet save.
-  // Free-text shape: { humanity, name, desc }. Legacy entries with edge_id
-  // continue to render and edit; their edges sit dormant in relationships.
+  // DBO-8 retired the dormant edge_id-linked shape entirely - every entry
+  // is now { humanity, name, desc }.
   const name = String(draft.name || '').trim();
   if (!name) { _tsSetError(c, 'Name is required.'); return; }
   const newEntry = { humanity, name, desc: String(draft.desc || '') };
@@ -293,26 +295,6 @@ export async function shTouchstoneSaveEdit() {
   try {
     await apiPut('/api/characters/' + charId, { touchstones: nextTouchstones });
     c.touchstones = nextTouchstones;
-    // If linked to an edge, mirror the state text onto the edge so the
-    // admin NPC register sees the same description.
-    if (t.edge_id) {
-      try {
-        const edges = await apiGet('/api/relationships?endpoint=' + encodeURIComponent(charId) + '&kind=touchstone');
-        const edge = (edges || []).find(e => String(e._id) === String(t.edge_id));
-        if (edge && edge.state !== newDesc) {
-          await apiPut('/api/relationships/' + t.edge_id, {
-            a: edge.a, b: edge.b, kind: edge.kind,
-            direction: edge.direction || 'a_to_b',
-            state: newDesc,
-            st_hidden: !!edge.st_hidden,
-            status: edge.status,
-            touchstone_meta: edge.touchstone_meta,
-          });
-        }
-      } catch (e) {
-        console.warn('[touchstone] edge state sync failed (non-fatal):', e);
-      }
-    }
     delete c._ts_picker;
     _renderSheet(c);
   } catch (err) {
@@ -329,9 +311,7 @@ export async function shTouchstoneRemove(i) {
 
   const ok = await _tsConfirmModal({
     title: 'Remove touchstone?',
-    body: t.edge_id
-      ? 'The touchstone will be removed and the linked NPC relationship will be retired.'
-      : 'The touchstone will be removed.',
+    body: 'The touchstone will be removed.',
     confirmLabel: 'Remove',
     danger: true,
   });
@@ -344,10 +324,6 @@ export async function shTouchstoneRemove(i) {
   try {
     await apiPut('/api/characters/' + charId, { touchstones: nextTouchstones });
     c.touchstones = nextTouchstones;
-    if (t.edge_id) {
-      try { await apiDelete('/api/relationships/' + t.edge_id); }
-      catch (e) { console.warn('[touchstone] edge retire failed (non-fatal):', e); }
-    }
     _renderSheet(c);
   } catch (err) {
     console.error('[touchstone] remove error:', err);

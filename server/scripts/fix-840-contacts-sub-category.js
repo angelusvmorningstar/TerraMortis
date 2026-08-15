@@ -1,4 +1,3 @@
-#!/usr/bin/env node
 /**
  * Fix #840 — Contacts missing from influence merit dropdown.
  *

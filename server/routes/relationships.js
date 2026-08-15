@@ -32,19 +32,6 @@ function customLabelMissing(body) {
   return body.kind === 'other' && (!body.custom_label || !String(body.custom_label).trim());
 }
 
-function touchstoneShapeError(body) {
-  if (body.kind !== 'touchstone') return null;
-  const hum = body.touchstone_meta?.humanity;
-  if (!Number.isInteger(hum) || hum < 1 || hum > 10) {
-    return "kind='touchstone' requires touchstone_meta.humanity (integer 1..10)";
-  }
-  const types = [body.a?.type, body.b?.type].sort();
-  if (types[0] !== 'npc' || types[1] !== 'pc') {
-    return "kind='touchstone' requires one pc and one npc endpoint";
-  }
-  return null;
-}
-
 // NPCR.6: player-readable endpoint. Registered BEFORE the ST-only
 // router.use below. Caller must own the character or be ST. Player
 // callers receive only active / pending_confirmation edges where
@@ -167,10 +154,13 @@ router.get('/for-character/:characterId', async (req, res) => {
 // POST / — create edge. Split auth:
 //   ST: any endpoints, any kind.
 //   Player: a.type='pc' with a.id in caller's character_ids, b.type='npc',
-//           kind !== 'touchstone' (touchstones live on character.touchstones[]
-//           via the sheet picker from NPCR.4), created_by={type:'player', id:discord_id},
+//           created_by={type:'player', id:discord_id},
 //           created_by_char_id = a.id (for NPCR.9 edit-rights scoping).
 // Both auths: strict 409 CONFLICT on a duplicate active {a, b, kind} edge.
+// 'touchstone' is an ordinary kind here (restored 2026-08-15, see
+// relationship.schema.js) — ST-authored, no special-cased shape or
+// mandatory metadata. character.touchstones[] remains a separate,
+// unlinked free-text field (the mechanical Humanity slot).
 router.post('/', validate(relationshipSchema), async (req, res) => {
   const body = req.body;
   const role = req.user?.role;
@@ -188,9 +178,6 @@ router.post('/', validate(relationshipSchema), async (req, res) => {
       message: "kind='other' requires a non-empty custom_label",
     });
   }
-  const tsErr = touchstoneShapeError(body);
-  if (tsErr) return res.status(400).json({ error: 'VALIDATION_ERROR', message: tsErr });
-
   // Player-specific constraints
   let playerPcPc = false;
   if (!isSt) {
@@ -204,7 +191,7 @@ router.post('/', validate(relationshipSchema), async (req, res) => {
     if (body.kind === 'touchstone') {
       return res.status(400).json({
         error: 'VALIDATION_ERROR',
-        message: "Touchstones are managed from the character sheet, not the Relationships tab",
+        message: "Touchstone edges are ST-authored, not player-created",
       });
     }
     // NPCR.10: allow b.type='pc' for PC-to-PC edges when kind accepts any
@@ -268,9 +255,6 @@ router.post('/', validate(relationshipSchema), async (req, res) => {
     doc.custom_label = String(body.custom_label).trim();
   }
   if (body.disposition) doc.disposition = body.disposition;
-  if (body.kind === 'touchstone') {
-    doc.touchstone_meta = { humanity: body.touchstone_meta.humanity };
-  }
   // NPCR.7: stamp the owning char id on player-created edges for NPCR.9 scoping.
   if (!isSt) {
     doc.created_by_char_id = String(body.a.id);
@@ -413,11 +397,6 @@ router.put('/:id', validate(relationshipSchema), async (req, res) => {
   if (customLabelMissing(body)) {
     return res.status(400).json({ error: 'VALIDATION_ERROR', message: "kind='other' requires a non-empty custom_label" });
   }
-  const tsErr = touchstoneShapeError(body);
-  if (tsErr && isSt) {
-    return res.status(400).json({ error: 'VALIDATION_ERROR', message: tsErr });
-  }
-
   // Guard against resurrecting a retired edge from stale client cache.
   if (existing.status === 'retired' && body.status !== 'retired') {
     return res.status(409).json({
@@ -429,12 +408,11 @@ router.put('/:id', validate(relationshipSchema), async (req, res) => {
   const kindForSave = body.kind ?? existing.kind;
   if (kindForSave !== 'other') body.custom_label = '';
   else if (typeof body.custom_label === 'string') body.custom_label = body.custom_label.trim();
-  if (kindForSave !== 'touchstone') body.touchstone_meta = null;
 
-  const CLEARABLE = new Set(['custom_label', 'disposition', 'touchstone_meta']);
+  const CLEARABLE = new Set(['custom_label', 'disposition']);
   const isCleared = (name, v) => CLEARABLE.has(name) && (v === '' || v === null);
 
-  const TRACKED = ['a', 'b', 'kind', 'custom_label', 'direction', 'disposition', 'state', 'st_hidden', 'status', 'touchstone_meta'];
+  const TRACKED = ['a', 'b', 'kind', 'custom_label', 'direction', 'disposition', 'state', 'st_hidden', 'status'];
 
   const fields = [];
   const updates = {};

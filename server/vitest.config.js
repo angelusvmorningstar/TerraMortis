@@ -9,10 +9,6 @@ export default defineConfig({
     // one file's teardown closing the connection while another file is still using it.
     fileParallelism: false,
     pool: 'forks',
-    poolOptions: {
-      forks: {
-        singleFork: true,
-      },
-    },
+    maxWorkers: 1,
   },
 });

@@ -1,4 +1,3 @@
-#!/usr/bin/env node
 
 /**
  * oxp.1 (data-lock) seed: create one `office_seats` document per real,

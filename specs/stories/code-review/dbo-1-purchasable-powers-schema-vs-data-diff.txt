@@ -1,0 +1,427 @@
+diff --git a/server/schemas/purchasable_power.schema.js b/server/schemas/purchasable_power.schema.js
+index 49173aac..d5d67ec6 100644
+--- a/server/schemas/purchasable_power.schema.js
++++ b/server/schemas/purchasable_power.schema.js
+@@ -216,33 +216,27 @@ export const purchasablePowerSchema = {
+       ],
+     },
+ 
+-    // Tracking flag — not consumed by game logic yet.
+-    // Issue #5 (2026-05-07): the legacy `selected` boolean was retired. Holder
+-    // count is now computed at render time from the live character set
+-    // (admin Rule Data table 'Held by' column).
++    // `selected` (legacy `Held by` boolean, retired by issue #5, 2026-05-07)
++    // is deliberately NOT declared here. DBO-1 (2026-08-14) answered the open
++    // question the previous version of this comment left standing: neither
++    // `selected` nor `special` is being re-seeded by anything live — both are
++    // un-migrated data from the original Excel import, and the archived
++    // collection-wide strip script (`server/scripts/archive/strip-selected-
++    // from-purchasable-powers.js`) has simply never been run with `--apply`.
++    // `selected` stays undeclared on purpose so `additionalProperties: false`
++    // keeps rejecting it; `server/scripts/dbo-1-purchasable-powers-field-
++    // cleanup.mjs` removes it from disk. Full investigation:
++    // specs/epic-dbo-database-ownership.md, DBO-1.
+     //
+-    // CORRECTION (OATH-A, issue #1111, 2026-08-07). This comment previously
+-    // gave the script's path as `server/scripts/strip-selected-...js` and
+-    // described the $unset in the past tense, as though the cleanup had
+-    // happened. Two things are wrong with that:
+-    //
+-    //   1. The path is stale — the script was archived (not deleted) by
+-    //      f07887fc and now lives at
+-    //      `server/scripts/archive/strip-selected-from-purchasable-powers.js`.
+-    //      It is dry-run by default, takes a backup on `--apply`, and its
+-    //      filter `{ selected: { $exists: true } }` is collection-wide.
+-    //   2. The cleanup has NOT taken effect. Measured against live tm_suite
+-    //      2026-08-07: `selected` is on 666 of 673 rows and `special` on
+-    //      527, so 666 rows fail this schema on `additionalProperties:
+-    //      false` — only 7 pass.
+-    //
+-    // A purpose-built, backup-taking script exists AND the field is still
+-    // on 666 rows, so either it was never run or something re-seeds
+-    // `selected` after it runs. That question decides whether the fix is
+-    // "run the existing script" or "find what puts it back", and it must be
+-    // answered before anyone writes a new script — filed separately.
+-    // OATH-A strips these two keys from the ten `cost_model` rows only,
+-    // because those are the rows it must make POST-able.
++    // `special` — event-granted-merit marker. Load-bearing since DBO-3
++    // (2026-08-14): `isMeritEventGranted(rule)` in
++    // `public/js/editor/merits.js` reads `rule.special === 'standing'` to
++    // exclude Mystery Cult Initiation and Professional Training from XP-spend
++    // merit pickers. Only those two live rows carry `'standing'`; the
++    // remaining 515 carry `null`. Declared (not stripped) for exactly that
++    // reason — unlike `selected`, this field is read by live code.
++    special: { type: ['string', 'null'], enum: ['standing', null] },
++
+     implemented: { type: 'boolean' },   // all rules/prereqs/mechanics verified correct in backend
+   },
+ };
+diff --git a/server/scripts/dbo-1-purchasable-powers-field-cleanup.mjs b/server/scripts/dbo-1-purchasable-powers-field-cleanup.mjs
+new file mode 100644
+index 00000000..3ceac300
+--- /dev/null
++++ b/server/scripts/dbo-1-purchasable-powers-field-cleanup.mjs
+@@ -0,0 +1,184 @@
++/**
++ * DBO-1 — strip the dead `selected` field and the dead half of `special` from
++ * `purchasable_powers`. Manual, ST-invoked, one-off. Nothing calls this on
++ * server boot and nothing calls it in test setup; the vitest suite imports
++ * its exported functions and runs them against `tm_suite_test` only.
++ *
++ * NOTE FOR ANYONE TIDYING THIS FILE: there is deliberately NO
++ * `#!/usr/bin/env node` shebang, for the same reason
++ * `migrate-office-purchases-to-seats.mjs` has none — a shebang breaks
++ * vitest's transform for any file importing this one.
++ *
++ * ==========================================================================
++ *   RUNNING THIS FOR REAL IS ANGELUS'S ACTION, NOT AN AGENT'S.
++ * ==========================================================================
++ *
++ *   Connection comes from `../db.js` (MONGODB_URI via config.js, database
++ *   name from MONGODB_DB, defaulting to `tm_suite`). Running this bare from
++ *   `server/` with `server/.env` in place therefore targets LIVE Atlas. What
++ *   makes that survivable is the DRY-RUN DEFAULT: without `--apply` this only
++ *   reads, and prints exactly what it would do.
++ *
++ *   Per epic-dbo's own hard constraint, do not run `--apply` against live
++ *   `tm_suite` before the 2026-08-15 game (no migration/backfill/restructure
++ *   against production before it).
++ *
++ * BACKGROUND (specs/epic-dbo-database-ownership.md, DBO-1): `selected` is a
++ * fully dead field (issue #5, 2026-05-07) — nothing reads it anywhere.
++ * `special` is NOT fully dead: `isMeritEventGranted(rule)`
++ * (public/js/editor/merits.js) reads `rule.special === 'standing'`, live in
++ * production since DBO-3 (2026-08-14). Exactly two rows (Mystery Cult
++ * Initiation, Professional Training) carry that value; the rest carry `null`
++ * or are absent.
++ *
++ * WHAT IT DOES, per document in `purchasable_powers`:
++ *   - `selected` exists (any value)              -> $unset it, unconditionally.
++ *   - `special` exists AND is not the literal
++ *     string `'standing'` (covers `null` and any
++ *     other stray value)                         -> $unset it.
++ *   - `special === 'standing'`                    -> NEVER touched. This is
++ *     the one thing this script exists to get right; see `planCleanup`'s own
++ *     comment for how the guard is written.
++ *
++ * A document needing neither unset is omitted from the plan entirely — an
++ * empty plan means nothing to do, matching `migrate-office-purchases-to-
++ * seats.mjs`'s own "empty = clean" contract.
++ *
++ * SAFETY: DRY-RUN BY DEFAULT. `--apply` writes a full-document JSON backup to
++ * `server/scripts/_backups/dbo-1-field-cleanup-<ISO>.json` BEFORE issuing any
++ * update, and aborts (writes nothing) if the backup write throws.
++ * Idempotent: re-running `planCleanup` after a successful `--apply` returns
++ * an empty array — nothing left to clean.
++ *
++ * Usage, from `server/` so that cwd-relative `dotenv/config` picks up
++ * `server/.env`:
++ *
++ *   # preview against the configured database, no writes (the default):
++ *   node scripts/dbo-1-purchasable-powers-field-cleanup.mjs
++ *
++ *   # write:
++ *   node scripts/dbo-1-purchasable-powers-field-cleanup.mjs --apply
++ *
++ *   # write to the throwaway test database instead of live:
++ *   MONGODB_DB=tm_suite_test node scripts/dbo-1-purchasable-powers-field-cleanup.mjs --apply
++ */
++
++import 'dotenv/config';
++import { mkdirSync, writeFileSync } from 'node:fs';
++import { join, dirname } from 'node:path';
++import { fileURLToPath, pathToFileURL } from 'node:url';
++import { connectDb, getCollection, closeDb } from '../db.js';
++
++const __dirname = dirname(fileURLToPath(import.meta.url));
++const BACKUP_DIR = join(__dirname, '_backups');
++
++/**
++ * Classify every document in `purchasable_powers`. PURE: reads only, no
++ * writes, no side effects, so `main()` can print the whole plan before
++ * anyone decides whether to run it.
++ *
++ * The collection is taken as an ARGUMENT rather than resolved internally, so
++ * a test can hand over a `tm_suite_test` collection and this can never reach
++ * live data by accident.
++ *
++ * The `special` guard is deliberately an exact-string equality check against
++ * the literal `'standing'` — not a case-insensitive or trimmed comparison —
++ * so a malformed value like `'Standing'` or `'standing '` is treated as
++ * cleanup-eligible (matching how `isMeritEventGranted` itself reads the
++ * field: `rule.special === 'standing'`, the same exact match). A doc this
++ * script would preserve is, by construction, a doc the live filter would
++ * also recognise.
++ *
++ * @param {import('mongodb').Collection} collection
++ * @returns {Promise<Array<{_id:*, key:string, unsetSelected:boolean, unsetSpecial:boolean}>>}
++ */
++export async function planCleanup(collection) {
++  const docs = await collection.find({}).toArray();
++  const rows = [];
++
++  for (const doc of docs) {
++    const unsetSelected = Object.prototype.hasOwnProperty.call(doc, 'selected');
++    const unsetSpecial = Object.prototype.hasOwnProperty.call(doc, 'special') && doc.special !== 'standing';
++
++    if (!unsetSelected && !unsetSpecial) continue;
++    rows.push({ _id: doc._id, key: doc.key, unsetSelected, unsetSpecial });
++  }
++
++  return rows;
++}
++
++/**
++ * Carry out (or, by default, merely narrate) the plan.
++ *
++ * @param {import('mongodb').Collection} collection
++ * @param {Array<object>} rows - the output of `planCleanup`
++ * @param {{ apply?: boolean, log?: Function }} opts
++ * @returns {Promise<{cleaned:number, backedUp:number}>}
++ */
++export async function applyCleanup(collection, rows, { apply = false, log = () => {} } = {}) {
++  if (!rows.length) {
++    log('Nothing to clean — 0 documents carry a stray field.');
++    return { cleaned: 0, backedUp: 0 };
++  }
++
++  if (!apply) {
++    for (const row of rows) {
++      const fields = [row.unsetSelected && 'selected', row.unsetSpecial && 'special'].filter(Boolean);
++      log(`  [DRY RUN] would $unset ${fields.join(', ')} on ${row.key || row._id}`);
++    }
++    log(`\n${rows.length} document(s) would change. Re-run with --apply to write.`);
++    return { cleaned: 0, backedUp: 0 };
++  }
++
++  mkdirSync(BACKUP_DIR, { recursive: true });
++  const stamp = new Date().toISOString().replace(/[:.]/g, '-');
++  const backupPath = join(BACKUP_DIR, `dbo-1-field-cleanup-${stamp}.json`);
++  const originals = await collection.find({ _id: { $in: rows.map(r => r._id) } }).toArray();
++  writeFileSync(backupPath, JSON.stringify(originals, null, 2));
++  log(`Backup written: ${backupPath}`);
++
++  let cleaned = 0;
++  for (const row of rows) {
++    const unset = {};
++    if (row.unsetSelected) unset.selected = '';
++    if (row.unsetSpecial) unset.special = '';
++    const result = await collection.updateOne({ _id: row._id }, { $unset: unset });
++    if (result.modifiedCount === 1) {
++      cleaned += 1;
++      log(`  cleaned: ${row.key || row._id}`);
++    }
++  }
++
++  return { cleaned, backedUp: originals.length };
++}
++
++export async function main(argv = process.argv) {
++  const apply = argv.includes('--apply');
++  const dbName = process.env.MONGODB_DB || 'tm_suite';
++
++  console.log(`Mode     : ${apply ? 'APPLY (will backup + write)' : 'DRY RUN (read only; pass --apply to write)'}`);
++  console.log(`Target DB: ${dbName}`);
++  console.log('');
++
++  await connectDb();
++  try {
++    const collection = getCollection('purchasable_powers');
++    const rows = await planCleanup(collection);
++    console.log(`purchasable_powers: ${rows.length} document(s) need cleanup.`);
++    console.log('');
++
++    const result = await applyCleanup(collection, rows, { apply, log: msg => console.log(msg) });
++    console.log('');
++    console.log(`Totals: ${result.cleaned} cleaned, ${result.backedUp} backed up.`);
++    if (apply) {
++      console.log('Idempotency check: re-run with --apply and confirm "0 document(s) need cleanup".');
++    }
++  } finally {
++    await closeDb();
++  }
++}
++
++// Auto-run only when invoked directly, never when imported by a test.
++if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
++  main().catch(err => { console.error(err.message); process.exit(1); });
++}
+diff --git a/server/tests/dbo-1-purchasable-powers-schema-cleanup.test.js b/server/tests/dbo-1-purchasable-powers-schema-cleanup.test.js
+new file mode 100644
+index 00000000..5db4f842
+--- /dev/null
++++ b/server/tests/dbo-1-purchasable-powers-schema-cleanup.test.js
+@@ -0,0 +1,173 @@
++/**
++ * DBO-1 — schema declares `special`, cleanup script strips dead fields.
++ *
++ * Two halves:
++ *   1. Schema validation (AC1, AC5): `special` is declared and accepts the
++ *      real live shapes; `selected` stays undeclared and is rejected.
++ *   2. Cleanup script (AC2, AC3): `planCleanup`/`applyCleanup`, exercised
++ *      through their exported functions against `tm_suite_test` only, never
++ *      by shelling out. Proves `selected` is stripped everywhere and
++ *      `special` is stripped everywhere EXCEPT the literal value
++ *      `'standing'`, which must survive byte-for-byte.
++ *
++ * DB-backed for part 2: real MongoDB required. A skipped suite is not a
++ * passing suite — read the summary line, not the exit code.
++ */
++
++import { describe, it, expect, beforeAll, beforeEach, afterAll } from 'vitest';
++import Ajv from 'ajv';
++import { purchasablePowerSchema } from '../schemas/purchasable_power.schema.js';
++import { setupDb, isDbAvailable } from './helpers/db-setup.js';
++import { getCollection } from '../db.js';
++import { planCleanup, applyCleanup } from '../scripts/dbo-1-purchasable-powers-field-cleanup.mjs';
++
++describe('DBO-1: purchasable_power schema — special declared, selected undeclared', () => {
++  const ajv = new Ajv({ allErrors: true, strict: false });
++  const validate = ajv.compile(purchasablePowerSchema);
++
++  // Minimal real-shape base — mirrors the live Mystery Cult Initiation /
++  // Professional Training documents (category, key, name, rating_range),
++  // not a bare `{special: ...}` stub.
++  const baseMerit = {
++    key: 'test-merit', name: 'Test Merit', category: 'merit',
++    parent: 'Social', rank: null, rating_range: [1, 5],
++    pool: null, resistance: null, cost: null,
++    action: null, duration: null, prereq: null, exclusive: null,
++    xp_fixed: null, bloodline: null, implemented: true,
++    cult: null, offering: null, sub_category: null,
++  };
++
++  it('validates the real MCI/PT shape: special === "standing"', () => {
++    expect(validate({ ...baseMerit, special: 'standing' })).toBe(true);
++  });
++
++  it('validates special: null (the other 515 live rows)', () => {
++    expect(validate({ ...baseMerit, special: null })).toBe(true);
++  });
++
++  it('validates special absent entirely', () => {
++    expect(validate({ ...baseMerit })).toBe(true);
++  });
++
++  it('rejects any other special value', () => {
++    expect(validate({ ...baseMerit, special: 'anything-else' })).toBe(false);
++  });
++
++  it('still rejects a document carrying `selected` — stays undeclared on purpose', () => {
++    expect(validate({ ...baseMerit, special: null, selected: true })).toBe(false);
++    const additionalProps = (validate.errors || []).map(e => e.params?.additionalProperty);
++    expect(additionalProps).toContain('selected');
++  });
++});
++
++const dbAvailable = await isDbAvailable();
++
++describe.skipIf(!dbAvailable)('DBO-1: dbo-1-purchasable-powers-field-cleanup.mjs', () => {
++  const KEY_PREFIX = 'dbo-1-test-';
++  const keys = {
++    bothStray: `${KEY_PREFIX}both-stray`,       // selected + special:null
++    selectedOnly: `${KEY_PREFIX}selected-only`,  // selected only
++    specialOnly: `${KEY_PREFIX}special-only`,    // special:null only
++    standing: `${KEY_PREFIX}standing`,           // special:'standing' + selected — must survive special, lose selected
++    caseVariant: `${KEY_PREFIX}case-variant`,    // special:'Standing' — must NOT be preserved
++    whitespaceVariant: `${KEY_PREFIX}ws-variant`, // special:'standing ' — must NOT be preserved
++    clean: `${KEY_PREFIX}clean`,                 // neither field — must be left out of the plan entirely
++  };
++
++  const fixtures = () => ([
++    { key: keys.bothStray, name: 'Both Stray', category: 'merit', selected: true, special: null },
++    { key: keys.selectedOnly, name: 'Selected Only', category: 'merit', selected: false },
++    { key: keys.specialOnly, name: 'Special Only', category: 'merit', special: null },
++    { key: keys.standing, name: 'Standing', category: 'merit', selected: true, special: 'standing' },
++    { key: keys.caseVariant, name: 'Case Variant', category: 'merit', special: 'Standing' },
++    { key: keys.whitespaceVariant, name: 'Whitespace Variant', category: 'merit', special: 'standing ' },
++    { key: keys.clean, name: 'Clean', category: 'merit' },
++  ]);
++
++  async function cleanupFixtures() {
++    await getCollection('purchasable_powers').deleteMany({ key: { $regex: `^${KEY_PREFIX}` } });
++  }
++
++  beforeAll(async () => { await setupDb(); });
++  beforeEach(async () => {
++    await cleanupFixtures();
++    await getCollection('purchasable_powers').insertMany(fixtures());
++  });
++  afterAll(async () => { await cleanupFixtures(); });
++
++  it('plans exactly the rows needing a change, omitting the clean one', async () => {
++    const col = getCollection('purchasable_powers');
++    const rows = await planCleanup(col);
++    const byKey = Object.fromEntries(
++      rows.filter(r => r.key?.startsWith(KEY_PREFIX)).map(r => [r.key, r])
++    );
++
++    expect(byKey[keys.bothStray]).toEqual(expect.objectContaining({ unsetSelected: true, unsetSpecial: true }));
++    expect(byKey[keys.selectedOnly]).toEqual(expect.objectContaining({ unsetSelected: true, unsetSpecial: false }));
++    expect(byKey[keys.specialOnly]).toEqual(expect.objectContaining({ unsetSelected: false, unsetSpecial: true }));
++    expect(byKey[keys.standing]).toEqual(expect.objectContaining({ unsetSelected: true, unsetSpecial: false }));
++    expect(byKey[keys.caseVariant]).toEqual(expect.objectContaining({ unsetSpecial: true }));
++    expect(byKey[keys.whitespaceVariant]).toEqual(expect.objectContaining({ unsetSpecial: true }));
++    expect(byKey[keys.clean]).toBeUndefined();
++  });
++
++  it('dry run (default) writes nothing', async () => {
++    const col = getCollection('purchasable_powers');
++    const rows = await planCleanup(col);
++    const result = await applyCleanup(col, rows, { apply: false });
++
++    expect(result).toEqual({ cleaned: 0, backedUp: 0 });
++    const standing = await col.findOne({ key: keys.standing });
++    expect(standing.selected).toBe(true);
++    expect(standing.special).toBe('standing');
++  });
++
++  it('apply strips selected everywhere and special only where it is not "standing"', async () => {
++    const col = getCollection('purchasable_powers');
++    const rows = await planCleanup(col);
++    const result = await applyCleanup(col, rows, { apply: true });
++
++    expect(result.cleaned).toBe(rows.length);
++
++    const bothStray = await col.findOne({ key: keys.bothStray });
++    expect(bothStray).not.toHaveProperty('selected');
++    expect(bothStray).not.toHaveProperty('special');
++
++    const selectedOnly = await col.findOne({ key: keys.selectedOnly });
++    expect(selectedOnly).not.toHaveProperty('selected');
++
++    const specialOnly = await col.findOne({ key: keys.specialOnly });
++    expect(specialOnly).not.toHaveProperty('special');
++
++    const caseVariant = await col.findOne({ key: keys.caseVariant });
++    expect(caseVariant).not.toHaveProperty('special');
++
++    const whitespaceVariant = await col.findOne({ key: keys.whitespaceVariant });
++    expect(whitespaceVariant).not.toHaveProperty('special');
++  });
++
++  it('AC3 — the "standing" row survives byte-for-byte: special kept, only selected removed', async () => {
++    const col = getCollection('purchasable_powers');
++    const before = await col.findOne({ key: keys.standing });
++    const rows = await planCleanup(col);
++    await applyCleanup(col, rows, { apply: true });
++
++    const after = await col.findOne({ key: keys.standing });
++    expect(after.special).toBe('standing');
++    expect(after).not.toHaveProperty('selected');
++    // Every other field is untouched.
++    const { selected: _dropped, ...restBefore } = before;
++    const { selected: _alsoDropped, ...restAfter } = after;
++    expect(restAfter).toEqual(restBefore);
++  });
++
++  it('is idempotent: re-planning after apply finds nothing left for these fixtures', async () => {
++    const col = getCollection('purchasable_powers');
++    const firstPlan = await planCleanup(col);
++    await applyCleanup(col, firstPlan, { apply: true });
++
++    const secondPlan = await planCleanup(col);
++    const remaining = secondPlan.filter(r => r.key?.startsWith(KEY_PREFIX));
++    expect(remaining).toEqual([]);
++  });
++});
