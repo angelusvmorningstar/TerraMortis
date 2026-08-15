@@ -32,13 +32,15 @@ describe('issue-1141 — office-tab.js render-level regressions', () => {
   let renderOfficeTab;
   let manoeuvreListHtml;
   let manoeuvreRankHtml;
+  let manoeuvreDotReasons;
+  let meritDotReasons;
   const hadLocation = 'location' in globalThis;
 
   beforeAll(async () => {
     if (!hadLocation) {
       globalThis.location = { hostname: 'test', pathname: '/' };
     }
-    ({ renderOfficeTab, manoeuvreListHtml, manoeuvreRankHtml } =
+    ({ renderOfficeTab, manoeuvreListHtml, manoeuvreRankHtml, manoeuvreDotReasons, meritDotReasons } =
       await import('../../public/js/tabs/office-tab.js'));
   });
 
@@ -52,6 +54,27 @@ describe('issue-1141 — office-tab.js render-level regressions', () => {
     const el = { innerHTML: '' };
     renderOfficeTab(el, char, chars, viewCategory);
     return el.innerHTML;
+  }
+
+  /** oxp.6: dots render as `.pointed`/`.pointed.hollow` spans now, not raw
+   *  Unicode ●/○ (components.css's own comment on those classes explains why:
+   *  Unicode dots render at different sizes per platform, iOS Safari included).
+   *  Counts filled vs hollow spans rather than matching a literal string, so
+   *  these assertions test the WIRING (how many of each) without re-deriving
+   *  shDots/shDotsWithBonus's own markup by hand. */
+  function pointedCounts(html) {
+    const filled = (html.match(/class="pointed"/g) || []).length;
+    const hollow = (html.match(/class="pointed hollow"/g) || []).length;
+    return { filled, hollow };
+  }
+
+  /** For markup that can contain MORE THAN ONE dot run (e.g. the merit mount,
+   *  one run per merit) — pointedCounts would sum across every row. This
+   *  builds the exact run shDotsWithBonus(filled, hollow) produces, so a
+   *  single row's run can be matched as a substring, the same way the
+   *  original Unicode assertions did with `'●'.repeat(n) + '○'.repeat(...)`. */
+  function dotsSpan(filled, hollow) {
+    return '<span class="pointed"></span>'.repeat(filled) + '<span class="pointed hollow"></span>'.repeat(hollow);
   }
 
   it('AC6: two characters both holding court_category "Socialite" render independently, no collision', () => {
@@ -303,9 +326,9 @@ describe('issue-1141 — office-tab.js render-level regressions', () => {
     });
 
     it('AC6: the rank readout is a graduated dot display, filled to the rank and hollow beyond it', () => {
-      expect(manoeuvreRankHtml(0, 5, false)).toContain('○○○○○');
-      expect(manoeuvreRankHtml(2, 5, false)).toContain('●●○○○');
-      expect(manoeuvreRankHtml(5, 5, false)).toContain('●●●●●');
+      expect(pointedCounts(manoeuvreRankHtml(0, 5, false))).toEqual({ filled: 0, hollow: 5 });
+      expect(pointedCounts(manoeuvreRankHtml(2, 5, false))).toEqual({ filled: 2, hollow: 3 });
+      expect(pointedCounts(manoeuvreRankHtml(5, 5, false))).toEqual({ filled: 5, hollow: 0 });
     });
 
     it('AC6: the +/- stepper renders for an ST/dev viewer and never for anyone else', () => {
@@ -320,18 +343,20 @@ describe('issue-1141 — office-tab.js render-level regressions', () => {
       expect(playerHtml).not.toContain('data-manoeuvre-rank-up');
       expect(playerHtml).not.toContain('data-manoeuvre-rank-down');
       // A non-ST still sees the readout itself, just no controls.
-      expect(playerHtml).toContain('●●○○○');
+      expect(pointedCounts(playerHtml)).toEqual({ filled: 2, hollow: 3 });
     });
 
     it('the exported builder clamps a rank from outside [0, count] rather than throwing (Codex review, Pass 1, Low)', () => {
-      // manoeuvreRankHtml is exported, and '●'.repeat(-1) throws a RangeError.
-      // The only current caller clamps first, so this is a boundary-robustness
-      // fix for whatever calls it next, not a live UI path today.
+      // manoeuvreRankHtml is exported, and shDotsWithBonus throws on a negative
+      // count (same underlying '●'.repeat(-1)-style RangeError this guard was
+      // originally written against). The only current caller clamps first, so
+      // this is a boundary-robustness fix for whatever calls it next, not a
+      // live UI path today.
       expect(() => manoeuvreRankHtml(-1, 5, false)).not.toThrow();
-      expect(manoeuvreRankHtml(-1, 5, false)).toContain('○○○○○');
-      expect(manoeuvreRankHtml(7, 5, false)).toContain('●●●●●');
-      expect(manoeuvreRankHtml(2.7, 5, false)).toContain('●●○○○');
-      expect(manoeuvreRankHtml(NaN, 5, false)).toContain('○○○○○');
+      expect(pointedCounts(manoeuvreRankHtml(-1, 5, false))).toEqual({ filled: 0, hollow: 5 });
+      expect(pointedCounts(manoeuvreRankHtml(7, 5, false))).toEqual({ filled: 5, hollow: 0 });
+      expect(pointedCounts(manoeuvreRankHtml(2.7, 5, false))).toEqual({ filled: 2, hollow: 3 });
+      expect(pointedCounts(manoeuvreRankHtml(NaN, 5, false))).toEqual({ filled: 0, hollow: 5 });
       // The stepper's disabled states follow the clamped value, not the raw one.
       expect(manoeuvreRankHtml(-1, 5, true)).toMatch(/data-manoeuvre-rank-down disabled/);
       expect(manoeuvreRankHtml(-1, 5, true)).not.toMatch(/data-manoeuvre-rank-up disabled/);
@@ -359,7 +384,7 @@ describe('issue-1141 — office-tab.js render-level regressions', () => {
       expect(own).toContain('data-office-manoeuvre-rank-mount');
       // Empty on the synchronous render — the rank is not known yet, and an
       // empty mount leaks nothing to a reference viewer who never gets one filled.
-      expect(own).not.toContain('●');
+      expect(own).not.toContain('class="pointed"');
       expect(own).not.toContain('cs-step-btn');
     });
 
@@ -370,6 +395,110 @@ describe('issue-1141 — office-tab.js render-level regressions', () => {
       expect(html).toContain('Office details for this role are pending.');
       expect(html).not.toContain('office-manoeuvre');
       expect(html).not.toContain('data-office-manoeuvre-rank-mount');
+    });
+  });
+
+  // ───────────────────────────────────────────────────────────────────────
+  // oxp.6 AC6: per-dot affordability/rank-order reasons. Pure, DOM-free,
+  // exported specifically so they can be tested directly rather than only
+  // pinned by source-contract regex — the lesson oxp.5's own review round
+  // had to learn the expensive way (a real High-severity bug in an
+  // analogous pure function, courtSlotOptions in city-views.js, went
+  // undetected until external review because nothing called it directly).
+  // ───────────────────────────────────────────────────────────────────────
+  describe('oxp.6 manoeuvreDotReasons', () => {
+    it('purchased dots (below rank) carry no reason', () => {
+      const reasons = manoeuvreDotReasons(3, 5, 10);
+      expect(reasons.slice(0, 3)).toEqual([null, null, null]);
+    });
+
+    it('the single NEXT purchasable dot (index === rank) is unblocked when affordable', () => {
+      const reasons = manoeuvreDotReasons(2, 5, 5); // plenty of XP left
+      expect(reasons[2]).toBeNull();
+    });
+
+    it('the single NEXT purchasable dot carries an affordability reason when left < 1', () => {
+      expect(manoeuvreDotReasons(2, 5, 0)[2]).toBe('Not enough office XP (1 short)');
+      expect(manoeuvreDotReasons(2, 5, -2)[2]).toBe('Not enough office XP (3 short)');
+    });
+
+    it('dots beyond the next one are ALWAYS order-blocked, regardless of balance', () => {
+      // A huge balance cannot skip the ladder — rank order is checked first.
+      const reasons = manoeuvreDotReasons(1, 5, 999);
+      expect(reasons[2]).toBe('Reach rank 2 first');
+      expect(reasons[3]).toBe('Reach rank 3 first');
+      expect(reasons[4]).toBe('Reach rank 4 first');
+    });
+
+    it('an unknown balance (left not finite) never asserts an affordability reason', () => {
+      expect(manoeuvreDotReasons(2, 5, undefined)[2]).toBeNull();
+      expect(manoeuvreDotReasons(2, 5, NaN)[2]).toBeNull();
+    });
+
+    it('a fully-purchased ladder has no reasons at all', () => {
+      expect(manoeuvreDotReasons(5, 5, 0)).toEqual([null, null, null, null, null]);
+    });
+  });
+
+  describe('oxp.6 meritDotReasons', () => {
+    it('purchased dots carry no reason', () => {
+      expect(meritDotReasons(3, 5, 10).slice(0, 3)).toEqual([null, null, null]);
+    });
+
+    it('no rank-order gate: every unpurchased dot within reach is unblocked, not just the next one', () => {
+      // Unlike manoeuvres, all three remaining dots are independently
+      // reachable if the balance covers their cumulative cost.
+      const reasons = meritDotReasons(0, 3, 3);
+      expect(reasons).toEqual([null, null, null]);
+    });
+
+    it('dots beyond what the balance covers carry an increasing affordability reason', () => {
+      const reasons = meritDotReasons(0, 3, 1); // one dot affordable, two are not
+      expect(reasons[0]).toBeNull();
+      expect(reasons[1]).toBe('Not enough office XP (1 short)');
+      expect(reasons[2]).toBe('Not enough office XP (2 short)');
+    });
+
+    it('an unknown balance never asserts an affordability reason', () => {
+      expect(meritDotReasons(0, 3, undefined)).toEqual([null, null, null]);
+    });
+
+    it('a fully-purchased merit has no reasons at all', () => {
+      expect(meritDotReasons(5, 5, 0)).toEqual([null, null, null, null, null]);
+    });
+  });
+
+  describe('oxp.6 manoeuvreRankHtml with reasons', () => {
+    it('attaches a title to the blocked dots and none to the purchased ones', () => {
+      const html = manoeuvreRankHtml(2, 5, false, manoeuvreDotReasons(2, 5, 0));
+      expect(pointedCounts(html)).toEqual({ filled: 2, hollow: 3 });
+      expect(html).toContain('title="Not enough office XP (1 short)"');
+      expect(html).toContain('title="Reach rank 3 first"');
+      expect(html).toContain('title="Reach rank 4 first"');
+      // No stm-modded-dot class — this is not an ST-mod overlay marker.
+      expect(html).not.toContain('stm-modded-dot');
+    });
+
+    it('with reasons omitted, behaves exactly as before (plain shDotsWithBonus, no titles)', () => {
+      const html = manoeuvreRankHtml(2, 5, false);
+      expect(pointedCounts(html)).toEqual({ filled: 2, hollow: 3 });
+      expect(html).not.toContain('title=');
+    });
+
+    it('oxp.6 Codex review (Medium): a reasons array with no actual reasons (nothing unaffordable or order-blocked) is byte-identical to omitting reasons entirely', () => {
+      // Codex review, Pass 3a: the new _dotsWithReasons helper is NOT
+      // shDotsWithBonus, so a future change to shDotsWithBonus's markup would
+      // not automatically propagate here. This pins the parity the deviation's
+      // own justification claims (same bare .pointed/.pointed.hollow shape) so
+      // any future drift between the two fails a test rather than passing
+      // silently. rank=4/count=5 leaves exactly one hollow dot — the single
+      // next-purchasable one — which with a huge balance gets no reason at
+      // all, so every entry in the array is null while a real hollow dot is
+      // still present to exercise the "hollow, no title" branch.
+      const allNullReasons = manoeuvreDotReasons(4, 5, 999);
+      expect(allNullReasons).toEqual([null, null, null, null, null]);
+      expect(manoeuvreRankHtml(4, 5, false, allNullReasons)).toBe(manoeuvreRankHtml(4, 5, false));
+      expect(manoeuvreRankHtml(4, 5, true, allNullReasons)).toBe(manoeuvreRankHtml(4, 5, true));
     });
   });
 
@@ -416,8 +545,12 @@ describe('issue-1141 — office-tab.js render-level regressions', () => {
       { _id: SEAT_ENFORCER,   office_category: 'Enforcer', holder_id: null,    created_at: '2026-02-21', seat_label: null },
     ];
     // Yusuf's own Primogen seat sits at rank 2; the other Primogen seat has no
-    // document at all, which is the client's "missing means 0".
-    const RANKS = { [SEAT_P_YUSUF]: 2, [SEAT_ENFORCER]: 5 };
+    // document at all, which is the client's "missing means 0". oxp.6: the
+    // value shape gained manoeuvre_xp_destroyed alongside rank.
+    const RANKS = {
+      [SEAT_P_YUSUF]:  { rank: 2, manoeuvre_xp_destroyed: 0 },
+      [SEAT_ENFORCER]: { rank: 5, manoeuvre_xp_destroyed: 0 },
+    };
 
     const hadLocalStorage = 'localStorage' in globalThis;
     let realFetch;
@@ -531,6 +664,51 @@ describe('issue-1141 — office-tab.js render-level regressions', () => {
         .toContain('Could not load manoeuvre rank.');
     });
 
+    it('oxp.6 Codex review (Medium): a failed rank fetch does NOT blank the otherwise-healthy merit section', async () => {
+      setRole('player');
+      globalThis.fetch = async (url) => {
+        const u = String(url);
+        if (u.includes('/api/office_seats')) return jsonRes(SEATS);
+        if (u.includes('/api/office_manoeuvre_rank')) return jsonRes({ message: 'nope' }, false);
+        if (u.includes('/api/office_merit_dots')) return jsonRes({ [SEAT_P_YUSUF]: { Resources: 2 } });
+        return jsonRes({});
+      };
+
+      const el = fakeRoot();
+      renderOfficeTab(el, YUSUF, [YUSUF], 'Primogen');
+      await flush();
+
+      // The rank endpoint failed (proven above), but the merit endpoint did
+      // not — before this fix, one shared catch blanked both sections on any
+      // single failure. The merit mount must still show real purchase state,
+      // not the generic "Could not load" message.
+      const meritHtml = el.querySelector('[data-office-merit-mount]').innerHTML;
+      expect(meritHtml).not.toContain('Could not load merit dots.');
+      expect(meritHtml).toContain(dotsSpan(2, 3)); // Resources: 2 of 5
+    });
+
+    it('oxp.6 Codex review (Medium): a failed merit-dots fetch does NOT blank the otherwise-healthy manoeuvre section', async () => {
+      setRole('player');
+      globalThis.fetch = async (url) => {
+        const u = String(url);
+        if (u.includes('/api/office_seats')) return jsonRes(SEATS);
+        if (u.includes('/api/office_merit_dots')) return jsonRes({ message: 'nope' }, false);
+        if (u.includes('/api/office_manoeuvre_rank')) return jsonRes(RANKS);
+        return jsonRes({});
+      };
+
+      const el = fakeRoot();
+      renderOfficeTab(el, YUSUF, [YUSUF], 'Primogen');
+      await flush();
+
+      const listHtml = el.querySelector('.office-manoeuvre-list').innerHTML;
+      expect(listHtml).not.toContain('Could not load purchase state.');
+      expect(listHtml).toContain('People Talk'); // Yusuf's rank 2 still resolves and mutes correctly
+
+      const meritHtml = el.querySelector('[data-office-merit-mount]').innerHTML;
+      expect(meritHtml).toContain('Could not load merit dots.');
+    });
+
     it('an adjustment resolving after a category switch must not repaint the new category (Codex Pass 1, Medium)', async () => {
       setRole('st');
       let releasePut;
@@ -552,7 +730,7 @@ describe('issue-1141 — office-tab.js render-level regressions', () => {
       await flush();
 
       const mountA = el.querySelector('[data-office-manoeuvre-rank-mount]');
-      expect(mountA.innerHTML).toContain('●●○○○'); // Primogen sits at rank 2
+      expect(pointedCounts(mountA.innerHTML)).toEqual({ filled: 2, hollow: 3 }); // Primogen sits at rank 2
       const up = mountA.querySelectorAll('[data-manoeuvre-rank-up]')[0];
       expect(up).toBeTruthy();
 
@@ -566,14 +744,13 @@ describe('issue-1141 — office-tab.js render-level regressions', () => {
       const mountB = el.querySelector('[data-office-manoeuvre-rank-mount]');
       const listB  = el.querySelector('.office-manoeuvre-list');
       expect(mountB).not.toBe(mountA);              // a real re-render replaced the nodes
-      expect(mountB.innerHTML).toContain('●●●●●');  // Enforcer's own stored rank
+      expect(pointedCounts(mountB.innerHTML)).toEqual({ filled: 5, hollow: 0 }); // Enforcer's own stored rank
 
       releasePut();
       await flush();
 
       // Primogen's rank, manoeuvres and muting must not have landed here.
-      expect(mountB.innerHTML).toContain('●●●●●');
-      expect(mountB.innerHTML).not.toContain('●●○○○');
+      expect(pointedCounts(mountB.innerHTML)).toEqual({ filled: 5, hollow: 0 });
       expect(listB.innerHTML).not.toContain('People Talk'); // a Primogen manoeuvre
       expect(listB.innerHTML).toContain('Perimeter');       // an Enforcer manoeuvre
       expect(listB.innerHTML).not.toContain(MUTED);         // reference view stays plain
@@ -641,9 +818,64 @@ describe('issue-1141 — office-tab.js render-level regressions', () => {
       await flush();
 
       // Rank 2 is seat B's; seat A has no rank document at all (0).
-      expect(el.querySelector('[data-office-manoeuvre-rank-mount]').innerHTML).toContain('●●○○○');
-      // And the merit dots are seat B's 3, not seat A's 5.
-      expect(el.querySelector('[data-office-merit-mount]').innerHTML).toContain('●●●○○');
+      expect(pointedCounts(el.querySelector('[data-office-manoeuvre-rank-mount]').innerHTML))
+        .toEqual({ filled: 2, hollow: 3 });
+      // And the merit dots are seat B's 3, not seat A's 5 (Resources caps at 5).
+      expect(el.querySelector('[data-office-merit-mount]').innerHTML).toContain(dotsSpan(3, 2));
+    });
+
+    it('oxp.6 AC7: the balance line renders for the holder, near the Manoeuvres header', async () => {
+      setRole('player'); // the holder, not an ST — still entitled per AC7
+      stubFetch({ dots: { [SEAT_P_YUSUF]: { Resources: 3 } } });
+
+      const el = fakeRoot();
+      renderOfficeTab(el, YUSUF, [YUSUF], 'Primogen'); // Yusuf's own office
+      await flush();
+
+      // Not pinning an exact number: earned is derived from the real clock
+      // (officeSeatXp's own `now` parameter), which this fake-DOM harness does
+      // not inject, so the exact figure would drift as real time passes. The
+      // shape and class are what this test proves.
+      const mount = el.querySelector('[data-office-manoeuvre-rank-mount]').innerHTML;
+      expect(mount).toMatch(/<p class="derived-note">\d+ of \d+ office XP spent, (\d+ remaining|\d+ over budget)\.<\/p>/);
+    });
+
+    it('oxp.6 AC7: the balance line is absent for a reference viewer (holder-or-ST-only)', async () => {
+      setRole('player');
+      stubFetch();
+      const bystander = { _id: 'bystander', name: 'A Bystander', court_category: null, court_title: null };
+
+      const el = fakeRoot();
+      // A player browsing Primogen, which they do not hold, and are not ST for.
+      renderOfficeTab(el, bystander, [bystander], 'Primogen');
+      await flush();
+
+      // _wireManoeuvreRank's own early return fires before ANY write, so the
+      // mount never gets a new innerHTML at all — it stays at the synchronous
+      // first render's empty content.
+      const mount = el.querySelector('[data-office-manoeuvre-rank-mount]').innerHTML;
+      expect(mount).not.toContain('derived-note');
+    });
+
+    it('oxp.6 Codex review (Low): the merit mount carries no affordability title for a reference viewer either', async () => {
+      // Codex review, Pass 1: the balance-line-absence test above only checked
+      // the manoeuvre mount. Merit dots stay VISIBLE to a reference viewer by
+      // design (unlike the manoeuvre section, which returns early) — this
+      // proves the dots render with no `title=` attribute leaking the seat's
+      // affordability, not just that the separate balance line is hidden.
+      setRole('player');
+      // court_category null means isOwnOffice is false, so resolution falls
+      // back to the deterministic first seat (SEAT_P_FALLBACK), not Yusuf's.
+      stubFetch({ dots: { [SEAT_P_FALLBACK]: { Resources: 2 } } });
+      const bystander = { _id: 'bystander', name: 'A Bystander', court_category: null, court_title: null };
+
+      const el = fakeRoot();
+      renderOfficeTab(el, bystander, [bystander], 'Primogen');
+      await flush();
+
+      const meritHtml = el.querySelector('[data-office-merit-mount]').innerHTML;
+      expect(meritHtml).toContain(dotsSpan(2, 3)); // dots ARE shown...
+      expect(meritHtml).not.toContain('title='); // ...but never with a reason.
     });
 
     it('AC6: with no holder match, the fallback picks the first seat by created_at then _id', async () => {
@@ -656,8 +888,9 @@ describe('issue-1141 — office-tab.js render-level regressions', () => {
       await flush();
 
       // Seat A's state, not Yusuf's seat B.
-      expect(el.querySelector('[data-office-manoeuvre-rank-mount]').innerHTML).toContain('○○○○○');
-      expect(el.querySelector('[data-office-merit-mount]').innerHTML).toContain('●●●●●');
+      expect(pointedCounts(el.querySelector('[data-office-manoeuvre-rank-mount]').innerHTML))
+        .toEqual({ filled: 0, hollow: 5 });
+      expect(el.querySelector('[data-office-merit-mount]').innerHTML).toContain(dotsSpan(5, 0));
     });
 
     it('AC6: a multi-seat office names the seat on screen, in both purchase mounts', async () => {
@@ -729,6 +962,26 @@ describe('issue-1141 — office-tab.js render-level regressions', () => {
         expect(html, sel).toContain('Could not confirm which of this office\'s seats is yours');
         expect(html, sel).toContain('may not be your own');
       }
+    });
+
+    it('oxp.6 Codex review (Medium): an unconfirmed own-office view does NOT leak the fallback seat\'s balance or affordability reasons to a non-ST', async () => {
+      setRole('player'); // STALE_PRIMOGEN themselves, not an ST — the leak only reaches a player
+      stubFetch({ dots: { [SEAT_P_YUSUF]: { Resources: 3 } } });
+
+      const el = fakeRoot();
+      renderOfficeTab(el, STALE_PRIMOGEN, [STALE_PRIMOGEN], 'Primogen');
+      await flush();
+
+      // The balance line and every reason-bearing title are new disclosures
+      // this story added; both must be absent when the viewer's own-office
+      // match is unconfirmed, exactly as the pre-existing list-muting guard
+      // right above already treats this same case.
+      const rankMount = el.querySelector('[data-office-manoeuvre-rank-mount]').innerHTML;
+      expect(rankMount).not.toContain('derived-note');
+      expect(rankMount).not.toContain('title=');
+
+      const meritMount = el.querySelector('[data-office-merit-mount]').innerHTML;
+      expect(meritMount).not.toContain('title=');
     });
 
     it('the ST edit control still exists on an unconfirmed own-office view (reference offices are already ST-editable by design)', async () => {
