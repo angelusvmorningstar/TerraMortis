@@ -1,0 +1,617 @@
+diff --git a/public/admin.html b/public/admin.html
+index 83b2d819..f1d7cd51 100644
+--- a/public/admin.html
++++ b/public/admin.html
+@@ -57,6 +57,7 @@
+       <button class="sidebar-btn" data-domain="players">Players</button>
+       <button class="sidebar-btn on" data-domain="player">Characters</button>
+       <button class="sidebar-btn" data-domain="city">City</button>
++      <button class="sidebar-btn" data-domain="office-approvals">Approval Queue</button>
+       <button class="sidebar-btn" data-domain="spheres">Spheres</button>
+       <button class="sidebar-btn" data-domain="downtime">Downtime</button>
+       <button class="sidebar-btn" data-domain="cycle">Cycle</button>
+@@ -105,6 +106,11 @@
+       <div id="city-content"></div>
+     </section>
+ 
++    <!-- Approval Queue domain (oaq.3) -->
++    <section id="d-office-approvals" class="domain">
++      <div id="office-approvals-content"></div>
++    </section>
++
+     <!-- Spheres domain -->
+     <section id="d-spheres" class="domain">
+       <div class="domain-header"><h2>Spheres</h2></div>
+diff --git a/public/css/admin-layout.css b/public/css/admin-layout.css
+index 5c519cf8..d4913a2e 100644
+--- a/public/css/admin-layout.css
++++ b/public/css/admin-layout.css
+@@ -1703,6 +1703,12 @@ body {
+ .dt-btn-gold { background: var(--accent); color: var(--bg); font-weight: 600; }
+ .dt-btn-gold:hover { opacity: 0.9; border-color: var(--accent); }
+ 
++/* oaq.3: destructive one-shot action (Decline). Mirrors .btn-danger's
++   crimson-token treatment, as a .dt-btn variant since this module uses the
++   .dt-btn family (admin-app-wide base) rather than .btn-sm. */
++.dt-btn-danger { border-color: var(--crim2); color: var(--crim2); }
++.dt-btn-danger:hover { background: var(--crim-a15); }
++
+ .dt-roll-badge {
+   font-size: 13px;
+   padding: 1px 8px;
+@@ -3450,6 +3456,11 @@ body {
+   border-left-color: var(--accent);
+ }
+ 
++/* oaq.3: approval-queue row action cluster (badge + timestamp + Accept/
++   Decline), grouped inside an .or-list-item's right-hand flex slot. */
++.oaq-row-actions { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
++.oaq-row-error { padding: 0 14px 8px; }
++
+ .or-list-name {
+   font-size: 13px;
+   color: var(--txt);
+diff --git a/public/js/admin.js b/public/js/admin.js
+index 4a48dfde..b07492e8 100644
+--- a/public/js/admin.js
++++ b/public/js/admin.js
+@@ -43,6 +43,7 @@ import { initRulesView } from './admin/rules-view.js';
+ import { initRulesDataView } from './admin/rules-data-view.js';
+ import { initEquipmentCatalogueAdmin } from './admin/equipment-catalogue-admin.js';
+ import { initStModsAudit } from './admin/st-mods-audit.js';
++import { initOfficeApprovals } from './admin/office-approvals.js';
+ import { initDevlogAdmin } from './admin/devlog-admin.js';
+ import { initStModsPanel } from './admin/st-mods-panel.js';
+ import { initCycleView } from './admin/cycle-views.js';
+@@ -314,6 +315,7 @@ function switchDomain(domain) {
+   if (domain === 'players') initPlayersView(chars);
+   if (domain === 'engine') { /* Engine tab removed — dice, feeding, session tracker were Engine-only tools */ }
+   if (domain === 'city') initCityView();
++  if (domain === 'office-approvals') initOfficeApprovals(document.getElementById('office-approvals-content'));
+   if (domain === 'spheres') initSpheresView();
+   if (domain === 'downtime') {
+     // DTUX-1: panel visibility is now driven by the phase ribbon inside
+diff --git a/server/routes/office-actions.js b/server/routes/office-actions.js
+index 71c75671..96244087 100644
+--- a/server/routes/office-actions.js
++++ b/server/routes/office-actions.js
+@@ -84,7 +84,12 @@ async function _findPending(req, res) {
+   const doc = await pendingCol().findOne({ _id: oid, request_type: 'status_action' });
+   if (!doc) { res.status(404).json({ error: 'NOT_FOUND' }); return null; }
+   if (doc.status !== 'pending') {
+-    res.status(409).json({ error: 'CONFLICT', message: 'Request is no longer pending' });
++    // oaq.3: name who already actioned it (resolved_by/declined_by) so the
++    // approval-queue tab can show "already actioned by X" on a stale row
++    // instead of a generic conflict.
++    const by = doc.status === 'resolved' ? doc.resolved_by : doc.status === 'declined' ? doc.declined_by : null;
++    const message = by ? `Request is no longer pending — already ${doc.status} by ${by}` : 'Request is no longer pending';
++    res.status(409).json({ error: 'CONFLICT', message, resolved_by: doc.resolved_by, declined_by: doc.declined_by });
+     return null;
+   }
+   return doc;
+@@ -98,6 +103,18 @@ router.get('/latest_session', async (req, res) => {
+   res.json(session || null);
+ });
+ 
++// GET /api/office_actions/pending
++// oaq.3: ST-only. Lists every pending Status Action for the approval-queue
++// tab, oldest-first so nothing gets buried once a second pending-item type
++// (Epic OXP) starts sharing this same collection.
++router.get('/pending', requireRole('st'), async (req, res) => {
++  const docs = await pendingCol()
++    .find({ request_type: 'status_action', status: 'pending' })
++    .sort({ created_at: 1 })
++    .toArray();
++  res.json(docs);
++});
++
+ // GET /api/office_actions?game_session_id=X[&actor_id=Y]
+ // Reads the APPLIED action log (office_actions) — pending/declined requests
+ // live in contested_roll_requests and are not surfaced here.
+@@ -310,9 +327,10 @@ router.put('/:id/accept', requireRole('st'), async (req, res) => {
+       };
+       const insertedLog = await actionsCol().insertOne(logDoc, { session: dbSession });
+ 
++      const resolved_by = req.user.username;
+       const resolveResult = await pendingCol().updateOne(
+         { _id: pending._id, status: 'pending' },
+-        { $set: { status: 'resolved', outcome: { old_status, new_status }, updated_at: timestamp } },
++        { $set: { status: 'resolved', outcome: { old_status, new_status }, resolved_by, updated_at: timestamp } },
+         { session: dbSession },
+       );
+       if (resolveResult.matchedCount === 0)
+@@ -320,7 +338,7 @@ router.put('/:id/accept', requireRole('st'), async (req, res) => {
+ 
+       statusCode = 200;
+       body = {
+-        request: { ...pending, status: 'resolved', outcome: { old_status, new_status } },
++        request: { ...pending, status: 'resolved', outcome: { old_status, new_status }, resolved_by },
+         action:  { ...logDoc, _id: insertedLog.insertedId },
+         new_status,
+       };
+@@ -344,14 +362,15 @@ router.put('/:id/decline', requireRole('st'), async (req, res) => {
+   if (!pending) return;
+ 
+   const timestamp = new Date().toISOString();
++  const declined_by = req.user.username;
+   const result = await pendingCol().updateOne(
+     { _id: pending._id, status: 'pending' },
+-    { $set: { status: 'declined', updated_at: timestamp } },
++    { $set: { status: 'declined', declined_by, updated_at: timestamp } },
+   );
+   if (!result.matchedCount)
+     return res.status(409).json({ error: 'CONFLICT', message: 'Request is no longer pending' });
+ 
+-  res.json({ declined: true });
++  res.json({ declined: true, declined_by });
+ });
+ 
+ export default router;
+diff --git a/public/js/admin/office-approvals.js b/public/js/admin/office-approvals.js
+new file mode 100644
+index 00000000..79d6641e
+--- /dev/null
++++ b/public/js/admin/office-approvals.js
+@@ -0,0 +1,180 @@
++/* Approval Queue (oaq.3) — ST review surface for pending Status Actions.
++ *
++ * Lists every pending status_action record from GET /api/office_actions/pending
++ * (oldest-first) with one-click Accept/Decline, backed by the existing
++ * ST-only PUT /api/office_actions/:id/accept and /:id/decline routes built
++ * and code-reviewed under oaq.2. This module only submits/reads — it never
++ * touches the transaction, budget, or precondition logic those routes own.
++ *
++ * Delegated routing (per memory feedback_listener_routing_static_blind_spot,
++ * mirroring public/js/admin/st-mods-audit.js): a single delegated click
++ * listener on the container root, bound once at scaffold time. NO per-render
++ * addEventListener calls.
++ *
++ * Refresh: 10-second poll against GET /pending, mirroring the existing
++ * pattern in public/js/game/challenge-notification.js (same
++ * contested_roll_requests collection family). Race safety already exists
++ * server-side (both accept/decline 409 if the record is no longer pending);
++ * the poll is purely so a row resolved by another ST disappears without a
++ * manual reload. Polling is skipped while this tab isn't the active domain,
++ * to avoid needless requests — admin.js's switchDomain never unmounts a
++ * domain section, it only toggles the `.active` class, so that class is the
++ * only available "is this tab visible" signal.
++ */
++
++import { apiGet, apiPut } from '../data/api.js';
++import { esc } from '../data/helpers.js';
++
++const POLL_MS = 10_000;
++
++// oaq.3 decision: display layer keys off request_type so a second pending-
++// item type (Epic OXP's XP-spend approvals) can add its own label later
++// without restructuring this module — only 'status_action' is populated
++// today.
++const ACTION_TYPE_LABELS = {
++  raise:       'Raise',
++  lower:       'Lower',
++  grant_first: 'Grant First Dot',
++  strip_last:  'Strip Last Dot',
++};
++
++const state = {
++  initialized: false,
++  rows: [],
++  loading: false,
++  busyIds: new Set(),   // requests currently mid accept/decline — disable their buttons
++  errorById: new Map(), // requestId -> last error message (e.g. "already actioned by X")
++};
++
++let _rootEl = null;
++let _pollTimer = null;
++
++/** init — called from admin.js switchDomain when 'office-approvals' activates.
++ *  Idempotent: subsequent calls reuse the existing DOM scaffold. */
++export async function initOfficeApprovals(rootEl) {
++  _rootEl = rootEl;
++  if (!_rootEl) return;
++
++  if (!state.initialized) {
++    _rootEl.innerHTML = renderScaffold();
++    _attachDelegatedHandlers(_rootEl);
++    state.initialized = true;
++  }
++
++  await _refetchAndRender();
++
++  if (!_pollTimer) _pollTimer = setInterval(_pollTick, POLL_MS);
++}
++
++// ── Scaffold ─────────────────────────────────────────────────────────
++
++function renderScaffold() {
++  return `
++    <div class="stm-audit-root">
++      <header class="stm-audit-head">
++        <h2>Approval Queue</h2>
++        <p class="stm-audit-sub">Pending Status Actions awaiting sign-off. Oldest first.</p>
++      </header>
++      <div class="or-list" data-oaq-body>
++        <p class="stm-audit-loading">Loading…</p>
++      </div>
++    </div>
++  `;
++}
++
++// ── Poll ─────────────────────────────────────────────────────────────
++
++function _pollTick() {
++  if (!_rootEl || !_rootEl.closest('.domain')?.classList.contains('active')) return;
++  _refetchAndRender();
++}
++
++// ── Delegated event handler ─────────────────────────────────────────
++
++function _attachDelegatedHandlers(root) {
++  root.addEventListener('click', (e) => {
++    const btn = e.target.closest('[data-oaq-action]');
++    if (!btn) return;
++    const requestId = btn.dataset.oaqId;
++    const action = btn.dataset.oaqAction;
++    if (!requestId || !action) return;
++    _resolve(requestId, action);
++  });
++}
++
++// ── Fetch + render ───────────────────────────────────────────────────
++
++async function _refetchAndRender() {
++  if (!_rootEl) return;
++  state.loading = true;
++  _renderBody();
++
++  try {
++    const rows = await apiGet('/api/office_actions/pending');
++    state.rows = Array.isArray(rows) ? rows : [];
++  } catch (err) {
++    console.error('[office-approvals] fetch failed:', err);
++  }
++
++  state.loading = false;
++  _renderBody();
++}
++
++async function _resolve(requestId, action) {
++  if (state.busyIds.has(requestId)) return;
++  state.busyIds.add(requestId);
++  state.errorById.delete(requestId);
++  _renderBody();
++
++  try {
++    await apiPut(`/api/office_actions/${requestId}/${action}`, {});
++    state.rows = state.rows.filter(r => String(r._id) !== requestId);
++  } catch (err) {
++    state.errorById.set(requestId, err.message || 'Failed to resolve request.');
++  }
++
++  state.busyIds.delete(requestId);
++  _renderBody();
++}
++
++function _renderBody() {
++  const body = _rootEl.querySelector('[data-oaq-body]');
++  if (!body) return;
++
++  if (state.loading && state.rows.length === 0) {
++    body.innerHTML = '<p class="stm-audit-loading">Loading…</p>';
++    return;
++  }
++
++  if (state.rows.length === 0) {
++    body.innerHTML = '<p class="stm-audit-empty">Nothing pending.</p>';
++    return;
++  }
++
++  body.innerHTML = state.rows.map(_renderRow).join('');
++}
++
++function _renderRow(r) {
++  const id = String(r._id);
++  const busy = state.busyIds.has(id);
++  const error = state.errorById.get(id);
++  const label = r.request_type === 'status_action'
++    ? (ACTION_TYPE_LABELS[r.action_type] || r.action_type)
++    : r.request_type;
++  const when = r.created_at ? r.created_at.replace('T', ' ').replace(/\..*$/, '') : '';
++
++  return `
++    <div class="oaq-row-wrap" data-oaq-row="${esc(id)}">
++      <div class="or-list-item">
++        <span class="or-list-name">${esc(r.actor_name || 'Unknown')} → ${esc(r.target_name || 'Unknown')}</span>
++        <div class="oaq-row-actions">
++          <span class="or-status-badge or-status-in_progress">${esc(label)}</span>
++          <span class="derived-note">${esc(when)}</span>
++          <button class="dt-btn dt-btn-gold" data-oaq-action="accept" data-oaq-id="${esc(id)}" ${busy ? 'disabled' : ''}>Accept</button>
++          <button class="dt-btn dt-btn-danger" data-oaq-action="decline" data-oaq-id="${esc(id)}" ${busy ? 'disabled' : ''}>Decline</button>
++        </div>
++      </div>
++      ${error ? `<div class="dt-error-msg oaq-row-error">${esc(error)}</div>` : ''}
++    </div>
++  `;
++}
+diff --git a/server/tests/oaq-3-approval-queue.test.js b/server/tests/oaq-3-approval-queue.test.js
+new file mode 100644
+index 00000000..65dc1659
+--- /dev/null
++++ b/server/tests/oaq-3-approval-queue.test.js
+@@ -0,0 +1,276 @@
++/**
++ * oaq.3 — real behavioural coverage for the new ST approval-queue surface:
++ *
++ *   AC1 — GET /api/office_actions/pending (ST-only) returns every pending
++ *         status_action record, oldest-first, and nothing else.
++ *   AC4 — accept()/decline() additively capture WHICH ST resolved a record
++ *         (resolved_by / declined_by = req.user.username).
++ *   AC5 — a stale accept/decline attempt on an already-resolved record gets
++ *         a 409 whose body names who already actioned it.
++ *
++ * AC2/AC3/AC6/AC7 (list rendering, poll refresh, empty state) are covered
++ * by the admin-tab wiring block below via static-analysis assertions,
++ * matching this project's own established pattern for admin-app modules
++ * (no browser harness — see issue-873-ecm-6-admin-sidebar.test.js's own
++ * stated rationale).
++ *
++ * Follows the pattern established by oaq-2-pending-status-actions.test.js:
++ * real Supertest requests against the mounted app + tm_suite_test, prefixed
++ * test fixtures, describe.skipIf(!dbAvailable) for a clean skip when MongoDB
++ * is unreachable.
++ *
++ * DB-backed: real MongoDB required. See db-setup.js.
++ */
++
++import { describe, it, expect, beforeAll, afterAll } from 'vitest';
++import request from 'supertest';
++import { createTestApp, stUser, playerUser } from './helpers/test-app.js';
++import { setupDb, teardownDb, isDbAvailable } from './helpers/db-setup.js';
++import { getCollection } from '../db.js';
++import fs from 'node:fs';
++import path from 'node:path';
++import { fileURLToPath } from 'node:url';
++
++const __dirname = path.dirname(fileURLToPath(import.meta.url));
++const REPO_ROOT = path.resolve(__dirname, '..', '..');
++function readFile(rel) { return fs.readFileSync(path.join(REPO_ROOT, rel), 'utf8'); }
++function fileExists(rel) { return fs.existsSync(path.join(REPO_ROOT, rel)); }
++
++const dbAvailable = await isDbAvailable();
++
++let app;
++const NAME_PREFIX = 'OAQ-3 Probe';
++
++async function cleanup() {
++  await getCollection('characters').deleteMany({ name: { $regex: `^${NAME_PREFIX}` } });
++  await getCollection('downtime_cycles').deleteMany({ label: { $regex: `^${NAME_PREFIX}` } });
++  await getCollection('game_sessions').deleteMany({ title: { $regex: `^${NAME_PREFIX}` } });
++  await getCollection('office_actions').deleteMany({ actor_name: { $regex: `^${NAME_PREFIX}` } });
++  await getCollection('contested_roll_requests').deleteMany({ actor_name: { $regex: `^${NAME_PREFIX}` } });
++  await getCollection('office_action_budgets').deleteMany({});
++}
++
++async function seedGameSessionAndCycle() {
++  const today = new Date().toISOString().slice(0, 10);
++  await getCollection('game_sessions').deleteMany({ session_date: { $lte: today } });
++  await getCollection('game_sessions').insertOne({
++    title: `${NAME_PREFIX} Session`, session_date: today, game_number: 999,
++  });
++  await getCollection('downtime_cycles').deleteMany({});
++  await getCollection('downtime_cycles').insertOne({
++    label: `${NAME_PREFIX} Cycle`, phase: 'game', game_number: 999,
++  });
++}
++
++async function seedActor({ city = 0, courtCategory = 'Head of State' } = {}) {
++  const { insertedId } = await getCollection('characters').insertOne({
++    name: `${NAME_PREFIX} Actor ${Date.now()}_${Math.random()}`,
++    court_category: courtCategory, status: { city }, retired: false,
++  });
++  return insertedId;
++}
++
++async function seedTargets(count, startingCity = 1) {
++  const docs = Array.from({ length: count }, (_, i) => ({
++    name: `${NAME_PREFIX} Target ${Date.now()}_${i}_${Math.random()}`,
++    status: { city: startingCity }, retired: false,
++  }));
++  const result = await getCollection('characters').insertMany(docs);
++  return Object.values(result.insertedIds);
++}
++
++async function submit(actorId, targetId, actionType, userHeader = stUser()) {
++  return request(app).post('/api/office_actions').set('X-Test-User', userHeader).send({
++    game_session_id: 'irrelevant', actor_id: String(actorId), target_id: String(targetId), action_type: actionType,
++  });
++}
++
++beforeAll(async () => {
++  if (!dbAvailable) return;
++  await setupDb();
++  app = createTestApp();
++  await cleanup();
++  await getCollection('contested_roll_requests').createIndex(
++    { game_session_id: 1, actor_id: 1, target_id: 1 },
++    { unique: true, partialFilterExpression: { request_type: 'status_action', status: 'pending' } },
++  );
++});
++
++afterAll(async () => {
++  if (!dbAvailable) return;
++  await cleanup();
++  await teardownDb();
++});
++
++describe.skipIf(!dbAvailable)('oaq.3 AC1 — GET /api/office_actions/pending', () => {
++  it('returns only pending status_action records, oldest-first', async () => {
++    await seedGameSessionAndCycle();
++    const actorId = await seedActor({ city: 3 });
++    const [target1, target2] = await seedTargets(2, 3);
++
++    const first = await submit(actorId, target1, 'raise');
++    expect(first.status).toBe(201);
++    const second = await submit(actorId, target2, 'lower');
++    expect(second.status).toBe(201);
++
++    const res = await request(app).get('/api/office_actions/pending').set('X-Test-User', stUser());
++    expect(res.status).toBe(200);
++    expect(Array.isArray(res.body)).toBe(true);
++    const ours = res.body.filter(r => r.actor_name?.startsWith(NAME_PREFIX));
++    expect(ours.length).toBe(2);
++    expect(ours.every(r => r.request_type === 'status_action' && r.status === 'pending')).toBe(true);
++    // oldest-first
++    expect(new Date(ours[0].created_at).getTime()).toBeLessThanOrEqual(new Date(ours[1].created_at).getTime());
++  });
++
++  it('does not include resolved or declined records', async () => {
++    await seedGameSessionAndCycle();
++    const actorId = await seedActor({ city: 3 });
++    const [targetId] = await seedTargets(1, 3);
++
++    const submitRes = await submit(actorId, targetId, 'raise');
++    const requestId = submitRes.body.request._id;
++    await request(app).put(`/api/office_actions/${requestId}/accept`).set('X-Test-User', stUser());
++
++    const res = await request(app).get('/api/office_actions/pending').set('X-Test-User', stUser());
++    const ours = res.body.filter(r => r.actor_id === String(actorId));
++    expect(ours.length).toBe(0);
++  });
++
++  it('is ST-role gated (403 for a player)', async () => {
++    const res = await request(app).get('/api/office_actions/pending')
++      .set('X-Test-User', playerUser(['000000000000000000000001']));
++    expect(res.status).toBe(403);
++  });
++});
++
++describe.skipIf(!dbAvailable)('oaq.3 AC4/AC5 — resolved_by/declined_by capture', () => {
++  it('accept() records resolved_by = the accepting ST\'s username', async () => {
++    await seedGameSessionAndCycle();
++    const actorId = await seedActor({ city: 3 });
++    const [targetId] = await seedTargets(1, 3);
++
++    const submitRes = await submit(actorId, targetId, 'raise');
++    const requestId = submitRes.body.request._id;
++
++    const acceptRes = await request(app).put(`/api/office_actions/${requestId}/accept`).set('X-Test-User', stUser());
++    expect(acceptRes.status).toBe(200);
++    expect(acceptRes.body.request.resolved_by).toBe('test_st');
++
++    const stored = await getCollection('contested_roll_requests').findOne({ actor_id: String(actorId) });
++    expect(stored.resolved_by).toBe('test_st');
++  });
++
++  it('decline() records declined_by = the declining ST\'s username', async () => {
++    await seedGameSessionAndCycle();
++    const actorId = await seedActor({ city: 3 });
++    const [targetId] = await seedTargets(1, 3);
++
++    const submitRes = await submit(actorId, targetId, 'raise');
++    const requestId = submitRes.body.request._id;
++
++    const declineRes = await request(app).put(`/api/office_actions/${requestId}/decline`).set('X-Test-User', stUser());
++    expect(declineRes.status).toBe(200);
++
++    const stored = await getCollection('contested_roll_requests').findOne({ actor_id: String(actorId) });
++    expect(stored.declined_by).toBe('test_st');
++  });
++
++  it('a stale accept attempt on an already-accepted record 409s naming who resolved it', async () => {
++    await seedGameSessionAndCycle();
++    const actorId = await seedActor({ city: 3 });
++    const [targetId] = await seedTargets(1, 3);
++
++    const submitRes = await submit(actorId, targetId, 'raise');
++    const requestId = submitRes.body.request._id;
++    await request(app).put(`/api/office_actions/${requestId}/accept`).set('X-Test-User', stUser());
++
++    const staleAccept = await request(app).put(`/api/office_actions/${requestId}/accept`).set('X-Test-User', stUser());
++    expect(staleAccept.status).toBe(409);
++    expect(staleAccept.body.message).toMatch(/test_st/);
++  });
++
++  it('a stale decline attempt on an already-declined record 409s naming who declined it', async () => {
++    await seedGameSessionAndCycle();
++    const actorId = await seedActor({ city: 3 });
++    const [targetId] = await seedTargets(1, 3);
++
++    const submitRes = await submit(actorId, targetId, 'raise');
++    const requestId = submitRes.body.request._id;
++    await request(app).put(`/api/office_actions/${requestId}/decline`).set('X-Test-User', stUser());
++
++    const staleDecline = await request(app).put(`/api/office_actions/${requestId}/decline`).set('X-Test-User', stUser());
++    expect(staleDecline.status).toBe(409);
++    expect(staleDecline.body.message).toMatch(/test_st/);
++  });
++});
++
++// ─────────────────────────────────────────────────────────────────────────────
++// Client wiring — admin sidebar, view module, dispatch (static-analysis, no
++// browser harness in this repo — see issue-873-ecm-6-admin-sidebar.test.js)
++// ─────────────────────────────────────────────────────────────────────────────
++
++describe('oaq.3 — admin sidebar wires Approval Queue domain', () => {
++  it('admin.html declares the sidebar button with data-domain="office-approvals"', () => {
++    const src = readFile('public/admin.html');
++    expect(src).toMatch(/data-domain="office-approvals"[^>]*>\s*Approval Queue/);
++  });
++
++  it('admin.html declares the domain section with id="d-office-approvals"', () => {
++    const src = readFile('public/admin.html');
++    expect(src).toMatch(/<section\s+id="d-office-approvals"\s+class="domain"/);
++    expect(src).toMatch(/id="office-approvals-content"/);
++  });
++
++  it('admin.js imports initOfficeApprovals', () => {
++    const src = readFile('public/js/admin.js');
++    expect(src).toMatch(/import\s+\{\s*initOfficeApprovals\s*\}\s+from\s+['"]\.\/admin\/office-approvals\.js['"]/);
++  });
++
++  it('admin.js dispatches the office-approvals domain in switchDomain', () => {
++    const src = readFile('public/js/admin.js');
++    expect(src).toMatch(/domain\s*===\s*['"]office-approvals['"]\s*\)\s*initOfficeApprovals/);
++  });
++});
++
++describe('oaq.3 — view module file shape', () => {
++  it('public/js/admin/office-approvals.js exists', () => {
++    expect(fileExists('public/js/admin/office-approvals.js')).toBe(true);
++  });
++
++  it('exports initOfficeApprovals', () => {
++    const src = readFile('public/js/admin/office-approvals.js');
++    expect(src).toMatch(/export\s+async\s+function\s+initOfficeApprovals\b/);
++  });
++
++  it('fetches GET /api/office_actions/pending and calls accept/decline via apiPut', () => {
++    const src = readFile('public/js/admin/office-approvals.js');
++    expect(src).toMatch(/apiGet\(['"]\/api\/office_actions\/pending['"]\)/);
++    expect(src).toMatch(/apiPut\(`\/api\/office_actions\/\$\{requestId\}\/\$\{action\}`/);
++  });
++
++  it('polls every 10 seconds, mirroring challenge-notification.js\'s POLL_MS', () => {
++    const src = readFile('public/js/admin/office-approvals.js');
++    expect(src).toMatch(/POLL_MS\s*=\s*10_000/);
++    expect(src).toMatch(/setInterval\(/);
++  });
++
++  it('uses a single delegated listener, not per-render addEventListener (project convention)', () => {
++    const src = readFile('public/js/admin/office-approvals.js');
++    const addListenerCalls = src.match(/addEventListener\(/g) || [];
++    expect(addListenerCalls.length, 'exactly one delegated root listener, no per-row handlers').toBe(1);
++  });
++
++  it('renders an empty state when there is nothing pending', () => {
++    const src = readFile('public/js/admin/office-approvals.js');
++    expect(src).toMatch(/Nothing pending/);
++  });
++
++  it('reuses existing component classes (dt-btn, or-list, derived-note) — no inline style attributes', () => {
++    const src = readFile('public/js/admin/office-approvals.js');
++    expect(src).toMatch(/dt-btn dt-btn-gold/);
++    expect(src).toMatch(/dt-btn dt-btn-danger/);
++    expect(src).toMatch(/or-list-item/);
++    expect(src).not.toMatch(/style="/);
++  });
++});

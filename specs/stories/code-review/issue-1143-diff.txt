@@ -1,0 +1,744 @@
+diff --git a/server/index.js b/server/index.js
+index a7a606ee..b9659256 100644
+--- a/server/index.js
++++ b/server/index.js
+@@ -203,6 +203,17 @@ async function start() {
+       { player_id: 1, story_id: 1 },
+       { unique: true, background: true },
+     );
++    // Ensure partial unique index on office_actions (issue #1143) — makes
++    // the per-target dedupe check for paid Status Actions (raise/lower)
++    // atomic at the database level instead of a racing findOne.
++    getDb().collection('office_actions').createIndex(
++      { game_session_id: 1, actor_id: 1, target_id: 1 },
++      {
++        unique: true,
++        background: true,
++        partialFilterExpression: { action_type: { $in: ['raise', 'lower'] } },
++      },
++    );
+     await runRulesEngineGate();
+   } catch (err) {
+     console.error('Failed to connect to MongoDB:', err.message);
+diff --git a/server/routes/office-actions.js b/server/routes/office-actions.js
+index f399482d..10928b7c 100644
+--- a/server/routes/office-actions.js
++++ b/server/routes/office-actions.js
+@@ -6,6 +6,7 @@ import { officeActionSchema } from '../schemas/office_action.schema.js';
+ import { calcEffectiveCityStatus } from '../../public/js/data/city-status-calc.js';
+ import { findRegentTerritory } from '../../public/js/data/helpers.js';
+ import { currentCycleInGamePhase } from '../../public/js/downtime/cycle-phase.js';
++import { isStRole } from '../middleware/auth.js';
+ 
+ const PAID_TYPES = new Set(['raise', 'lower']);
+ const GATED_TYPES = new Set(['raise', 'lower', 'grant_first', 'strip_last']);
+@@ -13,15 +14,24 @@ const GATED_TYPES = new Set(['raise', 'lower', 'grant_first', 'strip_last']);
+ const router = Router();
+ const col    = () => getCollection('office_actions');
+ 
+-// GET /api/office_actions/latest_session
+-// Returns the most recent game session (session_date <= today) so the client
+-// can scope budget checks and the public log to the active game.
+-router.get('/latest_session', async (req, res) => {
++// issue-1143: the single source of truth for "what is the current game
++// session" — used by GET /latest_session for display AND by POST / to
++// derive the authoritative game_session_id server-side. A client-supplied
++// game_session_id must never be trusted for budget/dedupe scoping (finding
++// #2 — it was previously the spoofable key resetting both checks).
++async function findLatestSession() {
+   const today = new Date().toISOString().slice(0, 10);
+-  const session = await getCollection('game_sessions').findOne(
++  return getCollection('game_sessions').findOne(
+     { session_date: { $lte: today } },
+     { sort: { session_date: -1 }, projection: { _id: 1, title: 1, session_date: 1, game_number: 1 } },
+   );
++}
++
++// GET /api/office_actions/latest_session
++// Returns the most recent game session (session_date <= today) so the client
++// can scope budget checks and the public log to the active game.
++router.get('/latest_session', async (req, res) => {
++  const session = await findLatestSession();
+   res.json(session || null);
+ });
+ 
+@@ -39,14 +49,32 @@ router.get('/', async (req, res) => {
+ // POST /api/office_actions
+ // Records a status power use and atomically updates target's status.city.
+ router.post('/', validate(officeActionSchema), async (req, res) => {
+-  const { game_session_id, actor_id, target_id, action_type } = req.body;
++  const { actor_id, target_id, action_type } = req.body;
++
++  // issue-1143 finding #1: actor_id must belong to the authenticated caller
++  // (one of req.user.character_ids), or the caller must hold an ST role.
++  // Checked first, before every other gate — "you may not act as this
++  // character" is a more fundamental rejection than "no game is live" or
++  // "that target is invalid." Reuses this project's existing ownership
++  // pattern (isStRole + character_ids membership), the same shape as
++  // isRegentOfTerritory and npcs.js's quick-add ownership check.
++  const callerCharIds = (req.user?.character_ids || []).map(String);
++  if (!isStRole(req.user) && !callerCharIds.includes(String(actor_id)))
++    return res.status(403).json({ error: 'FORBIDDEN', message: 'You may not act as this character' });
++
++  // issue-1143 finding #2: derive the authoritative game_session_id
++  // server-side from the SAME query GET /latest_session already uses. The
++  // client-supplied body field is never trusted for scoping — see
++  // findLatestSession() above.
++  const session = await findLatestSession();
++  if (!session)
++    return res.status(403).json({ error: 'FORBIDDEN', message: 'No active game session found' });
++  const game_session_id = String(session._id);
+ 
+   // otc.2 (2026-08-12): Status Actions must only fire while a game is live.
+-  // Checked first, before any other validation — a Status Action submitted
+-  // outside game phase is rejected outright regardless of whether the actor,
+-  // target, or budget would otherwise be valid. Mirrors the server-side
+-  // convention already used elsewhere (server/routes/downtime.js): cyclePhase
+-  // called with no second argument trusts the phase-aware lane only.
++  // Mirrors the server-side convention already used elsewhere
++  // (server/routes/downtime.js): cyclePhase called with no second argument
++  // trusts the phase-aware lane only.
+   if (GATED_TYPES.has(action_type)) {
+     // otc.2 fix (2026-08-12, Codex review): identify the CURRENT cycle
+     // (highest game_number) first, THEN test its phase. The original
+@@ -61,42 +89,27 @@ router.post('/', validate(officeActionSchema), async (req, res) => {
+       return res.status(403).json({ error: 'FORBIDDEN', message: 'No game session is currently in progress' });
+   }
+ 
+-  if (actor_id === target_id)
++  // issue-1143 finding #4: resolve both ids to real ObjectIds BEFORE any
++  // comparison — a hex-case-variant pair of the SAME id must not slip past
++  // a raw string comparison. Both ids are parsed once here and reused below
++  // instead of re-constructed per query.
++  let actorObjectId, targetObjectId;
++  try { actorObjectId = new ObjectId(actor_id); }
++  catch { return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'Invalid actor_id' }); }
++  try { targetObjectId = new ObjectId(target_id); }
++  catch { return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'Invalid target_id' }); }
++  if (actorObjectId.equals(targetObjectId))
+     return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'Cannot target yourself' });
+ 
+   // Load actor — must hold a court office
+-  let actor;
+-  try { actor = await getCollection('characters').findOne({ _id: new ObjectId(actor_id) }); }
+-  catch { return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'Invalid actor_id' }); }
++  const actor = await getCollection('characters').findOne({ _id: actorObjectId });
+   if (!actor)
+     return res.status(404).json({ error: 'NOT_FOUND', message: 'Actor not found' });
+   if (!actor.court_category)
+     return res.status(403).json({ error: 'FORBIDDEN', message: 'Actor holds no court office' });
+ 
+-  // Budget + uniqueness checks for paid actions
+-  if (PAID_TYPES.has(action_type)) {
+-    // otc.2: was (actor.status.city + TITLE_STATUS_BONUS) only, silently
+-    // dropping the regent-ambience bonus and the 10-cap the client already
+-    // displays. Now the same effective-City-Status calculation as the client.
+-    const territories = await getCollection('territories').find().toArray();
+-    const regentAmbience = findRegentTerritory(territories, actor)?.ambience;
+-    const budget = calcEffectiveCityStatus(actor, regentAmbience);
+-    const used = await col().countDocuments({
+-      game_session_id, actor_id, action_type: { $in: ['raise', 'lower'] },
+-    });
+-    if (used >= budget)
+-      return res.status(403).json({ error: 'FORBIDDEN', message: 'Budget exhausted for this session' });
+-    const dup = await col().findOne({
+-      game_session_id, actor_id, target_id, action_type: { $in: ['raise', 'lower'] },
+-    });
+-    if (dup)
+-      return res.status(409).json({ error: 'CONFLICT', message: 'Target already acted on this session' });
+-  }
+-
+   // Load target
+-  let target;
+-  try { target = await getCollection('characters').findOne({ _id: new ObjectId(target_id) }); }
+-  catch { return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'Invalid target_id' }); }
++  const target = await getCollection('characters').findOne({ _id: targetObjectId });
+   if (!target)
+     return res.status(404).json({ error: 'NOT_FOUND', message: 'Target not found' });
+ 
+@@ -134,9 +147,68 @@ router.post('/', validate(officeActionSchema), async (req, res) => {
+     timestamp,
+   };
+ 
++  if (PAID_TYPES.has(action_type)) {
++    // issue-1143 finding #3: budget + dedupe + write must be atomic enough
++    // that a realistic concurrent-request race cannot exceed budget or
++    // double-act on one target.
++    //
++    // This project's local dev/test MongoDB runs as a STANDALONE instance
++    // (confirmed live via `hello`), not a replica set — multi-document
++    // transactions are unavailable there even though Atlas (production)
++    // supports them. Using session.withTransaction would make this route
++    // untestable in this project's actual dev environment, so this uses an
++    // insert-then-verify pattern instead, which works identically on both:
++    //   1. A partial unique index on { game_session_id, actor_id, target_id }
++    //      (scoped to action_type in [raise, lower] — see index creation in
++    //      server/index.js) makes the per-target dedupe check ATOMIC: a
++    //      second concurrent insert on the same target fails with E11000,
++    //      not a racing findOne.
++    //   2. Budget stays a derived count (the formula/model is unchanged —
++    //      see story "What this story is NOT"). After a successful insert,
++    //      this re-counts the actor's paid actions THIS session; if the
++    //      insert pushed the count over budget, the insert is compensated
++    //      (deleted) and the request rejected. Two concurrent inserts can
++    //      both land, but each recount is a fresh, real read — at most
++    //      `budget` of them keep their insert, the rest self-evict. This
++    //      can occasionally over-reject right at the boundary (a legitimate
++    //      request bounces and must be retried) but can never over-accept —
++    //      the direction issue #1143 actually cares about.
++    const territories = await getCollection('territories').find().toArray();
++    const regentAmbience = findRegentTerritory(territories, actor)?.ambience;
++    const budget = calcEffectiveCityStatus(actor, regentAmbience);
++
++    let inserted;
++    try {
++      inserted = await col().insertOne(doc);
++    } catch (err) {
++      if (err?.code === 11000)
++        return res.status(409).json({ error: 'CONFLICT', message: 'Target already acted on this session' });
++      throw err;
++    }
++
++    const used = await col().countDocuments({
++      game_session_id, actor_id, action_type: { $in: ['raise', 'lower'] },
++    });
++    if (used > budget) {
++      await col().deleteOne({ _id: inserted.insertedId });
++      return res.status(403).json({ error: 'FORBIDDEN', message: 'Budget exhausted for this session' });
++    }
++
++    await getCollection('characters').updateOne(
++      { _id: targetObjectId },
++      { $set: { 'status.city': new_status, updated_at: timestamp } },
++    );
++
++    return res.status(201).json({ action: { ...doc, _id: inserted.insertedId }, new_status });
++  }
++
++  // grant_first / strip_last — no budget, and the old_status guard above
++  // already makes a race harmless: both set a fixed target value (1 or 0),
++  // not an increment, so a duplicate concurrent insert produces a redundant
++  // log entry but never an inconsistent status.city.
+   const inserted = await col().insertOne(doc);
+   await getCollection('characters').updateOne(
+-    { _id: new ObjectId(target_id) },
++    { _id: targetObjectId },
+     { $set: { 'status.city': new_status, updated_at: timestamp } },
+   );
+ 
+diff --git a/server/tests/feature.691.hos-city-status-power.test.js b/server/tests/feature.691.hos-city-status-power.test.js
+index 061ce54b..baa70f4f 100644
+--- a/server/tests/feature.691.hos-city-status-power.test.js
++++ b/server/tests/feature.691.hos-city-status-power.test.js
+@@ -23,7 +23,10 @@ describe('feature.691 — office_actions route', () => {
+     expect(ROUTE).toContain("'/latest_session'"));
+ 
+   it('validates actor !== target', () =>
+-    expect(ROUTE).toContain('actor_id === target_id'));
++    // issue-1143 (AC4): rewritten from a raw string comparison
++    // (actor_id === target_id) to resolved-ObjectId equality, so a
++    // hex-case-variant pair of the same id is still caught as a self-target.
++    expect(ROUTE).toContain('actorObjectId.equals(targetObjectId)'));
+ 
+   it('enforces paid budget via countDocuments', () =>
+     expect(ROUTE).toContain('countDocuments'));
+diff --git a/server/tests/helpers/db-setup.js b/server/tests/helpers/db-setup.js
+index 7aadb67a..0fb1b809 100644
+--- a/server/tests/helpers/db-setup.js
++++ b/server/tests/helpers/db-setup.js
+@@ -30,6 +30,30 @@ export async function teardownDb() {
+   // The connection closes naturally when the process exits.
+ }
+ 
++/**
++ * issue-1143 (AC5): non-throwing connectivity probe, for suites that want a
++ * clean vitest skip rather than a failed beforeAll + a second erroring
++ * afterAll cleanup. setupDb() itself keeps its existing throw-on-failure
++ * contract unchanged (other suites already depend on that shape) — this is
++ * a separate, additive helper. Usage:
++ *
++ *   const dbAvailable = await isDbAvailable();
++ *   describe.skipIf(!dbAvailable)('suite name', () => {
++ *     beforeAll(async () => { await setupDb(); ... });
++ *     ...
++ *   });
++ *
++ * The top-level `await` works because vitest test files are ESM modules.
++ */
++export async function isDbAvailable() {
++  try {
++    await setupDb();
++    return true;
++  } catch {
++    return false;
++  }
++}
++
+ /**
+  * Get a few character IDs for testing player filtering.
+  *
+diff --git a/server/tests/issue-1143-db-setup-skip.test.js b/server/tests/issue-1143-db-setup-skip.test.js
+new file mode 100644
+index 00000000..c32b3bd2
+--- /dev/null
++++ b/server/tests/issue-1143-db-setup-skip.test.js
+@@ -0,0 +1,70 @@
++/**
++ * issue-1143 AC5 — server/tests/helpers/db-setup.js's isDbAvailable() must
++ * catch a failed connection and resolve false, not throw/rethrow. This is
++ * what `describe.skipIf(!(await isDbAvailable()))` in a DB-backed suite
++ * needs to produce a clean vitest skip instead of the failed-beforeAll +
++ * erroring-afterAll double-error the bare setupDb()/teardownDb() pairing
++ * produces when MongoDB is unreachable.
++ *
++ * Deliberately its OWN file, isolated from every other DB-backed suite: it
++ * mocks '../db.js' to simulate a connection failure, which would corrupt
++ * the real shared connection state (the module-level `db` singleton in
++ * server/db.js) if run inside a file that also does real DB work in the
++ * same process. vi.resetModules() + vi.doMock() give this file its own
++ * module graph for db.js/db-setup.js without touching the real one other
++ * suites depend on.
++ *
++ * This test needs no real MongoDB — it is intentionally NOT DB-backed.
++ */
++
++import { describe, it, expect, vi, afterEach } from 'vitest';
++
++afterEach(() => {
++  vi.doUnmock('../db.js');
++  vi.resetModules();
++});
++
++describe('issue-1143 AC5 — isDbAvailable() clean-skip contract', () => {
++  it('resolves false, and does not throw, when the underlying connection fails', async () => {
++    vi.resetModules();
++    vi.doMock('../db.js', () => ({
++      connectDb: vi.fn().mockRejectedValue(new Error('ECONNREFUSED (simulated)')),
++      closeDb: vi.fn(),
++      getCollection: vi.fn(),
++      getDb: vi.fn(() => { throw new Error('Database not connected — call connectDb() first'); }),
++    }));
++
++    const { isDbAvailable } = await import('./helpers/db-setup.js');
++    await expect(isDbAvailable()).resolves.toBe(false);
++  });
++
++  it('resolves true when the underlying connection succeeds (positive control)', async () => {
++    vi.resetModules();
++    vi.doMock('../db.js', () => ({
++      connectDb: vi.fn().mockResolvedValue(undefined),
++      closeDb: vi.fn(),
++      getCollection: vi.fn(),
++      getDb: vi.fn(() => ({ databaseName: 'tm_suite_test' })),
++    }));
++
++    const { isDbAvailable } = await import('./helpers/db-setup.js');
++    await expect(isDbAvailable()).resolves.toBe(true);
++  });
++
++  it('still rejects when the DB connects but to a non-_test database (safety guard preserved)', async () => {
++    vi.resetModules();
++    vi.doMock('../db.js', () => ({
++      connectDb: vi.fn().mockResolvedValue(undefined),
++      closeDb: vi.fn(),
++      getCollection: vi.fn(),
++      getDb: vi.fn(() => ({ databaseName: 'tm_suite' })), // NOT *_test
++    }));
++
++    const { isDbAvailable } = await import('./helpers/db-setup.js');
++    // Connecting to a non-test DB under vitest is a hard safety violation,
++    // not a "DB unreachable" case — isDbAvailable() still catches it (it
++    // wraps the full setupDb() call, guard included) and resolves false
++    // rather than letting a live connection to the wrong database through.
++    await expect(isDbAvailable()).resolves.toBe(false);
++  });
++});
+diff --git a/server/tests/issue-1143-office-actions-auth-safety.test.js b/server/tests/issue-1143-office-actions-auth-safety.test.js
+new file mode 100644
+index 00000000..4c088f24
+--- /dev/null
++++ b/server/tests/issue-1143-office-actions-auth-safety.test.js
+@@ -0,0 +1,329 @@
++/**
++ * issue-1143 — real behavioural coverage for the four route-level defects
++ * fixed in server/routes/office-actions.js's POST / handler, all confirmed
++ * pre-existing since #691 and deferred out of otc-2-status-actions-server-
++ * hardening's scope:
++ *
++ *   AC1 — actor_id must belong to the authenticated caller, or the caller
++ *         must hold an ST role.
++ *   AC2 — game_session_id is derived server-side (game_sessions collection);
++ *         a client-supplied value can no longer reset budget/dedupe scoping.
++ *   AC3 — budget + dedupe + write are atomic enough that a real concurrent
++ *         request race cannot exceed budget or double-act on one target.
++ *   AC4 — the self-target check compares resolved ObjectIds, not raw
++ *         strings (a hex-case-variant pair of the same id is still a
++ *         self-target).
++ *
++ * AC5 (db-setup.js clean skip contract) is unit-tested separately in
++ * issue-1143-db-setup-skip.test.js, which needs to mock the DB connection
++ * failure path — that would corrupt the shared connection state this file's
++ * other tests depend on if done here. This file instead DEMONSTRATES the
++ * resulting pattern for real: every describe block below is wrapped in
++ * describe.skipIf(!dbAvailable) rather than the bare setupDb()/teardownDb()
++ * pairing otc-2-office-actions-api.test.js still uses, so this suite reports
++ * a clean vitest skip (not a failed beforeAll + a second erroring afterAll)
++ * if MongoDB is unreachable when this file runs.
++ *
++ * Follows the pattern established by otc-2-office-actions-api.test.js: real
++ * Supertest requests against the mounted app + tm_suite_test, prefixed test
++ * fixtures, full-collection defensive clears for the shared game_sessions /
++ * downtime_cycles collections (a leftover doc from another file could
++ * otherwise make findLatestSession()/currentCycleInGamePhase() resolve to
++ * the wrong record).
++ *
++ * DB-backed: real MongoDB required. See db-setup.js.
++ */
++
++import { describe, it, expect, beforeAll, afterAll } from 'vitest';
++import request from 'supertest';
++import { createTestApp, stUser, playerUser } from './helpers/test-app.js';
++import { setupDb, teardownDb, isDbAvailable } from './helpers/db-setup.js';
++import { getCollection } from '../db.js';
++import { ObjectId } from 'mongodb';
++
++// issue-1143 AC5: resolved once at module load (top-level await is valid in
++// an ESM vitest test file) so every describe.skipIf below shares one
++// connectivity probe rather than re-probing per suite.
++const dbAvailable = await isDbAvailable();
++
++let app;
++const NAME_PREFIX = 'Issue-1143 Probe';
++
++async function cleanup() {
++  await getCollection('characters').deleteMany({ name: { $regex: `^${NAME_PREFIX}` } });
++  await getCollection('territories').deleteMany({ name: { $regex: `^${NAME_PREFIX}` } });
++  await getCollection('downtime_cycles').deleteMany({ label: { $regex: `^${NAME_PREFIX}` } });
++  await getCollection('game_sessions').deleteMany({ title: { $regex: `^${NAME_PREFIX}` } });
++  await getCollection('office_actions').deleteMany({ actor_name: { $regex: `^${NAME_PREFIX}` } });
++}
++
++async function seedGameSessionAndCycle() {
++  // Full-collection defensive clear — see file header. Matches the same
++  // rationale otc-2-office-actions-api.test.js already established for
++  // downtime_cycles.
++  const today = new Date().toISOString().slice(0, 10);
++  await getCollection('game_sessions').deleteMany({ session_date: { $lte: today } });
++  await getCollection('game_sessions').insertOne({
++    title: `${NAME_PREFIX} Session`,
++    session_date: today,
++    game_number: 999,
++  });
++  await getCollection('downtime_cycles').deleteMany({});
++  await getCollection('downtime_cycles').insertOne({
++    label: `${NAME_PREFIX} Cycle`, phase: 'game', game_number: 999,
++  });
++}
++
++async function seedActor({ city = 0, courtCategory = 'Head of State' } = {}) {
++  const actorDoc = {
++    name: `${NAME_PREFIX} Actor ${Date.now()}_${Math.random()}`,
++    court_category: courtCategory,
++    status: { city },
++    retired: false,
++  };
++  const { insertedId } = await getCollection('characters').insertOne(actorDoc);
++  return insertedId;
++}
++
++async function seedTargets(count, startingCity = 1) {
++  const docs = Array.from({ length: count }, (_, i) => ({
++    name: `${NAME_PREFIX} Target ${Date.now()}_${i}_${Math.random()}`,
++    status: { city: startingCity },
++    retired: false,
++  }));
++  const result = await getCollection('characters').insertMany(docs);
++  return Object.values(result.insertedIds);
++}
++
++beforeAll(async () => {
++  // issue-1143 AC5: this top-level beforeAll runs regardless of which
++  // describe.skipIf blocks below get skipped, so it must guard itself too —
++  // otherwise an unreachable DB would still produce one failure here even
++  // with every suite marked skipped.
++  if (!dbAvailable) return;
++  await setupDb();
++  app = createTestApp();
++  await cleanup();
++  // createTestApp() doesn't run server/index.js's real boot sequence, so the
++  // production index-creation call there never fires under vitest. Ensure
++  // the same partial unique index exists here directly — createIndex is
++  // idempotent, matching the precedent in issue-971-cyoa-passages.test.js.
++  await getCollection('office_actions').createIndex(
++    { game_session_id: 1, actor_id: 1, target_id: 1 },
++    { unique: true, partialFilterExpression: { action_type: { $in: ['raise', 'lower'] } } },
++  );
++});
++
++afterAll(async () => {
++  if (!dbAvailable) return;
++  await cleanup();
++  await teardownDb();
++});
++
++describe.skipIf(!dbAvailable)('issue-1143 AC1 — actor_id authorization', () => {
++  it('403s a player POSTing an actor_id that is not one of their own character_ids', async () => {
++    await seedGameSessionAndCycle();
++    const actorId = await seedActor({ city: 3 });
++    const [targetId] = await seedTargets(1);
++
++    const res = await request(app).post('/api/office_actions')
++      .set('X-Test-User', playerUser(['000000000000000000000001']))
++      .send({
++        game_session_id: 'irrelevant', actor_id: String(actorId), target_id: String(targetId), action_type: 'raise',
++      });
++
++    expect(res.status).toBe(403);
++    expect(res.body.message).toMatch(/may not act as this character/i);
++  });
++
++  it('allows a player POSTing an actor_id that IS in their own character_ids', async () => {
++    await seedGameSessionAndCycle();
++    const actorId = await seedActor({ city: 3 });
++    const [targetId] = await seedTargets(1);
++
++    const res = await request(app).post('/api/office_actions')
++      .set('X-Test-User', playerUser([String(actorId)]))
++      .send({
++        game_session_id: 'irrelevant', actor_id: String(actorId), target_id: String(targetId), action_type: 'raise',
++      });
++
++    expect(res.status).toBe(201);
++  });
++
++  it('allows an ST-role caller to act as any actor_id (override)', async () => {
++    await seedGameSessionAndCycle();
++    const actorId = await seedActor({ city: 3 });
++    const [targetId] = await seedTargets(1);
++
++    const res = await request(app).post('/api/office_actions')
++      .set('X-Test-User', stUser())
++      .send({
++        game_session_id: 'irrelevant', actor_id: String(actorId), target_id: String(targetId), action_type: 'raise',
++      });
++
++    expect(res.status).toBe(201);
++  });
++});
++
++describe.skipIf(!dbAvailable)('issue-1143 AC2 — server-derived game_session_id', () => {
++  it('ignores a forged client-supplied game_session_id and stamps the real one', async () => {
++    await seedGameSessionAndCycle();
++    const realSession = await getCollection('game_sessions').findOne(
++      { title: `${NAME_PREFIX} Session` },
++    );
++    const actorId = await seedActor({ city: 3 });
++    const [targetId] = await seedTargets(1);
++
++    const res = await request(app).post('/api/office_actions')
++      .set('X-Test-User', stUser())
++      .send({
++        game_session_id: 'totally-forged-session-id', actor_id: String(actorId), target_id: String(targetId), action_type: 'raise',
++      });
++
++    expect(res.status).toBe(201);
++    expect(res.body.action.game_session_id).toBe(String(realSession._id));
++    expect(res.body.action.game_session_id).not.toBe('totally-forged-session-id');
++  });
++
++  it('a forged game_session_id cannot be used to reset budget scoping across requests', async () => {
++    // Pre-issue-1143 exploit: invent a fresh game_session_id per request to
++    // make the budget/dedupe counts always read 0. Post-fix, every request
++    // resolves to the SAME real session regardless of what the client sends,
++    // so the budget below (Head of State, city 0 => budget 3) is enforced
++    // across all four requests even though each one claims a different
++    // client-side session id.
++    await seedGameSessionAndCycle();
++    const actorId = await seedActor({ city: 0 });
++    const targets = await seedTargets(4, 1);
++
++    for (let i = 0; i < 3; i++) {
++      const res = await request(app).post('/api/office_actions')
++        .set('X-Test-User', stUser())
++        .send({
++          game_session_id: `forged-session-${i}`, actor_id: String(actorId), target_id: String(targets[i]), action_type: 'raise',
++        });
++      expect(res.status, `raise #${i + 1} of 3 (budget 3) should succeed`).toBe(201);
++    }
++
++    const res = await request(app).post('/api/office_actions')
++      .set('X-Test-User', stUser())
++      .send({
++        game_session_id: 'forged-session-should-not-reset-budget', actor_id: String(actorId), target_id: String(targets[3]), action_type: 'raise',
++      });
++    expect(res.status, 'the 4th raise exceeds budget 3 and must be rejected even under a fresh forged session id').toBe(403);
++  });
++
++  it('403s when no live game session exists', async () => {
++    await getCollection('game_sessions').deleteMany({});
++    await getCollection('downtime_cycles').deleteMany({});
++    await getCollection('downtime_cycles').insertOne({
++      label: `${NAME_PREFIX} Cycle`, phase: 'game', game_number: 999,
++    });
++    const actorId = await seedActor({ city: 3 });
++    const [targetId] = await seedTargets(1);
++
++    const res = await request(app).post('/api/office_actions')
++      .set('X-Test-User', stUser())
++      .send({
++        game_session_id: 'irrelevant', actor_id: String(actorId), target_id: String(targetId), action_type: 'raise',
++      });
++
++    expect(res.status).toBe(403);
++    expect(res.body.message).toMatch(/no active game session/i);
++  });
++});
++
++describe.skipIf(!dbAvailable)('issue-1143 AC4 — self-target check on resolved ObjectIds', () => {
++  it('rejects a self-target even when actor_id/target_id differ only by hex case', async () => {
++    await seedGameSessionAndCycle();
++    const actorId = await seedActor({ city: 3 });
++    const lower = actorId.toHexString();
++    const upper = lower.toUpperCase();
++    expect(lower).not.toBe(upper); // sanity: the pair really is a different string
++
++    const res = await request(app).post('/api/office_actions')
++      .set('X-Test-User', stUser())
++      .send({
++        game_session_id: 'irrelevant', actor_id: lower, target_id: upper, action_type: 'raise',
++      });
++
++    expect(res.status).toBe(400);
++    expect(res.body.message).toMatch(/cannot target yourself/i);
++  });
++
++  it('still allows the identical-string self-target case (regression check)', async () => {
++    await seedGameSessionAndCycle();
++    const actorId = await seedActor({ city: 3 });
++
++    const res = await request(app).post('/api/office_actions')
++      .set('X-Test-User', stUser())
++      .send({
++        game_session_id: 'irrelevant', actor_id: String(actorId), target_id: String(actorId), action_type: 'raise',
++      });
++
++    expect(res.status).toBe(400);
++    expect(res.body.message).toMatch(/cannot target yourself/i);
++  });
++});
++
++describe.skipIf(!dbAvailable)('issue-1143 AC3 — atomic budget + dedupe under concurrency', () => {
++  it('at most one of two concurrent requests wins the last budget slot', async () => {
++    await seedGameSessionAndCycle();
++    // Head of State, city 0 => effective budget 3. Consume 2 sequentially
++    // (unraced) to leave exactly 1 slot, then race two parallel requests at
++    // two DIFFERENT targets for that final slot.
++    const actorId = await seedActor({ city: 0 });
++    const targets = await seedTargets(4, 1);
++
++    for (let i = 0; i < 2; i++) {
++      const res = await request(app).post('/api/office_actions')
++        .set('X-Test-User', stUser())
++        .send({
++          game_session_id: 'irrelevant', actor_id: String(actorId), target_id: String(targets[i]), action_type: 'raise',
++        });
++      expect(res.status).toBe(201);
++    }
++
++    const [resA, resB] = await Promise.all([
++      request(app).post('/api/office_actions').set('X-Test-User', stUser()).send({
++        game_session_id: 'irrelevant', actor_id: String(actorId), target_id: String(targets[2]), action_type: 'raise',
++      }),
++      request(app).post('/api/office_actions').set('X-Test-User', stUser()).send({
++        game_session_id: 'irrelevant', actor_id: String(actorId), target_id: String(targets[3]), action_type: 'raise',
++      }),
++    ]);
++
++    const statuses = [resA.status, resB.status].sort();
++    expect(statuses[0], `exactly one of the two racing requests should succeed (got ${statuses.join(',')})`).toBe(201);
++    expect(statuses[1]).not.toBe(201);
++
++    const finalCount = await getCollection('office_actions').countDocuments({
++      actor_id: String(actorId), action_type: 'raise',
++    });
++    expect(finalCount, 'budget of 3 must never be exceeded regardless of the race outcome').toBe(3);
++  });
++
++  it('at most one of two concurrent requests targeting the SAME character succeeds', async () => {
++    await seedGameSessionAndCycle();
++    const actorId = await seedActor({ city: 3 });
++    const [targetId] = await seedTargets(1);
++
++    const [resA, resB] = await Promise.all([
++      request(app).post('/api/office_actions').set('X-Test-User', stUser()).send({
++        game_session_id: 'irrelevant', actor_id: String(actorId), target_id: String(targetId), action_type: 'raise',
++      }),
++      request(app).post('/api/office_actions').set('X-Test-User', stUser()).send({
++        game_session_id: 'irrelevant', actor_id: String(actorId), target_id: String(targetId), action_type: 'raise',
++      }),
++    ]);
++
++    const statuses = [resA.status, resB.status].sort();
++    expect(statuses[0], `exactly one of the two racing same-target requests should succeed (got ${statuses.join(',')})`).toBe(201);
++    expect(statuses[1]).not.toBe(201);
++
++    const finalCount = await getCollection('office_actions').countDocuments({
++      actor_id: String(actorId), target_id: String(targetId),
++    });
++    expect(finalCount, 'the unique partial index must prevent a duplicate action doc on the same target').toBe(1);
++  });
++});
+diff --git a/server/tests/otc-2-office-actions-api.test.js b/server/tests/otc-2-office-actions-api.test.js
+index 33b61c2c..11293310 100644
+--- a/server/tests/otc-2-office-actions-api.test.js
++++ b/server/tests/otc-2-office-actions-api.test.js
+@@ -22,13 +22,40 @@ import { ObjectId } from 'mongodb';
+ 
+ let app;
+ const NAME_PREFIX = 'OTC-2 Probe';
++// issue-1143: game_session_id is no longer client-trusted — the server
++// derives it itself from the game_sessions collection (findLatestSession()
++// in office-actions.js). This value is still SENT in request bodies below
++// (the schema requires the field) but the server ignores it for scoping; a
++// real game_sessions doc is seeded in beforeAll so the route has something
++// authoritative to resolve to. Kept only as a placeholder value now.
+ const GAME_SESSION_ID = 'otc-2-test-session';
+ 
+ async function cleanup() {
+   await getCollection('characters').deleteMany({ name: { $regex: `^${NAME_PREFIX}` } });
+   await getCollection('territories').deleteMany({ name: { $regex: `^${NAME_PREFIX}` } });
+   await getCollection('downtime_cycles').deleteMany({ label: { $regex: `^${NAME_PREFIX}` } });
+-  await getCollection('office_actions').deleteMany({ game_session_id: GAME_SESSION_ID });
++  await getCollection('game_sessions').deleteMany({ title: { $regex: `^${NAME_PREFIX}` } });
++  // Scoped by actor_name, not game_session_id — since issue-1143, the
++  // persisted game_session_id is the REAL server-derived session's _id, not
++  // this file's placeholder constant.
++  await getCollection('office_actions').deleteMany({ actor_name: { $regex: `^${NAME_PREFIX}` } });
++}
++
++async function seedGameSession() {
++  // issue-1143: clears ALL game_sessions with session_date <= today, not
++  // just this file's own prefixed ones — findLatestSession() picks the
++  // single most recent match across the WHOLE shared tm_suite_test
++  // collection, so a leftover session from another file with today's date
++  // could otherwise outrank (or tie with) this one. Mirrors the same
++  // defensive full-collection-clear already used for downtime_cycles below
++  // (Codex review finding, otc.2).
++  const today = new Date().toISOString().slice(0, 10);
++  await getCollection('game_sessions').deleteMany({ session_date: { $lte: today } });
++  await getCollection('game_sessions').insertOne({
++    title: `${NAME_PREFIX} Session`,
++    session_date: today,
++    game_number: 999,
++  });
+ }
+ 
+ async function seedActor({ city = 0, regentAmbience = null } = {}) {
+@@ -74,6 +101,7 @@ beforeAll(async () => {
+   await setupDb();
+   app = createTestApp();
+   await cleanup();
++  await seedGameSession();
+ });
+ 
+ afterAll(async () => {

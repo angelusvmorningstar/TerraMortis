@@ -1,0 +1,937 @@
+diff --git a/public/css/admin-layout.css b/public/css/admin-layout.css
+index ae0d0ab7..1de83822 100644
+--- a/public/css/admin-layout.css
++++ b/public/css/admin-layout.css
+@@ -10144,10 +10144,13 @@ html:not([data-theme="dark"]) .rules-tbl tbody tr:hover            { background:
+   background: var(--surf2);
+   color: var(--txt2);
+ }
+-.ec-bucket-weapon    { background: rgba(139, 0, 0, 0.18); color: var(--crim); }
+-.ec-bucket-armour    { background: rgba(70, 90, 120, 0.22); color: var(--txt2); }
+-.ec-bucket-equipment { background: rgba(108, 117, 125, 0.22); color: var(--txt2); }
+-.ec-bucket-asset     { background: rgba(224, 196, 122, 0.18); color: var(--gold2); }
++/* EQC-1 (#1152): re-tagged for the new five-value taxonomy. combat_gear takes
++   the old weapon tone (it's the bucket an ST reaches for most in a fight). */
++.ec-bucket-combat_gear  { background: rgba(139, 0, 0, 0.18); color: var(--crim); }
++.ec-bucket-skill_gear   { background: rgba(108, 117, 125, 0.22); color: var(--txt2); }
++.ec-bucket-tool_utility { background: rgba(70, 90, 120, 0.22); color: var(--txt2); }
++.ec-bucket-narrative    { background: var(--surf2); color: var(--txt3); }
++.ec-bucket-container    { background: rgba(224, 196, 122, 0.18); color: var(--gold2); }
+ 
+ /* ── Forms ────────────────────────────────────────────────────────────────── */
+ 
+diff --git a/public/js/admin/equipment-catalogue-admin.js b/public/js/admin/equipment-catalogue-admin.js
+index be64c0dc..1a3cbb24 100644
+--- a/public/js/admin/equipment-catalogue-admin.js
++++ b/public/js/admin/equipment-catalogue-admin.js
+@@ -29,15 +29,22 @@
+ import { apiGet, apiPost, apiPatch, apiRaw } from '../data/api.js';
+ import { esc } from '../data/helpers.js';
+ 
+-const BUCKETS = ['weapon', 'armour', 'equipment', 'asset'];
++// EQC-1 (issue #1152, epic #1038, 2026-08-13): re-partitioned from the old
++// four buckets (weapon/armour/equipment/asset) to these five. combat_gear
++// absorbs both weapon and armour — an item fills whichever stat-field subset
++// applies (weapon fields, armour fields, or in principle both) and leaves
++// the rest null; see BUCKET_FIELDS below and equipment-derivation.js's own
++// armour_value-based discriminator.
++const BUCKETS = ['combat_gear', 'skill_gear', 'tool_utility', 'narrative', 'container'];
+ 
+ // Bucket → list of optional fields shown in create/edit forms. Mirrors
+ // the EQ-1 null-template pattern (EQ_NULLS / WP_NULLS / AR_NULLS / AS_NULLS).
+ const BUCKET_FIELDS = {
+-  weapon:    ['damage_mod', 'damage_type', 'weapon_type'],
+-  armour:    ['armour_value', 'defence_penalty'],
+-  equipment: ['skill_domain', 'bonus_dice'],
+-  asset:     ['mechanical_effect'],
++  combat_gear:  ['damage_mod', 'damage_type', 'weapon_type', 'armour_value', 'defence_penalty'],
++  skill_gear:   ['skill_domain', 'bonus_dice'],
++  tool_utility: ['mechanical_effect'],
++  narrative:    [],
++  container:    ['mechanical_effect'],
+ };
+ 
+ // Module-level state — re-rendered on every mutation. Single-view module
+@@ -201,7 +208,7 @@ function wireListEvents() {
+ 
+ function openCreateForm() {
+   _editingId = null;
+-  renderForm({ bucket: 'equipment', tags: [] });
++  renderForm({ bucket: 'skill_gear', tags: [] });
+ }
+ 
+ async function openEditForm(id) {
+@@ -223,7 +230,7 @@ function renderForm(initial, impact = null) {
+   const host = document.getElementById('ec-form-host');
+   if (!host) return;
+   const isEdit = !!_editingId;
+-  const bucket = initial.bucket || 'equipment';
++  const bucket = initial.bucket || 'skill_gear';
+   const bucketOpts = BUCKETS.map(b =>
+     `<option value="${b}"${bucket === b ? ' selected' : ''}>${b}</option>`
+   ).join('');
+@@ -326,7 +333,7 @@ function wireFormEvents(initial) {
+  */
+ function collectFormValues(coerce = true) {
+   const $ = id => document.getElementById(id);
+-  const bucket = $('ec-f-bucket')?.value || (_editingId ? (_items.find(it => String(it._id) === String(_editingId))?.bucket) : 'equipment');
++  const bucket = $('ec-f-bucket')?.value || (_editingId ? (_items.find(it => String(it._id) === String(_editingId))?.bucket) : 'skill_gear');
+   const name = ($('ec-f-name')?.value || '').trim();
+   const description = ($('ec-f-description')?.value || '').trim() || null;
+   const availRaw = $('ec-f-availability')?.value;
+diff --git a/public/js/data/equipment-derivation.js b/public/js/data/equipment-derivation.js
+index 219b2c77..a2f86b6a 100644
+--- a/public/js/data/equipment-derivation.js
++++ b/public/js/data/equipment-derivation.js
+@@ -5,8 +5,15 @@
+  * array without an ADR" gate. ADR-006 specifies:
+  *
+  *   D1: armourDefencePenalty(c, catalogueLookup?) reads c.equipment[] filtered
+- *       by state === 'worn' + bucket === 'armour'; injectable catalogue
+- *       lookup (default: the ECM-5 cache reader).
++ *       by state === 'worn' + bucket === 'combat_gear' with armour_value != null;
++ *       injectable catalogue lookup (default: the ECM-5 cache reader).
++ *
++ *       EQC-1 (issue #1152, epic #1038, 2026-08-13): the old `armour` bucket
++ *       merged into `combat_gear` (which also covers weapons). "Armour-shaped"
++ *       is identified by `entry.armour_value != null` rather than by bucket
++ *       alone — the epic's own "distinct stat fields" distinction within the
++ *       single combat_gear bucket. A weapon-shaped combat_gear entry has
++ *       `armour_value: null` and is correctly excluded.
+  *   D2: worst-case math — Math.max(...penalties). The editor surfaces a soft
+  *       hint when >1 armour is worn (wording is concern #8 below).
+  *   D2-FLOOR: floor at 0 lives ONLY at the helper composition site. STM overlay
+@@ -58,7 +65,7 @@ export function armourDefencePenalty(c, catalogueLookup = getCatalogueEntry) {
+   for (const item of c.equipment) {
+     if (!item || item.state !== 'worn') continue;
+     const entry = catalogueLookup(item.catalogue_id);
+-    if (!entry || entry.bucket !== 'armour') continue;
++    if (!entry || entry.bucket !== 'combat_gear' || entry.armour_value == null) continue;
+     const p = Number.isInteger(entry.defence_penalty) ? entry.defence_penalty : 0;
+     if (p > 0) penalties.push(p);
+   }
+@@ -81,7 +88,7 @@ export function wornArmourCount(c, catalogueLookup = getCatalogueEntry) {
+   for (const item of c.equipment) {
+     if (!item || item.state !== 'worn') continue;
+     const entry = catalogueLookup(item.catalogue_id);
+-    if (entry?.bucket === 'armour') n++;
++    if (entry?.bucket === 'combat_gear' && entry.armour_value != null) n++;
+   }
+   return n;
+ }
+diff --git a/public/js/editor/sheet.js b/public/js/editor/sheet.js
+index b3e1ac35..b55a2165 100644
+--- a/public/js/editor/sheet.js
++++ b/public/js/editor/sheet.js
+@@ -2565,9 +2565,19 @@ export function shRenderManoeuvres(c, editMode) {
+ }
+ 
+ // ── Equipment renderer (EQ-2, issue #656) ────────────────────────────────────
+-// Renders catalogue-ref equipment[]. All four buckets (weapon/armour/equipment/asset)
+-// flow through the same array as of 2026-06-19 (character.assets[] retired).
++// Renders catalogue-ref equipment[]. All buckets flow through the same array
++// as of 2026-06-19 (character.assets[] retired).
+ // Edit mode shows the same view -- equipment is managed via the ST CRUD API (EQ-1).
++//
++// EQC-1 (issue #1152, epic #1038, 2026-08-13): re-partitioned from the old
++// four buckets (weapon/armour/equipment/asset) to five (combat_gear/
++// skill_gear/tool_utility/narrative/container). combat_gear merges the old
++// weapon+armour buckets -- the Weapons/Armour section split below is now
++// driven by which stat fields are POPULATED on the item (weapon_type/
++// damage_mod = weapon-shaped; armour_value/defence_penalty = armour-shaped),
++// not by a bucket comparison, since both shapes now share one bucket value.
++// An item with neither shape populated (an ST entry with no stats filled in
++// yet) falls to "Other Combat Gear" rather than being silently dropped.
+ export function shRenderEquipment(c, editMode) {
+   const equip  = c.equipment || [];
+   if (!editMode && !equip.length) return '';
+@@ -2581,18 +2591,27 @@ export function shRenderEquipment(c, editMode) {
+   let h = '<div class="sh-sec"><div class="sh-sec-title">Equipment</div><div class="merit-list">';
+ 
+   // Group equipment items by bucket, preserving flat-array index for remove buttons
+-  const byBucket = { weapon: [], armour: [], equipment: [], asset: [] };
++  const byBucket = { combat_gear: [], skill_gear: [], tool_utility: [], narrative: [], container: [] };
+   for (let i = 0; i < equip.length; i++) {
+     const item   = equip[i];
+     const entry  = getCatalogueEntry(item.catalogue_id) || {};
+-    const bucket = (entry.bucket && byBucket[entry.bucket]) ? entry.bucket : 'equipment';
++    const bucket = (entry.bucket && byBucket[entry.bucket]) ? entry.bucket : 'skill_gear';
+     byBucket[bucket].push({ item, entry, idx: i });
+   }
+ 
++  // combat_gear sub-split by populated stat fields, not bucket (both shapes
++  // now share the combat_gear bucket). An item matching neither shape (no
++  // stats filled in) still renders, under "Other Combat Gear".
++  const isWeaponShaped = e => e.weapon_type != null || e.damage_mod != null || e.damage_type != null;
++  const isArmourShaped = e => e.armour_value != null || e.defence_penalty != null;
++  const combatWeapons = byBucket.combat_gear.filter(x => isWeaponShaped(x.entry));
++  const combatArmour  = byBucket.combat_gear.filter(x => !isWeaponShaped(x.entry) && isArmourShaped(x.entry));
++  const combatOther   = byBucket.combat_gear.filter(x => !isWeaponShaped(x.entry) && !isArmourShaped(x.entry));
++
+   // ── Weapons ──
+-  if (byBucket.weapon.length) {
++  if (combatWeapons.length) {
+     h += '<div class="sh-sub-title">Weapons</div>';
+-    for (const { item, entry, idx } of byBucket.weapon) {
++    for (const { item, entry, idx } of combatWeapons) {
+       const name  = entry.name || item.catalogue_id;
+       // #896: per-character effective availability (raw - Fixer reduction).
+       const eff = entry.availability != null ? effectiveAvailability(entry, c) : null;
+@@ -2612,7 +2631,7 @@ export function shRenderEquipment(c, editMode) {
+   }
+ 
+   // ── Armour ──
+-  if (byBucket.armour.length) {
++  if (combatArmour.length) {
+     h += '<div class="sh-sub-title">Armour</div>';
+     // Issue #879 (ADR-006 D2 + Concern #8): soft non-blocking hint when
+     // multiple armour items are in state==='worn'. Stacking rule is
+@@ -2623,7 +2642,7 @@ export function shRenderEquipment(c, editMode) {
+       h += '<div class="sh-armour-hint" style="font-size:0.85em;opacity:0.75;margin-bottom:6px;">Only one armour applies; highest defence_penalty wins.</div>';
+     }
+     const baseDefence = calcDefence(c);
+-    for (const { item, entry, idx } of byBucket.armour) {
++    for (const { item, entry, idx } of combatArmour) {
+       const name  = entry.name || item.catalogue_id;
+       // #896: per-character effective availability (raw - Fixer reduction).
+       const eff = entry.availability != null ? effectiveAvailability(entry, c) : null;
+@@ -2641,10 +2660,26 @@ export function shRenderEquipment(c, editMode) {
+     }
+   }
+ 
+-  // ── Equipment (tools / tech) ──
+-  if (byBucket.equipment.length) {
+-    h += '<div class="sh-sub-title">Equipment</div>';
+-    for (const { item, entry, idx } of byBucket.equipment) {
++  // ── Other Combat Gear (combat_gear bucket, neither weapon- nor armour-shaped
++  // — e.g. an ST entry with no stat fields filled in yet) ──
++  if (combatOther.length) {
++    h += '<div class="sh-sub-title">Other Combat Gear</div>';
++    for (const { item, entry, idx } of combatOther) {
++      const name  = entry.name || item.catalogue_id;
++      const eff   = entry.availability != null ? effectiveAvailability(entry, c) : null;
++      const qual  = eff != null ? `avail ${eff}` : '';
++      const rmBtn = editMode ? `<button class="sk-spec-rm" style="float:right;margin-top:2px" onclick="shRemoveEquip(${idx})" title="Remove">× Remove</button>` : '';
++      h += `<div class="merit-plain"><div class="trait-row">` +
++        `<div class="trait-main"><span class="trait-name">${esc(name)}</span><div class="trait-right">${stateChip(item.state)}${rmBtn}</div></div>` +
++        (qual || item.notes ? `<div class="trait-sub">${qual ? `<span class="trait-qual">${esc(qual)}</span>` : ''}${item.notes ? `<span class="trait-qual dim">${esc(item.notes)}</span>` : ''}</div>` : '') +
++        `</div></div>`;
++    }
++  }
++
++  // ── Skill Gear (old "Equipment" bucket, unchanged meaning) ──
++  if (byBucket.skill_gear.length) {
++    h += '<div class="sh-sub-title">Skill Gear</div>';
++    for (const { item, entry, idx } of byBucket.skill_gear) {
+       const name  = entry.name || item.catalogue_id;
+       const pool  = (entry.skill_domain && entry.bonus_dice != null)
+         ? `${entry.skill_domain} +${entry.bonus_dice} dice` : '';
+@@ -2663,10 +2698,39 @@ export function shRenderEquipment(c, editMode) {
+     }
+   }
+ 
+-  // ── Assets (catalogue-backed since 2026-06-19) ──
+-  if (byBucket.asset.length) {
+-    h += '<div class="sh-sub-title">Assets</div>';
+-    for (const { item, entry, idx } of byBucket.asset) {
++  // ── Tools / Utility (NEW bucket — "does a thing, no bonus") ──
++  if (byBucket.tool_utility.length) {
++    h += '<div class="sh-sub-title">Tools / Utility</div>';
++    for (const { item, entry, idx } of byBucket.tool_utility) {
++      const name  = entry.name || item.catalogue_id;
++      const eff   = entry.availability != null ? effectiveAvailability(entry, c) : null;
++      const parts = [entry.mechanical_effect || null, eff != null ? `avail ${eff}` : null].filter(Boolean);
++      const qual  = parts.join(' · ');
++      const rmBtn = editMode ? `<button class="sk-spec-rm" style="float:right;margin-top:2px" onclick="shRemoveEquip(${idx})" title="Remove">× Remove</button>` : '';
++      h += `<div class="merit-plain"><div class="trait-row">` +
++        `<div class="trait-main"><span class="trait-name">${esc(name)}</span><div class="trait-right">${stateChip(item.state)}${rmBtn}</div></div>` +
++        (qual || item.notes ? `<div class="trait-sub">${qual ? `<span class="trait-qual">${esc(qual)}</span>` : ''}${item.notes ? `<span class="trait-qual dim">${esc(item.notes)}</span>` : ''}</div>` : '') +
++        `</div></div>`;
++    }
++  }
++
++  // ── Narrative (NEW bucket — purely descriptive, no stat fields) ──
++  if (byBucket.narrative.length) {
++    h += '<div class="sh-sub-title">Narrative</div>';
++    for (const { item, entry, idx } of byBucket.narrative) {
++      const name  = entry.name || item.catalogue_id;
++      const rmBtn = editMode ? `<button class="sk-spec-rm" style="float:right;margin-top:2px" onclick="shRemoveEquip(${idx})" title="Remove">× Remove</button>` : '';
++      h += `<div class="merit-plain"><div class="trait-row">` +
++        `<div class="trait-main"><span class="trait-name">${esc(name)}</span><div class="trait-right">${stateChip(item.state)}${rmBtn}</div></div>` +
++        (entry.description || item.notes ? `<div class="trait-sub">${entry.description ? `<span class="trait-qual">${esc(entry.description)}</span>` : ''}${item.notes ? `<span class="trait-qual dim">${esc(item.notes)}</span>` : ''}</div>` : '') +
++        `</div></div>`;
++    }
++  }
++
++  // ── Containers (old "Assets" bucket — catalogue-backed since 2026-06-19) ──
++  if (byBucket.container.length) {
++    h += '<div class="sh-sub-title">Containers</div>';
++    for (const { item, entry, idx } of byBucket.container) {
+       const name  = entry.name || item.catalogue_id;
+       const eff   = entry.availability != null ? effectiveAvailability(entry, c) : null;
+       const parts = [
+@@ -2685,19 +2749,26 @@ export function shRenderEquipment(c, editMode) {
+   }
+ 
+   // ── Edit-mode add form ──
+-  // 2026-06-19: single add form covers all four buckets (weapon/armour/equipment/asset).
+-  // Asset is now in the bucket dropdown; the separate free-text "Add Asset" form is gone
+-  // along with character.assets[] — catalogue-ref is the single canonical storage shape.
++  // 2026-06-19: single add form covers all buckets. Asset (now "container") is
++  // in the bucket dropdown; the separate free-text "Add Asset" form is gone
++  // along with character.assets[] — catalogue-ref is the single canonical
++  // storage shape. EQC-1 (#1152, 2026-08-13): dropdown values updated to the
++  // new five-bucket taxonomy; labels use BUCKET_LABELS rather than a bare
++  // capitalise (combat_gear/skill_gear/tool_utility need real spacing).
+   if (editMode) {
+     const STATES   = ['carried', 'worn', 'stashed', 'active', 'lost'];
+-    const BUCKETS  = ['weapon', 'armour', 'equipment', 'asset'];
++    const BUCKETS  = ['combat_gear', 'skill_gear', 'tool_utility', 'narrative', 'container'];
++    const BUCKET_LABELS = {
++      combat_gear: 'Combat Gear', skill_gear: 'Skill Gear', tool_utility: 'Tools / Utility',
++      narrative: 'Narrative', container: 'Container',
++    };
+     const defCycle = state.activeCycleNum ?? 0;
+ 
+     h += '<div class="sh-sub-title" style="margin-top:10px">Add Equipment Item</div>';
+     h += '<div class="dev-add-row" style="display:flex;flex-wrap:wrap;gap:4px;align-items:center;padding:4px 0">'
+       + '<select id="eq-add-bucket" class="dev-add-btn" onchange="shEquipBucketFilter()">'
+       + '<option value="">Bucket…</option>'
+-      + BUCKETS.map(b => `<option value="${b}">${b.charAt(0).toUpperCase() + b.slice(1)}</option>`).join('')
++      + BUCKETS.map(b => `<option value="${b}">${BUCKET_LABELS[b]}</option>`).join('')
+       + '</select>'
+       + '<select id="eq-add-item" class="dev-add-btn"><option value="">-- select bucket first --</option></select>'
+       + '<select id="eq-add-state" class="dev-add-btn">'
+diff --git a/public/js/suite/roll-v2.js b/public/js/suite/roll-v2.js
+index bf2ae760..badc1e10 100644
+--- a/public/js/suite/roll-v2.js
++++ b/public/js/suite/roll-v2.js
+@@ -217,7 +217,8 @@ export function updPool() {
+       // #752: 'active' is the strongest in-use state — treat it identically
+       // to carried/worn for chip eligibility (Khepri's option (a) — preserves
+       // 'active' as a semantically-stronger marker an ST may have already used).
+-      return entry && entry.bucket === 'equipment' &&
++      // EQC-1 (#1152): old 'equipment' bucket -> 'skill_gear', unchanged meaning.
++      return entry && entry.bucket === 'skill_gear' &&
+              entry.bonus_dice > 0 &&
+              entry.skill_domain === pi.skill &&
+              (item.state === 'carried' || item.state === 'worn' || item.state === 'active');
+@@ -307,7 +308,9 @@ export function updWeaponRef() {
+     // #752: 'active' is the strongest in-use state — include it in weapon-ref
+     // eligibility (matches the chip predicate above).
+     const entry = getCatalogueEntry(item.catalogue_id);
+-    return entry && entry.bucket === 'weapon' &&
++    // EQC-1 (#1152): 'weapon' bucket merged into 'combat_gear'; weapon-shaped
++    // is identified by weapon_type presence (armour-shaped entries leave it null).
++    return entry && entry.bucket === 'combat_gear' && entry.weapon_type != null &&
+            (item.state === 'carried' || item.state === 'worn' || item.state === 'active');
+   });
+   if (!weapons.length) {
+diff --git a/public/js/suite/roll.js b/public/js/suite/roll.js
+index 095857e0..8ec5f622 100644
+--- a/public/js/suite/roll.js
++++ b/public/js/suite/roll.js
+@@ -141,7 +141,8 @@ export function updPool() {
+       // #752: 'active' is the strongest in-use state — treat it identically
+       // to carried/worn for chip eligibility (Khepri's option (a) — preserves
+       // 'active' as a semantically-stronger marker an ST may have already used).
+-      return entry && entry.bucket === 'equipment' &&
++      // EQC-1 (#1152): old 'equipment' bucket -> 'skill_gear', unchanged meaning.
++      return entry && entry.bucket === 'skill_gear' &&
+              entry.bonus_dice > 0 &&
+              entry.skill_domain === pi.skill &&
+              (item.state === 'carried' || item.state === 'worn' || item.state === 'active');
+@@ -231,7 +232,9 @@ export function updWeaponRef() {
+     // #752: 'active' is the strongest in-use state — include it in weapon-ref
+     // eligibility (matches the chip predicate above).
+     const entry = getCatalogueEntry(item.catalogue_id);
+-    return entry && entry.bucket === 'weapon' &&
++    // EQC-1 (#1152): 'weapon' bucket merged into 'combat_gear'; weapon-shaped
++    // is identified by weapon_type presence (armour-shaped entries leave it null).
++    return entry && entry.bucket === 'combat_gear' && entry.weapon_type != null &&
+            (item.state === 'carried' || item.state === 'worn' || item.state === 'active');
+   });
+   if (!weapons.length) {
+diff --git a/public/js/tabs/downtime-form.js b/public/js/tabs/downtime-form.js
+index eea3744e..d33f65d1 100644
+--- a/public/js/tabs/downtime-form.js
++++ b/public/js/tabs/downtime-form.js
+@@ -5541,10 +5541,18 @@ function renderEquipmentRow(n, saved) {
+   if (legacyName && !selectedId) {
+     h += `<option value="" disabled>(legacy: ${esc(legacyName)} \u2014 please reselect)</option>`;
+   }
+-  for (const bucket of ['weapon', 'armour', 'equipment', 'asset']) {
++  // EQC-1 (#1152, epic #1038, 2026-08-13): re-partitioned from the old four
++  // buckets (weapon/armour/equipment/asset) to five; labels use
++  // EQUIPMENT_BUCKET_LABELS rather than the bare bucket value (combat_gear/
++  // skill_gear/tool_utility need real spacing, not a raw enum string).
++  const EQUIPMENT_BUCKET_LABELS = {
++    combat_gear: 'Combat Gear', skill_gear: 'Skill Gear', tool_utility: 'Tools / Utility',
++    narrative: 'Narrative', container: 'Container',
++  };
++  for (const bucket of ['combat_gear', 'skill_gear', 'tool_utility', 'narrative', 'container']) {
+     const arr = byBucket.get(bucket);
+     if (!arr || !arr.length) continue;
+-    h += `<optgroup label="${esc(bucket)}">`;
++    h += `<optgroup label="${esc(EQUIPMENT_BUCKET_LABELS[bucket] || bucket)}">`;
+     for (const it of arr) {
+       const sel       = String(it._id) === selectedId ? ' selected' : '';
+       const eff       = effectiveAvailability(it, currentChar);
+diff --git a/server/schemas/character.schema.js b/server/schemas/character.schema.js
+index 2860ed0e..75247163 100644
+--- a/server/schemas/character.schema.js
++++ b/server/schemas/character.schema.js
+@@ -315,6 +315,23 @@ export const characterSchema = {
+     // specs/epic-ecm-equipment-catalogue-migration.md and Khepri's ECM-3
+     // dispatch for the rationale (the coercion is canonical Express+Mongo
+     // hygiene, not transitional kludge — it stays after ECM-4/5 ship).
++    //
++    // `container_id` (EQC-1, issue #1152, epic #1038) — null/absent means
++    // this item is loose (carried on the character, not stored inside
++    // anything). When set, it is the `catalogue_id` of ANOTHER entry in this
++    // SAME character's `equipment[]` array whose catalogue bucket is
++    // `container` (a haven, vehicle, safe, etc.) — "a property contains a
++    // security system... never a bonus on the asset". Single-level only for
++    // v1 (a container's own contents are never themselves container-eligible
++    // targets) — the epic's own examples (a safe inside a haven) are all
++    // single-level, and recursive containment is real added complexity with
++    // no stated requirement yet; a future story can lift this if actually
++    // needed. Not validated as a REFERENCE here (schema has no cross-item
++    // lookup) — the write route is responsible for confirming the referenced
++    // entry exists in the same array and resolves to a container-bucket
++    // catalogue item; an unresolvable/stale container_id is display-inert
++    // (renders as loose) rather than a write-time hard failure, matching
++    // this schema's existing catalogue_id-is-a-lean-ref philosophy.
+     equipment: {
+       type: 'array',
+       default: [],
+@@ -326,6 +343,7 @@ export const characterSchema = {
+           state:           { type: 'string', enum: ['carried', 'worn', 'stashed', 'lost', 'active'] },
+           acquired_cycle:  { type: 'integer', minimum: 0 },
+           notes:           { type: ['string', 'null'] },
++          container_id:    { type: ['string', 'null'], pattern: '^[a-f0-9]{24}$' },
+         },
+         additionalProperties: false,
+       },
+diff --git a/server/schemas/equipment_catalogue.schema.js b/server/schemas/equipment_catalogue.schema.js
+index a2405ecf..28ce2fdf 100644
+--- a/server/schemas/equipment_catalogue.schema.js
++++ b/server/schemas/equipment_catalogue.schema.js
+@@ -12,6 +12,32 @@
+  * — that's a separate bugfix. Bucket-specific fields are loosely typed (nullable
+  * primitives) so the schema accepts every existing seed entry without further
+  * coercion in ECM-2.
++ *
++ * EQC-1 (issue #1152, epic #1038) — bucket re-partition, 2026-08-13. The old
++ * four buckets (weapon/armour/equipment/asset) become FIVE new values:
++ *
++ *   combat_gear  — weapons AND armour, distinguished by which stat fields are
++ *                  populated (damage_mod/damage_type/weapon_type = weapon-shaped;
++ *                  armour_value/defence_penalty = armour-shaped). Both sets of
++ *                  fields stay on the schema for this bucket; a given item
++ *                  populates whichever subset applies and leaves the rest null.
++ *   skill_gear   — old `equipment` bucket, unchanged meaning (skill_domain +
++ *                  bonus_dice). Renamed only.
++ *   tool_utility — NEW. "Does a thing, no bonus" per the epic description —
++ *                  mechanical_effect (free text), no numeric bonus field.
++ *   narrative    — NEW. Purely descriptive; no bucket-specific stat fields.
++ *   container    — old `asset` bucket. "Assets are containers... no
++ *                  stat-stacking on the asset itself" (epic #1038) — holds
++ *                  other equipment (see character.schema.js's `container_id`)
++ *                  rather than granting a bonus of its own. mechanical_effect
++ *                  stays available for descriptive/narrative notes (e.g. what
++ *                  a haven confers), not a combat bonus.
++ *
++ * Migration: server/scripts/migrate-eqc1-bucket-taxonomy.mjs maps every live
++ * equipment_catalogue document from the old enum to the new one
++ * (weapon→combat_gear, armour→combat_gear, equipment→skill_gear,
++ * asset→container). Must run before/alongside this schema landing — see that
++ * script's own header for why the two cannot ship independently.
+  */
+ 
+ export const equipmentCatalogueSchema = {
+@@ -26,7 +52,7 @@ export const equipmentCatalogueSchema = {
+     _id: {},
+ 
+     // ── Identity / core ──
+-    bucket:       { type: 'string', enum: ['weapon', 'armour', 'equipment', 'asset'] },
++    bucket:       { type: 'string', enum: ['combat_gear', 'skill_gear', 'tool_utility', 'narrative', 'container'] },
+     name:         { type: 'string', minLength: 1 },
+     description:  { type: ['string', 'null'] },
+     availability: { type: ['integer', 'null'], minimum: 0, maximum: 5 },
+diff --git a/server/scripts/migrate-eqc1-bucket-taxonomy.mjs b/server/scripts/migrate-eqc1-bucket-taxonomy.mjs
+new file mode 100644
+index 00000000..25692ee8
+--- /dev/null
++++ b/server/scripts/migrate-eqc1-bucket-taxonomy.mjs
+@@ -0,0 +1,154 @@
++/**
++ * EQC-1 (issue #1152, epic #1038) — equipment_catalogue bucket re-partition.
++ *
++ * Maps every live `equipment_catalogue` document from the OLD four-bucket
++ * taxonomy to the NEW five-value one:
++ *
++ *   weapon    → combat_gear   (weapon-shaped: damage_mod/damage_type/weapon_type)
++ *   armour    → combat_gear   (armour-shaped: armour_value/defence_penalty)
++ *   equipment → skill_gear    (unchanged meaning — skill_domain + bonus_dice)
++ *   asset     → container     ("assets are containers... no stat-stacking
++ *                              on the asset itself" — epic #1038)
++ *
++ * `combat_gear` absorbs both old weapon and armour buckets, distinguished at
++ * read time by WHICH stat fields are populated on the item — not by a new
++ * subtype field. This mirrors the epic's own wording ("combat gear
++ * (weapons/armour, distinct stat fields)") and needs no new schema field.
++ *
++ * WHY THIS CANNOT SHIP INDEPENDENTLY OF THE SCHEMA CHANGE. Unlike
++ * backfill-free-grants.js's union-sum runtime guard, nothing in this codebase
++ * reads BOTH the old and new bucket vocabulary simultaneously (a deliberate
++ * choice — see the EQC-1 story's "Migration shape" decision, atomic not
++ * dual-support). So an un-migrated document is invisible to every consumer
++ * (armourDefencePenalty, roll calculator weapon/skill chips, sheet renderer,
++ * DT form dropdown) the moment the new-taxonomy-aware code lands. This script
++ * and the schema/consumer changes in the same story MUST land together on
++ * this branch before merge — there is no safe "schema first, migrate later"
++ * window here, unlike the free-grants case.
++ *
++ * Idempotent: re-running matches zero docs the second time (every document's
++ * `bucket` is already one of the new five values after the first apply).
++ * Dry-run default, mirrors backfill-free-grants.js's own CLI shape.
++ *
++ * Usage:
++ *   # preview (default — no writes):
++ *   node server/scripts/migrate-eqc1-bucket-taxonomy.mjs
++ *
++ *   # apply:
++ *   node server/scripts/migrate-eqc1-bucket-taxonomy.mjs --apply
++ *
++ *   # target the test DB:
++ *   MONGODB_DB=tm_suite_test node server/scripts/migrate-eqc1-bucket-taxonomy.mjs --apply
++ *
++ * Locally, run from `server/` so cwd-relative `dotenv/config` picks up
++ * `server/.env`. On Render env vars are pre-set (no-op).
++ */
++
++import 'dotenv/config';
++import { pathToFileURL } from 'url';
++import { connectDb, getCollection, closeDb } from '../db.js';
++
++/** Old bucket → new bucket. The one-to-one mapping this whole script exists to apply. */
++export const BUCKET_MAP = Object.freeze({
++  weapon: 'combat_gear',
++  armour: 'combat_gear',
++  equipment: 'skill_gear',
++  asset: 'container',
++});
++
++const NEW_BUCKETS = new Set(['combat_gear', 'skill_gear', 'tool_utility', 'narrative', 'container']);
++
++/**
++ * Compute the migration plan for a single catalogue document. Pure — no DB
++ * access, no module-level state.
++ *
++ * @param {object} doc - an equipment_catalogue document
++ * @returns {{ touched: boolean, fromBucket: string|undefined, toBucket: string|undefined, reason: string|null }}
++ */
++export function planBucketMigration(doc) {
++  if (!doc || typeof doc !== 'object') {
++    return { touched: false, fromBucket: undefined, toBucket: undefined, reason: 'malformed document' };
++  }
++  const from = doc.bucket;
++  if (NEW_BUCKETS.has(from)) {
++    return { touched: false, fromBucket: from, toBucket: from, reason: null };
++  }
++  const to = BUCKET_MAP[from];
++  if (!to) {
++    // Neither a known old value nor a known new one — flag rather than guess.
++    return { touched: false, fromBucket: from, toBucket: undefined, reason: `unrecognised bucket value "${from}"` };
++  }
++  return { touched: true, fromBucket: from, toBucket: to, reason: null };
++}
++
++/**
++ * Drive the migration against MongoDB. Returns the aggregate summary.
++ *
++ * @param {object} [opts]
++ * @param {boolean} [opts.dryRun]
++ * @param {boolean} [opts.log]
++ */
++export async function migrate(opts = {}) {
++  const { dryRun = true, log = true } = opts;
++  const col = getCollection('equipment_catalogue');
++  const docs = await col.find({}).toArray();
++
++  const totals = {
++    scanned: docs.length,
++    touched: 0,
++    perMapping: Object.create(null),
++    unrecognised: [],
++  };
++
++  for (const doc of docs) {
++    const plan = planBucketMigration(doc);
++    if (plan.reason && !plan.touched) {
++      totals.unrecognised.push({ id: String(doc._id), name: doc.name || '(unnamed)', bucket: plan.fromBucket });
++      continue;
++    }
++    if (!plan.touched) continue;
++
++    const key = `${plan.fromBucket} → ${plan.toBucket}`;
++    totals.perMapping[key] = (totals.perMapping[key] || 0) + 1;
++    totals.touched += 1;
++
++    if (!dryRun) {
++      await col.updateOne({ _id: doc._id }, { $set: { bucket: plan.toBucket, updated_at: new Date().toISOString() } });
++    }
++  }
++
++  if (log) {
++    const verb = dryRun ? '[DRY RUN] would touch' : 'touched';
++    console.log(`Scanned ${totals.scanned} catalogue item(s); ${verb} ${totals.touched}.`);
++    if (Object.keys(totals.perMapping).length) {
++      console.log('Per-mapping:');
++      for (const [k, n] of Object.entries(totals.perMapping)) console.log(`  ${k.padEnd(24)} ${n}`);
++    }
++    if (totals.unrecognised.length) {
++      console.log(`\nUNRECOGNISED bucket values (${totals.unrecognised.length}) — SKIPPED, need human review:`);
++      for (const u of totals.unrecognised) console.log(`  ${u.name} (${u.id}): bucket="${u.bucket}"`);
++    }
++  }
++  return totals;
++}
++
++export async function main(argv = process.argv) {
++  const dryRun = !argv.includes('--apply');
++  console.log(`Mode: ${dryRun ? 'DRY RUN (read only; pass --apply to write)' : 'APPLY (will write)'}`);
++  console.log(`Target DB: ${process.env.MONGODB_DB || 'tm_suite'}`);
++  console.log('');
++
++  await connectDb();
++  try {
++    await migrate({ dryRun });
++  } finally {
++    await closeDb();
++  }
++
++  console.log('\nIdempotency check (after --apply): re-run with no flag and confirm "touched 0".');
++}
++
++// Auto-run only when invoked directly (not when imported by a test).
++if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
++  main().catch(err => { console.error(err); process.exit(1); });
++}
+diff --git a/server/tests/equipment-client-fixes.test.js b/server/tests/equipment-client-fixes.test.js
+index 2929996a..09283579 100644
+--- a/server/tests/equipment-client-fixes.test.js
++++ b/server/tests/equipment-client-fixes.test.js
+@@ -64,15 +64,18 @@ describe('#752 — roll.js predicates include the active state', () => {
+   it('equipment-chip filter accepts state === active', () => {
+     const src = read('public/js/suite/roll.js');
+     // The predicate block: any line with `item.state === 'active'` near a
+-    // `bucket === 'equipment'` filter clause counts. We confirm BOTH the
+-    // 'equipment' filter and the 'active' check coexist within a small
++    // `bucket === 'skill_gear'` filter clause counts. We confirm BOTH the
++    // skill_gear filter and the 'active' check coexist within a small
+     // window so a future predicate rewrite doesn't silently drop 'active'.
+-    expect(src).toMatch(/bucket === 'equipment'[\s\S]{0,400}item\.state === 'active'/);
++    // EQC-1 (#1152): the old 'equipment' bucket is now 'skill_gear'.
++    expect(src).toMatch(/bucket === 'skill_gear'[\s\S]{0,400}item\.state === 'active'/);
+   });
+ 
+   it('weapon-reference filter accepts state === active', () => {
+     const src = read('public/js/suite/roll.js');
+-    expect(src).toMatch(/bucket === 'weapon'[\s\S]{0,400}item\.state === 'active'/);
++    // EQC-1 (#1152): the old 'weapon' bucket merged into 'combat_gear',
++    // weapon-shaped items distinguished by weapon_type != null.
++    expect(src).toMatch(/bucket === 'combat_gear' && entry\.weapon_type != null[\s\S]{0,400}item\.state === 'active'/);
+   });
+ 
+   it('the legacy carried + worn states still appear in the same predicates (no accidental swap)', () => {
+diff --git a/server/tests/issue-1152-eqc1-bucket-migration.test.js b/server/tests/issue-1152-eqc1-bucket-migration.test.js
+new file mode 100644
+index 00000000..16fc9640
+--- /dev/null
++++ b/server/tests/issue-1152-eqc1-bucket-migration.test.js
+@@ -0,0 +1,130 @@
++/**
++ * EQC-1 (issue #1152, epic #1038) — bucket taxonomy migration script.
++ *
++ * Pure-function tests for planBucketMigration (no DB) plus an integration
++ * test driving migrate() against tm_suite_test, mirroring the pattern
++ * backfill-free-grants.js's own test suite would use (dry-run default,
++ * idempotent, per-mapping summary).
++ */
++
++import { describe, it, expect, beforeAll, afterAll, afterEach } from 'vitest';
++import 'dotenv/config';
++import { setupDb, teardownDb } from './helpers/db-setup.js';
++import { getCollection } from '../db.js';
++import { BUCKET_MAP, planBucketMigration, migrate } from '../scripts/migrate-eqc1-bucket-taxonomy.mjs';
++
++describe('planBucketMigration (pure)', () => {
++  it('maps weapon -> combat_gear', () => {
++    const r = planBucketMigration({ bucket: 'weapon' });
++    expect(r).toEqual({ touched: true, fromBucket: 'weapon', toBucket: 'combat_gear', reason: null });
++  });
++
++  it('maps armour -> combat_gear', () => {
++    const r = planBucketMigration({ bucket: 'armour' });
++    expect(r.touched).toBe(true);
++    expect(r.toBucket).toBe('combat_gear');
++  });
++
++  it('maps equipment -> skill_gear', () => {
++    const r = planBucketMigration({ bucket: 'equipment' });
++    expect(r.touched).toBe(true);
++    expect(r.toBucket).toBe('skill_gear');
++  });
++
++  it('maps asset -> container', () => {
++    const r = planBucketMigration({ bucket: 'asset' });
++    expect(r.touched).toBe(true);
++    expect(r.toBucket).toBe('container');
++  });
++
++  it('leaves an already-migrated document untouched (idempotency)', () => {
++    for (const bucket of ['combat_gear', 'skill_gear', 'tool_utility', 'narrative', 'container']) {
++      const r = planBucketMigration({ bucket });
++      expect(r.touched).toBe(false);
++      expect(r.toBucket).toBe(bucket);
++    }
++  });
++
++  it('flags an unrecognised bucket value rather than guessing', () => {
++    const r = planBucketMigration({ bucket: 'wandwood' });
++    expect(r.touched).toBe(false);
++    expect(r.toBucket).toBeUndefined();
++    expect(r.reason).toMatch(/unrecognised/);
++  });
++
++  it('handles a malformed/missing document without throwing', () => {
++    expect(planBucketMigration(null).touched).toBe(false);
++    expect(planBucketMigration(undefined).touched).toBe(false);
++    expect(planBucketMigration({}).touched).toBe(false);
++  });
++
++  it('BUCKET_MAP covers exactly the four old bucket values, nothing else', () => {
++    expect(Object.keys(BUCKET_MAP).sort()).toEqual(['armour', 'asset', 'equipment', 'weapon']);
++  });
++});
++
++describe('migrate() — integration against tm_suite_test', () => {
++  const seededIds = [];
++
++  beforeAll(async () => { await setupDb(); });
++  afterAll(async () => {
++    if (seededIds.length) await getCollection('equipment_catalogue').deleteMany({ _id: { $in: seededIds } });
++    await teardownDb();
++  });
++  afterEach(async () => {
++    if (seededIds.length) {
++      await getCollection('equipment_catalogue').deleteMany({ _id: { $in: seededIds } });
++      seededIds.length = 0;
++    }
++  });
++
++  async function seed(bucket, name) {
++    const now = new Date().toISOString();
++    const result = await getCollection('equipment_catalogue').insertOne({
++      bucket, name, description: 'fixture', availability: 1, tags: [],
++      damage_mod: null, damage_type: null, weapon_type: null,
++      armour_value: null, defence_penalty: null, skill_domain: null, bonus_dice: null,
++      mechanical_effect: null, created_at: now, updated_at: now,
++    });
++    seededIds.push(result.insertedId);
++    return result.insertedId;
++  }
++
++  it('dry run makes no writes', async () => {
++    const id = await seed('weapon', 'Dry Run Knife');
++    const totals = await migrate({ dryRun: true, log: false });
++    expect(totals.touched).toBeGreaterThanOrEqual(1);
++    const doc = await getCollection('equipment_catalogue').findOne({ _id: id });
++    expect(doc.bucket).toBe('weapon');
++  });
++
++  it('apply migrates every old-taxonomy document and is idempotent on re-run', async () => {
++    const wId = await seed('weapon', 'Apply Knife');
++    const aId = await seed('armour', 'Apply Vest');
++    const eId = await seed('equipment', 'Apply Lockpick');
++    const asId = await seed('asset', 'Apply Haven');
++
++    const first = await migrate({ dryRun: false, log: false });
++    expect(first.touched).toBeGreaterThanOrEqual(4);
++
++    const col = getCollection('equipment_catalogue');
++    expect((await col.findOne({ _id: wId })).bucket).toBe('combat_gear');
++    expect((await col.findOne({ _id: aId })).bucket).toBe('combat_gear');
++    expect((await col.findOne({ _id: eId })).bucket).toBe('skill_gear');
++    expect((await col.findOne({ _id: asId })).bucket).toBe('container');
++
++    // Idempotency: re-run touches nothing further among these four.
++    const second = await migrate({ dryRun: false, log: false });
++    const stillOld = await col.find({ _id: { $in: [wId, aId, eId, asId] }, bucket: { $nin: ['combat_gear', 'skill_gear', 'container'] } }).toArray();
++    expect(stillOld.length).toBe(0);
++    expect(second.touched).toBe(0);
++  });
++
++  it('an unrecognised bucket value is reported, not silently dropped or guessed', async () => {
++    const id = await seed('wandwood', 'Mystery Item');
++    const totals = await migrate({ dryRun: true, log: false });
++    const hit = totals.unrecognised.find(u => u.id === String(id));
++    expect(hit).toBeDefined();
++    expect(hit.bucket).toBe('wandwood');
++  });
++});
+diff --git a/server/tests/issue-868-ecm-1-equipment-catalogue-api.test.js b/server/tests/issue-868-ecm-1-equipment-catalogue-api.test.js
+index 3dd47f34..261610a0 100644
+--- a/server/tests/issue-868-ecm-1-equipment-catalogue-api.test.js
++++ b/server/tests/issue-868-ecm-1-equipment-catalogue-api.test.js
+@@ -139,7 +139,7 @@ describe('POST /api/equipment_catalogue', () => {
+     const res = await request(app)
+       .post('/api/equipment_catalogue')
+       .set('X-Test-User', stUser())
+-      .send({ bucket: 'weapon', name: 'Glock 17', description: 'Pistol', availability: 2, damage_mod: 2 });
++      .send({ bucket: 'combat_gear', name: 'Glock 17', description: 'Pistol', availability: 2, damage_mod: 2, weapon_type: 'ranged' });
+     expect(res.status).toBe(201);
+     expect(res.body._id).toBeDefined();
+     expect(res.body.name).toBe('Glock 17');
+diff --git a/server/tests/issue-871-876-ecm-4-9-bundle.test.js b/server/tests/issue-871-876-ecm-4-9-bundle.test.js
+index c4e7d06c..58aec5dc 100644
+--- a/server/tests/issue-871-876-ecm-4-9-bundle.test.js
++++ b/server/tests/issue-871-876-ecm-4-9-bundle.test.js
+@@ -58,10 +58,10 @@ describe('#871 — downtime-form.js wires the catalogue dropdown', () => {
+     expect(src).toMatch(/<select id="dt-equipment_\$\{n\}_catalogue_id"/);
+   });
+ 
+-  it('emits optgroups per bucket (weapon / armour / equipment / asset)', () => {
+-    // The render iterates ['weapon', 'armour', 'equipment', 'asset'] and emits <optgroup label="...">
+-    expect(src).toMatch(/for\s*\(\s*const\s+bucket\s+of\s+\[\s*['"]weapon['"]\s*,\s*['"]armour['"]\s*,\s*['"]equipment['"]\s*,\s*['"]asset['"]\s*\]/);
+-    expect(src).toMatch(/<optgroup label="\$\{esc\(bucket\)\}">/);
++  it('emits optgroups per bucket (combat_gear / skill_gear / tool_utility / narrative / container — EQC-1 #1152)', () => {
++    // The render iterates the new five-value taxonomy and emits <optgroup label="...">
++    expect(src).toMatch(/for\s*\(\s*const\s+bucket\s+of\s+\[\s*['"]combat_gear['"]\s*,\s*['"]skill_gear['"]\s*,\s*['"]tool_utility['"]\s*,\s*['"]narrative['"]\s*,\s*['"]container['"]\s*\]/);
++    expect(src).toMatch(/<optgroup label="\$\{esc\(EQUIPMENT_BUCKET_LABELS\[bucket\] \|\| bucket\)\}">/);
+   });
+ 
+   it('option value is the 24-hex `_id` (not the legacy slug)', () => {
+diff --git a/server/tests/issue-879-defence-penalty-wirein.test.js b/server/tests/issue-879-defence-penalty-wirein.test.js
+index e670ffbd..93f3806b 100644
+--- a/server/tests/issue-879-defence-penalty-wirein.test.js
++++ b/server/tests/issue-879-defence-penalty-wirein.test.js
+@@ -91,8 +91,9 @@ describe('#879 — equipment-derivation.js module shape', () => {
+     expect(src).not.toMatch(/item\.state\s*===\s*['"]stashed['"]/);
+   });
+ 
+-  it('filters by bucket === \'armour\'', () => {
+-    expect(src).toMatch(/entry\.bucket\s*!==\s*['"]armour['"]/);
++  it('filters by bucket === \'combat_gear\' AND armour_value != null (EQC-1 #1152: armour merged into combat_gear, distinguished by populated stat fields)', () => {
++    expect(src).toMatch(/entry\.bucket\s*!==\s*['"]combat_gear['"]/);
++    expect(src).toMatch(/entry\.armour_value\s*==\s*null/);
+   });
+ });
+ 
+@@ -243,8 +244,8 @@ describe('#879 — armourDefencePenalty behaviour (D1 + D2)', () => {
+     if (typeof globalThis.location === 'undefined') globalThis.location = { hostname: '' };
+     const mod = await import('../../public/js/data/equipment-derivation.js');
+     const items = [
+-      { _id: 'aaa1', bucket: 'armour', defence_penalty: 2 },
+-      { _id: 'aaa2', bucket: 'armour', defence_penalty: 3 },
++      { _id: 'aaa1', bucket: 'combat_gear', armour_value: 1, defence_penalty: 2 },
++      { _id: 'aaa2', bucket: 'combat_gear', armour_value: 1, defence_penalty: 3 },
+     ];
+     const c = mkChar({ equipment: [
+       { catalogue_id: 'aaa1', state: 'carried' },
+@@ -253,12 +254,12 @@ describe('#879 — armourDefencePenalty behaviour (D1 + D2)', () => {
+     expect(mod.armourDefencePenalty(c, mkLookup(items))).toBe(0);
+   });
+ 
+-  it('D1: filters by bucket === \'armour\' — ignores worn non-armour items', async () => {
++  it('D1: filters by bucket === \'combat_gear\' with armour_value != null — ignores worn non-armour items', async () => {
+     if (typeof globalThis.location === 'undefined') globalThis.location = { hostname: '' };
+     const mod = await import('../../public/js/data/equipment-derivation.js');
+     const items = [
+-      { _id: 'wep1', bucket: 'weapon', defence_penalty: 5 },   // not armour, ignored
+-      { _id: 'arm1', bucket: 'armour', defence_penalty: 2 },
++      { _id: 'wep1', bucket: 'combat_gear', weapon_type: 'melee', armour_value: null, defence_penalty: 5 },   // weapon-shaped combat_gear (armour_value null), ignored despite matching bucket AND a populated defence_penalty
++      { _id: 'arm1', bucket: 'combat_gear', armour_value: 1, defence_penalty: 2 },
+     ];
+     const c = mkChar({ equipment: [
+       { catalogue_id: 'wep1', state: 'worn' },
+@@ -267,13 +268,23 @@ describe('#879 — armourDefencePenalty behaviour (D1 + D2)', () => {
+     expect(mod.armourDefencePenalty(c, mkLookup(items))).toBe(2);
+   });
+ 
++  it('EQC-1 (#1152): a non-combat_gear bucket is ignored even with armour_value populated', async () => {
++    if (typeof globalThis.location === 'undefined') globalThis.location = { hostname: '' };
++    const mod = await import('../../public/js/data/equipment-derivation.js');
++    const items = [
++      { _id: 'x1', bucket: 'narrative', armour_value: 3, defence_penalty: 9 },
++    ];
++    const c = mkChar({ equipment: [{ catalogue_id: 'x1', state: 'worn' }] });
++    expect(mod.armourDefencePenalty(c, mkLookup(items))).toBe(0);
++  });
++
+   it('D2: returns the MAX defence_penalty across multiple worn armour items (worst-case stacking)', async () => {
+     if (typeof globalThis.location === 'undefined') globalThis.location = { hostname: '' };
+     const mod = await import('../../public/js/data/equipment-derivation.js');
+     const items = [
+-      { _id: 'arm1', bucket: 'armour', defence_penalty: 1 },
+-      { _id: 'arm2', bucket: 'armour', defence_penalty: 3 },
+-      { _id: 'arm3', bucket: 'armour', defence_penalty: 2 },
++      { _id: 'arm1', bucket: 'combat_gear', armour_value: 1, defence_penalty: 1 },
++      { _id: 'arm2', bucket: 'combat_gear', armour_value: 1, defence_penalty: 3 },
++      { _id: 'arm3', bucket: 'combat_gear', armour_value: 1, defence_penalty: 2 },
+     ];
+     const c = mkChar({ equipment: [
+       { catalogue_id: 'arm1', state: 'worn' },
+@@ -287,9 +298,9 @@ describe('#879 — armourDefencePenalty behaviour (D1 + D2)', () => {
+     if (typeof globalThis.location === 'undefined') globalThis.location = { hostname: '' };
+     const mod = await import('../../public/js/data/equipment-derivation.js');
+     const items = [
+-      { _id: 'a1', bucket: 'armour', defence_penalty: null },
+-      { _id: 'a2', bucket: 'armour', defence_penalty: undefined },
+-      { _id: 'a3', bucket: 'armour', defence_penalty: 'bad' },
++      { _id: 'a1', bucket: 'combat_gear', armour_value: 1, defence_penalty: null },
++      { _id: 'a2', bucket: 'combat_gear', armour_value: 1, defence_penalty: undefined },
++      { _id: 'a3', bucket: 'combat_gear', armour_value: 1, defence_penalty: 'bad' },
+     ];
+     const c = mkChar({ equipment: items.map(it => ({ catalogue_id: it._id, state: 'worn' })) });
+     expect(mod.armourDefencePenalty(c, mkLookup(items))).toBe(0);
+@@ -308,8 +319,8 @@ describe('#879 — wornArmourCount (drives the editor hint)', () => {
+     if (typeof globalThis.location === 'undefined') globalThis.location = { hostname: '' };
+     const mod = await import('../../public/js/data/equipment-derivation.js');
+     const items = [
+-      { _id: 'a1', bucket: 'armour' }, { _id: 'a2', bucket: 'armour' },
+-      { _id: 'a3', bucket: 'armour' }, { _id: 'w1', bucket: 'weapon' },
++      { _id: 'a1', bucket: 'combat_gear', armour_value: 1 }, { _id: 'a2', bucket: 'combat_gear', armour_value: 1 },
++      { _id: 'a3', bucket: 'combat_gear', armour_value: 1 }, { _id: 'w1', bucket: 'combat_gear', weapon_type: 'melee', armour_value: null },
+     ];
+     const c = mkChar({ equipment: [
+       { catalogue_id: 'a1', state: 'worn' },
+@@ -328,7 +339,7 @@ describe('#879 — materialiseDerivedDefence (D3 + D4)', () => {
+     const accessors = await import('../../public/js/data/accessors.js');
+     // calcDefence on the mkChar fixture: min(Dex=3, Wits=3) + Athletics=2 + discBonus=0 = 5.
+     const c = mkChar({ equipment: [{ catalogue_id: 'arm1', state: 'worn' }] });
+-    const items = [{ _id: 'arm1', bucket: 'armour', defence_penalty: 2 }];
++    const items = [{ _id: 'arm1', bucket: 'combat_gear', armour_value: 1, defence_penalty: 2 }];
+     const result = mod.materialiseDerivedDefence(c, mkLookup(items));
+     expect(result).toBe(accessors.calcDefence(c) - 2);
+     expect(c.derived.defence).toBe(result);
+@@ -343,7 +354,7 @@ describe('#879 — materialiseDerivedDefence (D3 + D4)', () => {
+       skills: {},
+       equipment: [{ catalogue_id: 'arm1', state: 'worn' }],
+     });
+-    const items = [{ _id: 'arm1', bucket: 'armour', defence_penalty: 5 }];
++    const items = [{ _id: 'arm1', bucket: 'combat_gear', armour_value: 1, defence_penalty: 5 }];
+     expect(mod.materialiseDerivedDefence(tinyChar, mkLookup(items))).toBe(0);
+   });
+ });
+@@ -394,7 +405,7 @@ describe('#879 — defenceMechanicalBase (export-site helper)', () => {
+       equipment: [{ catalogue_id: 'arm1', state: 'worn' }],
+       derived: { defence: 99 },   // overlay-modded; should be ignored
+     });
+-    const items = [{ _id: 'arm1', bucket: 'armour', defence_penalty: 2 }];
++    const items = [{ _id: 'arm1', bucket: 'combat_gear', armour_value: 1, defence_penalty: 2 }];
+     const result = mod.defenceMechanicalBase(c, mkLookup(items));
+     expect(result).toBe(Math.max(0, accessors.calcDefence(c) - 2));
+     expect(result).not.toBe(99);
