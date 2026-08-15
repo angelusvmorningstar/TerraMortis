@@ -414,20 +414,36 @@ describe('oxp.4 client wiring: no character id reaches the office_merit_dots API
     // Deliberately `\bs\.holder_id` — a real property read off a seat object —
     // rather than the bare word, which also appears in the comments that
     // explain the dependency. Prose about it is not a use of it.
+    //
+    // oxp.7 (AC2) moved this read out of office-tab.js entirely, into the new
+    // shared resolveHeldSeat(char, seats) in office-seat-resolve.js - the SAME
+    // guarantee this test always proved (holder_id read in exactly one place,
+    // only to choose a seat), now stronger: office-tab.js doesn't read it at
+    // all any more, only the one shared resolver does.
     const READ = /\bs\.holder_id\b/g;
-    const src = readFile('public/js/tabs/office-tab.js');
-    const everywhere = [...src.matchAll(READ)].length;
-    expect(everywhere).toBeGreaterThan(0); // the dependency is real, not denied
+    const officeTabSrc = readFile('public/js/tabs/office-tab.js');
+    expect([...officeTabSrc.matchAll(READ)].length).toBe(0);
 
-    const inResolution = [...seatResolutionBlock().matchAll(READ)].length;
-    expect(inResolution).toBe(everywhere);
+    const resolverSrc = readFile('public/js/data/office-seat-resolve.js');
+    const inResolver = [...resolverSrc.matchAll(READ)].length;
+    // Two matches, both on the single find() line (a null-guard, then the
+    // real comparison) - one real place, not two. The dependency is real,
+    // not denied.
+    expect(inResolver).toBe(2);
   });
 
   it('oxp.11: seat resolution reduces the holder match to a seat id before anything else sees it', () => {
+    // oxp.7 (AC2) extracted the holder_id comparison itself into a shared
+    // resolveHeldSeat(char, seats), which office-tab.js's _wirePurchaseState
+    // now calls rather than comparing inline - proving the SAME guarantee
+    // this test always asserted, just from its new shared location, so it
+    // isn't duplicated a second time inside office-tab.js's own block.
+    const sharedResolver = readFile('public/js/data/office-seat-resolve.js');
+    expect(sharedResolver).toMatch(/String\(s\.holder_id\)\s*===\s*String\(char\._id\)/);
+
     const block = seatResolutionBlock();
-    // The comparison itself, and the fact that what leaves this block is a
-    // seat id rather than the seat, the holder, or the character.
-    expect(block).toMatch(/String\(s\.holder_id\)\s*===\s*String\(char\._id\)/);
+    expect(block).toMatch(/resolveHeldSeat\(char,\s*seats\)/);
+    // What leaves this block is a seat id, never the seat, holder, or character.
     expect(block).toMatch(/seatId:\s*String\(seat\._id\)/);
     // Only ever a read of office_seats — this block writes to no API at all.
     expect(block).toMatch(/apiGet\(['"]\/api\/office_seats['"]\)/);
