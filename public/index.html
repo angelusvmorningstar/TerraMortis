@@ -305,6 +305,14 @@
         <button class="mchip wp-chip" id="wp-c" onclick="togMod('wp')">WP (+3)</button>
       </div>
 
+      <!-- gdx.7 follow-up: standalone Vitae/Willpower spend, independent of
+           rolling. Hidden unless game_in_progress is on and a character is
+           loaded (updPool() toggles display + labels). -->
+      <div class="rv2-chip-row" id="rv2-manual-spend-row" style="display:none">
+        <button class="mchip" id="spend-vitae-btn" onclick="spendVitae()">− Vitae</button>
+        <button class="mchip" id="spend-wp-btn" onclick="spendWillpower()">− WP</button>
+      </div>
+
       <!-- Full breakdown lives inside a disclosure so it's available but
            not competing with the anchor for visual weight. -->
       <details class="rv2-breakdown">

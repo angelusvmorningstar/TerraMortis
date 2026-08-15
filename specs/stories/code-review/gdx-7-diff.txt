@@ -1,0 +1,563 @@
+diff --git a/CLAUDE.md b/CLAUDE.md
+index 17d0a5d4..2f9803f0 100644
+--- a/CLAUDE.md
++++ b/CLAUDE.md
+@@ -189,7 +189,7 @@ Before building any feature that reads or writes data, consult `specs/reference-
+ 
+ Key rules:
+ - `FEED_METHODS` and `TERRITORY_DATA` live in `public/js/player/downtime-data.js` — import from there, never duplicate
+-- Tracker state (`tracker_state` collection) is ST-auth only at the API level — player access requires explicit auth change
++- Tracker state (`tracker_state` collection) is already player-scoped at the API level — `server/routes/tracker.js`'s own `canAccess()` lets a player read/write their own character's tracker (`character_ids` match), ST/dev unconditionally. Corrected 2026-08-15 (gdx.7); the previous "ST-auth only" line here was stale and had gone unread against the actual route.
+ - `public/js/game/tracker.js` (keyed by `_id`) is the sole canonical client tracker. The name-keyed persistence surface was removed in #836; `public/js/suite/toast.js` is only a toast helper, not a tracker
+ - Derived stats (health max, vitae max, willpower max, influence total, XP) are never stored — always calculate at render time
+ 
+diff --git a/public/js/shared/pools.js b/public/js/shared/pools.js
+index 6b036468..0c2346f4 100644
+--- a/public/js/shared/pools.js
++++ b/public/js/shared/pools.js
+@@ -38,6 +38,11 @@ export function getPool(char, raw) {
+     // can render a "Rules" expander without a second rules-cache query.
+     if (!p || (!p.attr && !p.skill)) return {
+       noRoll: true,
++      // gdx.7 (#988): vitae_cost/willpower_cost threaded alongside the
++      // legacy cost string, `?? null` (not `||`) so a real 0 (gdx.6's
++      // "confirmed free" value) never collapses to null.
++      vitae_cost: rule.vitae_cost ?? null,
++      willpower_cost: rule.willpower_cost ?? null,
+       info: { d: rule.parent, c: rule.cost, ac: rule.action, du: rule.duration, ef: rule.description },
+       rules_text: rule.rules_text || null,
+       rules_source: rule.rules_source || null,
+@@ -54,6 +59,10 @@ export function getPool(char, raw) {
+       nineAgain: p.skill ? skNineAgain(char, p.skill) : false,
+       resistance: rule.resistance || null,
+       cost: rule.cost || null,
++      // gdx.7 (#988): see the noRoll branch's own comment above — same
++      // `?? null` reasoning applies here.
++      vitae_cost: rule.vitae_cost ?? null,
++      willpower_cost: rule.willpower_cost ?? null,
+       action: rule.action || null,
+       duration: rule.duration || null,
+       effect: rule.description || null,
+diff --git a/public/js/suite/roll-v2.js b/public/js/suite/roll-v2.js
+index 39578fb9..50cbdacf 100644
+--- a/public/js/suite/roll-v2.js
++++ b/public/js/suite/roll-v2.js
+@@ -27,6 +27,11 @@ import { skSpecs, skNineAgain } from '../data/accessors.js';
+ import { hasAoE } from '../data/helpers.js';
+ import { getCatalogueEntry } from '../data/equipment-catalogue-cache.js';
+ import { isCombatGearWeaponShaped, isEquipmentOnMe } from '../data/equipment-derivation.js';
++// gdx.7 (#988): read the game-day flag (gdx.5) and spend from the already-
++// built, already-correct tracker write path (gdx.6 supplies the cost data
++// on the rule itself, via pools.js — see spendableCost below).
++import { getGlobalSettings } from '../data/app-settings.js';
++import { trackerAdj, trackerRead, ensureLoaded as ensureTrackerLoaded } from '../game/tracker.js';
+ 
+ // ── Imports from other suite modules (will exist once extracted) ──
+ // showResistSec / updResist live in shared/resist.js
+@@ -47,6 +52,72 @@ function toast(msg) {
+   toast._timer = setTimeout(() => t.classList.remove('on'), 2500);
+ }
+ 
++// ── SPEND ON ROLL (gdx.7, #988) ──
++//
++// Three pure functions, deliberately no DOM/globals, so the decision logic
++// is testable without a browser. `doRoll()` and `updPool()` each call all
++// three fresh, from the same state, rather than caching a combined verdict
++// — the label shown and the amount actually spent can never disagree,
++// because both are always the same computation.
++
++/**
++ * How much this roll would really spend: the loaded power's own
++ * vitae_cost/willpower_cost (gdx.6, via pools.js — `null`/absent both mean
++ * "nothing", same as `0` at this layer) plus the WP(+3) boost chip's own
++ * separate 1-Willpower cost when it's toggled on. Additive, never either/or
++ * — a devotion that itself costs 1 WP, rolled with the boost chip also on,
++ * spends 2 WP total from two different sources.
++ */
++export function spendableCost(poolInfo, wpChipOn) {
++  const vitaeCost = poolInfo?.vitae_cost || 0;
++  let willpowerCost = poolInfo?.willpower_cost || 0;
++  if (wpChipOn) willpowerCost += 1;
++  return { vitaeCost, willpowerCost };
++}
++
++/** Can `balance` ({vitae, willpower}) cover `cost` in full? Never partial —
++ *  a roll either affords its whole real cost or it doesn't spend at all. */
++export function canAffordCost(cost, balance) {
++  const vitae = balance?.vitae ?? 0;
++  const willpower = balance?.willpower ?? 0;
++  return cost.vitaeCost <= vitae && cost.willpowerCost <= willpower;
++}
++
++/**
++ * The `#roll-btn` label. Falls back to the plain dice-count label — not a
++ * separate "insufficient funds" message — whenever there is nothing to
++ * spend, the flag is off, or the balance can't cover the real cost in
++ * full: that plain label already IS "roll without spending" (AC5), the
++ * same button, same one tap, just no deduction attempted.
++ */
++export function rollButtonLabel(eff, cost, gameInProgress, canAfford) {
++  const isChance = eff <= 0;
++  const diceLabel = isChance ? 'ROLL CHANCE DIE' : `ROLL ${eff} DICE`;
++  const wantsSpend = gameInProgress && (cost.vitaeCost > 0 || cost.willpowerCost > 0);
++  if (!wantsSpend || !canAfford) return '✦ ' + diceLabel;
++  const bits = [];
++  if (cost.vitaeCost > 0) bits.push(cost.vitaeCost + ' VITAE');
++  if (cost.willpowerCost > 0) bits.push(cost.willpowerCost + ' WP');
++  return '✦ ROLL & SPEND ' + bits.join(', ');
++}
++
++/** Shared by updPool()'s label and doRoll()'s actual spend, so the two can
++ *  never disagree — both call this fresh rather than one caching for the
++ *  other. Reads the character CURRENTLY loaded into the roller
++ *  (`state.rollChar`); `trackerRead` is a synchronous cache read — safe
++ *  here because the app's own character-switch flow (`app.js`'s
++ *  `_switchChar`) already `await`s `ensureTrackerLoaded` before a
++ *  character can become `rollChar` at all, confirmed by reading that flow
++ *  rather than assumed. */
++function _currentSpendDecision() {
++  const cost = spendableCost(state.POOL_INFO, state.WP);
++  const gameInProgress = !!getGlobalSettings()?.game_in_progress;
++  const charId = state.rollChar ? String(state.rollChar._id) : null;
++  const balance = charId ? trackerRead(charId) : null;
++  const canAfford = canAffordCost(cost, balance);
++  return { cost, gameInProgress, canAfford, charId };
++}
++
+ // ── LOAD POOL ──
+ 
+ export function loadPool(total, name, pi) {
+@@ -146,21 +217,27 @@ export function updPool() {
+   if (unitEl) {
+     unitEl.textContent = isChance ? 'die' : (eff === 1 ? 'die' : 'dice');
+   }
++  // gdx.7 (#988): computed once, used by both the sub-line's WP-chip
++  // wording and the roll button's own label below.
++  const spend = _currentSpendDecision();
+   if (subEl) {
+     const parts = [
+       'base ' + (state.PS <= 0 ? 'chance' : state.PS),
+     ];
+     if (state.MOD !== 0) parts.push((state.MOD > 0 ? '+' : '') + state.MOD + ' mod');
+     parts.push(_againPhrase());
+-    if (state.WP) parts.push('WP +3');
++    // AC6: the chip's own +3 pool boost is a separate fact from whether it
++    // will ALSO really spend 1 Willpower this roll (game_in_progress) —
++    // labelled distinctly from a power's own vitae_cost/willpower_cost,
++    // which shows up in the roll button's own label instead, not here.
++    if (state.WP) parts.push(spend.gameInProgress ? 'WP +3 (spends 1 WP)' : 'WP +3');
+     if (state.ROTE) parts.push('rote');
+     if (state.RESIST_MODE === '-' && state.RESIST_VAL > 0) parts.push('−' + state.RESIST_VAL + ' resist');
+     // U+00B7 middle-dot separator (matches sub-line separators elsewhere).
+     subEl.textContent = parts.join(' · ');
+   }
+   if (rollBtn) {
+-    // ✦ = decorative four-point star.
+-    rollBtn.textContent = isChance ? '✦ ROLL CHANCE DIE' : ('✦ ROLL ' + eff + ' DICE');
++    rollBtn.textContent = rollButtonLabel(eff, spend.cost, spend.gameInProgress, spend.canAfford);
+   }
+ 
+   _paintAgainSeg();
+@@ -437,6 +514,20 @@ export function doRoll() {
+   area.innerHTML = '';
+   hdr.classList.remove('on');
+ 
++  // gdx.7 (#988): the cost of ACTIVATING the power is paid up front, once,
++  // regardless of which of the three result branches below actually fires
++  // — a chance die, a contested roll, and a standard roll all still cost
++  // the same Vitae/Willpower to attempt (VtR 2e: you pay to activate, then
++  // roll; a failed roll doesn't refund the cost). Recomputed fresh here
++  // (not read from whatever `updPool()` last painted) so a stale label
++  // can never cause a stale spend.
++  const spend = _currentSpendDecision();
++  if (spend.gameInProgress && spend.canAfford && spend.charId &&
++      (spend.cost.vitaeCost > 0 || spend.cost.willpowerCost > 0)) {
++    if (spend.cost.vitaeCost > 0) trackerAdj(spend.charId, 'vitae', -spend.cost.vitaeCost);
++    if (spend.cost.willpowerCost > 0) trackerAdj(spend.charId, 'willpower', -spend.cost.willpowerCost);
++  }
++
+   if (eff <= 0) {
+     const v = d10();
+     const suc = v === 10;
+diff --git a/specs/stories/deferred-work.md b/specs/stories/deferred-work.md
+index ef8b6ee4..c6b38f1b 100644
+--- a/specs/stories/deferred-work.md
++++ b/specs/stories/deferred-work.md
+@@ -300,3 +300,22 @@ and verified before deferral. Provenance:
+   bucket produced it), so this is a report/bucket-grouping inconsistency only, not a display bug — an
+   ST reading the migration's plan-mode counts would see it filed as "parsed" rather than "confirmed
+   free." Cosmetic; fix only if it ever actually occurs.
++
++## Deferred from: gdx-7-apply-costs-on-roll dev-story (2026-08-15)
++
++- **Test-harness/production routing drift on `/api/tracker_state`** — `server/tests/helpers/test-app.js:90`
++  mounts the router as `mockAuth, requireRole('st'), noCache(), trackerRouter`, an app-level ST-only
++  gate that does not exist in production (`server/index.js:173` mounts the same router as
++  `requireAuth, noCache(), trackerRouter` only, leaving all scoping to the router's own `canAccess()`,
++  which already correctly lets a player read/write their own character's tracker). Found while building
++  gdx.7's live-DB integration test, which needed to reason precisely about who the real API lets write
++  what. Effect: `api-tracker-state.test.js`'s existing "player is blocked (ST-only endpoint)" tests
++  currently pass for the wrong reason (the test harness's own extra gate, not `canAccess()`'s real
++  own-character scoping) — `playerUser([])` owns no characters either way, so removing the extra gate
++  wouldn't flip those tests' outcomes, but today they give no signal about the actual production
++  behaviour. Not fixed in gdx.7: the change is a one-line, low-risk mount-line correction, but
++  `test-app.js` is shared infrastructure used by ~30+ suites and a routing-shape change there deserves
++  its own reviewed story rather than riding in on an unrelated one. Fix: drop `requireRole('st')` from
++  that one mount line so the test harness matches production exactly, then add a positive test proving
++  a player CAN write their own character's tracker (currently untested in either direction with the
++  correct auth boundary).
+diff --git a/specs/stories/sprint-status.yaml b/specs/stories/sprint-status.yaml
+index 2a1bed5e..550d3ff1 100644
+--- a/specs/stories/sprint-status.yaml
++++ b/specs/stories/sprint-status.yaml
+@@ -1062,7 +1062,7 @@ development_status:
+   gdx-4-mobile-css-cleanup: backlog                              # #985. Group A.
+   gdx-5-game-in-progress-setting: done                          # #986. Group B, first of 986∥987 -> 988 -> 989. Story: gdx-5-game-in-progress-setting.md. Dev-storied to completion 2026-08-15, all 5 tasks/9 ACs done. Internal 3-layer code review same day: 0 decision-needed, 6 patch (all applied - notably admin.js's own initWS had NO onSettingsUpdate wiring at all, a real gap fixed with a new exported refreshStModsPanelSettings(); GET now backfills missing default keys on a partial doc, prove-discriminated), 3 defer (logged to deferred-work.md, all pre-existing patterns shared with sibling code, not unique to this story), 7 dismissed. 39/39 final regression. game_in_progress key + open GET + WS broadcast (both app.js AND admin.js) + admin toggle, all shipped and reviewed. Deliberate side effect: st_mods_enabled becomes live-broadcast too (previously had none) - flagged throughout. Committed locally, not pushed/merged - Angelus's call. Unblocks gdx.7 (vitae/willpower one-tap roll spend) alongside gdx.6.
+   gdx-6-structured-power-costs: done                             # #987. Codex external review attempted, hit its own usage limit mid-run (unavailable until 2026-08-20) before completing any pass - fell back to internal 3-layer review. 8 patch findings applied (parseCostString non-string/whitespace/empty guards - prove-discriminated; console wording; comment accuracy; test global-pollution fix; corrected a false Debug Log claim), 4 deferred (fmtRuleStats not the only display site after all - print/CSV bypass it, logged to deferred-work.md; admin editor has no field for the new costs; CSV round-trip drops them; unchecked updateOne), 4 dismissed. Acceptance Auditor's independent verdict was Ship even before the patch round. 36/36 final regression. Group B, blocker for gdx-7 alongside gdx-5. Story: gdx-6-structured-power-costs.md. Live investigation (2026-08-15) found the issue's "purchasable_powers AND devotions data" framing stale - Epic PP already unified devotions into purchasable_powers, one place to touch. Real scope: only discipline(50)/devotion(51)/rite(132) of 674 total rows ever carry a cost string; rites are 132/132 cleanly parseable, disciplines/devotions have real edge cases (ranges, choices, body-mutilation devotions with unquantified Vitae) requiring an unparsed/cost_note bucket.
+-  gdx-7-apply-costs-on-roll: backlog                             # #988. Group B. THE vitae/willpower one-tap-spend feature. Depends on gdx-5 + gdx-6.
++  gdx-7-apply-costs-on-roll: review                              # #988. Group B. THE vitae/willpower one-tap-spend feature. Both prerequisites (gdx-5, gdx-6) done and committed (d4abeeec). Story: gdx-7-apply-costs-on-roll.md. Major finding during investigation: the tracker_state write path is ALREADY player-writable server-side (server/routes/tracker.js's own canAccess()) - CLAUDE.md's "ST-auth only" claim was stale (corrected this story), as was this session's own earlier answer to Angelus about the roller having no player-facing spend path. Dev-storied to completion 2026-08-15: pools.js threads vitae_cost/willpower_cost (?? null, 0-vs-null preserved); roll-v2.js gained 3 pure functions (spendableCost/canAffordCost/rollButtonLabel) + doRoll() spending once via the already-built trackerAdj() before rolling. 22/22 new tests (getPool threading, pure-function combos, live-DB clamp-at-0 integration tests), green alongside gdx-5/gdx-6/api-tracker-state/api-app-settings/dbo-3 suites. Found (not fixed, logged to deferred-work.md) a real test-harness/production routing drift on /api/tracker_state's mount. Not yet code-reviewed.
+   gdx-8-roll-history: backlog                                   # #989. Group B, after gdx-7.
+   gdx-9-single-scroll-sheet: backlog                             # #990. Group C, after Group A.
+   gdx-10-legacy-retirement: backlog                              # #991. Group C, after Group A.
+diff --git a/server/tests/gdx-7-apply-costs-on-roll.test.js b/server/tests/gdx-7-apply-costs-on-roll.test.js
+new file mode 100644
+index 00000000..6ec89a95
+--- /dev/null
++++ b/server/tests/gdx-7-apply-costs-on-roll.test.js
+@@ -0,0 +1,336 @@
++/**
++ * gdx.7 (#988) — apply vitae/WP costs on roll during `game_in_progress`.
++ *
++ * Three layers, matching the story's own AC9:
++ *  1. `pools.js`'s `getPool()` field threading (AC1) — the new
++ *     `vitae_cost`/`willpower_cost` fields mirror the existing `cost` string
++ *     threading, with `0` (a confirmed-free power, gdx.6) staying distinct
++ *     from `null` (never migrated/unparsed).
++ *  2. `roll-v2.js`'s three pure decision functions (AC3, AC5, AC6) —
++ *     `spendableCost`, `canAffordCost`, `rollButtonLabel` — exported
++ *     specifically so the spend decision is testable without a browser.
++ *  3. A live-DB integration test proving `trackerAdj`'s existing clamp-at-0
++ *     guard holds for a roll-triggered spend the same way it already holds
++ *     for a manual one (AC9's own explicit ask — `trackerAdj` itself is
++ *     unmodified by this story, but easy to assume-safe without checking).
++ *
++ * `pools.js`'s import chain reaches `loader.js` -> `api.js`, which reads
++ * `location.hostname` at module load, and `roll-v2.js` additionally reaches
++ * `game/tracker.js` (same pattern, its own `location.hostname` at line 13)
++ * and `app-settings.js` (ditto, line 20) — same shim technique established
++ * by #1137 and reused throughout this codebase's client-side test suites
++ * (most recently dbo-3-standing-merit-filter.test.js). `document` is also
++ * stubbed: `trackerAdj`'s own `patchCard()` calls `document.getElementById`
++ * unconditionally on every write; with no jsdom in this project `document`
++ * is undefined entirely, so a bare stub that always returns null (falling
++ * `patchCard` through to `renderAll()`, which no-ops because `_el` was never
++ * set) is enough to let the real function run end to end.
++ */
++
++const hadLocation = 'location' in globalThis;
++const hadLocalStorage = 'localStorage' in globalThis;
++const hadDocument = 'document' in globalThis;
++if (!hadLocation) globalThis.location = { hostname: 'test', pathname: '/' };
++if (!hadLocalStorage) {
++  const store = new Map();
++  globalThis.localStorage = {
++    getItem: k => (store.has(k) ? store.get(k) : null),
++    setItem: (k, v) => store.set(k, String(v)),
++    removeItem: k => store.delete(k),
++    clear: () => store.clear(),
++  };
++}
++if (!hadDocument) globalThis.document = { getElementById: () => null };
++
++import { describe, it, expect, beforeAll, afterAll } from 'vitest';
++import request from 'supertest';
++import 'dotenv/config';
++import { ObjectId } from 'mongodb';
++import { createTestApp, stUser } from './helpers/test-app.js';
++import { setupDb, teardownDb, isDbAvailable } from './helpers/db-setup.js';
++import { getCollection } from '../db.js';
++
++afterAll(() => {
++  if (!hadLocation) delete globalThis.location;
++  if (!hadLocalStorage) delete globalThis.localStorage;
++  if (!hadDocument) delete globalThis.document;
++});
++
++// ── AC1: pools.js field threading ──────────────────────────────────────
++//
++// Fixtures deliberately cover all four shapes gdx.6's migration can leave a
++// rule in: a real positive cost, a confirmed-free 0, an explicit null
++// (unparsed cost string), and a rule that predates the migration entirely
++// (fields simply absent — must also read as null, per the AC's own `?? null`
++// requirement).
++const RULE_NOROLL = {
++  key: 'rule-noroll', parent: 'Test Discipline', cost: '1 Vitae',
++  vitae_cost: 2, willpower_cost: 0, cost_note: null,
++  action: 'Instant', duration: 'One scene', description: 'Test effect.',
++};
++const RULE_ZERO_NULL = {
++  key: 'rule-zero-null', parent: 'Test Discipline', cost: null,
++  vitae_cost: 0, willpower_cost: null, cost_note: null,
++  action: 'Instant', duration: 'Instant', description: 'A confirmed-free power.',
++};
++const RULE_POOLED = {
++  key: 'rule-pooled', parent: 'Test Discipline', pool: { attr: 'Resolve', skill: 'Occult' },
++  cost: '1 Vitae & 1 WP', vitae_cost: 1, willpower_cost: 1,
++  action: 'Reflexive', duration: 'Instant', description: 'A rollable power.',
++};
++const RULE_LEGACY = {
++  key: 'rule-legacy', parent: 'Test Discipline', cost: '—',
++  action: 'Instant', duration: 'Instant', description: 'Predates gdx.6\'s migration.',
++  // vitae_cost/willpower_cost deliberately absent.
++};
++
++const POOL_CHAR = {
++  attributes: { Resolve: { dots: 3, bonus: 0 } },
++  skills: { Occult: { dots: 2, bonus: 0, specs: [], nine_again: false } },
++  disciplines: {},
++};
++
++describe('gdx.7 — pools.js getPool() field threading (AC1)', () => {
++  let getPool;
++
++  beforeAll(async () => {
++    globalThis.localStorage.setItem(
++      'tm_rules_db',
++      JSON.stringify([RULE_NOROLL, RULE_ZERO_NULL, RULE_POOLED, RULE_LEGACY])
++    );
++    ({ getPool } = await import('../../public/js/shared/pools.js'));
++  });
++
++  it('noRoll branch: vitae_cost/willpower_cost thread through at the top level, 0 preserved distinctly from null', () => {
++    const p = getPool(POOL_CHAR, 'rule-noroll');
++    expect(p.noRoll).toBe(true);
++    expect(p.vitae_cost).toBe(2);
++    expect(p.willpower_cost).toBe(0);
++    // Disclosed deviation (Task 1, Dev Notes): the `info` sub-object does NOT
++    // also carry these fields — nothing reads them there. The legacy `cost`
++    // string still does, unaffected by this story.
++    expect(p.info.vitae_cost).toBeUndefined();
++    expect(p.info.willpower_cost).toBeUndefined();
++    expect(p.info.c).toBe('1 Vitae');
++  });
++
++  it('0 and null are distinct — a confirmed-free power never collapses to the unparsed-null shape', () => {
++    const p = getPool(POOL_CHAR, 'rule-zero-null');
++    expect(p.vitae_cost).toBe(0);
++    expect(p.willpower_cost).toBeNull();
++  });
++
++  it('main-return branch (a rollable power): same threading, top level only, existing pool math unaffected', () => {
++    const p = getPool(POOL_CHAR, 'rule-pooled');
++    expect(p.noRoll).toBeUndefined();
++    expect(p.vitae_cost).toBe(1);
++    expect(p.willpower_cost).toBe(1);
++    expect(p.info.vitae_cost).toBeUndefined();
++    expect(p.info.willpower_cost).toBeUndefined();
++    expect(p.info.c).toBe('1 Vitae & 1 WP');
++    expect(p.attrV).toBe(3);
++    expect(p.skillV).toBe(2);
++  });
++
++  it('a rule predating gdx.6\'s migration (fields absent entirely) reports both as null, not 0', () => {
++    const p = getPool(POOL_CHAR, 'rule-legacy');
++    expect(p.vitae_cost).toBeNull();
++    expect(p.willpower_cost).toBeNull();
++  });
++
++  it('an unknown key still returns null, unaffected by this story', () => {
++    expect(getPool(POOL_CHAR, 'not-a-real-key')).toBeNull();
++  });
++});
++
++// ── AC3, AC5, AC6: roll-v2.js's pure spend-decision functions ──────────
++describe('gdx.7 — spendableCost / canAffordCost / rollButtonLabel (AC3, AC5, AC6)', () => {
++  let spendableCost, canAffordCost, rollButtonLabel;
++
++  beforeAll(async () => {
++    ({ spendableCost, canAffordCost, rollButtonLabel } = await import('../../public/js/suite/roll-v2.js'));
++  });
++
++  describe('spendableCost', () => {
++    it('reads the loaded power\'s own cost when the WP chip is off', () => {
++      expect(spendableCost({ vitae_cost: 2, willpower_cost: 1 }, false)).toEqual({ vitaeCost: 2, willpowerCost: 1 });
++    });
++
++    it('the WP chip adds 1 Willpower ADDITIVELY, never replacing the power\'s own cost (AC6)', () => {
++      expect(spendableCost({ vitae_cost: 2, willpower_cost: 1 }, true)).toEqual({ vitaeCost: 2, willpowerCost: 2 });
++    });
++
++    it('no pool info loaded (common action, or nothing picked yet): only the chip can spend anything', () => {
++      expect(spendableCost(null, true)).toEqual({ vitaeCost: 0, willpowerCost: 1 });
++      expect(spendableCost(undefined, false)).toEqual({ vitaeCost: 0, willpowerCost: 0 });
++    });
++
++    it('a confirmed-free power (0) and an unparsed one (null) are both "nothing to spend" at this layer', () => {
++      expect(spendableCost({ vitae_cost: 0, willpower_cost: 0 }, false)).toEqual({ vitaeCost: 0, willpowerCost: 0 });
++      expect(spendableCost({ vitae_cost: null, willpower_cost: null }, false)).toEqual({ vitaeCost: 0, willpowerCost: 0 });
++    });
++  });
++
++  describe('canAffordCost', () => {
++    it('affords exactly at the boundary (<=, not <)', () => {
++      expect(canAffordCost({ vitaeCost: 5, willpowerCost: 3 }, { vitae: 5, willpower: 3 })).toBe(true);
++    });
++
++    it('insufficient Vitae alone fails the whole check, even if Willpower covers its share', () => {
++      expect(canAffordCost({ vitaeCost: 2, willpowerCost: 0 }, { vitae: 1, willpower: 5 })).toBe(false);
++    });
++
++    it('insufficient Willpower alone fails the whole check, even if Vitae covers its share', () => {
++      expect(canAffordCost({ vitaeCost: 0, willpowerCost: 2 }, { vitae: 5, willpower: 1 })).toBe(false);
++    });
++
++    it('a nothing-to-spend cost always affords, even against an unknown/null balance', () => {
++      expect(canAffordCost({ vitaeCost: 0, willpowerCost: 0 }, null)).toBe(true);
++    });
++
++    it('a real cost against an unknown balance never affords — never a silent partial spend (AC5)', () => {
++      expect(canAffordCost({ vitaeCost: 1, willpowerCost: 0 }, null)).toBe(false);
++    });
++  });
++
++  describe('rollButtonLabel', () => {
++    const NO_COST = { vitaeCost: 0, willpowerCost: 0 };
++
++    it('flag off = current behaviour, byte-for-byte, whatever the loaded cost is (AC7)', () => {
++      expect(rollButtonLabel(8, { vitaeCost: 2, willpowerCost: 1 }, false, true)).toBe('✦ ROLL 8 DICE');
++    });
++
++    it('no real cost keeps the plain label even with the flag on', () => {
++      expect(rollButtonLabel(8, NO_COST, true, true)).toBe('✦ ROLL 8 DICE');
++    });
++
++    it('a chance-die roll (eff <= 0) still says CHANCE DIE, not "0 DICE"', () => {
++      expect(rollButtonLabel(0, NO_COST, true, true)).toBe('✦ ROLL CHANCE DIE');
++      expect(rollButtonLabel(-1, NO_COST, true, true)).toBe('✦ ROLL CHANCE DIE');
++    });
++
++    it('Vitae-only, WP-only, and combined cost each render their own bit list (AC3)', () => {
++      expect(rollButtonLabel(8, { vitaeCost: 2, willpowerCost: 0 }, true, true)).toBe('✦ ROLL & SPEND 2 VITAE');
++      expect(rollButtonLabel(8, { vitaeCost: 0, willpowerCost: 1 }, true, true)).toBe('✦ ROLL & SPEND 1 WP');
++      expect(rollButtonLabel(8, { vitaeCost: 2, willpowerCost: 1 }, true, true)).toBe('✦ ROLL & SPEND 2 VITAE, 1 WP');
++    });
++
++    it('an unaffordable real cost falls back to the plain dice label — one button, no separate state (AC5, Task 2\'s simplification)', () => {
++      expect(rollButtonLabel(8, { vitaeCost: 2, willpowerCost: 0 }, true, false)).toBe('✦ ROLL 8 DICE');
++    });
++  });
++});
++
++// ── AC9: live-DB integration — the clamp-at-0 guard for a roll-triggered spend ──
++//
++// `trackerAdj` itself is unmodified by this story (Dev Notes: "reused
++// exactly as-is"), but AC9 asks for this explicitly rather than assuming it
++// safe. Routes `game/tracker.js`'s own `fetch()` calls through the real
++// Express app and the real `tm_suite_test` database via a thin adapter, so
++// this proves actual persistence, not a mocked stand-in. Runs as an ST test
++// user throughout — this test is about the CLAMP guard, not a re-proof of
++// the player-scoped write-path finding already recorded in the story's own
++// Dev Notes (and see gdx-7's Dev Agent Record for a related test-harness
++// finding logged to deferred-work.md rather than fixed here, as out of this
++// story's scope).
++describe('gdx.7 — trackerAdj clamp-at-0 guard, live DB', async () => {
++  const dbAvailable = await isDbAvailable();
++
++  describe.skipIf(!dbAvailable)('with a local mongod available', () => {
++    const CHAR_ID = new ObjectId().toHexString();
++    const TEST_CHAR = {
++      _id: CHAR_ID,
++      blood_potency: 0, // calcVitaeMax -> BP_TABLE[0].vitae = 5
++      attributes: {
++        Resolve:   { dots: 1, bonus: 0 },
++        Composure: { dots: 1, bonus: 0 }, // calcWillpowerMax -> 1+1 = 2
++        Stamina:   { dots: 1, bonus: 0 },
++      },
++      skills: {},
++      disciplines: {},
++    };
++
++    let app;
++    let trackerAdj, trackerRead, ensureTrackerLoaded, rollState;
++    let realFetch;
++
++    beforeAll(async () => {
++      await setupDb();
++      app = createTestApp();
++
++      realFetch = globalThis.fetch;
++      globalThis.fetch = async (url, opts = {}) => {
++        const path = String(url).replace(/^https?:\/\/[^/]+/, '');
++        const method = (opts.method || 'GET').toLowerCase();
++        let req = request(app)[method](path).set('X-Test-User', stUser());
++        if (opts.body) req = req.send(JSON.parse(opts.body));
++        const res = await req;
++        return { ok: res.status >= 200 && res.status < 300, status: res.status, json: async () => res.body };
++      };
++
++      ({ trackerAdj, trackerRead, ensureLoaded: ensureTrackerLoaded } =
++        await import('../../public/js/game/tracker.js'));
++      ({ default: rollState } = await import('../../public/js/suite/data.js'));
++      rollState.chars = [TEST_CHAR];
++    });
++
++    afterAll(async () => {
++      globalThis.fetch = realFetch;
++      await getCollection('tracker_state').deleteMany({ character_id: CHAR_ID });
++      await teardownDb();
++    });
++
++    async function flush(turns = 15) {
++      for (let i = 0; i < turns; i++) await new Promise(r => setTimeout(r, 0));
++    }
++
++    it('a roll-triggered vitae spend larger than the balance clamps at 0, in both the client cache and the persisted document', async () => {
++      await ensureTrackerLoaded(TEST_CHAR); // seeds fresh defaults: vitae 5, willpower 2
++      await flush();
++      expect(trackerRead(CHAR_ID).vitae).toBe(5);
++
++      // Exactly the shape doRoll() calls when a roll-triggered spend fires —
++      // a delta far larger than the character actually has.
++      await trackerAdj(CHAR_ID, 'vitae', -999);
++      await flush();
++
++      expect(trackerRead(CHAR_ID).vitae).toBe(0);
++
++      const persisted = await request(app)
++        .get(`/api/tracker_state/${CHAR_ID}`)
++        .set('X-Test-User', stUser());
++      expect(persisted.status).toBe(200);
++      expect(persisted.body.vitae).toBe(0);
++      expect(persisted.body.vitae).toBeGreaterThanOrEqual(0);
++    });
++
++    it('willpower spend clamps the same way, independently of vitae', async () => {
++      await trackerAdj(CHAR_ID, 'willpower', -999);
++      await flush();
++
++      expect(trackerRead(CHAR_ID).willpower).toBe(0);
++
++      const persisted = await request(app)
++        .get(`/api/tracker_state/${CHAR_ID}`)
++        .set('X-Test-User', stUser());
++      expect(persisted.body.willpower).toBe(0);
++      expect(persisted.body.willpower).toBeGreaterThanOrEqual(0);
++    });
++
++    it('a spend within balance is not clamped — proves the guard is a ceiling at 0, not a blanket zero-out', async () => {
++      // Reset to a known value first (also proves upward adjustment works).
++      await trackerAdj(CHAR_ID, 'vitae', 5); // 0 -> 5, clamped at calcVitaeMax (5)
++      await flush();
++      expect(trackerRead(CHAR_ID).vitae).toBe(5);
++
++      await trackerAdj(CHAR_ID, 'vitae', -2); // an affordable spend
++      await flush();
++      expect(trackerRead(CHAR_ID).vitae).toBe(3);
++
++      const persisted = await request(app)
++        .get(`/api/tracker_state/${CHAR_ID}`)
++        .set('X-Test-User', stUser());
++      expect(persisted.body.vitae).toBe(3);
++    });
++  });
++});

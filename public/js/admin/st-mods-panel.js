@@ -91,6 +91,20 @@ export async function initStModsPanel(rootEl, character, onMutate) {
   await _refetchMods();
 }
 
+/** gdx.5 (#986) — review finding: admin.js's own initWS() call had no
+ *  onSettingsUpdate wiring, so a remote settings PATCH (e.g. another ST
+ *  toggling game_in_progress) never reached this panel while it was open —
+ *  it silently held stale toggle state until the ST reselected a character,
+ *  contradicting the toggle's own "propagates to every open tab" hint text.
+ *  Call this from admin.js's onSettingsUpdate callback, after
+ *  loadGlobalSettings() has refreshed the cache. No-op if the panel was
+ *  never initialised or no character is currently selected — nothing to
+ *  redraw over. */
+export function refreshStModsPanelSettings() {
+  if (!_rootEl || !state.character) return;
+  _renderScaffold();
+}
+
 // ── DOM scaffold ─────────────────────────────────────────────────────
 
 function _renderScaffold() {
@@ -99,6 +113,7 @@ function _renderScaffold() {
   const settings = getGlobalSettings();
   const globalEnabled = settings?.st_mods_enabled !== false;
   const charSuppressed = !!c.st_mods_suppressed;
+  const gameInProgress = !!settings?.game_in_progress; // gdx.5 (#986)
 
   const catOptionsHtml = cats.map(cat => {
     const opts = cat.entries.map(e => `<option value="${esc(e.path)}">${esc(e.label)}</option>`).join('');
@@ -116,6 +131,11 @@ function _renderScaffold() {
           <input type="checkbox" data-stm-toggle="global" ${globalEnabled ? 'checked' : ''}>
           Show ST Mods on sheets <strong>${globalEnabled ? 'ON' : 'OFF'}</strong>
           <span class="stm-toggle-hint">Master switch. When off, no character sheet shows ST mods anywhere on the site (mods stay in the DB; nothing is deleted). Off acts as an emergency hide-all kill-switch.</span>
+        </label>
+        <label class="stm-toggle">
+          <input type="checkbox" data-stm-toggle="game-in-progress" ${gameInProgress ? 'checked' : ''}>
+          Game in progress <strong>${gameInProgress ? 'ON' : 'OFF'}</strong>
+          <span class="stm-toggle-hint">On while a game session is live — gates game-day features like roll-spend automation (gdx.7). Off otherwise. Propagates to every open tab live, no reload needed.</span>
         </label>
         <label class="stm-toggle">
           <input type="checkbox" data-stm-toggle="suppress" ${charSuppressed ? 'checked' : ''}>
@@ -304,6 +324,8 @@ function _attachDelegatedHandlers(root) {
       _onGlobalToggle(t.checked);
     } else if (t.dataset.stmToggle === 'suppress') {
       _onSuppressToggle(t.checked);
+    } else if (t.dataset.stmToggle === 'game-in-progress') {
+      _onGameInProgressToggle(t.checked);
     } else if (t.dataset.stmForm) {
       const key = t.dataset.stmForm;
       if (key === 'delta') state.form.delta = parseInt(t.value, 10) || 0;
@@ -365,6 +387,19 @@ async function _onGlobalToggle(newValue) {
   } catch (err) {
     console.error('[stm-panel] global toggle failed:', err);
     // Revert UI by re-rendering against the (unchanged) cached state.
+    _renderScaffold();
+  }
+}
+
+/** gdx.5 (#986). Mirrors _onGlobalToggle exactly — same PATCH/refresh/
+ *  re-render/revert-on-failure shape, different key. */
+async function _onGameInProgressToggle(newValue) {
+  try {
+    await apiPatch('/api/settings', { game_in_progress: newValue });
+    await loadGlobalSettings();
+    _renderScaffold();
+  } catch (err) {
+    console.error('[stm-panel] game-in-progress toggle failed:', err);
     _renderScaffold();
   }
 }

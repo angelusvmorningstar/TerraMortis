@@ -1,0 +1,654 @@
+diff --git a/public/js/suite/sheet-helpers.js b/public/js/suite/sheet-helpers.js
+index 513ce558..cee6148b 100644
+--- a/public/js/suite/sheet-helpers.js
++++ b/public/js/suite/sheet-helpers.js
+@@ -82,6 +82,41 @@ export function meritLookup(m) {
+ 
+ // ── Power helpers ──
+ 
++/**
++ * gdx.6 (#987): the Cost segment of fmtRuleStats, split out so its own
++ * precedence rules can be tested directly. Prefers the structured
++ * vitae_cost/willpower_cost fields when either is a real positive number,
++ * falls back to cost_note alone for a fully unparsed row, and falls back
++ * to the legacy free-text `cost` string as the last resort \u2014 exactly
++ * today's pre-gdx.6 behaviour for any row this migration never touches
++ * (attribute/skill/manoeuvre/merit, where vitae_cost/willpower_cost are
++ * simply absent, not null).
++ *
++ * A confirmed-free row (vitae_cost: 0, willpower_cost: 0, no cost_note)
++ * renders nothing \u2014 matches the pre-gdx.6 `if (r.cost)` falsy-skip for a
++ * null-cost power; a real "Cost: 0 Vitae" line would be noise no player
++ * asked for.
++ */
++export function fmtCostLine(r) {
++  const v = r.vitae_cost, w = r.willpower_cost, note = r.cost_note;
++  const structured = v != null || w != null; // false when both are simply absent (undefined)
++
++  if (structured) {
++    if (!v && !w && !note) return ''; // confirmed free
++    const bits = [];
++    if (v) bits.push(v + ' Vitae');
++    if (w) bits.push(w + ' Willpower');
++    let text = bits.join(' & ');
++    if (!text && note) text = note; // both 0/null but a note still carries real info
++    else if (text && note) text += ' (' + note + ')';
++    return text ? 'Cost: ' + text : '';
++  }
++
++  if (note) return 'Cost: ' + note;
++  if (r.cost) return 'Cost: ' + r.cost;
++  return '';
++}
++
+ /**
+  * Format a discipline/devotion/rite rule entry into a one-line stats string
+  * (Cost / Pool / Action / Duration). Single source of truth \u2014 was
+@@ -90,7 +125,8 @@ export function meritLookup(m) {
+  */
+ export function fmtRuleStats(r) {
+   const parts = [];
+-  if (r.cost) parts.push('Cost: ' + r.cost);
++  const costLine = fmtCostLine(r);
++  if (costLine) parts.push(costLine);
+   if (r.pool) {
+     const p = [r.pool.attr, r.pool.skill].filter(Boolean).join(' + ');
+     const res = r.resistance ? ' \u2013 ' + r.resistance : '';
+diff --git a/server/schemas/purchasable_power.schema.js b/server/schemas/purchasable_power.schema.js
+index fc85dbce..6a71dcdf 100644
+--- a/server/schemas/purchasable_power.schema.js
++++ b/server/schemas/purchasable_power.schema.js
+@@ -116,6 +116,24 @@ export const purchasablePowerSchema = {
+     action:     { type: ['string', 'null'] },
+     duration:   { type: ['string', 'null'] },
+ 
++    // gdx.6 (#987): structured activation cost, additive alongside the
++    // free-text `cost` above (never replaces it — `cost` stays the
++    // permanent display fallback of last resort). Populated by
++    // server/scripts/gdx-6-structured-power-costs.mjs for discipline/
++    // devotion/rite rows only; absent (not merely null) on every other
++    // category, since "activation cost" is not a concept that applies to
++    // an attribute, skill, manoeuvre, or merit. `null` on a touched row
++    // means "could not be parsed from `cost`" (see `cost_note`), NOT
++    // "free" — a confirmed-free row gets the real integer `0`.
++    vitae_cost:     { type: ['integer', 'null'], minimum: 0 },
++    willpower_cost: { type: ['integer', 'null'], minimum: 0 },
++    // Set whenever `cost` could not be fully reduced to the two integers
++    // above (the original `cost` string verbatim — never fabricated or
++    // summarised), or as a short qualifier alongside a real parse (e.g.
++    // "per effect", "0 in bond") when the parsed number alone would lose
++    // real mechanical information.
++    cost_note: { type: ['string', 'null'] },
++
+     // Prerequisites
+     prereq: {
+       oneOf: [
+diff --git a/server/scripts/gdx-6-structured-power-costs.mjs b/server/scripts/gdx-6-structured-power-costs.mjs
+new file mode 100644
+index 00000000..e85bb570
+--- /dev/null
++++ b/server/scripts/gdx-6-structured-power-costs.mjs
+@@ -0,0 +1,274 @@
++/**
++ * gdx.6 (#987) migration: derive structured `vitae_cost`/`willpower_cost`/
++ * `cost_note` on `purchasable_powers` from the existing free-text `cost`
++ * field, for `discipline`/`devotion`/`rite` rows only (the only three
++ * categories that ever carry a non-null `cost` in live data — confirmed by
++ * this story's own investigation, see its Dev Notes). Manual, ST-invoked,
++ * one-off. Nothing calls this on server boot; the vitest suite imports its
++ * exported functions and runs them against `tm_suite_test` only.
++ *
++ * NO `#!/usr/bin/env node` SHEBANG, deliberately — this script is imported
++ * directly by its own test suite, and vitest's transform fails on a
++ * shebang with a bare, location-less SyntaxError that silently takes down
++ * the whole test file (documented at length in CLAUDE.md and in every
++ * sibling migration script's own header, e.g.
++ * migrate-office-purchases-to-seats.mjs). Run this with an explicit `node`.
++ *
++ * ==========================================================================
++ *   RUNNING THIS FOR REAL IS ANGELUS'S ACTION, NOT AN AGENT'S.
++ * ==========================================================================
++ *
++ *   Connection comes from `../db.js` (MONGODB_URI via config.js, database
++ *   name from MONGODB_DB, defaulting to `tm_suite`). Running this bare from
++ *   `server/` with `server/.env` in place therefore targets LIVE Atlas.
++ *   What makes that survivable is the DRY-RUN DEFAULT: without `--apply`
++ *   this only reads, and prints exactly what it would set.
++ *
++ * Usage, from `server/`:
++ *
++ *   # preview against the configured database, no writes (the default):
++ *   node scripts/gdx-6-structured-power-costs.mjs
++ *
++ *   # write:
++ *   node scripts/gdx-6-structured-power-costs.mjs --apply
++ *
++ *   # write to the throwaway test database instead of live:
++ *   MONGODB_DB=tm_suite_test node scripts/gdx-6-structured-power-costs.mjs --apply
++ *
++ * WHAT IT DOES: for every `purchasable_powers` document with
++ * `category` in `['discipline', 'devotion', 'rite']`, parses `cost` into
++ * one of three classifications:
++ *
++ *   - `zero`     — `cost` is `null` or the literal string `"-"` (both are
++ *                  real, distinct sentinels the live data actually uses
++ *                  for "no cost" — three devotions use `"-"` specifically).
++ *                  Confirmed free to activate: `vitae_cost: 0,
++ *                  willpower_cost: 0, cost_note: null`.
++ *   - `parsed`   — `cost` matches a recognised shape (see
++ *                  `parseCostString`'s own doc comment for the exact
++ *                  patterns, built from the real live samples this story's
++ *                  investigation pulled — plain "N V"/"N Vitae"/"N WP",
++ *                  "N V (& or +) M WP" tolerant of the real separator/
++ *                  spacing inconsistency between disciplines and rites,
++ *                  "N V per effect", "N V/turn", "N V (qualifier)").
++ *   - `unparsed` — everything else (a genuine choice like "Free / 1 V" or
++ *                  "1 W (Opt 1 V)", a range like "3–9 V & 1 WP", "Varies",
++ *                  or a devotion whose cost is a health-damage cost plus an
++ *                  unquantified "+ Vitae"). `vitae_cost: null,
++ *                  willpower_cost: null`, and `cost_note` is the row's own
++ *                  original `cost` string VERBATIM — never summarised or
++ *                  fabricated, so an ST reviewing the plan output sees
++ *                  exactly what a player would see on the sheet today.
++ *
++ * This migration NEVER touches, overwrites, or deletes the existing `cost`
++ * string field — purely additive. `cost` remains the permanent display
++ * fallback of last resort (see `fmtRuleStats` in
++ * public/js/suite/sheet-helpers.js).
++ *
++ * IDEMPOTENT BY CONSTRUCTION, not by a guard: `planCostMigration` is a pure
++ * re-derivation from each row's own stable `cost` string, not a stateful
++ * diff against a prior run, so applying twice writes the same three values
++ * both times. No duplicate-detection logic is needed here (unlike, say, a
++ * ledger-insert migration, which genuinely needs one) — this is a plain
++ * `updateOne` `$set` per row, not an insert.
++ */
++
++import 'dotenv/config';
++import { pathToFileURL } from 'url';
++import { connectDb, getCollection, closeDb } from '../db.js';
++
++/** The only categories that ever carry a non-null `cost` in live data
++ *  (confirmed 2026-08-15: 0 of 9 attributes, 24 skills, 178 manoeuvres, or
++ *  230 merits carry one). "Activation cost" is not a concept that applies
++ *  to the other four categories, so they are never touched by this
++ *  migration — not even to explicitly null the new fields. */
++export const COST_CATEGORIES = ['discipline', 'devotion', 'rite'];
++
++// Matches "V" or the spelled-out "Vitae" as the same unit (The Taste of
++// Things Lived's own live cost is "1 Vitae", not an abbreviation).
++const VITAE_UNIT = '(?:V(?:itae)?)';
++
++const RE_ZERO_SENTINEL = /^-$/;
++const RE_VITAE_ONLY = new RegExp(`^(\\d+)\\s*${VITAE_UNIT}$`, 'i');
++const RE_WP_ONLY = /^(\d+)\s*WP$/i;
++// Tolerant of the real live spacing inconsistency around the separator
++// ("2 V +1 WP", "3 V + 1WP", "1 V & 1 WP") and of the two different
++// separator tokens disciplines ("&") and rites ("+") actually use.
++const RE_COMBO = new RegExp(`^(\\d+)\\s*${VITAE_UNIT}\\s*[&+]\\s*(\\d+)\\s*WP$`, 'i');
++const RE_PER_EFFECT = new RegExp(`^(\\d+)\\s*${VITAE_UNIT}\\s+per\\s+effect$`, 'i');
++const RE_PER_TURN = new RegExp(`^(\\d+)\\s*${VITAE_UNIT}\\s*/\\s*turn$`, 'i');
++// "1 V (0 in bond)" — a real mechanical qualifier (a blood-bond exception),
++// kept verbatim in cost_note rather than discarded.
++const RE_QUALIFIED = new RegExp(`^(\\d+)\\s*${VITAE_UNIT}\\s*\\(([^)]+)\\)$`, 'i');
++
++/**
++ * Pure classifier for one `cost` string. Never throws — an unrecognised
++ * shape is always `unparsed`, never a crash, since this runs unattended
++ * over real, messy, human-authored rulebook text.
++ *
++ * @param {string|null} cost
++ * @returns {{classification: 'zero'|'parsed'|'unparsed', vitae_cost: number|null, willpower_cost: number|null, cost_note: string|null}}
++ */
++export function parseCostString(cost) {
++  if (cost == null || RE_ZERO_SENTINEL.test(cost.trim())) {
++    return { classification: 'zero', vitae_cost: 0, willpower_cost: 0, cost_note: null };
++  }
++
++  const trimmed = cost.trim();
++
++  let m = RE_COMBO.exec(trimmed);
++  if (m) {
++    return { classification: 'parsed', vitae_cost: Number(m[1]), willpower_cost: Number(m[2]), cost_note: null };
++  }
++
++  m = RE_PER_EFFECT.exec(trimmed);
++  if (m) {
++    return { classification: 'parsed', vitae_cost: Number(m[1]), willpower_cost: 0, cost_note: 'per effect' };
++  }
++
++  m = RE_PER_TURN.exec(trimmed);
++  if (m) {
++    return { classification: 'parsed', vitae_cost: Number(m[1]), willpower_cost: 0, cost_note: 'per turn' };
++  }
++
++  m = RE_QUALIFIED.exec(trimmed);
++  if (m) {
++    return { classification: 'parsed', vitae_cost: Number(m[1]), willpower_cost: 0, cost_note: m[2].trim() };
++  }
++
++  m = RE_VITAE_ONLY.exec(trimmed);
++  if (m) {
++    return { classification: 'parsed', vitae_cost: Number(m[1]), willpower_cost: 0, cost_note: null };
++  }
++
++  m = RE_WP_ONLY.exec(trimmed);
++  if (m) {
++    return { classification: 'parsed', vitae_cost: 0, willpower_cost: Number(m[1]), cost_note: null };
++  }
++
++  // Genuine choices ("Free / 1 V", "1 W (Opt 1 V)"), ranges ("3–9 V & 1 WP"),
++  // "Varies", and health-damage-plus-unquantified-Vitae devotion costs all
++  // fall here. The original text is preserved verbatim — refuse to guess.
++  return { classification: 'unparsed', vitae_cost: null, willpower_cost: null, cost_note: cost };
++}
++
++/**
++ * PURE: reads only, no writes, no side effects, so `main()` can print the
++ * whole plan before anyone decides whether to run it.
++ *
++ * Takes the collection as an ARGUMENT rather than resolving it internally,
++ * so a test can hand over a `tm_suite_test` collection and this can never
++ * reach live data by accident.
++ *
++ * @param {import('mongodb').Collection} powersCollection
++ * @returns {Promise<{zero: object[], parsed: object[], unparsed: object[], counts: {zero:number, parsed:number, unparsed:number, total:number}}>}
++ */
++export async function planCostMigration(powersCollection) {
++  const docs = await powersCollection.find({ category: { $in: COST_CATEGORIES } }).toArray();
++
++  const zero = [];
++  const parsed = [];
++  const unparsed = [];
++
++  for (const doc of docs) {
++    const result = parseCostString(doc.cost ?? null);
++    const row = {
++      _id: doc._id,
++      name: doc.name,
++      category: doc.category,
++      cost: doc.cost ?? null,
++      vitae_cost: result.vitae_cost,
++      willpower_cost: result.willpower_cost,
++      cost_note: result.cost_note,
++    };
++    if (result.classification === 'zero') zero.push(row);
++    else if (result.classification === 'parsed') parsed.push(row);
++    else unparsed.push(row);
++  }
++
++  return {
++    zero, parsed, unparsed,
++    counts: { zero: zero.length, parsed: parsed.length, unparsed: unparsed.length, total: docs.length },
++  };
++}
++
++/**
++ * Carry out (or, by default, merely narrate) the plan. Every row in every
++ * bucket gets written — `unparsed` rows still get an explicit
++ * `vitae_cost: null, willpower_cost: null, cost_note: <original text>`,
++ * which is itself real, useful, structured information (distinct from the
++ * field being entirely absent on a category this migration never touches).
++ *
++ * @param {import('mongodb').Collection} powersCollection
++ * @param {{zero: object[], parsed: object[], unparsed: object[]}} plan - the output of `planCostMigration`
++ * @param {{ apply?: boolean, log?: Function }} opts
++ * @returns {Promise<{written:number}>}
++ */
++export async function applyCostMigration(powersCollection, plan, { apply = false, log = () => {} } = {}) {
++  let written = 0;
++  const allRows = [...plan.zero, ...plan.parsed, ...plan.unparsed];
++
++  for (const row of allRows) {
++    const update = {
++      vitae_cost: row.vitae_cost,
++      willpower_cost: row.willpower_cost,
++      cost_note: row.cost_note,
++    };
++
++    if (!apply) {
++      log(`  [DRY RUN] ${row.category} '${row.name}': cost=${JSON.stringify(row.cost)} -> ` +
++          `vitae_cost=${update.vitae_cost}, willpower_cost=${update.willpower_cost}, cost_note=${JSON.stringify(update.cost_note)}`);
++      continue;
++    }
++
++    await powersCollection.updateOne({ _id: row._id }, { $set: update });
++    written += 1;
++    log(`  set      : ${row.category} '${row.name}' -> vitae_cost=${update.vitae_cost}, willpower_cost=${update.willpower_cost}`);
++  }
++
++  return { written };
++}
++
++export async function main(argv = process.argv) {
++  const apply = argv.includes('--apply');
++  const dbName = process.env.MONGODB_DB || 'tm_suite';
++
++  console.log(`Mode     : ${apply ? 'APPLY (will write)' : 'DRY RUN (read only; pass --apply to write)'}`);
++  console.log(`Target DB: ${dbName}`);
++  console.log('');
++
++  await connectDb();
++  try {
++    const powersCollection = getCollection('purchasable_powers');
++    const plan = await planCostMigration(powersCollection);
++
++    console.log(`${plan.counts.total} document(s) across ${COST_CATEGORIES.join('/')}.`);
++    console.log(`  ${plan.counts.zero} confirmed zero-cost, ${plan.counts.parsed} parsed, ${plan.counts.unparsed} unparsed.`);
++    console.log('');
++
++    if (plan.unparsed.length) {
++      console.log('UNPARSED — needs ST review, left as cost_note only:');
++      for (const row of plan.unparsed) {
++        console.log(`  ${row.category} '${row.name}': ${JSON.stringify(row.cost)}`);
++      }
++      console.log('');
++    }
++
++    const result = await applyCostMigration(powersCollection, plan, { apply, log: msg => console.log(msg) });
++
++    console.log('');
++    if (apply) {
++      console.log(`Wrote ${result.written} document(s).`);
++      console.log('Idempotency check: re-run with --apply and confirm the same values are written again (this is expected — see the header comment).');
++    } else {
++      console.log('Re-run with --apply to write.');
++    }
++  } finally {
++    await closeDb();
++  }
++}
++
++// Auto-run only when invoked directly, never when imported by a test.
++if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
++  main().catch(err => { console.error(err.message); process.exit(1); });
++}
+diff --git a/server/tests/gdx-6-structured-power-costs.test.js b/server/tests/gdx-6-structured-power-costs.test.js
+new file mode 100644
+index 00000000..cea73710
+--- /dev/null
++++ b/server/tests/gdx-6-structured-power-costs.test.js
+@@ -0,0 +1,283 @@
++/**
++ * gdx.6 (#987) — structured vitae_cost/willpower_cost/cost_note on
++ * purchasable_powers.
++ *
++ * Covers:
++ *   - parseCostString: classification (zero/parsed/unparsed) against real
++ *     row samples this story's own investigation pulled from live tm_suite
++ *     (2026-08-15) — see specs/stories/gdx-6-structured-power-costs.md's
++ *     Dev Notes for the full cited list.
++ *   - planCostMigration: category scoping, bucket counts.
++ *   - applyCostMigration / main(): real DB round-trip against
++ *     tm_suite_test, dry-run vs --apply, idempotent re-run (AC6 — proven,
++ *     not just asserted).
++ *   - fmtCostLine (public/js/suite/sheet-helpers.js): the four display
++ *     precedence branches from AC7. Import stub technique mirrors
++ *     issue-1141-office-tab-render.test.js's own — sheet-helpers.js's
++ *     import chain reaches browser globals (window/location/localStorage)
++ *     a bare vitest import can't provide.
++ */
++
++import { describe, it, expect, beforeAll, afterAll } from 'vitest';
++import { ObjectId } from 'mongodb';
++import { setupDb, teardownDb } from './helpers/db-setup.js';
++import { getCollection } from '../db.js';
++import {
++  parseCostString,
++  planCostMigration,
++  applyCostMigration,
++  COST_CATEGORIES,
++} from '../scripts/gdx-6-structured-power-costs.mjs';
++
++const NAME_PREFIX = 'GDX-6 Probe';
++
++async function cleanup() {
++  await getCollection('purchasable_powers').deleteMany({ name: { $regex: `^${NAME_PREFIX}` } });
++}
++
++beforeAll(async () => {
++  await setupDb();
++  await cleanup();
++});
++
++afterAll(async () => {
++  await cleanup();
++  await teardownDb();
++});
++
++// ── parseCostString — real cited samples ────────────────────────────────
++
++describe('parseCostString — real live samples (2026-08-15 investigation)', () => {
++  it('zero: null cost (e.g. Feral Whispers, Spirit\'s Touch)', () => {
++    expect(parseCostString(null)).toEqual({ classification: 'zero', vitae_cost: 0, willpower_cost: 0, cost_note: null });
++  });
++
++  it('zero: "-" sentinel (City Attunement, Conditioning, Cross-Contamination)', () => {
++    expect(parseCostString('-')).toEqual({ classification: 'zero', vitae_cost: 0, willpower_cost: 0, cost_note: null });
++  });
++
++  it('parsed: plain "N V" (Feral Infection "2 V")', () => {
++    expect(parseCostString('2 V')).toEqual({ classification: 'parsed', vitae_cost: 2, willpower_cost: 0, cost_note: null });
++  });
++
++  it('parsed: spelled-out "N Vitae" (The Taste of Things Lived "1 Vitae")', () => {
++    expect(parseCostString('1 Vitae')).toEqual({ classification: 'parsed', vitae_cost: 1, willpower_cost: 0, cost_note: null });
++  });
++
++  it('parsed: plain "N WP" (63 live rites, e.g. Lightning Rod "1 WP")', () => {
++    expect(parseCostString('1 WP')).toEqual({ classification: 'parsed', vitae_cost: 0, willpower_cost: 1, cost_note: null });
++  });
++
++  it('parsed: combo "N V & M WP" with & separator (Possession "1 V & 1 WP")', () => {
++    expect(parseCostString('1 V & 1 WP')).toEqual({ classification: 'parsed', vitae_cost: 1, willpower_cost: 1, cost_note: null });
++  });
++
++  it('parsed: combo with + separator, tight spacing (rite "2 V +1 WP")', () => {
++    expect(parseCostString('2 V +1 WP')).toEqual({ classification: 'parsed', vitae_cost: 2, willpower_cost: 1, cost_note: null });
++  });
++
++  it('parsed: combo with + separator, other tight spacing (rite "3 V + 1WP")', () => {
++    expect(parseCostString('3 V + 1WP')).toEqual({ classification: 'parsed', vitae_cost: 3, willpower_cost: 1, cost_note: null });
++  });
++
++  it('parsed: "N V per effect" (Celerity/Resilience/Vigour 1-5, every rank)', () => {
++    expect(parseCostString('1 V per effect')).toEqual({ classification: 'parsed', vitae_cost: 1, willpower_cost: 0, cost_note: 'per effect' });
++  });
++
++  it('parsed: "N V/turn" (Juggernaut\'s Gait "5 V/turn")', () => {
++    expect(parseCostString('5 V/turn')).toEqual({ classification: 'parsed', vitae_cost: 5, willpower_cost: 0, cost_note: 'per turn' });
++  });
++
++  it('parsed: "N V (qualifier)" keeps the qualifier (Iron Edict "1 V (0 in bond)")', () => {
++    expect(parseCostString('1 V (0 in bond)')).toEqual({ classification: 'parsed', vitae_cost: 1, willpower_cost: 0, cost_note: '0 in bond' });
++  });
++
++  it('unparsed: genuine choice, not one number (Beast\'s Hackles "Free / 1 V")', () => {
++    expect(parseCostString('Free / 1 V')).toEqual({ classification: 'unparsed', vitae_cost: null, willpower_cost: null, cost_note: 'Free / 1 V' });
++  });
++
++  it('unparsed: genuine choice, WP base with optional V (Hold my Beer "1 W (Opt 1 V)")', () => {
++    expect(parseCostString('1 W (Opt 1 V)')).toEqual({ classification: 'unparsed', vitae_cost: null, willpower_cost: null, cost_note: '1 W (Opt 1 V)' });
++  });
++
++  it('unparsed: range, en-dash, WP half not half-populated (Lord of the Land "3–9 V & 1 WP")', () => {
++    const r = parseCostString('3–9 V & 1 WP');
++    expect(r.classification).toBe('unparsed');
++    expect(r.vitae_cost).toBeNull();
++    expect(r.willpower_cost).toBeNull(); // deliberately NOT 1, even though the WP half looks clean
++    expect(r.cost_note).toBe('3–9 V & 1 WP');
++  });
++
++  it('unparsed: "Varies" (Unmarked Grave)', () => {
++    expect(parseCostString('Varies')).toEqual({ classification: 'unparsed', vitae_cost: null, willpower_cost: null, cost_note: 'Varies' });
++  });
++
++  it('unparsed: body-mutilation devotion, health cost + unquantified Vitae (Eye Behind Glass)', () => {
++    const original = '1L (the eye) + Vitae to fix it';
++    expect(parseCostString(original)).toEqual({ classification: 'unparsed', vitae_cost: null, willpower_cost: null, cost_note: original });
++  });
++
++  it('unparsed: another body-mutilation devotion, verbatim preserved (The Soul Transplant)', () => {
++    const original = '1L (sternum) + Vitae; extended surgery on the donor';
++    expect(parseCostString(original)).toEqual({ classification: 'unparsed', vitae_cost: null, willpower_cost: null, cost_note: original });
++  });
++
++  it('never throws on an unrecognised shape', () => {
++    expect(() => parseCostString('???')).not.toThrow();
++    expect(parseCostString('???').classification).toBe('unparsed');
++  });
++});
++
++// ── planCostMigration ────────────────────────────────────────────────────
++
++describe('planCostMigration', () => {
++  it('only reads discipline/devotion/rite categories, never merit/skill/attribute/manoeuvre', async () => {
++    const col = getCollection('purchasable_powers');
++    const docs = [
++      { _id: new ObjectId(), key: 'gdx6-disc', name: `${NAME_PREFIX} Disc`, category: 'discipline', cost: '2 V' },
++      { _id: new ObjectId(), key: 'gdx6-merit', name: `${NAME_PREFIX} Merit`, category: 'merit', cost: null },
++      { _id: new ObjectId(), key: 'gdx6-skill', name: `${NAME_PREFIX} Skill`, category: 'skill', cost: null },
++    ];
++    await col.insertMany(docs);
++
++    const plan = await planCostMigration(col);
++    const names = [...plan.zero, ...plan.parsed, ...plan.unparsed].map(r => r.name);
++    expect(names).toContain(`${NAME_PREFIX} Disc`);
++    expect(names).not.toContain(`${NAME_PREFIX} Merit`);
++    expect(names).not.toContain(`${NAME_PREFIX} Skill`);
++    expect(COST_CATEGORIES).toEqual(['discipline', 'devotion', 'rite']);
++  });
++
++  it('buckets a mixed set correctly and counts match', async () => {
++    const col = getCollection('purchasable_powers');
++    const docs = [
++      { _id: new ObjectId(), key: 'gdx6-zero', name: `${NAME_PREFIX} Zero`, category: 'devotion', cost: null },
++      { _id: new ObjectId(), key: 'gdx6-parsed', name: `${NAME_PREFIX} Parsed`, category: 'rite', cost: '1 WP' },
++      { _id: new ObjectId(), key: 'gdx6-unparsed', name: `${NAME_PREFIX} Unparsed`, category: 'discipline', cost: 'Varies' },
++    ];
++    await col.insertMany(docs);
++
++    const plan = await planCostMigration(col);
++    const zeroNames = plan.zero.map(r => r.name);
++    const parsedNames = plan.parsed.map(r => r.name);
++    const unparsedNames = plan.unparsed.map(r => r.name);
++
++    expect(zeroNames).toContain(`${NAME_PREFIX} Zero`);
++    expect(parsedNames).toContain(`${NAME_PREFIX} Parsed`);
++    expect(unparsedNames).toContain(`${NAME_PREFIX} Unparsed`);
++    expect(plan.counts.total).toBe(plan.counts.zero + plan.counts.parsed + plan.counts.unparsed);
++  });
++});
++
++// ── applyCostMigration / main() — real DB round-trip ─────────────────────
++
++describe('applyCostMigration — dry-run vs --apply, idempotency', () => {
++  it('dry-run writes nothing', async () => {
++    const col = getCollection('purchasable_powers');
++    const id = new ObjectId();
++    await col.insertOne({ _id: id, key: 'gdx6-dry', name: `${NAME_PREFIX} DryRun`, category: 'devotion', cost: '3 V' });
++
++    const plan = await planCostMigration(col);
++    const result = await applyCostMigration(col, plan, { apply: false });
++    expect(result.written).toBe(0);
++
++    const after = await col.findOne({ _id: id });
++    expect(after.vitae_cost).toBeUndefined();
++    expect(after.cost).toBe('3 V'); // untouched either way
++  });
++
++  it('--apply sets vitae_cost/willpower_cost/cost_note without touching cost, and never overwrites cost', async () => {
++    const col = getCollection('purchasable_powers');
++    const id = new ObjectId();
++    await col.insertOne({ _id: id, key: 'gdx6-apply', name: `${NAME_PREFIX} Apply`, category: 'discipline', cost: '2 V & 1 WP' });
++
++    const plan = await planCostMigration(col);
++    await applyCostMigration(col, plan, { apply: true });
++
++    const after = await col.findOne({ _id: id });
++    expect(after.vitae_cost).toBe(2);
++    expect(after.willpower_cost).toBe(1);
++    expect(after.cost_note).toBeNull();
++    expect(after.cost).toBe('2 V & 1 WP'); // legacy field survives untouched
++  });
++
++  it('an unparsed row is applied too — vitae_cost/willpower_cost null, cost_note carries the original text', async () => {
++    const col = getCollection('purchasable_powers');
++    const id = new ObjectId();
++    await col.insertOne({ _id: id, key: 'gdx6-unparsed-apply', name: `${NAME_PREFIX} UnparsedApply`, category: 'devotion', cost: 'Free / 1 V' });
++
++    const plan = await planCostMigration(col);
++    await applyCostMigration(col, plan, { apply: true });
++
++    const after = await col.findOne({ _id: id });
++    expect(after.vitae_cost).toBeNull();
++    expect(after.willpower_cost).toBeNull();
++    expect(after.cost_note).toBe('Free / 1 V');
++  });
++
++  it('AC6: applying twice produces byte-identical results (idempotent by construction)', async () => {
++    const col = getCollection('purchasable_powers');
++    const id = new ObjectId();
++    await col.insertOne({ _id: id, key: 'gdx6-idem', name: `${NAME_PREFIX} Idempotent`, category: 'rite', cost: '1 V' });
++
++    const plan1 = await planCostMigration(col);
++    await applyCostMigration(col, plan1, { apply: true });
++    const afterFirst = await col.findOne({ _id: id });
++
++    const plan2 = await planCostMigration(col);
++    await applyCostMigration(col, plan2, { apply: true });
++    const afterSecond = await col.findOne({ _id: id });
++
++    expect(afterSecond).toEqual(afterFirst);
++  });
++});
++
++// ── fmtCostLine (client) — AC7 precedence branches ───────────────────────
++
++describe('fmtCostLine — display precedence (public/js/suite/sheet-helpers.js)', () => {
++  let fmtCostLine;
++  const hadLocation = 'location' in globalThis;
++  const hadWindow = 'window' in globalThis;
++  const hadLocalStorage = 'localStorage' in globalThis;
++
++  beforeAll(async () => {
++    if (!hadLocation) globalThis.location = { hostname: 'test', pathname: '/' };
++    if (!hadWindow) globalThis.window = globalThis;
++    if (!hadLocalStorage) globalThis.localStorage = { getItem: () => null, setItem: () => {}, removeItem: () => {} };
++    ({ fmtCostLine } = await import('../../public/js/suite/sheet-helpers.js'));
++  });
++
++  afterAll(() => {
++    if (!hadLocation) delete globalThis.location;
++    if (!hadWindow) delete globalThis.window;
++    if (!hadLocalStorage) delete globalThis.localStorage;
++  });
++
++  it('confirmed free (0/0, no note) renders nothing', () => {
++    expect(fmtCostLine({ vitae_cost: 0, willpower_cost: 0, cost_note: null })).toBe('');
++  });
++
++  it('a real Vitae-only cost renders "Cost: N Vitae"', () => {
++    expect(fmtCostLine({ vitae_cost: 2, willpower_cost: 0, cost_note: null })).toBe('Cost: 2 Vitae');
++  });
++
++  it('a real combo cost renders both, joined', () => {
++    expect(fmtCostLine({ vitae_cost: 1, willpower_cost: 1, cost_note: null })).toBe('Cost: 1 Vitae & 1 Willpower');
++  });
++
++  it('a structured cost with a note appends it in parentheses', () => {
++    expect(fmtCostLine({ vitae_cost: 1, willpower_cost: 0, cost_note: 'per effect' })).toBe('Cost: 1 Vitae (per effect)');
++  });
++
++  it('both null but a cost_note present shows the note alone (the unparsed case)', () => {
++    expect(fmtCostLine({ vitae_cost: null, willpower_cost: null, cost_note: 'Free / 1 V' })).toBe('Cost: Free / 1 V');
++  });
++
++  it('fields entirely absent (untouched category) falls back to the legacy cost string', () => {
++    expect(fmtCostLine({ cost: '2 V' })).toBe('Cost: 2 V');
++  });
++
++  it('fields entirely absent and no legacy cost either renders nothing (matches pre-gdx.6 behaviour)', () => {
++    expect(fmtCostLine({})).toBe('');
++  });
++});

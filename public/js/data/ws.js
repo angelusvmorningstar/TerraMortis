@@ -24,6 +24,11 @@ let _onStModUpdate = null;
 // (itemId, op) for remote equipment_catalogue create/update/delete events.
 // Consumers (the catalogue cache module) refetch on receipt.
 let _onCatalogueUpdate = null;
+// gdx.5 (#986): callback for settings-update frames. Called with no
+// arguments on any remote app_settings PATCH — consumers (the settings
+// cache module) refetch the whole doc on receipt, same shape as
+// onCatalogueUpdate.
+let _onSettingsUpdate = null;
 
 // Recent local writes — { charId+field → timestamp }. Used to suppress
 // WS echo of our own saves (avoids double-render on the originating client).
@@ -53,11 +58,13 @@ export function markLocalWrite(charId, fields) {
  * @param {function} [opts.onTrackerUpdate] — called with (characterId, fields) for remote tracker changes
  * @param {function} [opts.onStModUpdate]   — called with (characterId, op, stModId) for remote st_mod changes (STM-9 / issue #416)
  * @param {function} [opts.onCatalogueUpdate] — called with (itemId, op) for remote equipment_catalogue events (ECM-5 / issue #872)
+ * @param {function} [opts.onSettingsUpdate] — called with no args for remote app_settings PATCH events (gdx.5 / #986)
  */
 export function initWS(opts = {}) {
   _onTrackerUpdate = opts.onTrackerUpdate || null;
   _onStModUpdate = opts.onStModUpdate || null;
   _onCatalogueUpdate = opts.onCatalogueUpdate || null;
+  _onSettingsUpdate = opts.onSettingsUpdate || null;
   _token = localStorage.getItem('tm_auth_token');
   _closed = false;
   if (!_token) return; // not logged in
@@ -100,6 +107,7 @@ function _connect() {
       if (msg.type === 'tracker') _handleTrackerMsg(msg);
       else if (msg.type === 'st_mod') _handleStModMsg(msg);
       else if (msg.type === 'catalogue') _handleCatalogueMsg(msg);
+      else if (msg.type === 'settings') _handleSettingsMsg();
     } catch { /* ignore non-JSON */ }
   };
 
@@ -192,4 +200,11 @@ function _handleStModMsg(msg) {
 function _handleCatalogueMsg(msg) {
   const { item_id, op } = msg;
   if (_onCatalogueUpdate) _onCatalogueUpdate(item_id, op);
+}
+
+/** gdx.5 (#986): no payload to read — the frame itself is the signal.
+ *  Mirrors _handleCatalogueMsg's shape; no echo suppression needed, a
+ *  settings refetch is cheap and idempotent unlike per-field tracker state. */
+function _handleSettingsMsg() {
+  if (_onSettingsUpdate) _onSettingsUpdate();
 }

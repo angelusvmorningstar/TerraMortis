@@ -120,6 +120,12 @@ const { loadPool, chgPool, chgMod, updPool, setAgain, togMod, togSpec, doRoll, c
 // setAgainSeg exists on rollV2 (slice A+D, #1024). Guarded so the tab
 // works when the flag is off and only rollV1 is active.
 const setAgainSeg = _roller.setAgainSeg || setAgain;
+// spendVitae/spendWillpower (gdx.7 follow-up) exist on rollV2 only — the
+// standalone spend buttons are hidden by rollV2's own game_in_progress
+// gate when rollV1 is active, but the onclick handlers still need a no-op
+// fallback so a stray click on residual DOM (if any) doesn't throw.
+const spendVitae = _roller.spendVitae || (() => {});
+const spendWillpower = _roller.spendWillpower || (() => {});
 import { onSheetChar, renderSheet as suiteRenderSheet, repaintSheetTrackers } from './suite/sheet.js';
 import { toggleExp as suiteToggleExp, toggleDisc as suiteToggleDisc } from './suite/sheet-helpers.js';
 import { updResist, showResistSec } from './shared/resist.js';
@@ -1335,6 +1341,8 @@ Object.assign(window, {
   effPool,
   togEquipChip,
   updWeaponRef,
+  spendVitae,
+  spendWillpower,
 
   // Suite sheet tab
   onSheetChar,
@@ -1522,6 +1530,11 @@ async function boot() {
           // broadcastCatalogueUpdate), refetch the cache. Next render of
           // the DT form's equipment dropdown picks up the fresh items.
           onCatalogueUpdate: () => { refetchEquipmentCatalogue(); },
+          // gdx.5 (#986): on any remote app_settings PATCH (broadcast by
+          // server/ws.js's broadcastSettingsUpdate), refetch the cache so
+          // an ST's game_in_progress toggle (or st_mods_enabled) reaches
+          // every open tab without a reload.
+          onSettingsUpdate: () => { loadGlobalSettings(); },
         });
 
         // Issue #425: install the STM popover delegated click handler for
