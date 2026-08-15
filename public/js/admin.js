@@ -4,7 +4,6 @@ console.log('%c[TM Admin] build 2026-04-08T1', 'color: #E0C47A; font-weight: bol
 import { apiGet, apiPut, apiPost, apiDelete } from './data/api.js';
 import { loadGameXP } from './data/game-xp.js';
 import { auditCharacter } from './data/audit.js';
-import { initAdminArchive } from './admin/archive-admin.js';
 import { sanitiseChar, loadRulesFromApi } from './data/loader.js';
 import { downloadCSV } from './editor/export.js';
 import { esc, clanIcon, covIcon, shortCov, cardName, displayName, sortName, redactPlayer, discordAvatarUrl, findRegentTerritory, isRedactMode } from './data/helpers.js';
@@ -670,7 +669,6 @@ function openCharDetail(c) {
         <button class="dt-btn" id="cd-export-json">JSON</button>
         <button class="dt-btn" id="cd-save-api" style="display:none">Save to DB</button>
         <a class="dt-btn cd-player-view" href="/" id="cd-player-view">Player View</a>
-        <button class="dt-btn" id="cd-archive">Archive</button>
         <button class="dt-btn" id="cd-link-player">Link Player</button>
         <button class="dt-btn retire-btn" id="cd-retire">${c.retired ? 'Unretire' : 'Retire'}</button>
         <button class="dt-btn cd-hard-delete-btn" id="cd-hard-delete">Hard-Delete</button>
@@ -720,9 +718,9 @@ function openCharDetail(c) {
   document.getElementById('cd-retire').addEventListener('click', toggleRetire);
   document.getElementById('cd-hard-delete').addEventListener('click', () => openHardDeleteModal(c));
   document.getElementById('cd-link-player').addEventListener('click', () => openPlayerLinkModal(c));
-  document.getElementById('cd-archive').addEventListener('click', () => {
-    initAdminArchive(document.getElementById('sh-content'), c);
-  });
+  // The Archive button is RETIRED (Story 31-5, TM Wiki): `archive_documents` and its
+  // authoring both moved to TM Wiki, where uploading is `npm run archive:upload` rather
+  // than a form here. See the note in server/index.js.
 
   panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 }

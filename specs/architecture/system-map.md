@@ -36,7 +36,6 @@ MongoDB Atlas                        → tm_suite database      All persistent d
 | `downtime_cycles` | `GET/POST/PUT /api/downtime_cycles` | requireAuth | |
 | `downtime_submissions` | `GET/POST/PUT /api/downtime_submissions` | requireAuth | |
 | `players` | `GET/POST/PUT /api/players` | requireAuth | Emergency contact lives here |
-| `investigations` | `/api/downtime_investigations` | requireAuth | |
 | `npcs` | `/api/npcs` | requireAuth | |
 | `ordeal_submissions` | `/api/ordeal_submissions` | requireAuth | |
 | `ordeal_rubrics` | `/api/ordeal_rubrics` | requireAuth | |
