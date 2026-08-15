@@ -300,3 +300,45 @@ and verified before deferral. Provenance:
   bucket produced it), so this is a report/bucket-grouping inconsistency only, not a display bug — an
   ST reading the migration's plan-mode counts would see it filed as "parsed" rather than "confirmed
   free." Cosmetic; fix only if it ever actually occurs.
+
+## Deferred from: gdx-7-apply-costs-on-roll dev-story (2026-08-15)
+
+- **Test-harness/production routing drift on `/api/tracker_state`** — `server/tests/helpers/test-app.js:90`
+  mounts the router as `mockAuth, requireRole('st'), noCache(), trackerRouter`, an app-level ST-only
+  gate that does not exist in production (`server/index.js:173` mounts the same router as
+  `requireAuth, noCache(), trackerRouter` only, leaving all scoping to the router's own `canAccess()`,
+  which already correctly lets a player read/write their own character's tracker). Found while building
+  gdx.7's live-DB integration test, which needed to reason precisely about who the real API lets write
+  what. Effect: `api-tracker-state.test.js`'s existing "player is blocked (ST-only endpoint)" tests
+  currently pass for the wrong reason (the test harness's own extra gate, not `canAccess()`'s real
+  own-character scoping) — `playerUser([])` owns no characters either way, so removing the extra gate
+  wouldn't flip those tests' outcomes, but today they give no signal about the actual production
+  behaviour. Not fixed in gdx.7: the change is a one-line, low-risk mount-line correction, but
+  `test-app.js` is shared infrastructure used by ~30+ suites and a routing-shape change there deserves
+  its own reviewed story rather than riding in on an unrelated one. Fix: drop `requireRole('st')` from
+  that one mount line so the test harness matches production exactly, then add a positive test proving
+  a player CAN write their own character's tracker (currently untested in either direction with the
+  correct auth boundary).
+
+## Deferred from: gdx-7-apply-costs-on-roll internal code review (2026-08-15)
+
+- **`trackerAdj`'s writes are fire-and-forget with no surfaced error** — `public/js/game/tracker.js`'s
+  `saveToApi` swallows a failed `PUT` (`.catch(() => {/* silent fail */})`) everywhere it's called, not
+  just from gdx.7's new roll-triggered spend. If the network drop happens mid-roll, the roll still
+  proceeds as if the spend succeeded and nothing tells the player or ST the tracker is now out of sync.
+  Pre-existing shape, confirmed by reading `tracker.js` directly; fixing it means redesigning
+  `trackerAdj`/`saveToApi` itself, out of any single story's scope. Flagged by internal review (Blind
+  Hunter + Edge Case Hunter, independently) as newly load-bearing now that a real live-game feature
+  depends on it.
+- **Vitae/Willpower spend on roll is two independent, non-atomic writes** — `roll-v2.js`'s `doRoll()`
+  calls `trackerAdj` once per field (vitae, then willpower) for a devotion costing both. If the first
+  write succeeds and the second fails, the character is left half-charged with no rollback. A true fix
+  needs a server-side atomic multi-field spend endpoint — explicitly out of gdx.7's own scope ("NOT a
+  new API endpoint"). Flagged by internal review (Blind Hunter).
+- **TOCTOU race between the affordability check and the actual spend** — `roll-v2.js`'s
+  `_currentSpendDecision()` reads the tracker balance once, but `trackerAdj`'s actual mutation can land
+  after a WS update or an ST's manual edit has already changed it. `trackerAdj`'s own clamp-at-0 would
+  then silently truncate an unaffordable spend rather than reject it, narrowly weakening the "never a
+  partial spend" guarantee gdx.7's own tests otherwise enforce. Low-probability; a full fix needs a
+  server-side atomic "spend-if-affordable" check, same scope boundary as the item above. Flagged by
+  internal review (Edge Case Hunter).

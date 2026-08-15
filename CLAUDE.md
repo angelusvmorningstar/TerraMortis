@@ -189,7 +189,7 @@ Before building any feature that reads or writes data, consult `specs/reference-
 
 Key rules:
 - `FEED_METHODS` and `TERRITORY_DATA` live in `public/js/player/downtime-data.js` — import from there, never duplicate
-- Tracker state (`tracker_state` collection) is ST-auth only at the API level — player access requires explicit auth change
+- Tracker state (`tracker_state` collection) is already player-scoped at the API level — `server/routes/tracker.js`'s own `canAccess()` lets a player read/write their own character's tracker (`character_ids` match), ST/dev unconditionally. Corrected 2026-08-15 (gdx.7); the previous "ST-auth only" line here was stale and had gone unread against the actual route.
 - `public/js/game/tracker.js` (keyed by `_id`) is the sole canonical client tracker. The name-keyed persistence surface was removed in #836; `public/js/suite/toast.js` is only a toast helper, not a tracker
 - Derived stats (health max, vitae max, willpower max, influence total, XP) are never stored — always calculate at render time
 
