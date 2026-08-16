@@ -46,8 +46,9 @@ describe('epic.708.2 — cycle-views.js', () => {
   it('exports initCycleView', () =>
     expect(CYCLE_VIEWS).toContain('export async function initCycleView'));
 
-  it('fetches /api/chapters', () =>
-    expect(CYCLE_VIEWS).toContain('/api/chapters'));
+  // cm-2: was /api/chapters.
+  it('fetches /api/story_cycles', () =>
+    expect(CYCLE_VIEWS).toContain('/api/story_cycles'));
 
   it('fetches /api/downtime_cycles', () =>
     expect(CYCLE_VIEWS).toContain('/api/downtime_cycles'));
@@ -58,10 +59,10 @@ describe('epic.708.2 — cycle-views.js', () => {
   it('handles fetch errors without throwing (try/catch present)', () =>
     expect(CYCLE_VIEWS).toContain('} catch (err)'));
 
-  it('supports chapter creation via apiPost', () =>
+  it('supports story cycle creation via apiPost', () =>
     expect(CYCLE_VIEWS).toContain('apiPost'));
 
-  it('supports chapter deletion via apiDelete', () =>
+  it('supports story cycle deletion via apiDelete', () =>
     expect(CYCLE_VIEWS).toContain('apiDelete'));
 
   it('maps game_phase values to human labels', () =>

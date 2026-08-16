@@ -29,7 +29,7 @@ import stModsRouter, { auditRouter as stModAuditRouter } from '../../routes/st_m
 import appSettingsRouter from '../../routes/app-settings.js';
 import devlogRouter from '../../routes/devlog.js';
 import buildEquipmentCatalogueRouter from '../../routes/equipment-catalogue.js';
-import { chaptersRouter } from '../../routes/chapters.js';
+import { storyCyclesRouter } from '../../routes/story-cycles.js';
 import cyoaRouter from '../../routes/cyoa.js';
 import officeActionsRouter from '../../routes/office-actions.js';
 import officeMeritDotsRouter from '../../routes/office-merit-dots.js';
@@ -116,8 +116,8 @@ export function createTestApp() {
   app.use('/api/settings', mockAuth, noCache(), appSettingsRouter);
   // Issue #502: devlog entries (player read, ST write)
   app.use('/api/devlog', mockAuth, noCache(), devlogRouter);
-  // CYCLE epic (#708): chapter management
-  app.use('/api/chapters', mockAuth, noCache(), chaptersRouter);
+  // CYCLE epic (#708): story cycle management (was /api/chapters until cm-2)
+  app.use('/api/story_cycles', mockAuth, noCache(), storyCyclesRouter);
   // Issue #971: CYOA cross-project write-back
   app.use('/api/cyoa', mockAuth, noCache(), cyoaRouter);
   // Issue #691 / otc.2: office actions (Status Actions)

@@ -3,32 +3,39 @@ import { ObjectId } from 'mongodb';
 import { getCollection } from '../db.js';
 import { requireRole } from '../middleware/auth.js';
 
-const col = () => getCollection('chapters');
+// cm-2: this router was `chapters.js` serving `/api/chapters` off a `chapters`
+// collection. The collection never held Chapters — under the settled cycle
+// model (cycle-model.md §3) a Chapter is one game plus its downtime, i.e. a
+// `downtime_cycles` document, and what this collection actually groups is the
+// multi-game tier above that: a Story. Collection, route, file and field all
+// renamed together. Behaviour is unchanged: same five endpoints, same auth,
+// same status codes, same inline {number, label} validation.
+const col = () => getCollection('story_cycles');
 const cycles = () => getCollection('downtime_cycles');
 
 function parseId(id) {
   try { return new ObjectId(id); } catch { return null; }
 }
 
-export const chaptersRouter = Router();
+export const storyCyclesRouter = Router();
 
-// GET /api/chapters — list all chapters sorted by number asc (public read)
-chaptersRouter.get('/', async (req, res) => {
+// GET /api/story_cycles — list all story cycles sorted by number asc (public read)
+storyCyclesRouter.get('/', async (req, res) => {
   const docs = await col().find().sort({ number: 1 }).toArray();
   res.json(docs);
 });
 
-// GET /api/chapters/:id — single chapter (public read)
-chaptersRouter.get('/:id', async (req, res) => {
+// GET /api/story_cycles/:id — single story cycle (public read)
+storyCyclesRouter.get('/:id', async (req, res) => {
   const oid = parseId(req.params.id);
-  if (!oid) return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'Invalid chapter ID format' });
+  if (!oid) return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'Invalid story cycle ID format' });
   const doc = await col().findOne({ _id: oid });
-  if (!doc) return res.status(404).json({ error: 'NOT_FOUND', message: 'Chapter not found' });
+  if (!doc) return res.status(404).json({ error: 'NOT_FOUND', message: 'Story cycle not found' });
   res.json(doc);
 });
 
-// POST /api/chapters — create chapter (ST only)
-chaptersRouter.post('/', requireRole('st'), async (req, res) => {
+// POST /api/story_cycles — create story cycle (ST only)
+storyCyclesRouter.post('/', requireRole('st'), async (req, res) => {
   const { number, label } = req.body;
   if (typeof number !== 'number' || !Number.isInteger(number) || number < 1) {
     return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'number must be a positive integer' });
@@ -42,10 +49,10 @@ chaptersRouter.post('/', requireRole('st'), async (req, res) => {
   res.status(201).json(created);
 });
 
-// PATCH /api/chapters/:id — update number and/or label (ST only)
-chaptersRouter.patch('/:id', requireRole('st'), async (req, res) => {
+// PATCH /api/story_cycles/:id — update number and/or label (ST only)
+storyCyclesRouter.patch('/:id', requireRole('st'), async (req, res) => {
   const oid = parseId(req.params.id);
-  if (!oid) return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'Invalid chapter ID format' });
+  if (!oid) return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'Invalid story cycle ID format' });
 
   const updates = {};
   if (req.body.number !== undefined) {
@@ -70,28 +77,28 @@ chaptersRouter.patch('/:id', requireRole('st'), async (req, res) => {
     { $set: updates },
     { returnDocument: 'after' },
   );
-  if (!result) return res.status(404).json({ error: 'NOT_FOUND', message: 'Chapter not found' });
+  if (!result) return res.status(404).json({ error: 'NOT_FOUND', message: 'Story cycle not found' });
   res.json(result);
 });
 
-// DELETE /api/chapters/:id — delete chapter (ST only); 409 if any cycles reference it
-chaptersRouter.delete('/:id', requireRole('st'), async (req, res) => {
+// DELETE /api/story_cycles/:id — delete story cycle (ST only); 409 if any cycles reference it
+storyCyclesRouter.delete('/:id', requireRole('st'), async (req, res) => {
   const oid = parseId(req.params.id);
-  if (!oid) return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'Invalid chapter ID format' });
+  if (!oid) return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'Invalid story cycle ID format' });
 
   const idStr = req.params.id;
-  const linkedCount = await cycles().countDocuments({ chapter_id: idStr });
+  const linkedCount = await cycles().countDocuments({ story_cycle_id: idStr });
   if (linkedCount > 0) {
     return res.status(409).json({
-      error: 'CHAPTER_IN_USE',
-      message: `Chapter is linked to ${linkedCount} downtime cycle(s) and cannot be deleted`,
+      error: 'STORY_CYCLE_IN_USE',
+      message: `Story cycle is linked to ${linkedCount} downtime cycle(s) and cannot be deleted`,
       linked_cycles: linkedCount,
     });
   }
 
   const result = await col().findOneAndDelete({ _id: oid });
-  if (!result) return res.status(404).json({ error: 'NOT_FOUND', message: 'Chapter not found' });
+  if (!result) return res.status(404).json({ error: 'NOT_FOUND', message: 'Story cycle not found' });
   res.json({ deleted: true, _id: req.params.id });
 });
 
-export default chaptersRouter;
+export default storyCyclesRouter;

@@ -14,17 +14,17 @@ const ST_USER = {
   character_ids: [], is_dual_role: false,
 };
 
-const TEST_CHAPTERS = [
-  { _id: 'ch-001', number: 1, label: 'Chapter One', created_at: '2026-01-01T00:00:00.000Z' },
+const TEST_STORY_CYCLES = [
+  { _id: 'sc-001', number: 1, label: 'Story One', created_at: '2026-01-01T00:00:00.000Z' },
 ];
 
 // cyc-001: currently in 'processing' phase
 // cyc-002: no game_phase (legacy)
 // cyc-003: currently in 'game' phase
 const TEST_CYCLES = [
-  { _id: 'cyc-001', label: 'DT 1', game_number: 1, game_phase: 'processing', chapter_id: 'ch-001', status: 'closed' },
-  { _id: 'cyc-002', label: 'DT 2', game_number: 2, game_phase: null,         chapter_id: null,     status: 'active' },
-  { _id: 'cyc-003', label: 'DT 3', game_number: 3, game_phase: 'game',       chapter_id: null,     status: 'game'   },
+  { _id: 'cyc-001', label: 'DT 1', game_number: 1, game_phase: 'processing', story_cycle_id: 'sc-001', status: 'closed' },
+  { _id: 'cyc-002', label: 'DT 2', game_number: 2, game_phase: null,         story_cycle_id: null,     status: 'active' },
+  { _id: 'cyc-003', label: 'DT 3', game_number: 3, game_phase: 'game',       story_cycle_id: null,     status: 'game'   },
 ];
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -57,10 +57,10 @@ async function mockCycleApis(page, {
   // Mutable reference so tests can swap the returned cycle per PUT
   let currentCycles = cycles.map(c => ({ ...c }));
 
-  await page.route(/\/api\/chapters$/, route =>
-    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(TEST_CHAPTERS) })
+  await page.route(/\/api\/story_cycles$/, route =>
+    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(TEST_STORY_CYCLES) })
   );
-  await page.route(/\/api\/chapters\//, route =>
+  await page.route(/\/api\/story_cycles\//, route =>
     route.fulfill({ status: 200, contentType: 'application/json', body: '{}' })
   );
   await page.route(/\/api\/downtime_cycles$/, route =>
