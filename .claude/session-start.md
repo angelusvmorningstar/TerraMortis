@@ -32,8 +32,12 @@ git log --oneline -8
 
 ## Step 2 — Where we left off (`specs/stories/sprint-status.yaml`)
 
-This file is **~100KB — under the `Read` tool's 256KB hard limit, so read it in full** (unlike
-TM Wiki's 750KB+ file, no grep-only constraint applies here).
+**This file now EXCEEDS the `Read` tool's 256KB hard limit** (312.7KB as of 2026-08-16, up from
+~100KB when this playbook was first written — it grows every session, re-check the size rather
+than trusting either figure). A bare `Read` on the whole file will fail. Read the header in full
+with `offset`/`limit` (the `last_updated` block is entirely within the first ~50 lines), then use
+`Grep` for the specific epic/story rows you actually need rather than reading the whole body —
+same shape as TM Wiki's own grep-only constraint, arrived at independently rather than copied.
 
 - The `last_updated` header (and `last_updated_previously` beneath it) is a dense freeform
   paragraph the previous session writes on close-out: what shipped, defect root causes, issue/PR
@@ -63,7 +67,31 @@ gh pr list --limit 8
 - Commit messages use `fix(#N)` / `feat(#N)` — the issue closes automatically when that commit's
   PR merges to `main`, not before. Don't mark an issue mentally "done" off an open PR alone.
 
-## Step 4 — Test posture (don't run by default)
+## Step 4 — Sibling project pulse (TM Admin, TM Story)
+
+Lightweight only — a pulse check, not an audit. Two sibling repos under the umbrella root:
+`D:\Terra Mortis\TM Admin` and `D:\Terra Mortis\TM Story` (TM Story is TM Wiki, renamed same day
+as this repo's own TM Suite → TM Game rename — don't be thrown by the name). Read-only; never
+touch either working tree.
+
+```bash
+cd "D:\Terra Mortis\TM Admin" && git log --oneline -5 && git status -sb
+cd "D:\Terra Mortis\TM Story" && git log --oneline -5 && git status -sb
+```
+
+- Note the latest commit's subject + rough date for each — what's actively being built there.
+- Note ahead/behind `origin` and whether the working tree is clean.
+- **If `git status` shows a large number of modified files, check one diff before flagging it as a
+  concern** — TM Story has previously shown its *entire* tree as modified from a CRLF/LF mismatch,
+  not real changes (`git diff -- <one file>` and look for the "LF will be replaced by CRLF"
+  warning). Don't report line-ending noise as if it were in-progress work.
+- Don't read either repo's own `sprint-status.yaml` (or equivalent) in full — just note it exists.
+  That's this step's whole job: a pulse, not a second orientation.
+- Keep it to 2–3 lines per repo in the final summary. Only flag something as worth a closer look if
+  it's genuinely surprising (a large unexplained real diff, many unpushed commits sitting a long
+  time, an obvious blocker) — don't dig deeper automatically, offer to.
+
+## Step 5 — Test posture (don't run by default)
 
 - **Run the changed area's suites, not the whole thing** — full runs are slow and bury the
   signal (`CLAUDE.md`, `feedback_targeted_tests_not_full_suite` memory). Only run tests if this
@@ -77,18 +105,20 @@ gh pr list --limit 8
 - **Angelus cannot run the app locally.** Anything needing a human look must reach `dev` or
   `main` first — don't claim a UI change is "verified" off test suites alone.
 
-## Step 5 — Output orientation summary
+## Step 6 — Output orientation summary
 
-Write a short summary (5–8 lines max) covering:
+Write a short summary (6–9 lines max) covering:
 
 1. **Branch + PR** — current branch, ahead/behind `origin/main`, and whether it already has an
    open PR (with number).
 2. **Last session** — condensed from `sprint-status.yaml`'s `last_updated` header.
 3. **GitHub flags** — anything from Step 3 worth surfacing (stale PR that moved, issue that
    should auto-close soon). Omit if nothing new.
-4. **Working tree** — tracked changes only; mention scratch clutter exists only if it changed
+4. **Sibling projects** — 2–3 lines total from Step 4: what's active in TM Admin and TM Story
+   right now. Omit entirely if both are quiet/unremarkable since last time.
+5. **Working tree** — tracked changes only; mention scratch clutter exists only if it changed
    unexpectedly.
-5. **Unblocked now** — the single highest-priority workable item (the open PR awaiting merge, a
+6. **Unblocked now** — the single highest-priority workable item (the open PR awaiting merge, a
    `ready-for-dev` story, or an issue with no branch yet).
 
 Then ask: *"What would you like to work on?"* — or, if Angelus already named a task in their
