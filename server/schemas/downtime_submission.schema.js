@@ -599,7 +599,7 @@ export const downtimeCycleSchema = {
     // every phase to the legacy pair (public/js/downtime/cycle-phase.js).
     phase:          { type: ['string', 'null'], enum: ['downtime', 'processing', 'prep', 'game', null] },
     phase_sequence: { type: 'array', uniqueItems: true, items: { type: 'string', enum: ['downtime', 'processing', 'prep', 'game'] } },
-    chapter_id: { type: ['string', 'null'] },  // ref to chapters collection _id as string
+    story_cycle_id: { type: ['string', 'null'] },  // ref to story_cycles collection _id as string
     session_id: { type: ['string', 'null'] },  // ref to game_sessions _id as string
 
     // Issue #231 — Manual "open downtimes" override (DT Prep tab).

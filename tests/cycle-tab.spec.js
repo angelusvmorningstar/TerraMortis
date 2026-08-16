@@ -1,6 +1,8 @@
 /**
  * E2E tests — Admin Cycle tab shell (CYCLE epic #708, story 2)
- * Covers: sidebar nav, chapters panel (list/create/delete), cycles panel.
+ * Covers: sidebar nav, stories panel (list/create/delete), cycles panel.
+ * cm-2: the collection behind this panel is `story_cycles`, served at
+ * /api/story_cycles, and the UI chrome says Story rather than Chapter.
  */
 
 const { test, expect } = require('@playwright/test');
@@ -25,14 +27,14 @@ const TEST_CHARS = [
   },
 ];
 
-const TEST_CHAPTERS = [
-  { _id: 'ch-001', number: 1, label: 'Chapter One: Blood and Shadows', created_at: '2026-01-01T00:00:00.000Z' },
-  { _id: 'ch-002', number: 2, label: 'Chapter Two: The Price of Power', created_at: '2026-03-01T00:00:00.000Z' },
+const TEST_STORY_CYCLES = [
+  { _id: 'sc-001', number: 1, label: 'Story One: Blood and Shadows', created_at: '2026-01-01T00:00:00.000Z' },
+  { _id: 'sc-002', number: 2, label: 'Story Two: The Price of Power', created_at: '2026-03-01T00:00:00.000Z' },
 ];
 
 const TEST_CYCLES = [
-  { _id: 'cyc-001', label: 'DT 1', game_number: 1, game_phase: 'processing', chapter_id: 'ch-001', status: 'closed' },
-  { _id: 'cyc-002', label: 'DT 2', game_number: 2, game_phase: null, chapter_id: null, status: 'active' },
+  { _id: 'cyc-001', label: 'DT 1', game_number: 1, game_phase: 'processing', story_cycle_id: 'sc-001', status: 'closed' },
+  { _id: 'cyc-002', label: 'DT 2', game_number: 2, game_phase: null, story_cycle_id: null, status: 'active' },
 ];
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
@@ -58,24 +60,24 @@ async function loginAsST(page) {
   }, ST_USER);
 }
 
-/** Register chapter + cycle mocks for the cycle tab (LIFO — overrides catch-all). */
+/** Register story cycle + cycle mocks for the cycle tab (LIFO — overrides catch-all). */
 async function mockCycleApis(page, {
-  chapters = TEST_CHAPTERS,
+  storyCycles = TEST_STORY_CYCLES,
   cycles = TEST_CYCLES,
-  postChapterResponse = { _id: 'ch-003', number: 3, label: 'Chapter Three', created_at: '2026-06-11T00:00:00.000Z' },
+  postStoryCycleResponse = { _id: 'sc-003', number: 3, label: 'Story Three', created_at: '2026-06-11T00:00:00.000Z' },
   deleteResponse = { deleted: true },
   deleteStatus = 200,
 } = {}) {
-  // chapters collection-level: GET list + POST create
-  await page.route(/\/api\/chapters$/, route => {
+  // story_cycles collection-level: GET list + POST create
+  await page.route(/\/api\/story_cycles$/, route => {
     if (route.request().method() === 'POST') {
-      route.fulfill({ status: 201, contentType: 'application/json', body: JSON.stringify(postChapterResponse) });
+      route.fulfill({ status: 201, contentType: 'application/json', body: JSON.stringify(postStoryCycleResponse) });
     } else {
-      route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(chapters) });
+      route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(storyCycles) });
     }
   });
-  // chapters document-level: DELETE /:id
-  await page.route(/\/api\/chapters\//, route => {
+  // story_cycles document-level: DELETE /:id
+  await page.route(/\/api\/story_cycles\//, route => {
     route.fulfill({ status: deleteStatus, contentType: 'application/json', body: JSON.stringify(deleteResponse) });
   });
   // downtime_cycles: override catch-all with phase-tagged data
@@ -131,80 +133,119 @@ test.describe('Admin — Cycle Tab: navigation', () => {
   });
 });
 
-test.describe('Admin — Cycle Tab: Chapters panel', () => {
+test.describe('Admin — Cycle Tab: Stories panel', () => {
   test.beforeEach(async ({ page }) => {
     await loginAsST(page);
     await mockCycleApis(page);
     await navigateToCycleTab(page);
   });
 
-  test('renders Chapters heading', async ({ page }) => {
-    await expect(page.locator('#cycle-content')).toContainText('Chapters');
+  test('renders Stories heading', async ({ page }) => {
+    await expect(page.locator('#cycle-content')).toContainText('Stories');
   });
 
-  test('lists chapter rows sorted by number', async ({ page }) => {
+  test('lists story cycle rows sorted by number', async ({ page }) => {
     const rows = page.locator('#cycle-content table').first().locator('tbody tr');
     await expect(rows).toHaveCount(2);
-    await expect(rows.first()).toContainText('Chapter One: Blood and Shadows');
-    await expect(rows.nth(1)).toContainText('Chapter Two: The Price of Power');
+    await expect(rows.first()).toContainText('Story One: Blood and Shadows');
+    await expect(rows.nth(1)).toContainText('Story Two: The Price of Power');
   });
 
-  test('"+ New Chapter" button is visible', async ({ page }) => {
-    await expect(page.locator('#cycle-content button', { hasText: '+ New Chapter' })).toBeVisible();
+  test('"+ New Story" button is visible', async ({ page }) => {
+    await expect(page.locator('#cycle-content button', { hasText: '+ New Story' })).toBeVisible();
   });
 
-  test('"+ New Chapter" reveals inline form with number and label fields', async ({ page }) => {
-    await page.click('#cycle-content button:has-text("+ New Chapter")');
-    await expect(page.locator('#new-ch-num')).toBeVisible();
-    await expect(page.locator('#new-ch-label')).toBeVisible();
-    await expect(page.locator('#new-ch-save')).toBeVisible();
+  test('"+ New Story" reveals inline form with number and label fields', async ({ page }) => {
+    await page.click('#cycle-content button:has-text("+ New Story")');
+    await expect(page.locator('#new-sc-num')).toBeVisible();
+    await expect(page.locator('#new-sc-label')).toBeVisible();
+    await expect(page.locator('#new-sc-save')).toBeVisible();
   });
 
   test('Cancel hides the inline form', async ({ page }) => {
-    await page.click('#cycle-content button:has-text("+ New Chapter")');
-    await page.click('#new-ch-cancel');
-    await expect(page.locator('#new-ch-num')).not.toBeVisible();
-    await expect(page.locator('#cycle-content button:has-text("+ New Chapter")')).toBeVisible();
+    await page.click('#cycle-content button:has-text("+ New Story")');
+    await page.click('#new-sc-cancel');
+    await expect(page.locator('#new-sc-num')).not.toBeVisible();
+    await expect(page.locator('#cycle-content button:has-text("+ New Story")')).toBeVisible();
   });
 
-  test('saving a new chapter posts to API and adds it to the list', async ({ page }) => {
-    await page.click('#cycle-content button:has-text("+ New Chapter")');
-    await page.fill('#new-ch-num', '3');
-    await page.fill('#new-ch-label', 'Chapter Three');
-    await page.click('#new-ch-save');
+  test('saving a new story cycle posts to API and adds it to the list', async ({ page }) => {
+    await page.click('#cycle-content button:has-text("+ New Story")');
+    await page.fill('#new-sc-num', '3');
+    await page.fill('#new-sc-label', 'Story Three');
+    await page.click('#new-sc-save');
     // Form closes and new row appears
-    await expect(page.locator('#new-ch-num')).not.toBeVisible();
-    await expect(page.locator('#cycle-content')).toContainText('Chapter Three');
+    await expect(page.locator('#new-sc-num')).not.toBeVisible();
+    await expect(page.locator('#cycle-content')).toContainText('Story Three');
   });
 
   test('saving with empty fields shows validation message', async ({ page }) => {
-    await page.click('#cycle-content button:has-text("+ New Chapter")');
-    await page.click('#new-ch-save');
+    await page.click('#cycle-content button:has-text("+ New Story")');
+    await page.click('#new-sc-save');
     await expect(page.locator('#cycle-content')).toContainText('required');
   });
 
-  test('deleting a chapter removes it from the list', async ({ page }) => {
+  test('deleting a story cycle removes it from the list', async ({ page }) => {
     // First row delete button
     const deleteBtn = page.locator('#cycle-content table').first().locator('tbody tr').first().locator('button');
     await deleteBtn.click();
     await page.waitForTimeout(200);
-    // Row gone from chapters table (first table); cycles panel may still reference the chapter label
-    await expect(page.locator('#cycle-content table').first()).not.toContainText('Chapter One: Blood and Shadows');
+    // Row gone from the stories table (first table); the cycles panel may still
+    // reference the story label
+    await expect(page.locator('#cycle-content table').first()).not.toContainText('Story One: Blood and Shadows');
   });
 
-  test('409 CHAPTER_IN_USE on delete shows human-readable error', async ({ page }) => {
+  test('409 STORY_CYCLE_IN_USE on delete shows human-readable error', async ({ page }) => {
     // Override delete to return 409
-    await page.route(/\/api\/chapters\//, route =>
+    await page.route(/\/api\/story_cycles\//, route =>
       route.fulfill({
         status: 409,
         contentType: 'application/json',
-        body: JSON.stringify({ error: 'CHAPTER_IN_USE', message: 'Chapter is linked to 1 downtime cycle(s) — remove the link first.', linked_cycles: 1 }),
+        body: JSON.stringify({ error: 'STORY_CYCLE_IN_USE', message: 'Story cycle is linked to 1 downtime cycle(s) — remove the link first.', linked_cycles: 1 }),
       })
     );
     const deleteBtn = page.locator('#cycle-content table').first().locator('tbody tr').first().locator('button');
     await deleteBtn.click();
     await page.waitForTimeout(200);
     await expect(page.locator('#cycle-content')).toContainText('linked to cycle');
+  });
+
+  // cm-2 review (P4). Before the rename the server's other refusals were
+  // "Chapter not found" / "Invalid chapter ID format", so the client's
+  // `err.message.includes('cycle')` heuristic could only match the 409. The
+  // reworded messages are "Story cycle not found" / "Invalid story cycle ID
+  // format" — both contain 'cycle'. Two STs, one deletes a Story, the other
+  // clicks delete on the now-gone row: a 404 was being reported as "linked to
+  // cycle(s)", the exact opposite of the truth.
+  test('404 NOT_FOUND on delete does NOT claim the story is in use', async ({ page }) => {
+    await page.route(/\/api\/story_cycles\//, route =>
+      route.fulfill({
+        status: 404,
+        contentType: 'application/json',
+        body: JSON.stringify({ error: 'NOT_FOUND', message: 'Story cycle not found' }),
+      })
+    );
+    const deleteBtn = page.locator('#cycle-content table').first().locator('tbody tr').first().locator('button');
+    await deleteBtn.click();
+    await page.waitForTimeout(200);
+    await expect(page.locator('#cycle-content')).not.toContainText('linked to cycle');
+    await expect(page.locator('#cycle-content')).toContainText('Delete failed: Story cycle not found');
+  });
+
+  // Same heuristic, the other reworded message.
+  test('400 invalid-ID on delete does NOT claim the story is in use', async ({ page }) => {
+    await page.route(/\/api\/story_cycles\//, route =>
+      route.fulfill({
+        status: 400,
+        contentType: 'application/json',
+        body: JSON.stringify({ error: 'VALIDATION_ERROR', message: 'Invalid story cycle ID format' }),
+      })
+    );
+    const deleteBtn = page.locator('#cycle-content table').first().locator('tbody tr').first().locator('button');
+    await deleteBtn.click();
+    await page.waitForTimeout(200);
+    await expect(page.locator('#cycle-content')).not.toContainText('linked to cycle');
+    await expect(page.locator('#cycle-content')).toContainText('Delete failed: Invalid story cycle ID format');
   });
 });
 
@@ -231,22 +272,40 @@ test.describe('Admin — Cycle Tab: Game Cycles panel', () => {
     await expect(page.locator('#cycle-content')).toContainText('legacy');
   });
 
-  test('shows linked chapter label for cycle with chapter_id', async ({ page }) => {
-    // cyc-001 is linked to ch-001 ('Chapter One: Blood and Shadows')
-    await expect(page.locator('#cycle-content')).toContainText('Chapter One: Blood and Shadows');
+  // cm-2 review (P13a). The previous form of this test asserted that
+  // '#cycle-content' contained the story label somewhere on the page — which it
+  // does regardless, because the Stories table lists it. It could not fail if
+  // the cycle-to-story link never rendered. Scoped to cyc-001's OWN row.
+  test('shows linked story in the cycle row own select', async ({ page }) => {
+    const row = page.locator('#cycle-content tr', { hasText: 'DT 1' }).first();
+    const select = row.locator('select.cy-story-cycle-select');
+    await expect(select).toHaveValue('sc-001');
+    await expect(select.locator('option:checked')).toContainText('Story One: Blood and Shadows');
   });
 
-  test('shows dash for cycle with no chapter', async ({ page }) => {
-    // cyc-002 has chapter_id: null → '—'
-    await expect(page.locator('#cycle-content')).toContainText('—');
+  // cm-2 review (P13b). The previous form asserted '#cycle-content' contained
+  // an em-dash — but every story-cycle select renders a permanent
+  // '— none —' option, so the character is on the page whatever this cycle's
+  // link is. Scoped to cyc-002's own select, and paired with the opposite
+  // assertion on the linked row so it discriminates.
+  test('shows the none option selected for a cycle with no story cycle', async ({ page }) => {
+    const unlinked = page.locator('#cycle-content tr', { hasText: 'DT 2' }).first()
+      .locator('select.cy-story-cycle-select');
+    await expect(unlinked).toHaveValue('');
+    await expect(unlinked.locator('option:checked')).toHaveText(/none/);
+
+    const linked = page.locator('#cycle-content tr', { hasText: 'DT 1' }).first()
+      .locator('select.cy-story-cycle-select');
+    await expect(linked).not.toHaveValue('');
+    await expect(linked.locator('option:checked')).not.toHaveText(/none/);
   });
 });
 
 test.describe('Admin — Cycle Tab: error handling', () => {
   test('shows error message if API fetch fails', async ({ page }) => {
     await loginAsST(page);
-    // Override chapters route to fail AFTER loginAsST (takes LIFO priority)
-    await page.route(/\/api\/chapters$/, route =>
+    // Override the story_cycles route to fail AFTER loginAsST (takes LIFO priority)
+    await page.route(/\/api\/story_cycles$/, route =>
       route.fulfill({ status: 500, contentType: 'application/json', body: JSON.stringify({ error: 'SERVER_ERROR' }) })
     );
     await page.route(/\/api\/downtime_cycles$/, route =>

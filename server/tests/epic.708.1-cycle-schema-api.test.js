@@ -2,7 +2,10 @@ import { describe, it, expect } from 'vitest';
 import fs from 'fs';
 
 const SCHEMA   = fs.readFileSync('../server/schemas/downtime_submission.schema.js', 'utf8');
-const CHAPTERS = fs.readFileSync('../server/routes/chapters.js', 'utf8');
+// cm-2: the router formerly at ../server/routes/chapters.js. The collection it
+// serves was renamed `chapters` -> `story_cycles` (it always held Stories, not
+// Chapters); the file moved with it.
+const STORY_CYCLES = fs.readFileSync('../server/routes/story-cycles.js', 'utf8');
 const INDEX    = fs.readFileSync('../server/index.js', 'utf8');
 const DB       = fs.readFileSync('../public/js/downtime/db.js', 'utf8');
 
@@ -18,11 +21,17 @@ describe('epic.708.1 — downtimeCycleSchema', () => {
   it('game_phase is nullable', () =>
     expect(SCHEMA).toMatch(/game_phase.*\['string',\s*'null'\]/));
 
-  it('declares chapter_id field', () =>
-    expect(SCHEMA).toContain('chapter_id'));
+  // cm-2: chapter_id -> story_cycle_id. The old declaration is REMOVED, not
+  // kept alongside, because cm-2b/cm-6 will reuse the name `chapter_id` for a
+  // different referent entirely.
+  it('declares story_cycle_id field', () =>
+    expect(SCHEMA).toContain('story_cycle_id'));
 
-  it('chapter_id is nullable', () =>
-    expect(SCHEMA).toMatch(/chapter_id.*\['string',\s*'null'\]/));
+  it('story_cycle_id is nullable', () =>
+    expect(SCHEMA).toMatch(/story_cycle_id.*\['string',\s*'null'\]/));
+
+  it('no longer declares the old chapter_id field', () =>
+    expect(SCHEMA).not.toMatch(/^\s*chapter_id\s*:/m));
 });
 
 // ── deriveCycleStatus ──────────────────────────────────────────────────────
@@ -45,46 +54,58 @@ describe('epic.708.1 — deriveCycleStatus game_phase guard', () => {
   });
 });
 
-// ── Chapters route ─────────────────────────────────────────────────────────
+// ── Story cycles route (was: chapters) ─────────────────────────────────────
 
-describe('epic.708.1 — chapters route handlers', () => {
+describe('epic.708.1 — story cycles route handlers', () => {
   it('has GET / handler', () =>
-    expect(CHAPTERS).toContain("chaptersRouter.get('/',"));
+    expect(STORY_CYCLES).toContain("storyCyclesRouter.get('/',"));
 
   it('has GET /:id handler', () =>
-    expect(CHAPTERS).toContain("chaptersRouter.get('/:id',"));
+    expect(STORY_CYCLES).toContain("storyCyclesRouter.get('/:id',"));
 
   it('POST / requires ST role', () =>
-    expect(CHAPTERS).toMatch(/chaptersRouter\.post\s*\(\s*'\/'\s*,\s*requireRole\s*\(\s*'st'\s*\)/));
+    expect(STORY_CYCLES).toMatch(/storyCyclesRouter\.post\s*\(\s*'\/'\s*,\s*requireRole\s*\(\s*'st'\s*\)/));
 
   it('PATCH /:id requires ST role', () =>
-    expect(CHAPTERS).toMatch(/chaptersRouter\.patch\s*\(\s*'\/:id'\s*,\s*requireRole\s*\(\s*'st'\s*\)/));
+    expect(STORY_CYCLES).toMatch(/storyCyclesRouter\.patch\s*\(\s*'\/:id'\s*,\s*requireRole\s*\(\s*'st'\s*\)/));
 
   it('DELETE /:id requires ST role', () =>
-    expect(CHAPTERS).toMatch(/chaptersRouter\.delete\s*\(\s*'\/:id'\s*,\s*requireRole\s*\(\s*'st'\s*\)/));
+    expect(STORY_CYCLES).toMatch(/storyCyclesRouter\.delete\s*\(\s*'\/:id'\s*,\s*requireRole\s*\(\s*'st'\s*\)/));
 
   it('DELETE checks for in-use cycles and returns 409', () => {
-    expect(CHAPTERS).toContain('CHAPTER_IN_USE');
-    expect(CHAPTERS).toContain('409');
-    expect(CHAPTERS).toContain('linked_cycles');
+    expect(STORY_CYCLES).toContain('STORY_CYCLE_IN_USE');
+    expect(STORY_CYCLES).toContain('409');
+    expect(STORY_CYCLES).toContain('linked_cycles');
   });
 
+  it('DELETE guard counts cycles by story_cycle_id', () =>
+    expect(STORY_CYCLES).toMatch(/countDocuments\(\s*\{\s*story_cycle_id:/));
+
+  it('reads the story_cycles collection', () =>
+    expect(STORY_CYCLES).toContain("getCollection('story_cycles')"));
+
   it('GET / sorts by number asc', () =>
-    expect(CHAPTERS).toContain('number: 1'));
+    expect(STORY_CYCLES).toContain('number: 1'));
 
   it('POST / returns 201', () =>
-    expect(CHAPTERS).toContain('201'));
+    expect(STORY_CYCLES).toContain('201'));
 });
 
 // ── server/index.js mount ──────────────────────────────────────────────────
 
 describe('epic.708.1 — server/index.js', () => {
-  it('imports chaptersRouter', () =>
-    expect(INDEX).toContain("from './routes/chapters.js'"));
+  it('imports storyCyclesRouter', () =>
+    expect(INDEX).toContain("from './routes/story-cycles.js'"));
 
-  it("mounts chaptersRouter at '/api/chapters'", () =>
-    expect(INDEX).toContain("'/api/chapters'"));
+  it("mounts storyCyclesRouter at '/api/story_cycles'", () =>
+    expect(INDEX).toContain("'/api/story_cycles'"));
 
-  it('mounts chapters with requireAuth', () =>
-    expect(INDEX).toMatch(/\/api\/chapters.*requireAuth|requireAuth.*\/api\/chapters/));
+  it('mounts story cycles with requireAuth', () =>
+    expect(INDEX).toMatch(/\/api\/story_cycles.*requireAuth|requireAuth.*\/api\/story_cycles/));
+
+  // cm-2 AC3: no deprecated alias is left behind. cm-2b will mount its own
+  // router at /api/chapters, and Express first-match-wins would silently route
+  // that traffic here.
+  it('leaves no /api/chapters alias mounted', () =>
+    expect(INDEX).not.toContain("'/api/chapters'"));
 });

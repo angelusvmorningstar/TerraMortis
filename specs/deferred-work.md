@@ -441,6 +441,99 @@ Full record: `specs/stories/dbo-2-character-dossier-schema-and-reveal.md` -> Dev
   entries and add the 3 still-open ones (`epic.708.3`, `oath-a-pledge-helpers`, and this file's own
   `issue-836` + `issue-1013`'s missing `markdown/` corpus, #1117) - not yet done.
 
+## Deferred from: cm-2-chapters-to-story-cycles-rename (2026-08-16, dev-story)
+
+- **`downtimeCycleSchema` lives in a file named for submissions.** It is declared at
+  `server/schemas/downtime_submission.schema.js#L572`, alongside `downtimeSubmissionSchema`, so the
+  cycle schema has no file of its own and nothing named `downtime_cycle.schema.js` exists. Noticed
+  while cm-2 renamed that schema's `chapter_id` field to `story_cycle_id` and deliberately left
+  alone: moving it churns every importer of that module for zero behavioural gain, and cm-2b
+  (`downtime_cycles` -> `chapters`) is going to rewrite that schema's identity anyway. **cm-2b is
+  the natural place to fix it** - split it out then, in the same change that renames the collection
+  it describes, rather than paying the importer churn twice.
+- **`tests/cycle-phase-controls.spec.js` (all 11 of its 11 tests) and one assertion each in
+  `tests/cycle-tab.spec.js` and `tests/cycle-prep-access.spec.js` are pre-existing reds**, confirmed
+  by reproducing them against unmodified `HEAD` (base `cycle-views.js` + base spec, run in the main
+  checkout) and getting identical failures. They are the same source-drift family CLAUDE.md already
+  documents for `epic.708.3`: CM-1 (#1028) turned the phase cell's three fixed buttons into four
+  toggleable ones and removed the "legacy" phase text, and the `is-active`/disabled semantics moved
+  with it, but these specs were never updated. cm-2 renamed their route mocks and fixtures without
+  touching those assertions. Worth adding to CLAUDE.md's "Known pre-existing failures" list, and
+  worth a small story to re-baseline the three specs against the CM-1 phase UI.
+
+## Deferred from: code review of cm-2-chapters-to-story-cycles-rename (2026-08-16, internal 3-layer review)
+
+Provenance: LOCAL/internal 3-layer adversarial review (Blind Hunter, diff-only; Edge Case Hunter,
+diff + full repo + sibling-repo sweep; Acceptance Auditor, story spec + two-pass verification, which
+ran the migration script against `tm_suite_test` six times and independently re-queried live
+`tm_suite` read-only to confirm nothing there was touched). Codex/external review was unavailable
+until 2026-08-20. Thirteen findings were patched in the same pass; the four below were judged real
+but out of proportion to fix here, and are recorded rather than lost.
+
+- **[Medium] A Story deleted during the burn-in period is silently resurrected by a later `--apply`
+  run.** `server/scripts/cm-2-chapters-to-story-cycles.mjs:planRename` treats "no target document
+  under this source `_id`" as "never copied" and plans a copy
+  (`server/scripts/cm-2-chapters-to-story-cycles.mjs`, the `if (!existing)` branch of the source
+  loop). **Trigger:** during the burn-in an ST legitimately deletes an unlinked Story via the Cycle
+  tab, which removes it from `story_cycles` while the source `chapters` document sits untouched
+  (nothing deletes from the source until `--drop-source`); a subsequent `--apply` re-inserts it,
+  resurrecting something the ST deliberately deleted, with no message distinguishing "never copied"
+  from "copied, then deleted on purpose". Note the drop gate does NOT rescue this: after P2 it checks
+  ID existence, so a source `_id` with no target is exactly the shape it refuses on - meaning the
+  practical outcome is either a resurrection (if `--apply` runs first) or a blocked drop (if it does
+  not), and the ST has to reconcile by hand either way. **Deferred because** a correct fix needs a
+  tombstone or deletion-audit mechanism this migration has no notion of, which is disproportionate
+  for a narrow, low-likelihood window (it requires a Story delete AND a re-run of `--apply`
+  specifically during burn-in) in a script that is explicitly temporary infrastructure for one
+  collection rename. If it does happen it is visible and hand-fixable: delete the resurrected row
+  again in the Cycle tab.
+
+- **[Low] `keptLabels` reporting under-counts.**
+  `server/scripts/cm-2-chapters-to-story-cycles.mjs:planRename` only pushes to `keptLabels` when the
+  label matches `/chapter/i`, so the dry-run's "labels a human should look at" list silently omits a
+  Story whose label is unrelated ST-authored prose ("The Long Night") - left alone correctly, but
+  never listed as "left alone, not chapter-shaped". **Trigger:** a dry run against a collection
+  containing a non-chapter-shaped label. Cosmetic. **Deferred because** all three real live documents
+  are the plain `Chapter N` form, so this has zero effect on the actual migration run, and the
+  reporting shape is about to be thrown away with the script.
+
+- **[Medium, cross-reference, not a new entry] The delete-error false-positive patched as P4 is a
+  symptom of the already-logged status-code gap.** See the existing entry in *"Deferred from: code
+  review of npcr.3.flags-collection-admin-queue (2026-04-24)"* above: *"`apiPost` / `apiPut` do not
+  expose HTTP status codes to callers"*. **cm-2 is a second, concrete instance, and it extends the
+  entry to `apiDelete`.** `public/js/data/api.js`'s shared `request()` throws
+  `new Error(data.message || data.error || 'Request failed')` and discards `res.status`, so every
+  caller of `apiGet`/`apiPut`/`apiPost`/`apiPatch`/`apiDelete` is reduced to string-matching prose.
+  `public/js/admin/cycle-views.js`'s story-delete handler did exactly that, and the cm-2 rename
+  turned a previously-safe substring match (`'cycle'`) into one that also matches the 404 and 400
+  messages, so an ST deleting an already-deleted Story was told it was still in use. That specific
+  case is patched (match narrowed to `'linked to'`), but the patch is still a string match on
+  server prose and will break again the next time a message is reworded. **The real fix remains the
+  logged one:** surface `res.status` (and ideally the `error` code) on the thrown error so callers
+  can branch on `409` / `STORY_CYCLE_IN_USE` rather than on English. **Deferred because** it is an
+  app-wide change to the shared API client touching every caller in the codebase, which is a story
+  of its own, not a line in a collection rename.
+
+- **[Low] `verifyRename`'s drop-time check compared the database to itself.**
+  `server/scripts/cm-2-chapters-to-story-cycles.mjs:verifyRename`'s third check compares
+  `plan.expectedCounts` against the current `downtime_cycles` grouping - but at drop time both sides
+  were freshly derived from the same current state, so it could only ever fail on a read-read race,
+  never on a real data-loss scenario. **Trigger:** none reachable; it is a check that cannot fail for
+  the reason it appears to exist. As of P2 this is no longer load-bearing at all: `dropSource` no
+  longer calls `verifyRename`, and the actual drop-time safety is the explicit ID-existence check
+  plus the still-carries-`chapter_id` check. `verifyRename` is still genuinely useful where it is
+  also called - immediately after `applyRename`'s writes, where the "expected" side was computed
+  *before* those writes and the comparison is real. **Deferred because** P2 closes the practical gap
+  this pointed at, and rearchitecting `verifyRename` to compare against a real pre-migration snapshot
+  is more invasive than a review pass should attempt on a script due for deletion after cm-2b.
+
+- **[Low, pre-existing, folded in here so it is not lost] Deleting a Story does not update the
+  cached `view.storyCycles` array.** `public/js/admin/cycle-views.js` - the delete handler calls
+  `renderRows(list.filter(...))` but never writes back to `view.storyCycles` (the create path does,
+  at the `view.storyCycles = storyCycles` line), so `renderRibbon()`'s lookup can still resolve a
+  deleted Story until the next full refresh. Confirmed **pre-existing** in the code cm-2 inherited
+  (the same shape existed pre-rename), not introduced by this story, and cleared by any tab reload.
+
 ---
 
 ## Deferred from: code review of cm-4a-phase-transition-server-enforcement (2026-08-16, internal 3-layer review)

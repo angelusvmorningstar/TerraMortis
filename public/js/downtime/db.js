@@ -26,7 +26,9 @@ export async function getActiveCycle() {
   return cycles.find(c => c.status === 'active') || null;
 }
 
-export async function createCycle(gameNumber, { status = 'prep', deadlineAt = null, label = null, chapterId = null } = {}) {
+// cm-2: `chapterId` -> `storyCycleId`; the body field it writes is
+// `story_cycle_id`, an FK into the renamed `story_cycles` collection.
+export async function createCycle(gameNumber, { status = 'prep', deadlineAt = null, label = null, storyCycleId = null } = {}) {
   const body = {
     label: label || ('Downtime ' + gameNumber),
     game_number: gameNumber,
@@ -36,7 +38,7 @@ export async function createCycle(gameNumber, { status = 'prep', deadlineAt = nu
     out_of_window_player_ids: [],
   };
   if (deadlineAt) body.deadline_at = deadlineAt;
-  if (chapterId) body.chapter_id = chapterId;
+  if (storyCycleId) body.story_cycle_id = storyCycleId;
   return apiPost('/api/downtime_cycles', body);
 }
 
