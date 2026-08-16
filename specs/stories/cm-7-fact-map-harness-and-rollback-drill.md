@@ -307,9 +307,9 @@ field or unique index existing yet (see AC2, item 7).
         with their own fixture data.
   - [x] Targeted only, per this project's standing instruction; do not run the full 171+-suite sweep.
 
-- [ ] **Task 8 — PR to `main`. *GATED on Angelus's explicit word.*** Never push or merge without it.
-      *Nothing committed, pushed or merged by the dev agent; the working tree is left as the
-      finished, uncommitted result (same convention `cm-4a`'s own Task 8 established).*
+- [x] **Task 8 — PR to `main`.** Committed (`05581530`) and PR'd on Angelus's explicit word
+      ("PR cm-7 to main" selected from the menu, confirmed before push). **PR #1188 opened
+      2026-08-16, NOT yet merged** — merge remains its own separate gate, never automatic.
 
 ### Review Findings
 
@@ -616,6 +616,8 @@ Claude Sonnet 5 (claude-sonnet-5)
 - 2026-08-16 — Internal 3-layer code review (LOCAL — Codex unavailable this session), 17 findings
   patched (all prove-discriminated), 2 deferred, 1 dismissed as noise. Status `review` → `done`.
   See Senior Developer Review below. Regression after patching: 206/206 across 6 files, 0 skipped.
+- 2026-08-16 — Committed (`05581530`) and PR'd to `main` on Angelus's explicit word: **PR #1188**.
+  Not yet merged — merge is its own separate gate.
 
 ## Senior Developer Review
 
