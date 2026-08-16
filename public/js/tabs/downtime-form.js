@@ -34,7 +34,10 @@ import { FAMILIES, kindByCode } from '../data/relationship-kinds.js';
 import { charPicker, setCharPickerSources } from '../components/character-picker.js';
 import { isMinimalComplete, missingMinimumPieces } from '../data/dt-completeness.js';
 // #1001: canonical in-game-phase test (game_phase wins over legacy status)
-import { isInGamePhase } from '../downtime/db.js';
+import { isInGamePhase, isFinalChapterOfStory, storyCycleForCycle, getStoryCycles } from '../downtime/db.js';
+// cm-3: the PT/MCI maintenance rule, shared verbatim with the ST audit panel
+// (public/js/admin/downtime-views.js) so the two surfaces cannot drift.
+import { maintenanceAtRisk } from '../downtime/maintenance.js';
 // ECM-4 (#871): catalogue dropdown sources from the shared cache module
 // ECM-5 (#872) introduced. App boot in app.js calls loadCatalogue; we read
 // synchronously here at render time. getCatalogueEntry resolves a
@@ -124,6 +127,15 @@ function _migrateLegacyRoteState(responses) {
 let responseDoc = null;
 let currentChar = null;
 let currentCycle = null;
+// cm-3: the Story tier, so the form can derive "is this cycle its Story's
+// final chapter" — see cycleIsStoryFinale below. The redesigned derivation is
+// a direct pointer (story_cycles.final_chapter_id), so it needs no sibling
+// cycle list at all; the first pass kept one and no longer has to.
+let _storyCycles = [];
+// A failed Story fetch is not the same fact as "no final chapter set", and the
+// player must not be told the second when the first happened — they would read
+// a silently absent maintenance warning as "nothing at risk".
+let _storyCyclesFailed = false;
 let _territories = [];
 let gateValues = {};
 
@@ -1424,9 +1436,22 @@ export async function renderDowntimeTab(targetEl, char, territories, options = {
       || null;
   } catch { /* no cycles */ }
 
+  // cm-3: the Story tier, the other half of the derivation. A failure here
+  // degrades to "no Story resolves" → not a finale, so the form still renders
+  // — but it is recorded, not swallowed, so renderMaintenanceWarnings can say
+  // "could not check" instead of quietly showing nothing.
+  try {
+    _storyCycles = await getStoryCycles();
+    _storyCyclesFailed = false;
+  } catch (err) {
+    _storyCycles = [];
+    _storyCyclesFailed = true;
+    console.warn('[cm-3] Could not load /api/story_cycles; maintenance status is unavailable.', err);
+  }
+
   // Dev bypass: on localhost, coerce non-active cycles to 'active' for the
   // form's other status gates, but preserve the underlying cycle's data
-  // (is_chapter_finale, maintenance_audit, etc.) so dev-time testing of
+  // (story_cycle_id, maintenance_audit, etc.) so dev-time testing of
   // those features works. Stub fallback still applies when no cycle exists.
   if (currentCycle && currentCycle.status !== 'active' && location.hostname === 'localhost') {
     currentCycle = { ...currentCycle, status: 'active' };
@@ -3640,11 +3665,13 @@ function applyRoteToProjectSlot(container) {
 
 // CHM-3: chapter-finale at-risk reminder for PT/MCI standing merits.
 // Renders zero, one, or two warning strips at the top of the Personal
-// Projects section. Gated on cycle.is_chapter_finale === true; cleared
-// per-merit by the ST ticking the matching box on CHM-2's audit panel
-// (cycle.maintenance_audit[char_id].{pt,mci}). MAINTENANCE_MERITS is
-// the source of truth for the gate set; PT and MCI need different
-// strawman copy so they're branched explicitly here.
+// Projects section. cm-3: the gate is now DERIVED — this cycle is the one its
+// Story names in `final_chapter_id` — where CHM-3 read the ST-ticked
+// cycle.is_chapter_finale. Same real-world condition, drift-proof source.
+// Cleared per-merit by the ST ticking the matching box on CHM-2's audit panel
+// (cycle.maintenance_audit[char_id].{pt,mci}). The per-character rule itself
+// lives in public/js/downtime/maintenance.js, shared with that audit panel;
+// PT and MCI need different strawman copy so they are branched here.
 function maintenanceWarningHtml(meritName, cultNames) {
   const label = cultNames && cultNames.length
     ? `${meritName} (${cultNames.join(', ')})`
@@ -3656,23 +3683,39 @@ function maintenanceWarningHtml(meritName, cultNames) {
     + `</div>`;
 }
 
+/** cm-3: is `cycle` the final chapter of its Story? Resolves the Story from
+ *  the list loaded at form load, then defers to the shared pure derivation —
+ *  the same resolver + predicate pair the ST audit panel uses, so the two
+ *  surfaces cannot disagree about which chapter is the finale. */
+function cycleIsStoryFinale(cycle) {
+  if (!cycle) return false;
+  return isFinalChapterOfStory(cycle, storyCycleForCycle(cycle, _storyCycles));
+}
+
+/** cm-3 (review): shown when the Story list could not be fetched, so an absent
+ *  warning is never mistaken for "nothing at risk". */
+function maintenanceUnavailableHtml() {
+  return `<div class="dt-maintenance-warning">`
+    + `<strong>Maintenance status unavailable.</strong> `
+    + `We could not check whether this is the final cycle of the chapter, so any `
+    + `maintenance reminder for your standing merits is not shown. Reload the page, `
+    + `or ask your Storyteller if you are unsure.`
+    + `</div>`;
+}
+
 function renderMaintenanceWarnings(char, cycle) {
-  if (!cycle || cycle.is_chapter_finale !== true) return '';
   if (!char) return '';
+  if (_storyCyclesFailed) {
+    const risk = maintenanceAtRisk(char, null);
+    return (risk.pt || risk.mci) ? maintenanceUnavailableHtml() : '';
+  }
+  if (!cycleIsStoryFinale(cycle)) return '';
   const audit = cycle.maintenance_audit?.[String(char._id)] || {};
-  const merits = char.merits || [];
+  const risk = maintenanceAtRisk(char, audit);
   const out = [];
 
-  const hasPT = merits.some(m => m.name === 'Professional Training');
-  if (hasPT && audit.pt !== true) {
-    out.push(maintenanceWarningHtml('Professional Training', null));
-  }
-
-  const mciMerits = merits.filter(m => m.name === 'Mystery Cult Initiation' && m.active !== false);
-  if (mciMerits.length && audit.mci !== true) {
-    const cults = mciMerits.map(m => m.cult_name).filter(Boolean);
-    out.push(maintenanceWarningHtml('Mystery Cult Initiation', cults));
-  }
+  if (risk.pt) out.push(maintenanceWarningHtml('Professional Training', null));
+  if (risk.mci) out.push(maintenanceWarningHtml('Mystery Cult Initiation', risk.mciCults));
 
   return out.join('');
 }

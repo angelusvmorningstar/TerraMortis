@@ -60,8 +60,55 @@ Migration to `tracker_state` API is task #10. Until done, tracker state is local
 
 | Domain | Collection | API | Managed in UI |
 |--------|-----------|-----|---------------|
+| Stories (the multi-game tier above a Chapter) | `story_cycles` | `GET /api/story_cycles`, `GET /api/story_cycles/:id` *(public read)*; `POST`/`PATCH`/`DELETE` *(ST-auth)* | admin.html → Cycle tab, Stories panel |
 | Downtime cycles | `downtime_cycles` | `GET/POST /api/downtime_cycles` | admin.html → Downtime tab |
 | Downtime submissions (player forms + ST outcomes) | `downtime_submissions` | `GET/PUT /api/downtime_submissions` | player.html (submit) + admin.html Downtime tab (process) |
+
+**`story_cycles` shape (cm-2 rename, cm-3 addition):**
+`{ _id, number, label, created_at, final_chapter_id? }`. No JSON-schema file exists for this
+collection; `server/routes/story-cycles.js` validates the three writable fields inline, and cm-3
+deliberately did not introduce one for a four-field collection.
+
+**`story_cycles.final_chapter_id` (cm-3, 2026-08-17) — the maintenance clock's only manual input.**
+A string holding the `_id` of one of that Story's own member `downtime_cycles` documents, or `null`.
+The ST picks it from a "Final chapter" `<select>` in the Cycle tab's Stories table. **A Story is
+closed exactly when this field is set** — there is no separate `closed` flag. It is the sole ST-set
+signal behind `isFinalChapterOfStory(cycle, storyCycle)` (`public/js/downtime/db.js`), which returns
+true iff `storyCycle.final_chapter_id === String(cycle._id)`. That derived value gates both the ST
+maintenance audit panel (`renderMaintenanceAuditPanel`, `public/js/admin/downtime-views.js`) and the
+player-facing PT/MCI at-risk warning strip (`renderMaintenanceWarnings`,
+`public/js/tabs/downtime-form.js`). Both resolve "which Story owns this cycle" through the one
+shared `storyCycleForCycle` helper in `db.js`, never their own copy.
+
+Freely re-settable, including back to `null`: no confirmation dialog, no history on the field.
+Guarded in the other direction only — `PATCH` validates that the named cycle exists and belongs to
+this Story (400 otherwise), and `PUT`/`DELETE /api/downtime_cycles/:id` refuse with
+409 `CYCLE_IS_STORY_FINALE` when the target cycle is currently some Story's `final_chapter_id`, so
+the pointer can never be left dangling.
+
+**Why a pointer, and not a `closed` boolean plus "highest `game_number` in the Story":** cm-3's own
+first pass shipped exactly that, and review found two holes. Structural membership alone cannot
+distinguish "this Story has one chapter and is done" from "this Story has one chapter so far" (hence
+the flag) — but even with the flag, a *computed* finale silently relocates whenever Story membership
+changes afterwards, orphaning any `maintenance_audit` already recorded on the chapter that loses the
+title, and two cycles sharing a `game_number` both classify as the finale (this project has a live
+duplicate-"Game 7" precedent). A pointer answers all of it, needs no sibling-cycle list, and reads
+no `game_number` at all. Ruling: `cycle-model.md` §3; redesign instruction from Angelus, 2026-08-17.
+
+**DEPLOY NOTE — one manual step, no migration.** Live Story 1 already carries a real, ST-completed
+`maintenance_audit` on its Game 3 cycle, recorded under the old `is_chapter_finale` flag. Nothing
+auto-migrates it. **An ST must set Story 1's "Final chapter" to Game 3 in the Cycle tab's Stories
+table at or after deploy** for that audit panel and the corresponding player warning strip to become
+visible again. Until then both stay dark for Story 1, correctly but unhelpfully.
+
+**`downtime_cycles.is_chapter_finale` is DEAD as of cm-3.** It was the per-chapter ST checkbox on the
+DT Prep panel (chm-1) that `final_chapter_id` replaces. No production code reads it any more, no
+migration was run, and existing values are left on live documents untouched (same convention as
+`chapters` after cm-2). The Prep panel now shows a read-only derived badge in its place.
+`downtime_cycles.maintenance_audit` (`{[character_id]: {pt, mci}}`, chm-2) is unchanged in shape and
+role — only what gates its panel's visibility changed source. The per-character rule behind both
+surfaces ("who holds PT/MCI", "who still needs a tick") lives in one place,
+`public/js/downtime/maintenance.js`.
 
 **Downtime investigations: RETIRED 2026-08-15 (TM Wiki Story 31-7).** `downtime_investigations`,
 its `/api/downtime_investigations` route and the "Investigations" panel in admin.html's Downtime tab

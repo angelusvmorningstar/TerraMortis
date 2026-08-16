@@ -1,4 +1,4 @@
-import { apiGet, apiPost, apiDelete, apiPut } from '../data/api.js';
+import { apiGet, apiPost, apiDelete, apiPut, apiPatch } from '../data/api.js';
 import { createCycle, updateCycle, deleteCycle, deriveCycleStatus, getSubmissionsForCycle, zeroSubmissionFlipWarning, zeroSubmissionFlipMessage, setCyclePhase } from '../downtime/db.js';
 import { resetOnTransition, transitionFromPhase } from '../downtime/cycle-phase.js';
 
@@ -104,7 +104,7 @@ export async function initCycleView(charList) {
 
   el.innerHTML = '';
   el.appendChild(buildRibbon());
-  el.appendChild(buildStoryCyclesPanel(storyCycles));
+  el.appendChild(buildStoryCyclesPanel(storyCycles, cycles));
   el.appendChild(buildCyclesPanel(cycles, storyCycles, charList, sessions));
 }
 
@@ -181,7 +181,72 @@ function esc(s) {
 
 // ── Stories panel ──────────────────────────────────────────────────────────
 
-function buildStoryCyclesPanel(storyCycles) {
+/**
+ * cm-3: the "Final chapter" control for one Story row.
+ *
+ * A pick-one, not a toggle: the ST names the specific cycle that ends this
+ * Story, chosen from that Story's own member cycles. "— not closed —" clears
+ * it. `story_cycles.final_chapter_id` is what `isFinalChapterOfStory`
+ * (public/js/downtime/db.js) reads, and setting it is the only manual input
+ * behind the ST maintenance audit panel and the player at-risk warning strip.
+ *
+ * Freely re-settable, including back to "— not closed —": Story length is a
+ * live, revisable ST judgement call, so there is no confirmation dialog and no
+ * history on the field. What IS guarded is the other direction — the server
+ * refuses (409) to move or delete a cycle a Story currently names, so the
+ * pointer cannot be left dangling. That refusal surfaces here, inline.
+ *
+ * The control disables itself for the duration of each write. Without that, a
+ * rapid re-pick can resolve out of order and leave the UI disagreeing with the
+ * server (review finding on cm-3's first pass, which had no in-flight guard at
+ * all). The failure-path revert reads the value captured before the write, not
+ * a field a concurrent request may already have mutated, and skips the revert
+ * entirely if the row list was rebuilt mid-flight and this node is detached.
+ */
+function buildFinalChapterSelect(story, allCycles, errMsg) {
+  const sel = document.createElement('select');
+  sel.className = 'form-select cy-story-final';
+  sel.dataset.id = String(story._id);
+
+  const none = document.createElement('option');
+  none.value = '';
+  none.textContent = '— not closed —';
+  sel.appendChild(none);
+
+  const members = (allCycles || [])
+    .filter(c => c && String(c.story_cycle_id ?? '') === String(story._id))
+    .sort((a, b) => (a.game_number || 0) - (b.game_number || 0));
+  members.forEach(c => {
+    const opt = document.createElement('option');
+    opt.value = String(c._id);
+    opt.textContent = c.label || (c.game_number != null ? `Game ${c.game_number}` : String(c._id));
+    sel.appendChild(opt);
+  });
+
+  const current = story.final_chapter_id ? String(story.final_chapter_id) : '';
+  sel.value = current;
+
+  sel.addEventListener('change', async () => {
+    const val = sel.value || null;
+    const prev = story.final_chapter_id ? String(story.final_chapter_id) : '';
+    errMsg.classList.remove('is-visible');
+    sel.disabled = true;
+    try {
+      await apiPatch(`/api/story_cycles/${story._id}`, { final_chapter_id: val });
+      story.final_chapter_id = val;
+    } catch (err) {
+      if (sel.isConnected) sel.value = prev;
+      errMsg.textContent = `Save failed: ${err.message}`;
+      errMsg.classList.add('is-visible');
+    } finally {
+      if (sel.isConnected) sel.disabled = false;
+    }
+  });
+
+  return sel;
+}
+
+function buildStoryCyclesPanel(storyCycles, allCycles = view.cycles) {
   const wrap = document.createElement('div');
   wrap.className = 'cy-section';
 
@@ -201,9 +266,16 @@ function buildStoryCyclesPanel(storyCycles) {
 
   const table = document.createElement('table');
   table.className = 'infl-table cy-table';
+  // cm-3: "Final chapter" is the ST's one Story-level signal — it names the
+  // specific cycle that ends this Story, and a Story is closed exactly when it
+  // is set. It is what isFinalChapterOfStory reads, and it replaced the
+  // per-chapter "Chapter Finale" checkbox that used to sit on the DT Prep
+  // panel, so a Story-level decision now lives at the Story level and cannot
+  // be ticked on the wrong cycle.
   table.innerHTML = `<thead><tr>
     <th class="cy-col-num">#</th>
     <th>Label</th>
+    <th class="cy-col-final-chapter">Final chapter</th>
     <th class="cy-col-act"></th>
   </tr></thead>`;
   const tbody = document.createElement('tbody');
@@ -214,7 +286,7 @@ function buildStoryCyclesPanel(storyCycles) {
   function renderRows(list) {
     tbody.innerHTML = '';
     if (!list.length) {
-      tbody.innerHTML = '<tr><td colspan="3" class="cy-empty-cell">No stories yet.</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="4" class="cy-empty-cell">No stories yet.</td></tr>';
       return;
     }
     list.forEach(ch => {
@@ -222,7 +294,10 @@ function buildStoryCyclesPanel(storyCycles) {
       tr.innerHTML = `
         <td>${ch.number}</td>
         <td>${esc(ch.label)}</td>
+        <td class="cy-col-final-chapter"></td>
         <td><button class="btn-sm btn-danger" data-id="${ch._id}">Delete</button></td>`;
+      tr.querySelector('.cy-col-final-chapter').appendChild(buildFinalChapterSelect(ch, allCycles, errMsg));
+
       tr.querySelector('button').addEventListener('click', async () => {
         errMsg.classList.remove('is-visible');
         try {
@@ -617,19 +692,34 @@ function buildStoryCyclePicker(storyCycles, selectedId = '') {
 
 // Row-level story cycle select: persists story_cycle_id to an existing cycle
 // on change.
+//
+// cm-3 AC10: this write can now be REFUSED. The server returns 409
+// CYCLE_IS_STORY_FINALE when the cycle being moved is the one a Story names as
+// its `final_chapter_id` — moving it would leave that pointer dangling and the
+// finale would silently vanish. A bare value-revert (all this handler used to
+// do) would have looked like the click never registered, so the refusal is
+// surfaced next to the control.
 function buildStoryCycleSelect(cy, storyCycles) {
   const sel = buildStoryCyclePicker(storyCycles, cy.story_cycle_id);
+  const errEl = document.createElement('span');
+  errEl.className = 'cy-error cy-error--inline cy-story-cycle-err';
   sel.addEventListener('change', async () => {
     const val = sel.value || null;
+    errEl.classList.remove('is-visible');
     try {
       await updateCycle(cy._id, { story_cycle_id: val });
       cy.story_cycle_id = val;
       renderRibbon();
     } catch (err) {
       sel.value = cy.story_cycle_id ? String(cy.story_cycle_id) : '';
+      errEl.textContent = err.message;
+      errEl.classList.add('is-visible');
     }
   });
-  return sel;
+  const wrap = document.createDocumentFragment();
+  wrap.appendChild(sel);
+  wrap.appendChild(errEl);
+  return wrap;
 }
 
 function buildLabelCell(cy) {
