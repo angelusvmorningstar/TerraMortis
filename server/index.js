@@ -38,7 +38,7 @@ import stModsRouter, { auditRouter as stModAuditRouter } from './routes/st_mods.
 import appSettingsRouter from './routes/app-settings.js';
 import devlogRouter from './routes/devlog.js';
 import buildEquipmentCatalogueRouter from './routes/equipment-catalogue.js';
-import chaptersRouter from './routes/chapters.js';
+import storyCyclesRouter from './routes/story-cycles.js';
 import cyoaRouter from './routes/cyoa.js';
 import { attachWS } from './ws.js';
 // NOTE: The old /api/pdf route was removed. Character sheet PDFs are now
@@ -207,7 +207,10 @@ app.use('/api/office_manoeuvre_rank', requireAuth, noCache(), officeManoeuvreRan
 // oxp.2: office seats, read-only. Open read like its two siblings above; the
 // XP derivation from these seats happens client-side in office-xp.js.
 app.use('/api/office_seats', requireAuth, noCache(), officeSeatsRouter);
-app.use('/api/chapters',       requireAuth, noCache(), chaptersRouter);
+// cm-2: this mount replaced the old chapters path outright. No deprecated
+// alias is left behind on purpose — cm-2b mounts its own router at that path,
+// and Express first-match-wins would silently route its traffic here instead.
+app.use('/api/story_cycles',   requireAuth, noCache(), storyCyclesRouter);
 
 // Start server first, then attempt DB connection
 // Server must be reachable even if MongoDB is unavailable

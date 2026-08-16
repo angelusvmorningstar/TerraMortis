@@ -54,10 +54,11 @@ describe('issue-918 — db.js cycle helpers', () => {
   it('imports apiDelete', () =>
     expect(DB).toMatch(/import\s*\{[^}]*apiDelete[^}]*\}\s*from\s*'\.\.\/data\/api\.js'/));
 
-  it('createCycle accepts label and chapterId options', () => {
+  // cm-2: chapterId -> storyCycleId, body.chapter_id -> body.story_cycle_id.
+  it('createCycle accepts label and storyCycleId options', () => {
     expect(DB).toMatch(/createCycle\(gameNumber,\s*\{[^}]*label/);
-    expect(DB).toContain('chapterId');
-    expect(DB).toMatch(/chapter_id = chapterId|body\.chapter_id = chapterId/);
+    expect(DB).toContain('storyCycleId');
+    expect(DB).toMatch(/story_cycle_id = storyCycleId|body\.story_cycle_id = storyCycleId/);
   });
 });
 
@@ -112,22 +113,22 @@ describe('issue-918 — cycle-views.js wiring', () => {
     expect(VIEWS).toMatch(/updateCycle\(cy\._id,\s*\{\s*label/);
   });
 
-  it('assigns chapter via a dropdown writing chapter_id', () => {
-    expect(VIEWS).toContain('buildChapterSelect');
-    expect(VIEWS).toMatch(/updateCycle\(cy\._id,\s*\{\s*chapter_id/);
+  it('assigns story cycle via a dropdown writing story_cycle_id', () => {
+    expect(VIEWS).toContain('buildStoryCycleSelect');
+    expect(VIEWS).toMatch(/updateCycle\(cy\._id,\s*\{\s*story_cycle_id/);
   });
 
   it('adds a new cycle via createCycle', () => {
     expect(VIEWS).toContain('new-cy-save');
-    expect(VIEWS).toMatch(/createCycle\(num,\s*\{\s*label,\s*chapterId/);
+    expect(VIEWS).toMatch(/createCycle\(num,\s*\{\s*label,\s*storyCycleId/);
   });
 
-  it('add-cycle form uses the handler-free chapter picker (no phantom updateCycle)', () => {
-    // Regression (QA #918): the add form must NOT reuse buildChapterSelect,
+  it('add-cycle form uses the handler-free story cycle picker (no phantom updateCycle)', () => {
+    // Regression (QA #918): the add form must NOT reuse buildStoryCycleSelect,
     // whose change handler persists to an existing cycle id. With no cycle to
     // write to, that fired updateCycle(undefined,...) and reverted the choice.
-    expect(VIEWS).toContain('buildChapterPicker(chapters)');
-    expect(VIEWS).not.toContain('buildChapterSelect({ chapter_id: null }');
+    expect(VIEWS).toContain('buildStoryCyclePicker(storyCycles)');
+    expect(VIEWS).not.toContain('buildStoryCycleSelect({ story_cycle_id: null }');
   });
 
   it('deletes a cycle via deleteCycle with confirmation', () => {

@@ -72,8 +72,8 @@ export function phaseToggleTarget(cy, phase) {
 }
 
 // Module-level view state so the status ribbon can refresh after any
-// label / chapter / phase / add / delete mutation without a full re-fetch.
-const view = { chapters: [], cycles: [], sessions: [], charList: [], ribbonEl: null };
+// label / story cycle / phase / add / delete mutation without a full re-fetch.
+const view = { storyCycles: [], cycles: [], sessions: [], charList: [], ribbonEl: null };
 
 // (byIdDesc removed by CM-1: _id is creation order, not game order - proven
 // wrong for ordering in this data. All cycle ordering uses game_number.)
@@ -82,10 +82,13 @@ export async function initCycleView(charList) {
   const el = document.getElementById('cycle-content');
   el.innerHTML = '<p class="placeholder">Loading…</p>';
 
-  let chapters, cycles, sessions;
+  let storyCycles, cycles, sessions;
   try {
-    [chapters, cycles, sessions] = await Promise.all([
-      apiGet('/api/chapters'),
+    // cm-2: the old chapters endpoint became /api/story_cycles. The collection
+    // always held Stories (a multi-game grouping), never Chapters (which are
+    // one game plus its downtime, i.e. a downtime_cycles document).
+    [storyCycles, cycles, sessions] = await Promise.all([
+      apiGet('/api/story_cycles'),
       apiGet('/api/downtime_cycles'),
       apiGet('/api/game_sessions'),
     ]);
@@ -94,15 +97,15 @@ export async function initCycleView(charList) {
     return;
   }
 
-  view.chapters = chapters;
+  view.storyCycles = storyCycles;
   view.cycles = cycles;
   view.sessions = sessions;
   view.charList = charList;
 
   el.innerHTML = '';
   el.appendChild(buildRibbon());
-  el.appendChild(buildChaptersPanel(chapters));
-  el.appendChild(buildCyclesPanel(cycles, chapters, charList, sessions));
+  el.appendChild(buildStoryCyclesPanel(storyCycles));
+  el.appendChild(buildCyclesPanel(cycles, storyCycles, charList, sessions));
 }
 
 /** Re-fetch and rebuild the whole tab (used after add / delete). */
@@ -147,18 +150,18 @@ function renderRibbon() {
     return;
   }
 
-  const chapter = cy.chapter_id
-    ? view.chapters.find(ch => String(ch._id) === String(cy.chapter_id))
+  const storyCycle = cy.story_cycle_id
+    ? view.storyCycles.find(ch => String(ch._id) === String(cy.story_cycle_id))
     : null;
-  const chapterText = chapter ? `${chapter.number} — ${chapter.label}` : 'No chapter';
+  const storyCycleText = storyCycle ? `${storyCycle.number} — ${storyCycle.label}` : 'No story';
   const _ribbonPhase = uiPhase(cy);
   const phaseText = _ribbonPhase ? PHASE_LABELS[_ribbonPhase] : 'No phase set';
   const phaseMod = _ribbonPhase ? ` cy-phase--${_ribbonPhase}` : ' cy-phase--none';
 
   el.innerHTML = `
     <div class="cy-ribbon-item">
-      <span class="cy-ribbon-label">Chapter</span>
-      <span class="cy-ribbon-val">${esc(chapterText)}</span>
+      <span class="cy-ribbon-label">Story</span>
+      <span class="cy-ribbon-val">${esc(storyCycleText)}</span>
     </div>
     <div class="cy-ribbon-item">
       <span class="cy-ribbon-label">Game Cycle</span>
@@ -176,19 +179,19 @@ function esc(s) {
   ));
 }
 
-// ── Chapters panel ──────────────────────────────────────────────────────────
+// ── Stories panel ──────────────────────────────────────────────────────────
 
-function buildChaptersPanel(chapters) {
+function buildStoryCyclesPanel(storyCycles) {
   const wrap = document.createElement('div');
   wrap.className = 'cy-section';
 
   const header = document.createElement('div');
   header.className = 'cy-section-head';
-  header.innerHTML = '<h3 class="cy-section-title">Chapters</h3>';
+  header.innerHTML = '<h3 class="cy-section-title">Stories</h3>';
 
   const addBtn = document.createElement('button');
   addBtn.className = 'btn-sm';
-  addBtn.textContent = '+ New Chapter';
+  addBtn.textContent = '+ New Story';
   header.appendChild(addBtn);
 
   const errMsg = document.createElement('p');
@@ -211,7 +214,7 @@ function buildChaptersPanel(chapters) {
   function renderRows(list) {
     tbody.innerHTML = '';
     if (!list.length) {
-      tbody.innerHTML = '<tr><td colspan="3" class="cy-empty-cell">No chapters yet.</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="3" class="cy-empty-cell">No stories yet.</td></tr>';
       return;
     }
     list.forEach(ch => {
@@ -223,11 +226,19 @@ function buildChaptersPanel(chapters) {
       tr.querySelector('button').addEventListener('click', async () => {
         errMsg.classList.remove('is-visible');
         try {
-          await apiDelete(`/api/chapters/${ch._id}`);
+          await apiDelete(`/api/story_cycles/${ch._id}`);
           renderRows(list.filter(c => c._id !== ch._id));
         } catch (err) {
-          if (err.message && err.message.includes('cycle')) {
-            errMsg.textContent = 'Chapter is linked to cycle(s) — remove the link before deleting.';
+          // cm-2 review (P4): match 'linked to', NOT 'cycle'. Before the rename
+          // the server's refusal messages were "Chapter not found" / "Invalid
+          // chapter ID format", so a substring match on 'cycle' could only hit
+          // the 409. The reworded messages are "Story cycle not found" /
+          // "Invalid story cycle ID format", which both contain 'cycle' — so a
+          // plain 404 (another ST deleted this row already) would have told the
+          // ST the exact opposite of what happened. 'linked to' appears only in
+          // the 409 STORY_CYCLE_IN_USE message.
+          if (err.message && err.message.includes('linked to')) {
+            errMsg.textContent = 'Story is linked to cycle(s). Remove the link before deleting.';
           } else {
             errMsg.textContent = `Delete failed: ${err.message}`;
           }
@@ -238,35 +249,35 @@ function buildChaptersPanel(chapters) {
     });
   }
 
-  renderRows(chapters);
+  renderRows(storyCycles);
 
-  // Inline new-chapter form
+  // Inline new-story form
   const form = document.createElement('div');
   form.className = 'cy-inline-form';
   form.innerHTML = `
-    <input id="new-ch-num" type="number" min="1" placeholder="Number" class="form-input cy-input-num">
-    <input id="new-ch-label" type="text" placeholder="Label (e.g. Chapter Two: The Price of Power)" class="form-input cy-input-grow">
-    <button class="btn-sm" id="new-ch-save">Save</button>
-    <button class="btn-sm btn-muted" id="new-ch-cancel">Cancel</button>`;
+    <input id="new-sc-num" type="number" min="1" placeholder="Number" class="form-input cy-input-num">
+    <input id="new-sc-label" type="text" placeholder="Label (e.g. Story Two: The Price of Power)" class="form-input cy-input-grow">
+    <button class="btn-sm" id="new-sc-save">Save</button>
+    <button class="btn-sm btn-muted" id="new-sc-cancel">Cancel</button>`;
   wrap.appendChild(form);
 
   addBtn.addEventListener('click', () => {
     form.classList.add('is-open');
     addBtn.classList.add('is-hidden');
     errMsg.classList.remove('is-visible');
-    form.querySelector('#new-ch-num').value = '';
-    form.querySelector('#new-ch-label').value = '';
-    form.querySelector('#new-ch-num').focus();
+    form.querySelector('#new-sc-num').value = '';
+    form.querySelector('#new-sc-label').value = '';
+    form.querySelector('#new-sc-num').focus();
   });
 
-  form.querySelector('#new-ch-cancel').addEventListener('click', () => {
+  form.querySelector('#new-sc-cancel').addEventListener('click', () => {
     form.classList.remove('is-open');
     addBtn.classList.remove('is-hidden');
   });
 
-  form.querySelector('#new-ch-save').addEventListener('click', async () => {
-    const number = parseInt(form.querySelector('#new-ch-num').value, 10);
-    const label  = form.querySelector('#new-ch-label').value.trim();
+  form.querySelector('#new-sc-save').addEventListener('click', async () => {
+    const number = parseInt(form.querySelector('#new-sc-num').value, 10);
+    const label  = form.querySelector('#new-sc-label').value.trim();
     if (!number || !label) {
       errMsg.textContent = 'Both Number and Label are required.';
       errMsg.classList.add('is-visible');
@@ -274,10 +285,10 @@ function buildChaptersPanel(chapters) {
     }
     errMsg.classList.remove('is-visible');
     try {
-      const created = await apiPost('/api/chapters', { number, label });
-      chapters = [...chapters, created].sort((a, b) => a.number - b.number);
-      view.chapters = chapters;
-      renderRows(chapters);
+      const created = await apiPost('/api/story_cycles', { number, label });
+      storyCycles = [...storyCycles, created].sort((a, b) => a.number - b.number);
+      view.storyCycles = storyCycles;
+      renderRows(storyCycles);
       form.classList.remove('is-open');
       addBtn.classList.remove('is-hidden');
       renderRibbon();
@@ -585,16 +596,16 @@ function buildAttendanceSection(cy, sessions) {
 
 // ── Game Cycles panel ───────────────────────────────────────────────────────
 
-// Build a chapter <select>. Options-only; no persistence handler — used for
-// the add-cycle form (which has no cycle to write to yet).
-function buildChapterPicker(chapters, selectedId = '') {
+// Build a story cycle <select>. Options-only; no persistence handler — used
+// for the add-cycle form (which has no cycle to write to yet).
+function buildStoryCyclePicker(storyCycles, selectedId = '') {
   const sel = document.createElement('select');
-  sel.className = 'form-select cy-chapter-select';
+  sel.className = 'form-select cy-story-cycle-select';
   const none = document.createElement('option');
   none.value = '';
   none.textContent = '— none —';
   sel.appendChild(none);
-  [...chapters].sort((a, b) => a.number - b.number).forEach(ch => {
+  [...storyCycles].sort((a, b) => a.number - b.number).forEach(ch => {
     const opt = document.createElement('option');
     opt.value = String(ch._id);
     opt.textContent = `${ch.number} — ${ch.label}`;
@@ -604,17 +615,18 @@ function buildChapterPicker(chapters, selectedId = '') {
   return sel;
 }
 
-// Row-level chapter select: persists chapter_id to an existing cycle on change.
-function buildChapterSelect(cy, chapters) {
-  const sel = buildChapterPicker(chapters, cy.chapter_id);
+// Row-level story cycle select: persists story_cycle_id to an existing cycle
+// on change.
+function buildStoryCycleSelect(cy, storyCycles) {
+  const sel = buildStoryCyclePicker(storyCycles, cy.story_cycle_id);
   sel.addEventListener('change', async () => {
     const val = sel.value || null;
     try {
-      await updateCycle(cy._id, { chapter_id: val });
-      cy.chapter_id = val;
+      await updateCycle(cy._id, { story_cycle_id: val });
+      cy.story_cycle_id = val;
       renderRibbon();
     } catch (err) {
-      sel.value = cy.chapter_id ? String(cy.chapter_id) : '';
+      sel.value = cy.story_cycle_id ? String(cy.story_cycle_id) : '';
     }
   });
   return sel;
@@ -687,7 +699,7 @@ function buildLabelCell(cy) {
   return td;
 }
 
-function buildCyclesPanel(cycles, chapters, charList = [], sessions = []) {
+function buildCyclesPanel(cycles, storyCycles, charList = [], sessions = []) {
   const sorted = [...cycles].sort((a, b) => (a.game_number ?? 0) - (b.game_number ?? 0));
 
   const wrap = document.createElement('div');
@@ -715,9 +727,9 @@ function buildCyclesPanel(cycles, chapters, charList = [], sessions = []) {
     <input id="new-cy-label" type="text" placeholder="Label (e.g. Downtime 5)" class="form-input cy-input-grow">
     <button class="btn-sm" id="new-cy-save">Save</button>
     <button class="btn-sm btn-muted" id="new-cy-cancel">Cancel</button>`;
-  const chapterPick = buildChapterPicker(chapters);
-  chapterPick.id = 'new-cy-chapter';
-  addForm.insertBefore(chapterPick, addForm.querySelector('#new-cy-save'));
+  const storyCyclePick = buildStoryCyclePicker(storyCycles);
+  storyCyclePick.id = 'new-cy-story-cycle';
+  addForm.insertBefore(storyCyclePick, addForm.querySelector('#new-cy-save'));
   wrap.appendChild(addForm);
 
   addBtn.addEventListener('click', () => {
@@ -734,7 +746,7 @@ function buildCyclesPanel(cycles, chapters, charList = [], sessions = []) {
   addForm.querySelector('#new-cy-save').addEventListener('click', async () => {
     const num = parseInt(addForm.querySelector('#new-cy-num').value, 10);
     const label = addForm.querySelector('#new-cy-label').value.trim();
-    const chapterId = addForm.querySelector('#new-cy-chapter').value || null;
+    const storyCycleId = addForm.querySelector('#new-cy-story-cycle').value || null;
     if (!num || !label) {
       errMsg.textContent = 'Game number and label are required.';
       errMsg.classList.add('is-visible');
@@ -742,7 +754,7 @@ function buildCyclesPanel(cycles, chapters, charList = [], sessions = []) {
     }
     errMsg.classList.remove('is-visible');
     try {
-      await createCycle(num, { label, chapterId });
+      await createCycle(num, { label, storyCycleId });
       await refresh();
     } catch (err) {
       errMsg.textContent = `Create failed: ${err.message}`;
@@ -764,7 +776,7 @@ function buildCyclesPanel(cycles, chapters, charList = [], sessions = []) {
   table.innerHTML = `<thead><tr>
     <th>Label</th>
     <th class="cy-col-phase">Phase</th>
-    <th class="cy-col-chapter">Chapter</th>
+    <th class="cy-col-story-cycle">Story</th>
     <th class="cy-col-prep">Prep Access</th>
     <th class="cy-col-pub">Publish</th>
     <th class="cy-col-att">Attendance</th>
@@ -778,9 +790,9 @@ function buildCyclesPanel(cycles, chapters, charList = [], sessions = []) {
     tr.appendChild(buildLabelCell(cy));
     tr.appendChild(buildPhaseCell(cy));
 
-    const tdChapter = document.createElement('td');
-    tdChapter.appendChild(buildChapterSelect(cy, chapters));
-    tr.appendChild(tdChapter);
+    const tdStoryCycle = document.createElement('td');
+    tdStoryCycle.appendChild(buildStoryCycleSelect(cy, storyCycles));
+    tr.appendChild(tdStoryCycle);
 
     // Prep Access toggle
     const tdAccess = document.createElement('td');

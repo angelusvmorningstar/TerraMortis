@@ -10223,7 +10223,7 @@ html:not([data-theme="dark"]) .rules-tbl tbody tr:hover            { background:
 .ec-form-msg--info  { color: var(--txt3); }
 
 /* ── Cycle tab (issue #918) ──────────────────────────────────────────────────
-   Engine → Cycle: status ribbon, chapters/cycles panels, inline edit,
+   Engine → Cycle: status ribbon, stories/cycles panels, inline edit,
    toggleable phases, add/delete. All tokens from theme.css; no inline styles. */
 
 .cy-section { margin-bottom: 32px; }
@@ -10271,7 +10271,7 @@ html:not([data-theme="dark"]) .rules-tbl tbody tr:hover            { background:
 .cy-col-num { width: 60px; }
 .cy-col-act { width: 80px; }
 .cy-col-phase { width: 240px; }
-.cy-col-chapter { width: 220px; }
+.cy-col-story-cycle { width: 220px; }
 .cy-col-prep, .cy-col-pub, .cy-col-att { width: 110px; }
 .cy-col-del { width: 80px; }
 
@@ -10308,7 +10308,7 @@ html:not([data-theme="dark"]) .btn-danger {
 }
 .cy-icon-btn:hover { color: var(--accent); background: var(--surf2); }
 
-.cy-chapter-select { min-width: 180px; }
+.cy-story-cycle-select { min-width: 180px; }
 
 /* Phase cell */
 .cy-phase-cell { white-space: nowrap; }

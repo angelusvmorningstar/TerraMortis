@@ -1,5 +1,7 @@
 /**
- * Integration tests — /api/chapters (CYCLE epic #708 story 1).
+ * Integration tests — /api/story_cycles (CYCLE epic #708 story 1; renamed from
+ * /api/chapters by cm-2, which corrected the collection's name to match what it
+ * has always held: Stories, not Chapters).
  * Covers CRUD, role gating, and the in-use cycle deletion guard.
  */
 
@@ -12,7 +14,7 @@ import { setupDb, teardownDb } from './helpers/db-setup.js';
 import { getCollection } from '../db.js';
 
 let app;
-const cleanupIds = { chapters: [], downtime_cycles: [] };
+const cleanupIds = { story_cycles: [], downtime_cycles: [] };
 
 beforeAll(async () => {
   await setupDb();
@@ -31,12 +33,12 @@ afterAll(async () => {
   await teardownDb();
 });
 
-// ── GET /api/chapters ──────────────────────────────────────────────────────
+// ── GET /api/story_cycles ──────────────────────────────────────────────────────
 
-describe('GET /api/chapters', () => {
+describe('GET /api/story_cycles', () => {
   it('returns 200 and an array for authenticated users', async () => {
     const res = await request(app)
-      .get('/api/chapters')
+      .get('/api/story_cycles')
       .set('X-Test-User', stUser());
     expect(res.status).toBe(200);
     expect(Array.isArray(res.body)).toBe(true);
@@ -44,27 +46,27 @@ describe('GET /api/chapters', () => {
 
   it('returns 200 for player role (public read)', async () => {
     const res = await request(app)
-      .get('/api/chapters')
+      .get('/api/story_cycles')
       .set('X-Test-User', playerUser([]));
     expect(res.status).toBe(200);
     expect(Array.isArray(res.body)).toBe(true);
   });
 
   it('returns 401 with no auth header', async () => {
-    const res = await request(app).get('/api/chapters');
+    const res = await request(app).get('/api/story_cycles');
     expect(res.status).toBe(401);
   });
 
-  it('sorts chapters by number ascending', async () => {
-    const col = getCollection('chapters');
+  it('sorts story cycles by number ascending', async () => {
+    const col = getCollection('story_cycles');
     const [a, b] = await Promise.all([
-      col.insertOne({ number: 3, label: 'Chapter Three', created_at: new Date().toISOString() }),
-      col.insertOne({ number: 1, label: 'Chapter One',   created_at: new Date().toISOString() }),
+      col.insertOne({ number: 3, label: 'Story Three', created_at: new Date().toISOString() }),
+      col.insertOne({ number: 1, label: 'Story One',   created_at: new Date().toISOString() }),
     ]);
-    cleanupIds.chapters.push(a.insertedId, b.insertedId);
+    cleanupIds.story_cycles.push(a.insertedId, b.insertedId);
 
     const res = await request(app)
-      .get('/api/chapters')
+      .get('/api/story_cycles')
       .set('X-Test-User', stUser());
     expect(res.status).toBe(200);
 
@@ -76,62 +78,62 @@ describe('GET /api/chapters', () => {
   });
 });
 
-// ── GET /api/chapters/:id ──────────────────────────────────────────────────
+// ── GET /api/story_cycles/:id ──────────────────────────────────────────────────
 
-describe('GET /api/chapters/:id', () => {
-  it('returns the chapter by id', async () => {
-    const col = getCollection('chapters');
-    const ins = await col.insertOne({ number: 2, label: 'Chapter Two', created_at: new Date().toISOString() });
-    cleanupIds.chapters.push(ins.insertedId);
+describe('GET /api/story_cycles/:id', () => {
+  it('returns the story cycle by id', async () => {
+    const col = getCollection('story_cycles');
+    const ins = await col.insertOne({ number: 2, label: 'Story Two', created_at: new Date().toISOString() });
+    cleanupIds.story_cycles.push(ins.insertedId);
 
     const res = await request(app)
-      .get(`/api/chapters/${ins.insertedId}`)
+      .get(`/api/story_cycles/${ins.insertedId}`)
       .set('X-Test-User', stUser());
     expect(res.status).toBe(200);
-    expect(res.body.label).toBe('Chapter Two');
+    expect(res.body.label).toBe('Story Two');
   });
 
   it('returns 404 for unknown id', async () => {
     const res = await request(app)
-      .get(`/api/chapters/${new ObjectId()}`)
+      .get(`/api/story_cycles/${new ObjectId()}`)
       .set('X-Test-User', stUser());
     expect(res.status).toBe(404);
   });
 
   it('returns 400 for malformed id', async () => {
     const res = await request(app)
-      .get('/api/chapters/not-an-id')
+      .get('/api/story_cycles/not-an-id')
       .set('X-Test-User', stUser());
     expect(res.status).toBe(400);
   });
 });
 
-// ── POST /api/chapters ─────────────────────────────────────────────────────
+// ── POST /api/story_cycles ─────────────────────────────────────────────────────
 
-describe('POST /api/chapters', () => {
-  it('ST can create a chapter and receives 201', async () => {
+describe('POST /api/story_cycles', () => {
+  it('ST can create a story cycle and receives 201', async () => {
     const res = await request(app)
-      .post('/api/chapters')
+      .post('/api/story_cycles')
       .set('X-Test-User', stUser())
-      .send({ number: 2, label: 'Chapter Two: The Price of Power' });
+      .send({ number: 2, label: 'Story Two: The Price of Power' });
     expect(res.status).toBe(201);
     expect(res.body.number).toBe(2);
-    expect(res.body.label).toBe('Chapter Two: The Price of Power');
+    expect(res.body.label).toBe('Story Two: The Price of Power');
     expect(res.body._id).toBeTruthy();
-    cleanupIds.chapters.push(new ObjectId(res.body._id));
+    cleanupIds.story_cycles.push(new ObjectId(res.body._id));
   });
 
-  it('player cannot create a chapter (403)', async () => {
+  it('player cannot create a story cycle (403)', async () => {
     const res = await request(app)
-      .post('/api/chapters')
+      .post('/api/story_cycles')
       .set('X-Test-User', playerUser([]))
-      .send({ number: 1, label: 'Chapter One' });
+      .send({ number: 1, label: 'Story One' });
     expect(res.status).toBe(403);
   });
 
   it('rejects missing number (400)', async () => {
     const res = await request(app)
-      .post('/api/chapters')
+      .post('/api/story_cycles')
       .set('X-Test-User', stUser())
       .send({ label: 'No Number' });
     expect(res.status).toBe(400);
@@ -139,7 +141,7 @@ describe('POST /api/chapters', () => {
 
   it('rejects missing label (400)', async () => {
     const res = await request(app)
-      .post('/api/chapters')
+      .post('/api/story_cycles')
       .set('X-Test-User', stUser())
       .send({ number: 1 });
     expect(res.status).toBe(400);
@@ -147,7 +149,7 @@ describe('POST /api/chapters', () => {
 
   it('rejects non-integer number (400)', async () => {
     const res = await request(app)
-      .post('/api/chapters')
+      .post('/api/story_cycles')
       .set('X-Test-User', stUser())
       .send({ number: 1.5, label: 'Bad Number' });
     expect(res.status).toBe(400);
@@ -155,27 +157,27 @@ describe('POST /api/chapters', () => {
 
   it('trims whitespace from label', async () => {
     const res = await request(app)
-      .post('/api/chapters')
+      .post('/api/story_cycles')
       .set('X-Test-User', stUser())
       .send({ number: 99, label: '  Trimmed  ' });
     expect(res.status).toBe(201);
     expect(res.body.label).toBe('Trimmed');
-    cleanupIds.chapters.push(new ObjectId(res.body._id));
+    cleanupIds.story_cycles.push(new ObjectId(res.body._id));
   });
 });
 
-// ── PATCH /api/chapters/:id ────────────────────────────────────────────────
+// ── PATCH /api/story_cycles/:id ────────────────────────────────────────────────
 
-describe('PATCH /api/chapters/:id', () => {
+describe('PATCH /api/story_cycles/:id', () => {
   it('ST can update label', async () => {
     const create = await request(app)
-      .post('/api/chapters')
+      .post('/api/story_cycles')
       .set('X-Test-User', stUser())
       .send({ number: 3, label: 'Original Label' });
-    cleanupIds.chapters.push(new ObjectId(create.body._id));
+    cleanupIds.story_cycles.push(new ObjectId(create.body._id));
 
     const res = await request(app)
-      .patch(`/api/chapters/${create.body._id}`)
+      .patch(`/api/story_cycles/${create.body._id}`)
       .set('X-Test-User', stUser())
       .send({ label: 'Updated Label' });
     expect(res.status).toBe(200);
@@ -184,13 +186,13 @@ describe('PATCH /api/chapters/:id', () => {
 
   it('ST can update number', async () => {
     const create = await request(app)
-      .post('/api/chapters')
+      .post('/api/story_cycles')
       .set('X-Test-User', stUser())
       .send({ number: 5, label: 'Will Change Number' });
-    cleanupIds.chapters.push(new ObjectId(create.body._id));
+    cleanupIds.story_cycles.push(new ObjectId(create.body._id));
 
     const res = await request(app)
-      .patch(`/api/chapters/${create.body._id}`)
+      .patch(`/api/story_cycles/${create.body._id}`)
       .set('X-Test-User', stUser())
       .send({ number: 6 });
     expect(res.status).toBe(200);
@@ -198,12 +200,12 @@ describe('PATCH /api/chapters/:id', () => {
   });
 
   it('player cannot patch (403)', async () => {
-    const col = getCollection('chapters');
+    const col = getCollection('story_cycles');
     const ins = await col.insertOne({ number: 1, label: 'Read Only', created_at: new Date().toISOString() });
-    cleanupIds.chapters.push(ins.insertedId);
+    cleanupIds.story_cycles.push(ins.insertedId);
 
     const res = await request(app)
-      .patch(`/api/chapters/${ins.insertedId}`)
+      .patch(`/api/story_cycles/${ins.insertedId}`)
       .set('X-Test-User', playerUser([]))
       .send({ label: 'Hacked' });
     expect(res.status).toBe(403);
@@ -211,80 +213,80 @@ describe('PATCH /api/chapters/:id', () => {
 
   it('returns 404 for unknown id', async () => {
     const res = await request(app)
-      .patch(`/api/chapters/${new ObjectId()}`)
+      .patch(`/api/story_cycles/${new ObjectId()}`)
       .set('X-Test-User', stUser())
       .send({ label: 'Ghost' });
     expect(res.status).toBe(404);
   });
 
   it('returns 400 with empty body', async () => {
-    const col = getCollection('chapters');
+    const col = getCollection('story_cycles');
     const ins = await col.insertOne({ number: 1, label: 'Empty Patch', created_at: new Date().toISOString() });
-    cleanupIds.chapters.push(ins.insertedId);
+    cleanupIds.story_cycles.push(ins.insertedId);
 
     const res = await request(app)
-      .patch(`/api/chapters/${ins.insertedId}`)
+      .patch(`/api/story_cycles/${ins.insertedId}`)
       .set('X-Test-User', stUser())
       .send({});
     expect(res.status).toBe(400);
   });
 });
 
-// ── DELETE /api/chapters/:id ───────────────────────────────────────────────
+// ── DELETE /api/story_cycles/:id ───────────────────────────────────────────────
 
-describe('DELETE /api/chapters/:id', () => {
-  it('ST can delete an unlinked chapter', async () => {
+describe('DELETE /api/story_cycles/:id', () => {
+  it('ST can delete an unlinked story cycle', async () => {
     const create = await request(app)
-      .post('/api/chapters')
+      .post('/api/story_cycles')
       .set('X-Test-User', stUser())
       .send({ number: 10, label: 'To Be Deleted' });
     const id = create.body._id;
 
     const res = await request(app)
-      .delete(`/api/chapters/${id}`)
+      .delete(`/api/story_cycles/${id}`)
       .set('X-Test-User', stUser());
     expect(res.status).toBe(200);
     expect(res.body.deleted).toBe(true);
   });
 
   it('player cannot delete (403)', async () => {
-    const col = getCollection('chapters');
+    const col = getCollection('story_cycles');
     const ins = await col.insertOne({ number: 1, label: 'No Delete', created_at: new Date().toISOString() });
-    cleanupIds.chapters.push(ins.insertedId);
+    cleanupIds.story_cycles.push(ins.insertedId);
 
     const res = await request(app)
-      .delete(`/api/chapters/${ins.insertedId}`)
+      .delete(`/api/story_cycles/${ins.insertedId}`)
       .set('X-Test-User', playerUser([]));
     expect(res.status).toBe(403);
   });
 
-  it('returns 409 CHAPTER_IN_USE when a cycle is linked', async () => {
+  it('returns 409 STORY_CYCLE_IN_USE when a cycle is linked', async () => {
     const create = await request(app)
-      .post('/api/chapters')
+      .post('/api/story_cycles')
       .set('X-Test-User', stUser())
       .send({ number: 11, label: 'In Use' });
-    const chapterId = create.body._id;
-    cleanupIds.chapters.push(new ObjectId(chapterId));
+    const storyCycleId = create.body._id;
+    cleanupIds.story_cycles.push(new ObjectId(storyCycleId));
 
-    // Insert a cycle referencing this chapter
+    // Insert a downtime cycle referencing this story cycle
     const cycleCol = getCollection('downtime_cycles');
     const cycleIns = await cycleCol.insertOne({
       label: 'DT 5', game_number: 5, status: 'prep',
-      chapter_id: chapterId, created_at: new Date().toISOString(),
+      story_cycle_id: storyCycleId, created_at: new Date().toISOString(),
     });
     cleanupIds.downtime_cycles.push(cycleIns.insertedId);
 
     const res = await request(app)
-      .delete(`/api/chapters/${chapterId}`)
+      .delete(`/api/story_cycles/${storyCycleId}`)
       .set('X-Test-User', stUser());
     expect(res.status).toBe(409);
-    expect(res.body.error).toBe('CHAPTER_IN_USE');
+    expect(res.body.error).toBe('STORY_CYCLE_IN_USE');
     expect(res.body.linked_cycles).toBe(1);
   });
 
   it('returns 404 for unknown id', async () => {
     const res = await request(app)
-      .delete(`/api/chapters/${new ObjectId()}`)
+      .delete(`/api/story_cycles/${new ObjectId()}`)
       .set('X-Test-User', stUser());
     expect(res.status).toBe(404);
   });
