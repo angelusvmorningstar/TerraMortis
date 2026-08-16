@@ -249,6 +249,130 @@ test.describe('Admin — Cycle Tab: Stories panel', () => {
   });
 });
 
+// ── cm-3: the Story-level "Final chapter" pointer ───────────────────────────
+// `story_cycles.final_chapter_id` names the ONE cycle that ends a Story, and a
+// Story is closed exactly when it is set. It replaced the per-chapter "Chapter
+// Finale" checkbox on the DT Prep panel, so a Story-level decision now lives at
+// the Story level and cannot be ticked on the wrong cycle.
+//
+// Rewritten from the first pass's "Closed" checkbox column after review: a
+// computed finale (closed + highest game_number) silently relocated when Story
+// membership changed. A pointer cannot.
+test.describe('Admin — Cycle Tab: Stories panel Final chapter column (cm-3)', () => {
+  const FINALE_STORY_CYCLES = [
+    { _id: 'sc-001', number: 1, label: 'Story One: Blood and Shadows', final_chapter_id: 'cyc-001', created_at: '2026-01-01T00:00:00.000Z' },
+    { _id: 'sc-002', number: 2, label: 'Story Two: The Price of Power', created_at: '2026-03-01T00:00:00.000Z' },
+  ];
+  // Story One owns DT 1 and DT 1b; Story Two owns DT 2. The finale select on
+  // each row must offer only that Story's own members.
+  const FINALE_CYCLES = [
+    { _id: 'cyc-001', label: 'DT 1',  game_number: 1, game_phase: 'processing', story_cycle_id: 'sc-001', status: 'closed' },
+    { _id: 'cyc-001b', label: 'DT 1b', game_number: 2, game_phase: null,        story_cycle_id: 'sc-001', status: 'closed' },
+    { _id: 'cyc-002', label: 'DT 2',  game_number: 3, game_phase: null,         story_cycle_id: 'sc-002', status: 'active' },
+  ];
+
+  let patches;
+
+  async function mockPatch(page, { status = 200, body = null } = {}) {
+    // Registered after mockCycleApis so it wins (LIFO); anything that is not
+    // a PATCH falls through to the delete mock underneath.
+    await page.route(/\/api\/story_cycles\/sc-00\d$/, route => {
+      if (route.request().method() !== 'PATCH') return route.fallback();
+      const sent = route.request().postDataJSON();
+      patches.push({ url: route.request().url(), body: sent });
+      if (status !== 200) {
+        return route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(body) });
+      }
+      // Review finding on the first pass: this mock returned a hardcoded
+      // _id: 'sc-002' whatever row was patched. Inert today (the client ignores
+      // the response body) but it would mask a regression the moment anything
+      // started trusting it, so it echoes the real row now.
+      const id = route.request().url().split('/').pop();
+      const row = FINALE_STORY_CYCLES.find(s => s._id === id);
+      route.fulfill({
+        status: 200, contentType: 'application/json',
+        body: JSON.stringify({ ...row, ...sent }),
+      });
+    });
+  }
+
+  test.beforeEach(async ({ page }) => {
+    await loginAsST(page);
+    await mockCycleApis(page, { storyCycles: FINALE_STORY_CYCLES, cycles: FINALE_CYCLES });
+    patches = [];
+    await mockPatch(page);
+    await navigateToCycleTab(page);
+  });
+
+  test('renders a Final chapter select per Story, populated from that Story\'s own cycles', async ({ page }) => {
+    const table = page.locator('#cycle-content table').first();
+    await expect(table.locator('thead')).toContainText('Final chapter');
+    const sels = table.locator('tbody .cy-story-final');
+    await expect(sels).toHaveCount(2);
+
+    // Story One: "— not closed —" plus its two members, and DT 1 is selected.
+    await expect(sels.nth(0).locator('option')).toHaveCount(3);
+    await expect(sels.nth(0)).toHaveValue('cyc-001');
+    await expect(sels.nth(0).locator('option:checked')).toContainText('DT 1');
+
+    // Story Two: "— not closed —" plus its single member, nothing selected.
+    await expect(sels.nth(1).locator('option')).toHaveCount(2);
+    await expect(sels.nth(1)).toHaveValue('');
+    await expect(sels.nth(1).locator('option:checked')).toContainText('not closed');
+    // …and it must NOT offer Story One's cycles.
+    await expect(sels.nth(1)).not.toContainText('DT 1b');
+  });
+
+  test('choosing a chapter PATCHes that Story with its _id', async ({ page }) => {
+    const sel = page.locator('#cycle-content table').first().locator('tbody .cy-story-final').nth(1);
+    await sel.selectOption('cyc-002');
+    await expect.poll(() => patches.length).toBe(1);
+    expect(patches[0].body).toEqual({ final_chapter_id: 'cyc-002' });
+    expect(patches[0].url).toContain('/sc-002');
+    await expect(sel).toHaveValue('cyc-002');
+  });
+
+  test('re-pointing a Story to a different chapter PATCHes the new _id', async ({ page }) => {
+    const sel = page.locator('#cycle-content table').first().locator('tbody .cy-story-final').nth(0);
+    await sel.selectOption('cyc-001b');
+    await expect.poll(() => patches.length).toBe(1);
+    expect(patches[0].body).toEqual({ final_chapter_id: 'cyc-001b' });
+  });
+
+  test('choosing "— not closed —" PATCHes null — closing a Story is reversible', async ({ page }) => {
+    const sel = page.locator('#cycle-content table').first().locator('tbody .cy-story-final').nth(0);
+    await sel.selectOption('');
+    await expect.poll(() => patches.length).toBe(1);
+    expect(patches[0].body).toEqual({ final_chapter_id: null });
+  });
+
+  test('a refused PATCH reverts the select and surfaces the reason', async ({ page }) => {
+    await mockPatch(page, {
+      status: 400,
+      body: { error: 'VALIDATION_ERROR', message: 'final_chapter_id names a cycle that does not belong to this Story' },
+    });
+    const sel = page.locator('#cycle-content table').first().locator('tbody .cy-story-final').nth(0);
+    await sel.selectOption('cyc-001b');
+    await expect(sel).toHaveValue('cyc-001');    // reverted to its prior value
+    await expect(page.locator('#cycle-content')).toContainText('does not belong to this Story');
+  });
+
+  test('the select is disabled while a write is in flight, so writes cannot resolve out of order', async ({ page }) => {
+    let release;
+    const gate = new Promise(r => { release = r; });
+    await page.route(/\/api\/story_cycles\/sc-00\d$/, async route => {
+      if (route.request().method() !== 'PATCH') return route.fallback();
+      await gate;
+      route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ _id: 'sc-002' }) });
+    });
+    const sel = page.locator('#cycle-content table').first().locator('tbody .cy-story-final').nth(1);
+    await sel.selectOption('cyc-002');
+    await expect(sel).toBeDisabled();
+    release();
+    await expect(sel).toBeEnabled();
+  });
+});
+
 test.describe('Admin — Cycle Tab: Game Cycles panel', () => {
   test.beforeEach(async ({ page }) => {
     await loginAsST(page);
@@ -276,9 +400,15 @@ test.describe('Admin — Cycle Tab: Game Cycles panel', () => {
   // '#cycle-content' contained the story label somewhere on the page — which it
   // does regardless, because the Stories table lists it. It could not fail if
   // the cycle-to-story link never rendered. Scoped to cyc-001's OWN row.
+  //
+  // cm-3: `{ hasText: 'DT 1' }` alone is no longer unique. The Stories table's
+  // new "Final chapter" select lists each Story's member cycles by label, so
+  // Story One's row now contains the text 'DT 1' too. Narrowed to the row that
+  // actually holds a cycle-row Story picker (class `cy-story-cycle-select`; the
+  // Stories-table control is `cy-story-final`).
   test('shows linked story in the cycle row own select', async ({ page }) => {
-    const row = page.locator('#cycle-content tr', { hasText: 'DT 1' }).first();
-    const select = row.locator('select.cy-story-cycle-select');
+    const select = page.locator('#cycle-content tr', { hasText: 'DT 1' })
+      .locator('select.cy-story-cycle-select').first();
     await expect(select).toHaveValue('sc-001');
     await expect(select.locator('option:checked')).toContainText('Story One: Blood and Shadows');
   });
@@ -294,8 +424,8 @@ test.describe('Admin — Cycle Tab: Game Cycles panel', () => {
     await expect(unlinked).toHaveValue('');
     await expect(unlinked.locator('option:checked')).toHaveText(/none/);
 
-    const linked = page.locator('#cycle-content tr', { hasText: 'DT 1' }).first()
-      .locator('select.cy-story-cycle-select');
+    const linked = page.locator('#cycle-content tr', { hasText: 'DT 1' })
+      .locator('select.cy-story-cycle-select').first();
     await expect(linked).not.toHaveValue('');
     await expect(linked.locator('option:checked')).not.toHaveText(/none/);
   });

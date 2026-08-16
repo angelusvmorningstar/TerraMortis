@@ -10271,7 +10271,9 @@ html:not([data-theme="dark"]) .rules-tbl tbody tr:hover            { background:
 .cy-col-num { width: 60px; }
 .cy-col-act { width: 80px; }
 .cy-col-phase { width: 240px; }
-.cy-col-story-cycle { width: 220px; }
+/* cm-3: the Stories table's "Final chapter" picker shares the per-cycle Story
+   picker's column width — same control, same table family. */
+.cy-col-story-cycle, .cy-col-final-chapter { width: 220px; }
 .cy-col-prep, .cy-col-pub, .cy-col-att { width: 110px; }
 .cy-col-del { width: 80px; }
 
@@ -10308,7 +10310,7 @@ html:not([data-theme="dark"]) .btn-danger {
 }
 .cy-icon-btn:hover { color: var(--accent); background: var(--surf2); }
 
-.cy-story-cycle-select { min-width: 180px; }
+.cy-story-cycle-select, .cy-story-final { min-width: 180px; }
 
 /* Phase cell */
 .cy-phase-cell { white-space: nowrap; }

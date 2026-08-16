@@ -82,6 +82,46 @@ async function requireOpenCycle(req, res, next) {
 export const cyclesRouter = Router();
 const cycles = () => getCollection('downtime_cycles');
 
+/**
+ * cm-3 AC10 — the named-finale guard, shared by the PUT reassignment path and
+ * the DELETE path.
+ *
+ * `story_cycles.final_chapter_id` is a plain string pointer at one cycle's
+ * `_id`. Nothing in Mongo enforces the reference, so the two operations that
+ * could break it are refused here rather than left to dangle: moving the named
+ * cycle to a different Story, and deleting it outright. Mirrors the shape of
+ * story-cycles.js's own STORY_CYCLE_IN_USE 409 — same status, same
+ * "name the thing that is holding the reference" message style.
+ *
+ * Returns the 409 body when the operation must be refused, or `null` when it
+ * is safe (no Story names this cycle, or — for the reassignment case — the FK
+ * is not actually changing, so a full-document restore of an unchanged value
+ * still passes through).
+ */
+async function namedFinaleRefusal(oid, { nextStoryId, verb } = {}) {
+  const idStr = String(oid);
+  const holder = await getCollection('story_cycles').findOne({ final_chapter_id: idStr });
+  if (!holder) return null;
+
+  if (nextStoryId !== undefined) {
+    const current = await cycles().findOne({ _id: oid }, { projection: { story_cycle_id: 1, label: 1, game_number: 1 } });
+    if (!current) return null;                                   // 404 is the PUT's own job
+    const before = String(current.story_cycle_id ?? '');
+    const after = nextStoryId == null ? '' : String(nextStoryId);
+    if (before === after) return null;                           // no change, nothing to guard
+  }
+
+  const cycle = await cycles().findOne({ _id: oid }, { projection: { label: 1, game_number: 1 } });
+  const cycleName = cycle?.label || (cycle?.game_number != null ? `Game ${cycle.game_number}` : 'This cycle');
+  const storyName = `Story ${holder.number ?? '?'}${holder.label ? ` — ${holder.label}` : ''}`;
+  return {
+    error: 'CYCLE_IS_STORY_FINALE',
+    message: `${cycleName} is the final chapter of ${storyName} and cannot be ${verb || 'changed'}. Clear or re-point that Story's final chapter first.`,
+    story_cycle_id: String(holder._id),
+    story_label: storyName,
+  };
+}
+
 // GET /api/downtime_cycles — list all (both roles can see cycles)
 // Issue #321: sort by _id desc (creation-order proxy since cycle docs lack
 // created_at) so clients get a meaningful order even without their own sort.
@@ -682,6 +722,20 @@ cyclesRouter.put('/:id', requireRole('st'), async (req, res) => {
   const oid = parseId(req.params.id);
   if (!oid) return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'Invalid cycle ID format' });
 
+  // cm-3 AC10: a cycle that a Story currently names as its `final_chapter_id`
+  // cannot be moved to another Story (or unassigned) out from under that
+  // pointer — that is exactly the silent-relocation failure the pointer
+  // design exists to prevent, and it would orphan any maintenance_audit ticks
+  // already recorded on it. The ST must clear or re-point the Story's final
+  // chapter first. Only checked when the body actually carries
+  // `story_cycle_id`, and only when the value would CHANGE, so the Data
+  // Portability importer's full-document restore of an unchanged FK still
+  // passes through untouched.
+  if (Object.prototype.hasOwnProperty.call(req.body || {}, 'story_cycle_id')) {
+    const refusal = await namedFinaleRefusal(oid, { nextStoryId: req.body.story_cycle_id, verb: 'moved to another Story' });
+    if (refusal) return res.status(409).json(refusal);
+  }
+
   const { _id, ...updates } = req.body;
 
   if (!Object.prototype.hasOwnProperty.call(req.body || {}, 'phase')) {
@@ -742,6 +796,13 @@ cyclesRouter.put('/:id', requireRole('st'), async (req, res) => {
 cyclesRouter.delete('/:id', requireRole('st'), async (req, res) => {
   const oid = parseId(req.params.id);
   if (!oid) return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'Invalid cycle ID format' });
+
+  // cm-3 AC10: same guard as the story_cycle_id reassignment above. Deleting a
+  // cycle a Story names as its final chapter would leave `final_chapter_id`
+  // dangling, which the client's derivation reads as "no finale at all" —
+  // silently, with no error anywhere.
+  const finaleRefusal = await namedFinaleRefusal(oid, { verb: 'deleted' });
+  if (finaleRefusal) return res.status(409).json(finaleRefusal);
 
   const subCount = await getCollection('downtime_submissions').countDocuments({ cycle_id: oid });
   if (subCount > 0) {

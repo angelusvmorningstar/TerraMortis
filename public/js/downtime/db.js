@@ -26,6 +26,12 @@ export async function getActiveCycle() {
   return cycles.find(c => c.status === 'active') || null;
 }
 
+// cm-3: the Story tier above a cycle. Mirrors getCycles so player-facing code
+// can resolve a cycle's Story without a second, ad-hoc fetch pattern.
+export async function getStoryCycles() {
+  return apiGet('/api/story_cycles');
+}
+
 // cm-2: `chapterId` -> `storyCycleId`; the body field it writes is
 // `story_cycle_id`, an FK into the renamed `story_cycles` collection.
 export async function createCycle(gameNumber, { status = 'prep', deadlineAt = null, label = null, storyCycleId = null } = {}) {
@@ -232,6 +238,66 @@ export async function setCyclePhase(cycle, phaseOrNull, extra = {}) {
   await updateCycle(cycle._id, updates);
   Object.assign(cycle, updates);
   return cycle;
+}
+
+/**
+ * cm-3: resolve a cycle's own `story_cycles` document out of a list.
+ *
+ * ONE copy, exported, because both consumers of the derivation below need it
+ * and the review of cm-3's first pass found the same
+ * `String(s._id) === String(cycle.story_cycle_id)` line copied verbatim into
+ * the admin panel and the player form — precisely the "two surfaces can
+ * silently disagree" class this story exists to close. Returns null for a
+ * cycle with no FK, an empty/absent list, or an FK that does not resolve.
+ */
+export function storyCycleForCycle(cycle, storyCycles) {
+  const fk = cycle?.story_cycle_id;
+  if (fk == null || fk === '') return null;
+  const key = String(fk);
+  return (storyCycles || []).find(s => s && String(s._id) === key) || null;
+}
+
+/**
+ * cm-3: is this cycle the final chapter of its Story?
+ *
+ * Replaces `downtime_cycles.is_chapter_finale`, a per-chapter checkbox the ST
+ * had to remember to tick on exactly the right cycle. cycle-model.md §3 rules
+ * that the maintenance clock stays tied to the Story, and that the warning,
+ * the drop and the classification all become derived rather than toggled.
+ *
+ * Pure: no I/O, no mutation. Two inputs —
+ *   `cycle`      the downtime_cycles document being classified;
+ *   `storyCycle` its resolved story_cycles document (see storyCycleForCycle),
+ *                or null/undefined when the FK does not resolve (Story deleted
+ *                out from under the cycle) — which yields false, never a throw.
+ *
+ * True iff that Story's `final_chapter_id` names THIS cycle. No game_number
+ * comparison, no sibling-cycle list, no "closed" flag: a Story is closed
+ * exactly when the ST has named its final chapter, and which chapter that is
+ * is never recomputed.
+ *
+ * This shape is deliberate, and replaced a `closed` boolean plus a
+ * max-game_number computation after review (2026-08-17). A computed finale
+ * silently relocates whenever Story membership changes — a live risk here,
+ * since membership is assigned one cycle at a time and this project's ST
+ * revises Story length mid-stream — and it could not distinguish "this Story
+ * has one chapter and is done" from "this Story has one chapter so far"
+ * without the extra flag. A pointer answers both, and is immune by
+ * construction to a tied or non-numeric game_number.
+ */
+export function isFinalChapterOfStory(cycle, storyCycle) {
+  const cycleId = cycle?._id;
+  if (cycleId == null || cycleId === '') return false;
+  const storyId = cycle?.story_cycle_id;
+  if (storyId == null || storyId === '') return false;
+  // Ownership: the Story handed in must actually be this cycle's Story. Both
+  // real call sites resolve correctly via storyCycleForCycle, so this is a
+  // contract guard rather than a live bug fix — but AC2 documents the
+  // relationship, so the function enforces it rather than assuming it.
+  if (storyCycle?._id != null && String(storyCycle._id) !== String(storyId)) return false;
+  const finalId = storyCycle?.final_chapter_id;
+  if (finalId == null || finalId === '') return false;
+  return String(finalId) === String(cycleId);
 }
 
 /** Human-readable cycle name for dialogs. Label if set, else "Game N". */
