@@ -13,6 +13,8 @@ This document maps every data domain to its authoritative source: the MongoDB co
 | Questionnaire responses | `questionnaire` | `GET/PUT /api/questionnaire` | player.html → questionnaire flow |
 | Character history | `history` | `GET/PUT /api/history` | admin.html → Player tab |
 
+**`tracker_state` has a SECOND deletion path (CM-4a, 2026-08-16).** `DELETE /api/tracker_state` is no longer the only thing that empties this collection. `PUT /api/downtime_cycles/:id` deletes **every** `tracker_state` document, in one transaction with the phase write, whenever the request body carries an own `phase` key and `resetOnTransition(from, to)` is true (`public/js/downtime/cycle-phase.js`). ST/dev only, same auth as the DELETE. A body without `phase` never touches the collection; the Data Portability importer strips `phase`/`game_phase`/`status` from its cycle restore PUT so a backup restore cannot fire it.
+
 **Tracker client note:** Two localStorage implementations currently exist and are fragmented:
 - `public/js/game/tracker.js` — keyed by `_id`, used by suite sheet + ST tracker tab *(canonical going forward)*
 - `public/js/suite/tracker.js` — keyed by character name, used by feed roller *(legacy, to be replaced)*

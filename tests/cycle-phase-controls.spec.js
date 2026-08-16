@@ -2,6 +2,15 @@
  * E2E tests — Admin Cycle tab: phase controls (CYCLE epic #708, story 3)
  * Covers: phase buttons rendered, active state, PUT on click, Game confirm +
  * tracker reset, cancel aborts, inline error on API failure.
+ *
+ * STALE AT BASE, whole file (recorded 2026-08-16 by CM-4a, measured both with
+ * and without that change: 11 failed, 11 failed). It still asserts the
+ * pre-CM-1 shape - THREE phase buttons, and an active button that is
+ * DISABLED - where the Cycle tab has had four buttons (downtime, processing,
+ * prep, game) and a click-to-clear toggle since CM-1 (#1028). Rewriting it to
+ * the current UI is its own piece of work and is not CM-4a's; CM-4a only
+ * reconciled the one assertion below that its own change inverted, so this
+ * file does not sit there certifying the opposite of shipped behaviour.
  */
 
 const { test, expect } = require('@playwright/test');
@@ -253,7 +262,12 @@ test.describe('Cycle tab — Game phase: confirm + tracker reset', () => {
     expect(dialogShown).toBe(true);
   });
 
-  test('accepting Game confirm calls DELETE /api/tracker_state then PUT game_phase', async ({ page }) => {
+  // INVERTED BY CM-4a (2026-08-16): the client no longer wipes the tracker.
+  // The wipe is performed by the server route that mutates the phase, in one
+  // transaction with the phase write, so accepting the confirm now makes ONE
+  // request - the PUT - and no DELETE at all. Behavioural coverage of the
+  // wipe itself: server/tests/cm-4a-phase-transition-enforcement.test.js.
+  test('accepting Game confirm sends the phase PUT and no client-side tracker DELETE', async ({ page }) => {
     await loginAsST(page);
     await mockCycleApis(page);
     await navigateToCycleTab(page);
@@ -280,11 +294,9 @@ test.describe('Cycle tab — Game phase: confirm + tracker reset', () => {
 
     const trackerDelete = calls.find(c => c.method === 'DELETE');
     const phasePut      = calls.find(c => c.method === 'PUT');
-    expect(trackerDelete).toBeDefined();
     expect(phasePut).toBeDefined();
     expect(phasePut.body.game_phase).toBe('game');
-    // DELETE must come before PUT (ordered in calls array)
-    expect(calls.indexOf(trackerDelete)).toBeLessThan(calls.indexOf(phasePut));
+    expect(trackerDelete).toBeUndefined();
   });
 
   test('dismissing Game confirm makes no API calls', async ({ page }) => {

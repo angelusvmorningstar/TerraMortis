@@ -365,14 +365,19 @@ describe('cm1 — wiring', () => {
   // the new code never spells `phaseOrNull === 'prep'`), i.e. the guard had
   // gone toothless while certifying the opposite of shipped behaviour - caught
   // by review. Inverted rather than deleted, so the intent stays on the record.
+  // INVERTED AGAIN BY CM-4a (2026-08-16): the client no longer performs the
+  // reset at all. It stayed a client-side DELETE right up to CM-4a, which
+  // moved the wipe into the server route that mutates the phase (one
+  // transaction, every API caller bound). The decision the client still makes
+  // is which dialog to show, and it still makes it through resetOnTransition
+  // rather than a hardcoded game check - which is what this test was always
+  // really guarding. Behaviour of the wipe itself is proven in
+  // cm-4a-phase-transition-enforcement.test.js, against the real route.
   it('the tracker reset is decided by resetOnTransition, NOT by a hardcoded game check', () => {
     expect(VIEWS).toContain('resetOnTransition(uiPhase(cy), phaseOrNull)');
-    // Exactly one DELETE, and it lives inside the resetOnTransition guard.
-    expect(VIEWS.split("apiDelete('/api/tracker_state')").length - 1).toBe(1);
-    const guardIdx = VIEWS.indexOf('resetOnTransition(uiPhase(cy), phaseOrNull)');
-    const resetIdx = VIEWS.indexOf("apiDelete('/api/tracker_state')");
-    expect(guardIdx).toBeGreaterThan(-1);
-    expect(resetIdx).toBeGreaterThan(guardIdx);
+    // Zero client-side tracker wipes: exactly one executor, and it is the server.
+    expect(VIEWS.split("apiDelete('/api/tracker_state')").length - 1).toBe(0);
+    expect(VIEWS).not.toContain('/api/tracker_state');
   });
 
   it('the feeding tab reads through getFeedingCycle', () => {
