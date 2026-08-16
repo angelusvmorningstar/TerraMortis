@@ -8,8 +8,11 @@ import { apiGet, apiPost, apiPut, apiDelete } from '../data/api.js';
 // editor's Add Equipment / Add Asset rows pre-fill acquired_cycle correctly.
 import state from '../data/state.js';
 import { parseDowntimeCSV } from '../downtime/parser.js';
-import { getCycles, getActiveCycle, createCycle, updateCycle, closeCycle, openGamePhase, getSubmissionsForCycle, upsertCycle, updateSubmission, mapRawToResponses, signoffPhase, setManualOpen, isInGamePhase, zeroSubmissionFlipWarning, zeroSubmissionFlipMessage, DTUX_PHASES } from '../downtime/db.js';
-import { TERRITORY_DATA, AMBIENCE_FEEDING_TOLERANCE, AMBIENCE_ENTROPY, AMBIENCE_THRESHOLDS, AMBIENCE_MODS, FEEDING_TERRITORIES, FEED_METHODS as FEED_METHODS_DATA, MAINTENANCE_MERITS, normaliseSorceryTargets } from '../tabs/downtime-data.js';
+import { getCycles, getStoryCycles, getActiveCycle, createCycle, updateCycle, closeCycle, openGamePhase, getSubmissionsForCycle, upsertCycle, updateSubmission, mapRawToResponses, signoffPhase, setManualOpen, isInGamePhase, isFinalChapterOfStory, storyCycleForCycle, zeroSubmissionFlipWarning, zeroSubmissionFlipMessage, DTUX_PHASES } from '../downtime/db.js';
+// cm-3: the PT/MCI maintenance rule, shared verbatim with the player warning
+// strip (public/js/tabs/downtime-form.js) so the two surfaces cannot drift.
+import { maintenanceHoldings, maintenanceEligibleChars as filterMaintenanceEligible } from '../downtime/maintenance.js';
+import { TERRITORY_DATA, AMBIENCE_FEEDING_TOLERANCE, AMBIENCE_ENTROPY, AMBIENCE_THRESHOLDS, AMBIENCE_MODS, FEEDING_TERRITORIES, FEED_METHODS as FEED_METHODS_DATA, normaliseSorceryTargets } from '../tabs/downtime-data.js';
 import { rollPool, showRollModal, parseDiceString } from '../downtime/roller.js';
 import { getAttrEffective as getAttrVal, getSkillObj, skDots, skTotal, skNineAgain, skSpecs, riteCost, skillAcqPoolStr } from '../data/accessors.js';
 import { displayName, dropdownName, sortName, hasAoE, isSpecs } from '../data/helpers.js';
@@ -78,6 +81,14 @@ function _charForSub(sub) {
 }
 let charMap = new Map();
 let allCycles = [];
+// cm-3: the Story tier, needed to derive "is this cycle its Story's final
+// chapter" (see storyFinaleFor below). Loaded alongside the cycles.
+let allStoryCycles = [];
+// cm-3 (review): a failed Story fetch used to be swallowed silently, leaving
+// the finale badge, the maintenance audit panel and the player warning strip
+// all absent with no signal — indistinguishable from "this Story just has no
+// final chapter set". This flag makes the Prep panel say so instead.
+let storyCyclesLoadFailed = false;
 let activeCycle = null;
 let currentCycle = null;
 let selectedCycleId = null;
@@ -1196,6 +1207,18 @@ function renderSnapshotPanel(cycle) {
 
 async function loadAllCycles() {
   allCycles = await getCycles();
+  // cm-3: a failed Story fetch must not take the whole Downtime tab down — it
+  // degrades to "no Story resolves", which the derivation reads as "not a
+  // finale". But it must not be SILENT either: the flag is what the Prep panel
+  // reads to say "unavailable" rather than showing nothing at all.
+  try {
+    allStoryCycles = await getStoryCycles();
+    storyCyclesLoadFailed = false;
+  } catch (err) {
+    allStoryCycles = [];
+    storyCyclesLoadFailed = true;
+    console.warn('[cm-3] Could not load /api/story_cycles; chapter-finale state is unavailable.', err);
+  }
   allCycles.sort((a, b) => (b.loaded_at || '').localeCompare(a.loaded_at || ''));
 
   const sel = document.getElementById('dt-cycle-sel');
@@ -1908,25 +1931,14 @@ async function handleNewCycle() {
   await loadAllCycles();
 }
 
-// CHM-2: holdings detection for the maintenance audit. PT is a flat
-// boolean; MCI may be multiple rows (one per cult), so collect the cult
-// names for context. Mirrors the m.active !== false guard used elsewhere
-// when iterating MCI merits.
-function maintenanceHoldings(c) {
-  const merits = c.merits || [];
-  const pt = merits.some(m => m.name === 'Professional Training');
-  const mciMerits = merits.filter(m => m.name === 'Mystery Cult Initiation' && m.active !== false);
-  return {
-    pt,
-    mci: mciMerits.length > 0,
-    mciCults: mciMerits.map(m => m.cult_name).filter(Boolean),
-  };
-}
-
+// CHM-2 holdings detection for the maintenance audit (PT flat boolean, MCI
+// possibly several rows, m.active !== false guard on MCI only).
+// cm-3: maintenanceHoldings and the eligibility filter moved to
+// public/js/downtime/maintenance.js, so the ST panel and the player warning
+// strip apply one definition rather than two copies. Only the sort (which
+// needs sortName) stays here, because it is presentation, not rule.
 function maintenanceEligibleChars() {
-  return (characters || [])
-    .filter(c => !c.retired)
-    .filter(c => (c.merits || []).some(m => MAINTENANCE_MERITS.includes(m.name)))
+  return filterMaintenanceEligible(characters)
     .sort((a, b) => sortName(a).localeCompare(sortName(b)));
 }
 
@@ -1941,8 +1953,22 @@ async function setMaintenanceAudit(cycle, charId, key, value) {
   if (idx >= 0) allCycles[idx].maintenance_audit = audit;
 }
 
+// cm-3: resolve a cycle's Story and ask the shared derivation whether this
+// cycle is that Story's final chapter. The old per-chapter
+// `is_chapter_finale` checkbox is gone; the ST's only input is now
+// `story_cycles.final_chapter_id`, set on the Cycle tab's Stories table.
+//
+// Both the resolver and the predicate come from db.js — the player form calls
+// exactly the same pair, so the ST panel and the player warning cannot answer
+// this question differently.
+function storyFinaleFor(cycle) {
+  if (!cycle) return { isFinale: false, story: null };
+  const story = storyCycleForCycle(cycle, allStoryCycles);
+  return { isFinale: isFinalChapterOfStory(cycle, story), story };
+}
+
 function renderMaintenanceAuditPanel(cycle) {
-  if (cycle.is_chapter_finale !== true) return '';
+  if (!storyFinaleFor(cycle).isFinale) return '';
   const eligible = maintenanceEligibleChars();
   const audit = cycle.maintenance_audit || {};
   const subLabel = cycle.chapter_label ? ` <span class="dt-maintenance-sub-label">(${esc(cycle.chapter_label)})</span>` : '';
@@ -2644,8 +2670,32 @@ function renderPrepPanel(cycle) {
 
   const autoVal = cycle.auto_open_at ? isoToLocalInput(cycle.auto_open_at) : '';
   const deadlineVal = cycle.deadline_at ? isoToLocalInput(cycle.deadline_at) : '';
-  const finaleChecked = cycle.is_chapter_finale ? ' checked' : '';
 
+  // cm-3: the "Chapter Finale" checkbox is gone. Whether a cycle is its
+  // Story's final chapter is derived — the Story names one specific cycle in
+  // `final_chapter_id` — so the ST can no longer tick it on the wrong cycle.
+  // What is left here is a read-only statement of the derived fact; the one
+  // input behind it lives on the Cycle tab's Stories table ("Final chapter").
+  //
+  // The third state is deliberate. If /api/story_cycles failed to load, this
+  // panel cannot tell a finale from a non-finale, and the maintenance audit
+  // below it will be absent for the same reason. Saying so beats rendering
+  // nothing, which reads as a confident "not the finale".
+  const { isFinale, story } = storyFinaleFor(cycle);
+  let finaleBadge = '';
+  if (storyCyclesLoadFailed) {
+    finaleBadge =
+      `<div class="dt-prep-field"><label class="dt-lbl">Chapter Finale</label>` +
+      `<span class="derived-note">Unavailable — the Stories list failed to load, so the ` +
+      `maintenance audit cannot be shown. Reload the Downtime tab to retry.</span></div>`;
+  } else if (isFinale) {
+    const storyName = story?.number != null
+      ? `Story ${esc(story.number)}${story.label ? ` — ${esc(story.label)}` : ''}`
+      : 'this Story';
+    finaleBadge =
+      `<div class="dt-prep-field"><label class="dt-lbl">Chapter Finale</label>` +
+      `<span class="derived-note">${storyName}</span></div>`;
+  }
 
   panel.innerHTML =
     renderManualOpenBanner(cycle) +
@@ -2654,8 +2704,7 @@ function renderPrepPanel(cycle) {
     `<input type="datetime-local" id="dt-auto-open-input" class="dt-deadline-input" value="${esc(autoVal)}"></div>` +
     `<div class="dt-prep-field"><label class="dt-lbl">Deadline Date/Time</label>` +
     `<input type="datetime-local" id="dt-prep-deadline-input" class="dt-deadline-input" value="${esc(deadlineVal)}"></div>` +
-    `<div class="dt-prep-field"><label class="dt-lbl" style="display:flex;align-items:center;gap:.5rem;cursor:pointer;">` +
-    `<input type="checkbox" id="dt-chapter-finale-input"${finaleChecked}><span>Chapter Finale</span></label></div>` +
+    finaleBadge +
     `</div>` +
     `<div class="dt-prep-actions">` +
     renderSignoffButton('prep', cycle) +
@@ -2675,7 +2724,7 @@ function renderPrepPanel(cycle) {
     await updateCycle(cycle._id, { auto_open_at: iso });
     const idx = allCycles.findIndex(c => c._id === cycle._id);
     if (idx >= 0) allCycles[idx].auto_open_at = iso;
-    cycle.auto_open_at = iso;   // mutate closure ref so a later renderPrepPanel(cycle) keeps the value (mirrors chapter-finale handler)
+    cycle.auto_open_at = iso;   // mutate closure ref so a later renderPrepPanel(cycle) keeps the value (fix.536)
     renderPhaseRibbon(allCycles[idx] || cycle, []);
   });
 
@@ -2684,15 +2733,6 @@ function renderPrepPanel(cycle) {
     await updateCycle(cycle._id, { deadline_at: val ? new Date(val).toISOString() : null });
     const idx = allCycles.findIndex(c => c._id === cycle._id);
     if (idx >= 0) allCycles[idx].deadline_at = val ? new Date(val).toISOString() : null;
-  });
-
-  document.getElementById('dt-chapter-finale-input')?.addEventListener('change', async e => {
-    const val = e.target.checked;
-    await updateCycle(cycle._id, { is_chapter_finale: val });
-    const idx = allCycles.findIndex(c => c._id === cycle._id);
-    if (idx >= 0) allCycles[idx].is_chapter_finale = val;
-    cycle.is_chapter_finale = val;
-    renderPrepPanel(cycle);
   });
 
   panel.querySelectorAll('.dt-maintenance-tick').forEach(cb => {

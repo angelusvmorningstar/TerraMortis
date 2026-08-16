@@ -49,7 +49,7 @@ storyCyclesRouter.post('/', requireRole('st'), async (req, res) => {
   res.status(201).json(created);
 });
 
-// PATCH /api/story_cycles/:id — update number and/or label (ST only)
+// PATCH /api/story_cycles/:id — update number, label and/or final_chapter_id (ST only)
 storyCyclesRouter.patch('/:id', requireRole('st'), async (req, res) => {
   const oid = parseId(req.params.id);
   if (!oid) return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'Invalid story cycle ID format' });
@@ -68,8 +68,50 @@ storyCyclesRouter.patch('/:id', requireRole('st'), async (req, res) => {
     }
     updates.label = req.body.label.trim();
   }
+  // cm-3: `final_chapter_id` names the ONE cycle the ST has chosen as this
+  // Story's final chapter. It is the only manual input behind
+  // isFinalChapterOfStory (public/js/downtime/db.js), and it replaces BOTH
+  // the per-chapter downtime_cycles.is_chapter_finale checkbox and any
+  // separate "closed" flag: a Story is closed exactly when this field is set.
+  //
+  // Why a pointer rather than a flag plus a max-game_number computation (the
+  // shape cm-3's own first pass shipped, replaced after review): a computed
+  // finale silently relocates when Story membership changes, and this
+  // project's ST revises Story length mid-stream. A pointer cannot relocate,
+  // cannot be affected by a tied or non-numeric game_number, and needs no
+  // sibling-cycle list to evaluate.
+  //
+  // This is the one place a bad pointer could be written, so validate it at
+  // the write: the value must resolve to a real downtime_cycles document that
+  // belongs to THIS Story. Validated inline, same shape as number/label; this
+  // collection has no JSON-schema file and cm-3 deliberately does not add one.
+  if (req.body.final_chapter_id !== undefined) {
+    const raw = req.body.final_chapter_id;
+    if (raw === null) {
+      updates.final_chapter_id = null;        // clears unconditionally
+    } else {
+      if (typeof raw !== 'string' || !raw.trim()) {
+        return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'final_chapter_id must be a cycle _id string or null' });
+      }
+      const cycleOid = parseId(raw.trim());
+      if (!cycleOid) {
+        return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'final_chapter_id is not a valid cycle ID format' });
+      }
+      const target = await cycles().findOne({ _id: cycleOid });
+      if (!target) {
+        return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'final_chapter_id does not match any downtime cycle' });
+      }
+      if (String(target.story_cycle_id ?? '') !== String(oid)) {
+        return res.status(400).json({
+          error: 'VALIDATION_ERROR',
+          message: 'final_chapter_id names a cycle that does not belong to this Story',
+        });
+      }
+      updates.final_chapter_id = String(cycleOid);
+    }
+  }
   if (!Object.keys(updates).length) {
-    return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'At least one of number or label is required' });
+    return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'At least one of number, label or final_chapter_id is required' });
   }
 
   const result = await col().findOneAndUpdate(

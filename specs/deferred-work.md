@@ -650,3 +650,27 @@ out of proportion to fix here.
   overclaiming it. Whoever next touches the harness (likely alongside CM-4/CM-6, when
   `game_sessions` gets a real FK) should add `mostRecentlyClosedCycleId` and
   `suggestedNextGameNumber` fields to `buildFactMap`'s return value.
+
+## Deferred from: code review of cm-3-derived-maintenance (2026-08-17)
+
+Internal 3-layer review (Blind Hunter, Edge Case Hunter, Acceptance Auditor). Three findings
+deferred as pre-existing, not caused by this diff:
+
+- **`renderDowntimeTab`'s `_allCycles = []` reset has no render-generation guard** —
+  `public/js/tabs/downtime-form.js:1423`. Rapid re-renders (a double-click, a fast character switch)
+  can clobber in-flight cycle/story data mid-render and silently drop the PT/MCI at-risk warning on a
+  real finale chapter. This project has an established fix for exactly this class (`_fetchGen`, the
+  oxp-3 precedent) that this function doesn't use — but the underlying re-entrancy hazard on this
+  render function predates cm-3 (it already reset other module state the same unguarded way).
+  *(Amended 2026-08-17, cm-3 Task 10: `_allCycles` itself no longer exists — the redesigned
+  pointer-based derivation needs no sibling-cycle list — so read this item against `_storyCycles`,
+  `currentCycle` and `responseDoc`, which `renderDowntimeTab` still resets the same unguarded way.
+  The hazard class and the recommended `_fetchGen` fix are unchanged.)*
+- **A Story closing mid-downtime never reaches a player who already has the DT form open** —
+  `public/js/tabs/downtime-form.js`, no WS push or invalidation path for `story_cycles`. Same
+  limitation the old `is_chapter_finale` checkbox already had (the form's `currentCycle` was equally
+  static once loaded) — not a regression cm-3 introduces, just not fixed by it either.
+- **`server/routes/story-cycles.js`'s DELETE guard counts `story_cycle_id` as a string only**
+  (`:104`, `countDocuments({ story_cycle_id: idStr })`) — an ObjectId-typed FK (from a hand-edit or a
+  future importer) would bypass the "linked cycles" refusal and let a Story with real dependents be
+  deleted. Pre-existing code, untouched by cm-3's diff (which only extended the PATCH handler).

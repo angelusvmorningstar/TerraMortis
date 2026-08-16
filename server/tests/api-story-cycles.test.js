@@ -230,6 +230,162 @@ describe('PATCH /api/story_cycles/:id', () => {
       .send({});
     expect(res.status).toBe(400);
   });
+
+  // ── cm-3: the `final_chapter_id` pointer (AC1) ───────────────────────────
+  // The ST names ONE of this Story's own member cycles as its final chapter.
+  // Setting it is what closes a Story; there is no separate boolean. It
+  // replaces the per-chapter `downtime_cycles.is_chapter_finale` checkbox
+  // rather than adding to it.
+  //
+  // This is the one place a bad pointer could be written, so the referential
+  // rules are enforced HERE, not just in the client that offers the choice.
+
+  /** A Story plus one member cycle, both registered for cleanup. */
+  async function storyWithCycle(number, label, cycleFields = {}) {
+    const create = await request(app)
+      .post('/api/story_cycles')
+      .set('X-Test-User', stUser())
+      .send({ number, label });
+    const storyId = create.body._id;
+    cleanupIds.story_cycles.push(new ObjectId(storyId));
+
+    const ins = await getCollection('downtime_cycles').insertOne({
+      game_number: 1, label: `${label} — Game 1`, status: 'closed',
+      story_cycle_id: String(storyId), ...cycleFields,
+    });
+    cleanupIds.downtime_cycles.push(ins.insertedId);
+    return { storyId, cycleId: String(ins.insertedId) };
+  }
+
+  it('cm-3: ST can name one of the Story\'s own cycles as its final chapter', async () => {
+    const { storyId, cycleId } = await storyWithCycle(20, 'Closable Story');
+
+    const res = await request(app)
+      .patch(`/api/story_cycles/${storyId}`)
+      .set('X-Test-User', stUser())
+      .send({ final_chapter_id: cycleId });
+    expect(res.status).toBe(200);
+    expect(res.body.final_chapter_id).toBe(cycleId);
+  });
+
+  it('cm-3: null clears it unconditionally — closing a Story is freely reversible', async () => {
+    const { storyId, cycleId } = await storyWithCycle(21, 'Reopenable Story');
+
+    await request(app)
+      .patch(`/api/story_cycles/${storyId}`)
+      .set('X-Test-User', stUser())
+      .send({ final_chapter_id: cycleId });
+
+    const res = await request(app)
+      .patch(`/api/story_cycles/${storyId}`)
+      .set('X-Test-User', stUser())
+      .send({ final_chapter_id: null });
+    expect(res.status).toBe(200);
+    expect(res.body.final_chapter_id).toBe(null);
+  });
+
+  it('cm-3: final_chapter_id can be combined with number and label in one PATCH', async () => {
+    const { storyId, cycleId } = await storyWithCycle(22, 'Combined Patch');
+
+    const res = await request(app)
+      .patch(`/api/story_cycles/${storyId}`)
+      .set('X-Test-User', stUser())
+      .send({ number: 23, label: 'Combined Patch Updated', final_chapter_id: cycleId });
+    expect(res.status).toBe(200);
+    expect(res.body.number).toBe(23);
+    expect(res.body.label).toBe('Combined Patch Updated');
+    expect(res.body.final_chapter_id).toBe(cycleId);
+  });
+
+  it('cm-3: rejects a non-string, non-null final_chapter_id (400)', async () => {
+    const { storyId } = await storyWithCycle(24, 'Bad Pointer');
+
+    for (const bad of [true, 1, {}, [], '', '   ']) {
+      const res = await request(app)
+        .patch(`/api/story_cycles/${storyId}`)
+        .set('X-Test-User', stUser())
+        .send({ final_chapter_id: bad });
+      expect(res.status).toBe(400);
+    }
+  });
+
+  it('cm-3: rejects a malformed cycle id (400, named reason)', async () => {
+    const { storyId } = await storyWithCycle(27, 'Malformed Pointer');
+
+    const res = await request(app)
+      .patch(`/api/story_cycles/${storyId}`)
+      .set('X-Test-User', stUser())
+      .send({ final_chapter_id: 'not-an-object-id' });
+    expect(res.status).toBe(400);
+    expect(res.body.message).toMatch(/valid cycle ID format/i);
+  });
+
+  it('cm-3: rejects an id that matches no downtime cycle (400, named reason)', async () => {
+    const { storyId } = await storyWithCycle(28, 'Dangling Pointer');
+
+    const res = await request(app)
+      .patch(`/api/story_cycles/${storyId}`)
+      .set('X-Test-User', stUser())
+      .send({ final_chapter_id: String(new ObjectId()) });
+    expect(res.status).toBe(400);
+    expect(res.body.message).toMatch(/does not match any downtime cycle/i);
+  });
+
+  it('cm-3: rejects a cycle belonging to a DIFFERENT Story (400, named reason)', async () => {
+    const a = await storyWithCycle(29, 'Story A');
+    const b = await storyWithCycle(30, 'Story B');
+
+    const res = await request(app)
+      .patch(`/api/story_cycles/${a.storyId}`)
+      .set('X-Test-User', stUser())
+      .send({ final_chapter_id: b.cycleId });
+    expect(res.status).toBe(400);
+    expect(res.body.message).toMatch(/does not belong to this Story/i);
+  });
+
+  it('cm-3: rejects a cycle with no Story at all (400)', async () => {
+    const { storyId } = await storyWithCycle(31, 'Orphan Pointer');
+    const ins = await getCollection('downtime_cycles').insertOne({ game_number: 99, label: 'Orphan' });
+    cleanupIds.downtime_cycles.push(ins.insertedId);
+
+    const res = await request(app)
+      .patch(`/api/story_cycles/${storyId}`)
+      .set('X-Test-User', stUser())
+      .send({ final_chapter_id: String(ins.insertedId) });
+    expect(res.status).toBe(400);
+    expect(res.body.message).toMatch(/does not belong to this Story/i);
+  });
+
+  it('cm-3: GET returns final_chapter_id unchanged on both list and single reads', async () => {
+    const { storyId, cycleId } = await storyWithCycle(25, 'Readback Story');
+
+    await request(app)
+      .patch(`/api/story_cycles/${storyId}`)
+      .set('X-Test-User', stUser())
+      .send({ final_chapter_id: cycleId });
+
+    const single = await request(app)
+      .get(`/api/story_cycles/${storyId}`)
+      .set('X-Test-User', stUser());
+    expect(single.status).toBe(200);
+    expect(single.body.final_chapter_id).toBe(cycleId);
+
+    const list = await request(app)
+      .get('/api/story_cycles')
+      .set('X-Test-User', stUser());
+    expect(list.status).toBe(200);
+    expect(list.body.find(s => String(s._id) === String(storyId)).final_chapter_id).toBe(cycleId);
+  });
+
+  it('cm-3: player cannot set final_chapter_id (403)', async () => {
+    const { storyId, cycleId } = await storyWithCycle(26, 'No Close');
+
+    const res = await request(app)
+      .patch(`/api/story_cycles/${storyId}`)
+      .set('X-Test-User', playerUser([]))
+      .send({ final_chapter_id: cycleId });
+    expect(res.status).toBe(403);
+  });
 });
 
 // ── DELETE /api/story_cycles/:id ───────────────────────────────────────────────

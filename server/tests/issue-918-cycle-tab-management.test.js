@@ -32,14 +32,19 @@ describe('issue-918 — cycle DELETE route', () => {
   it('validates the id format (400)', () =>
     expect(DOWNTIME).toMatch(/cyclesRouter\.delete[\s\S]{0,400}VALIDATION_ERROR/));
 
+  // cm-3 (2026-08-17): the proximity windows below were 600/800. The DELETE
+  // handler gained a second 409 guard first (CYCLE_IS_STORY_FINALE, AC10) plus
+  // its comment, which pushed the submission guard and the 404 past the old
+  // limits. Widened, not weakened — every assertion still has to find its
+  // target inside this one route handler.
   it('guards against deleting a cycle with submissions (409)', () => {
     expect(DOWNTIME).toContain('CYCLE_HAS_SUBMISSIONS');
-    expect(DOWNTIME).toMatch(/cyclesRouter\.delete[\s\S]{0,600}countDocuments\(\{\s*cycle_id:\s*oid/);
-    expect(DOWNTIME).toMatch(/cyclesRouter\.delete[\s\S]{0,600}status\(409\)/);
+    expect(DOWNTIME).toMatch(/cyclesRouter\.delete[\s\S]{0,1200}countDocuments\(\{\s*cycle_id:\s*oid/);
+    expect(DOWNTIME).toMatch(/cyclesRouter\.delete[\s\S]{0,1200}status\(409\)/);
   });
 
   it('returns 404 when nothing was deleted', () =>
-    expect(DOWNTIME).toMatch(/cyclesRouter\.delete[\s\S]{0,800}deletedCount === 0[\s\S]{0,120}NOT_FOUND/));
+    expect(DOWNTIME).toMatch(/cyclesRouter\.delete[\s\S]{0,1400}deletedCount === 0[\s\S]{0,120}NOT_FOUND/));
 });
 
 // ── Client db.js helpers ─────────────────────────────────────────────────────
