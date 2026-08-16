@@ -533,3 +533,70 @@ but out of proportion to fix here, and are recorded rather than lost.
   at the `view.storyCycles = storyCycles` line), so `renderRibbon()`'s lookup can still resolve a
   deleted Story until the next full refresh. Confirmed **pre-existing** in the code cm-2 inherited
   (the same shape existed pre-rename), not introduced by this story, and cleared by any tab reload.
+
+---
+
+## Deferred from: code review of cm-4a-phase-transition-server-enforcement (2026-08-16, internal 3-layer review)
+
+Internal 3-layer adversarial review (Blind Hunter diff-only, Edge Case Hunter diff + full repo,
+Acceptance Auditor spec + two-pass verification against the Dev Agent Record). LOCAL/internal, not
+Codex — the external reviewer was unavailable until 2026-08-20. Nine findings were patched in the
+same pass; the six below were not. Full record: `specs/stories/cm-4a-phase-transition-server-enforcement.md`
+→ Senior Developer Review.
+
+- **D1 — A bare legacy `status:'game'` now suppresses a wipe that used to fire** (Medium) —
+  `public/js/downtime/cycle-phase.js:48-56` (`statusToPhase`), reached from `transitionFromPhase`
+  (`cycle-phase.js:96-101`). `statusToPhase` maps raw `status:'game'` straight to phase `'game'`, so
+  `resetOnTransition('game','prep')` is `false` and entering prep no longer wipes. Pre-CM-4a the
+  client read that shape as `null`, and `resetOnTransition(null,'prep')` is `true` — it wiped, and
+  correctly. Trigger: any cycle carrying a bare `status:'game'` with no explicit `phase`/`game_phase`
+  being moved to prep. The catch is this codebase's own documented ambiguity (`cycle-phase.js:14-21`,
+  "THE THREE MEANINGS OF prep"): a bare `status:'game'` can equally mean the mid-ladder derived state
+  "prep signed off, city not" (`deriveCycleStatus`/`signoffPhase`, `public/js/downtime/db.js:87-119`),
+  which is nothing like being in game phase. The real historical example is cited in
+  `server/scripts/archive/close-dt3-cycle.js` — a cycle documented as "stuck in 'game' status — only
+  prep phase signed off". Not fixed here: disambiguating the three meanings of a bare `status` is a
+  phase-model design decision, not a patch, and it belongs with the rename-and-cleanup work already
+  planned in `D:\Terra Mortis\cycle-model.md` §11a (CM-2/CM-2b/CM-4). The one concrete example on
+  record is an already-closed archived cycle, not a live-game hazard.
+- **D2 — The client's reset dialog can be inaccurate, because `cy` is never re-fetched** (Low) —
+  `public/js/admin/cycle-views.js`, `writePhase`'s `resetOnTransition(uiPhase(cy), phaseOrNull)`
+  consult. `cy` is the cached row object and the Cycle tab holds no WebSocket subscription, so a
+  concurrent writer between page load and click makes the dialog stale in either direction (warned
+  when no wipe follows, or silent when one does). Trigger: two STs on the Cycle tab at once, or one
+  tab left open across a phase change. Not fixed: the data-safety property this story exists to
+  deliver is already correct without it — since CM-4a the server enforces the wipe rule regardless of
+  what the client showed or whether it showed anything. A proper fix is a re-fetch before the dialog,
+  or a response field reporting whether a wipe actually happened, surfaced to the ST after the fact.
+  UX accuracy, not a defect. The comment at the head of `writePhase` was corrected in this review
+  (P7) to stop claiming the two tiers "cannot disagree".
+- **D3 — A player tracker write can survive the wipe** (Low) — `server/routes/tracker.js`'s
+  `PUT /api/tracker_state/:character_id` is non-transactional and player-reachable. A player writing
+  their own tracker inside the commit window of a phase-transition wipe can leave one character with
+  a fresh post-wipe document the `deleteMany` snapshot never covered. Trigger: a phase flip during
+  live play while a player is touching their own vitae/willpower. **Confirmed PRE-EXISTING** — the
+  old client-side `DELETE /api/tracker_state` had the identical race, and CM-4a narrows the window
+  rather than widening it. Belongs with the 5b tracker-hardening pass alongside CM-5a review finding
+  K (no WebSocket broadcast on bulk delete).
+- **D4 — Dead `handleOpenGamePhase` would wipe with no tracker-specific warning if revived** (Low) —
+  `public/js/admin/downtime-views.js:2721-2736`. Confirmed unwired (its only reference is its own
+  definition; pinned by `server/tests/cm5-reset-transition.test.js`'s "stays dead, or gains the rule
+  if revived" test). If it is ever reattached it inherits the server guarantee for free — which is
+  the point of moving enforcement down a tier — but its confirm dialogs mention only the
+  zero-submission flip and feeding rolls unlocking, never the tracker. Flag for whoever next touches
+  that function; the existing test will fail loudly if it gains a listener without a
+  `resetOnTransition` consult, but it says nothing about the dialog wording.
+- **D5 — Fallback-path 404 can follow a completed wipe** (Low) — `server/routes/downtime.js`,
+  `runPhaseTransition` with `session === null`. In the transactions-unsupported fallback the wipe
+  runs before the phase write (deliberately: that is the pre-CM-4a ordering, whose failure mode this
+  codebase has already lived with). If the cycle is deleted between the initial `findOne` and the
+  later `findOneAndUpdate`, the tracker is already wiped but the caller gets a 404. Dev-environment
+  only — the fallback never runs on Atlas or production, both of which are replica sets — and the
+  window is microseconds. Not worth blocking on.
+- **D6 — `startSession()`/`endSession()` edge failures are unguarded** (Low) —
+  `server/routes/downtime.js`, the cycles PUT. If `startSession()` itself throws (driver or
+  topology-level failure) the error never reaches the `isTransactionsUnsupported` fallback, because
+  the `try` starts after it, so the route 500s rather than degrading. An `endSession()` throw inside
+  the `finally` would mask the real error. Narrow driver-level edge cases with no reproduction path;
+  this project's stated convention is not to add error handling for scenarios that cannot happen in
+  practice, and a 500 on a broken driver topology is honest.

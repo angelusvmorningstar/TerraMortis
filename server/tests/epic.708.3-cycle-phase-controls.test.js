@@ -42,8 +42,15 @@ describe('epic.708.3 — cycle-views.js: phase control UI', () => {
     expect(CYCLE_VIEWS).toContain('setGamePhase');
   });
 
-  it('calls DELETE /api/tracker_state on game phase set', () => {
-    expect(CYCLE_VIEWS).toContain('/api/tracker_state');
+  // INVERTED BY CM-4a (2026-08-16), kept rather than deleted so the intent
+  // stays on the record. The wipe moved off the client entirely: it is now
+  // performed by the server route that mutates downtime_cycles.phase, in one
+  // transaction with the phase write, so every API caller is bound by it and
+  // not just this one button. The DELETE route itself is untouched and still
+  // asserted above; what changed is who calls it. Behavioural coverage lives
+  // in cm-4a-phase-transition-enforcement.test.js.
+  it('does NOT wipe the tracker client-side any more (the server owns it)', () => {
+    expect(CYCLE_VIEWS).not.toContain('/api/tracker_state');
   });
 
   it('shows confirm dialog before game phase transition', () => {

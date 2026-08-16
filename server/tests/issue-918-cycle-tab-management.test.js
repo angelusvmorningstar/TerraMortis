@@ -1,6 +1,22 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import fs from 'fs';
+
+// cycle-views.js's only non-pure dependency is data/api.js (directly and via
+// downtime/db.js), which touches `location`/`localStorage` at module load.
+// Mocking it lets the phase-toggle assertion below be DRIVEN rather than
+// pinned to a source snippet that has now drifted three times (CM-4a review
+// finding P2, 2026-08-16).
+vi.mock('../../public/js/data/api.js', () => ({
+  apiGet: vi.fn(async () => []),
+  apiPut: vi.fn(async () => ({})),
+  apiPost: vi.fn(async () => ({})),
+  apiPatch: vi.fn(async () => ({})),
+  apiDelete: vi.fn(async () => ({})),
+  apiRaw: vi.fn(async () => ({})),
+}));
+
 import { resetOnTransition } from '../../public/js/downtime/cycle-phase.js';
+import { phaseToggleTarget } from '../../public/js/admin/cycle-views.js';
 
 const DOWNTIME = fs.readFileSync('../server/routes/downtime.js', 'utf8');
 const DB       = fs.readFileSync('../public/js/downtime/db.js', 'utf8');
@@ -59,24 +75,37 @@ describe('issue-918 — cycle-views.js wiring', () => {
     expect(VIEWS).toContain('cy-ribbon');
   });
 
-  // Toggle semantics unchanged; the read moved to uiPhase() in CM-1 (#1028),
-  // which resolves the new `phase` field before the legacy `game_phase`.
-  // (This assertion was left red by CM-1 and reached production unnoticed -
-  // caught by CM-5a's review, 2026-08-10.)
-  it('phase toggle clears to neutral (active phase → null)', () =>
-    expect(VIEWS).toMatch(/\(uiPhase\(cy\) === phase\)\s*\?\s*null\s*:\s*phase/));
+  // Toggle semantics unchanged, for the FOURTH time; only the reader keeps
+  // moving. #918 hardcoded it, CM-1 (#1028) moved the read to uiPhase(), and
+  // CM-4a's review (finding P2, 2026-08-16) moved it again - to the narrow
+  // declaredPhase, via the exported phaseToggleTarget - because uiPhase widened
+  // to resolve the legacy `status` for the wipe decision, and a button reading
+  // that widened value rendered active on a legacy `{status:'active'}` cycle
+  // and wrote `phase: null` when clicked instead of `phase: 'downtime'`.
+  //
+  // This assertion was left red by CM-1 and reached production unnoticed
+  // (caught by CM-5a's review, 2026-08-10), so it is now written as BEHAVIOUR
+  // rather than as a source snippet: the shape it pinned has drifted three
+  // times, and driving the real function cannot drift.
+  it('phase toggle clears to neutral (active phase → null)', () => {
+    expect(phaseToggleTarget({ phase: 'game' }, 'game')).toBe(null);
+    expect(phaseToggleTarget({ game_phase: 'downtime' }, 'downtime')).toBe(null);
+    // ...and a non-active button still sets its own phase.
+    expect(phaseToggleTarget({ phase: 'game' }, 'prep')).toBe('prep');
+  });
 
   // Intent unchanged and still true: clearing to neutral never wipes the
-  // tracker. The MECHANISM moved twice - CM-1 kept the hardcoded game check,
-  // CM-5a replaced it with resetOnTransition. Asserting the real decision
-  // rather than the old string, which by CM-5a would have passed vacuously.
+  // tracker. The MECHANISM has now moved three times - CM-1 kept the
+  // hardcoded game check, CM-5a replaced it with resetOnTransition, and CM-4a
+  // moved the wipe itself off the client into the cycles PUT route. The
+  // predicate assertions below are the durable part; the client-side DELETE
+  // this used to locate no longer exists, so its absence is asserted instead.
   it('clearing a phase does NOT reset the tracker', () => {
     expect(resetOnTransition('game', null)).toBe(false);
     expect(resetOnTransition('prep', null)).toBe(false);
     const guardIdx = VIEWS.indexOf('resetOnTransition(uiPhase(cy), phaseOrNull)');
-    const trackerDelIdx = VIEWS.indexOf("apiDelete('/api/tracker_state')");
     expect(guardIdx).toBeGreaterThan(-1);
-    expect(trackerDelIdx).toBeGreaterThan(guardIdx);
+    expect(VIEWS).not.toContain("apiDelete('/api/tracker_state')");
   });
 
   it('inline-edits the label via updateCycle', () => {

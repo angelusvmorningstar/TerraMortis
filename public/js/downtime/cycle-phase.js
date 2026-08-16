@@ -72,6 +72,35 @@ export function cyclePhase(cycle, deriveStatus) {
 }
 
 /**
+ * CM-4a: the ONE reader of the phase a transition moves FROM, shared verbatim
+ * by the admin Cycle tab (cycle-views.js's uiPhase) and by the server route
+ * that enforces the wipe rule (routes/downtime.js's cycles PUT).
+ *
+ * It exists because the two tiers used to disagree. The client read
+ * `phase || game_phase`; the server's `cyclePhase` falls back to
+ * `statusToPhase(status)` instead. On the real legacy shape
+ * `{game_phase:'game', status:'closed'}` the client said 'game' (so entering
+ * prep showed no dialog) and the server said 'processing' (so entering prep
+ * WOULD wipe) - a tracker wipe on a transition the ST was never warned about.
+ * The `from` side of a transition is exactly where a legacy document gets
+ * read, so the two answers have to be one answer.
+ *
+ * Resolution order: a known `phase`, else a known legacy `game_phase`, else
+ * `statusToPhase(status)`, else null. Unknown values never leak - a
+ * hand-edited `phase: 'feeding'` falls through to the legacy fields rather
+ * than being handed to the transition matrix.
+ *
+ * Distinct from `cyclePhase` above, deliberately: that one takes an injected
+ * `deriveStatus` and is the general "what phase is this cycle in" read.
+ */
+export function transitionFromPhase(cycle) {
+  if (!cycle) return null;
+  if (PHASE_VALUES.has(cycle.phase)) return cycle.phase;
+  if (PHASE_VALUES.has(cycle.game_phase)) return cycle.game_phase;
+  return statusToPhase(cycle.status);
+}
+
+/**
  * The single current cycle: highest game_number wins, never API/_id/array
  * order (creation order is proven wrong for game order in this data - see
  * db.js's getFeedingCycle doc comment for the same rule applied elsewhere).
@@ -144,6 +173,33 @@ export function phaseWrites(phase) {
 }
 
 /**
+ * The three fields that TOGETHER represent a cycle's phase: the CM-1 canonical
+ * `phase` plus its legacy mirror pair. Named once, because more than one caller
+ * now needs to say "these fields describe live game-night state, and I must not
+ * write them here" (buildPhaseUpdate defends them against caller extras; the
+ * Data Portability importer strips them from a restore body - see
+ * withoutPhaseFields below).
+ */
+export const PHASE_FIELDS = Object.freeze(['phase', 'game_phase', 'status']);
+
+/**
+ * A shallow copy of `doc` with the mirror trio removed.
+ *
+ * CM-4a review (P1, 2026-08-16): the phase write now carries a destructive
+ * consequence (the server wipes tracker_state on a resetting transition), so a
+ * body that merely RESTORES data must not carry phase fields at all. Note that
+ * "same phase in, no transition, therefore safe" is FALSE for one row of the
+ * matrix: resetOnTransition('game', 'game') is true, because entering game from
+ * anywhere except prep is the legacy reset. Re-importing a backup of a cycle
+ * that is currently in game phase would therefore have wiped every character's
+ * live tracker, silently, with no dialog on that path.
+ */
+export function withoutPhaseFields(doc) {
+  const { phase: _p, game_phase: _g, status: _s, ...rest } = doc || {};
+  return rest;
+}
+
+/**
  * The COMPLETE update object for any phase transition, including the null
  * (clear-to-neutral) row and any caller extras. Extracted pure (Codex review
  * finding, 2026-08-10) so the full five-row table is directly testable and so
@@ -155,7 +211,7 @@ export function phaseWrites(phase) {
  * deriveCycleStatus), preserving #918 clear semantics.
  */
 export function buildPhaseUpdate(cycle, phaseOrNull, extra, deriveStatus) {
-  const { phase: _p, game_phase: _g, status: _s, ...safeExtra } = extra || {};
+  const safeExtra = withoutPhaseFields(extra);
   const writes = phaseOrNull === null
     ? {
         phase: null,
