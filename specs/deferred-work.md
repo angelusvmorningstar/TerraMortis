@@ -600,3 +600,53 @@ same pass; the six below were not. Full record: `specs/stories/cm-4a-phase-trans
   the `finally` would mask the real error. Narrow driver-level edge cases with no reproduction path;
   this project's stated convention is not to add error handling for scenarios that cannot happen in
   practice, and a 500 on a broken driver topology is honest.
+
+## Deferred from: cm-7-fact-map-harness-and-rollback-drill (2026-08-16, create-story coverage-set research)
+
+- **`public/js/data/game-xp.js:55` reads a field that has never existed on any live document** (Low,
+  found not caused). `title: s.title || \`Game ${s.session_number || '?'}\`` reads
+  `game_sessions.session_number` — `server/schemas/game_session.schema.js` declares no such field
+  (only `game_number`, line 22), and a repo-wide grep found no writer anywhere that has ever set it.
+  The XP breakdown panel's per-game title is therefore `Game ?` on every real session today, unless
+  that session happens to carry an explicit `.title` — independent of Epic CM, and independent of any
+  future renumber (a field that already never matches cannot diverge further). Not fixed by cm-7,
+  which is scoped to the fact-map harness and rollback drill, not to unrelated display bugs found
+  along the way. One-line fix whenever anyone is next in this file: `s.session_number` →
+  `s.game_number`.
+
+## Deferred from: code review of cm-7-fact-map-harness-and-rollback-drill (2026-08-16, internal 3-layer review)
+
+Internal review (Blind Hunter diff-only, Edge Case Hunter diff + full repo, Acceptance Auditor
+diff + spec). Seventeen findings were patched in the same pass; the two below were judged real but
+out of proportion to fix here.
+
+- **`specs/stories/sprint-status.yaml`'s `last_updated` value is not valid YAML** (Low) — the field
+  is several adjacent double-quoted strings concatenated directly (`"…" "…" "…"`) with no flow-sequence
+  syntax; a strict YAML parser throws on it (independently verified with PyYAML). Pre-existing across
+  dozens of prior entries in this file's own history — cm-7's own header-rotation edit extended the
+  pattern by prepending one more segment, same as every prior session has done, but did not introduce
+  it. Fixing it means restructuring the file's own long-established (if informal) convention, which
+  `tracking_system: file-system` at the top of the file already signals is not meant to be strictly
+  YAML-parsed — out of proportion for a code-review pass on an unrelated story. Worth its own cleanup
+  story if this file is ever consumed by real YAML tooling (the `bmad-sprint-status` skill or CI).
+- **cm-7's AC8 backup-drill test only proves field-mutation restore, not insert/delete drift**
+  (Low) — `server/tests/cm-7-fact-map-harness.test.js`, the "a snapshot taken before the drill
+  migration restores the fixture exactly" test. It snapshots a document, mutates its `game_number`,
+  and restores via `replaceOne`; it never exercises "a document was inserted after the snapshot and
+  must be removed on restore" or "a document was deleted after the snapshot and must reappear on
+  restore" — both standard failure modes for any real backup/restore claim. A fuller restore-scenario
+  matrix (insert + delete, not just mutate) would strengthen AC8's own evidence but is disproportionate
+  scope to add during a review pass; worth a follow-up if this drill mechanism is ever reused for a
+  real (non-drill) backup verification.
+- **Two real human-visible facts named in cm-7's original `COVERAGE_SET` item 6 are not actually
+  tracked by `buildFactMap`** (Low, found not caused — narrowed rather than silently left overclaimed).
+  `public/js/game/signin-tab.js:83-88` (which cycle is selected as "most recently closed", driving
+  the default Sign-in tab view) and `:155-166` (`handleNewSession`'s `maxNum + 1` suggested next
+  game number, shown in a confirm dialog) are both real derived facts that a `game_number` renumber
+  could change, distinct from the base `game_number`/label fields the rest of the coverage set
+  already tracks. Not added to `cm-7-fact-map.mjs` during its own code review (scope discipline —
+  expanding a harness mid-review without a design pass risks the exact "recalled, not enumerated"
+  failure mode #1031 exists to prevent), but the coverage-set citation was narrowed to stop
+  overclaiming it. Whoever next touches the harness (likely alongside CM-4/CM-6, when
+  `game_sessions` gets a real FK) should add `mostRecentlyClosedCycleId` and
+  `suggestedNextGameNumber` fields to `buildFactMap`'s return value.
