@@ -1,6 +1,6 @@
 import { apiGet, apiPost, apiDelete, apiPut } from '../data/api.js';
 import { createCycle, updateCycle, deleteCycle, deriveCycleStatus, getSubmissionsForCycle, zeroSubmissionFlipWarning, zeroSubmissionFlipMessage, setCyclePhase } from '../downtime/db.js';
-import { resetOnTransition } from '../downtime/cycle-phase.js';
+import { resetOnTransition, transitionFromPhase } from '../downtime/cycle-phase.js';
 
 const PHASE_LABELS = {
   game:       'Game',
@@ -16,15 +16,59 @@ const PHASE_LABELS = {
 // so the prep week's confirmed feeds survive into the session.
 const PHASES = ['downtime', 'processing', 'prep', 'game'];
 
-// The phase a row's UI reflects: the new `phase` field when set, else the
-// legacy game_phase override, else none. (game_phase's vocabulary is a subset
-// of phase's, so the labels map covers both.) Guarded against junk values
-// from hand-edited documents - anything outside the label map renders as
-// "no phase" rather than leaking into labels and CSS class names (Codex
-// review finding, 2026-08-10).
+// The phase a row's UI reflects. CM-4a: the resolution order itself now lives
+// in the pure module as transitionFromPhase, because the server enforces the
+// tracker wipe off the same read and the two tiers must not answer
+// differently on a legacy document (see that function's own comment). This
+// wrapper keeps only the display guard it always had: anything outside the
+// label map renders as "no phase" rather than leaking into labels and CSS
+// class names (Codex review finding, 2026-08-10).
 function uiPhase(cy) {
-  const p = cy.phase || cy.game_phase || null;
+  const p = transitionFromPhase(cy);
   return PHASE_LABELS[p] ? p : null;
+}
+
+// A DIFFERENT question from uiPhase, and the difference matters since CM-4a:
+// "what phase does this document DECLARE", not "what phase is it effectively
+// in". uiPhase now resolves the legacy `status` too, so every cycle would
+// answer yes to declaresPhase and deriveCurrentCycle's second (non-closed)
+// branch would become unreachable. Kept explicit so the ribbon's selection
+// rule is unchanged by this story.
+//
+// This is the ONE sanctioned second resolution order in the codebase, named
+// and single-instance on purpose (pinned by the test that forbids scattered
+// inline copies). It is deliberately NARROW: no `status` fallback.
+function declaredPhase(cy) {
+  const p = cy?.phase || cy?.game_phase || null;
+  return PHASE_LABELS[p] ? p : null;
+}
+
+function declaresPhase(cy) {
+  return !!declaredPhase(cy);
+}
+
+/**
+ * The phase a phase BUTTON writes when clicked, and (as a side effect of the
+ * same comparison) whether it renders active.
+ *
+ * CM-4a review finding P2 (2026-08-16). The button's own toggle must read the
+ * NARROW declared phase, not uiPhase. uiPhase widened in CM-4a so that the
+ * client's wipe dialog asks the same question the server's enforcement asks
+ * (AC3) - which is right for the transition decision and wrong here. On a real
+ * legacy shape like `{status:'active'}` with no phase fields at all, uiPhase
+ * resolves to 'downtime', so the Downtime button rendered active and clicking
+ * it wrote `phase: null` (a clear) instead of `phase: 'downtime'` - the
+ * opposite of the ST's intent - and because the re-derived status stayed
+ * 'active' the button re-lit immediately, making that phase impossible to set
+ * from the UI at all. Same shape for status 'closed' -> Processing and status
+ * 'game' -> Game.
+ *
+ * Exported so this decision is driven directly by a test rather than pinned by
+ * a source regex; this project has no jsdom, so the click handler itself is
+ * not reachable from a unit test (oxp.5 convention).
+ */
+export function phaseToggleTarget(cy, phase) {
+  return declaredPhase(cy) === phase ? null : phase;
 }
 
 // Module-level view state so the status ribbon can refresh after any
@@ -87,7 +131,7 @@ function buildRibbon() {
 const byGameNumberDesc = (a, b) => (b.game_number || 0) - (a.game_number || 0);
 function deriveCurrentCycle() {
   const cycles = view.cycles || [];
-  const phased = cycles.filter(c => uiPhase(c)).sort(byGameNumberDesc)[0];
+  const phased = cycles.filter(declaresPhase).sort(byGameNumberDesc)[0];
   if (phased) return phased;
   const nonClosed = cycles.filter(c => deriveCycleStatus(c) !== 'closed').sort(byGameNumberDesc)[0];
   return nonClosed || null;
@@ -249,11 +293,34 @@ function buildChaptersPanel(chapters) {
 // ── Phase controls ───────────────────────────────────────────────────────────
 
 // Write a phase to a cycle. `phaseOrNull === null` clears the phase (neutral).
-// The live-tracker reset is decided by resetOnTransition (CM-5a): entering
-// prep from a preceding phase, or entering game from anywhere except prep.
-// Clearing to neutral never resets. Returns false if the ST cancels either
-// the zero-submission flip warning or the tracker-reset confirmation.
-async function writePhase(cy, phaseOrNull) {
+//
+// This function no longer resets the live tracker. CM-4a moved the wipe into
+// the server route that mutates the phase (PUT /api/downtime_cycles/:id), so
+// it commits in one transaction with the phase write and binds every API
+// caller, not just this button. What stays here is the ST-facing safety
+// surface: the #1003 zero-submission flip warning, and the confirmation
+// dialog shown when resetOnTransition says this transition is destructive
+// (entering prep from a preceding phase, or entering game from anywhere
+// except prep; clearing to neutral never resets). Cancelling either dialog
+// aborts before anything is written, and returns false.
+//
+// The client and the server ask the same question of the same reader -
+// resetOnTransition(transitionFromPhase(cycle), toPhase), via uiPhase here -
+// which removes the class of divergence AC3 exists for. What is GUARANTEED,
+// though, is only the server side: the wipe rule is enforced in the route that
+// writes the phase, so it holds no matter what this dialog said or whether it
+// was shown at all. This dialog is best-effort accuracy on top of that. `cy`
+// is the cached row object and the Cycle tab holds no WebSocket subscription,
+// so a concurrent writer between page load and click can make the dialog stale
+// in either direction (warned when no wipe follows, or silent when one does).
+// That is a UX-accuracy risk, not a data-safety one - since CM-4a the server
+// no longer depends on the client having shown an accurate warning. A
+// re-fetch-before-dialog fix is deferred (see specs/deferred-work.md, D2).
+// Exported for direct test drive: CM-4a review finding P4 replaced a source-
+// text assertion ("the body mentions 'tracker reset'") with a real one that
+// rejects the phase write and reads the surfaced error, because the old form
+// passed on doc-comment prose alone.
+export async function writePhase(cy, phaseOrNull) {
   if (phaseOrNull === 'game') {
     // #1003: warn if flipping an empty cycle to game while another live cycle
     // holds submissions (feeding pulls from the game-phase cycle).
@@ -265,20 +332,25 @@ async function writePhase(cy, phaseOrNull) {
   // prep week survive into game (prep -> game is non-destructive). Entering
   // game from any non-prep state keeps the legacy reset. Cancelling the
   // dialog aborts the phase change entirely.
-  if (resetOnTransition(uiPhase(cy), phaseOrNull)) {
+  const willReset = resetOnTransition(uiPhase(cy), phaseOrNull);
+  if (willReset) {
     const label = PHASE_LABELS[phaseOrNull];
     if (!confirm(`Setting to ${label} phase will reset the live tracker (all characters reload with default states). Continue?`)) return false;
-    try {
-      await apiDelete('/api/tracker_state');
-    } catch (err) {
-      throw new Error('Tracker reset failed: ' + err.message);
-    }
   }
   // CM-1 (#1028): the canonical writer sets all three representations in one
   // PUT (phase + game_phase + status, per the cycle-phase.js mirror table),
   // absorbing the #1001 status-alongside fix and extending it to the new
   // `phase` field. `null` clears to neutral, preserving #918 semantics.
-  await setCyclePhase(cy, phaseOrNull);
+  // CM-4a: this single request now carries the tracker reset with it, so a
+  // failure means neither happened - name the tracker reset when one was due,
+  // because that is the part the ST was warned about and will look for.
+  try {
+    await setCyclePhase(cy, phaseOrNull);
+  } catch (err) {
+    throw new Error(willReset
+      ? `the tracker reset did not run (${err.message})`
+      : err.message);
+  }
   return true;
 }
 
@@ -293,22 +365,26 @@ function buildPhaseCell(cy) {
   const errEl = document.createElement('span');
   errEl.className = 'cy-error cy-error--inline';
 
+  // CM-4a review P2: the buttons read declaredPhase (via phaseToggleTarget),
+  // NOT uiPhase. uiPhase's widened read belongs to the wipe/dialog decision
+  // only; using it here inverted the toggle on legacy status-only cycles.
   PHASES.forEach(phase => {
+    const isActive = declaredPhase(cy) === phase;
     const btn = document.createElement('button');
-    btn.className = 'cy-phase-btn' + (uiPhase(cy) === phase ? ' is-active' : '');
+    btn.className = 'cy-phase-btn' + (isActive ? ' is-active' : '');
     btn.textContent = PHASE_LABELS[phase];
     btn.dataset.phase = phase;
-    btn.title = uiPhase(cy) === phase ? 'Click to clear this phase' : `Set ${PHASE_LABELS[phase]} phase`;
+    btn.title = isActive ? 'Click to clear this phase' : `Set ${PHASE_LABELS[phase]} phase`;
 
     btn.addEventListener('click', async () => {
       errEl.classList.remove('is-visible');
       // Active phase toggles OFF to neutral; otherwise switch to the clicked phase.
-      const target = (uiPhase(cy) === phase) ? null : phase;
+      const target = phaseToggleTarget(cy, phase);
       try {
         const ok = await writePhase(cy, target);
         if (!ok) return;
         group.querySelectorAll('.cy-phase-btn').forEach(b => {
-          const active = b.dataset.phase === uiPhase(cy);
+          const active = b.dataset.phase === declaredPhase(cy);
           b.classList.toggle('is-active', active);
           b.title = active ? 'Click to clear this phase' : `Set ${PHASE_LABELS[b.dataset.phase]} phase`;
         });

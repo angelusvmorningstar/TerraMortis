@@ -9,6 +9,7 @@ import { validateRow, writeRow, parseCSV } from './data-portability-import.js';
 import { parseExcelWorkbook } from './excel-parser.js';
 import { mergeExcelOntoCharacter } from './excel-merge.js';
 import { processDowntimeCsvFile } from './downtime-views.js';
+import { withoutPhaseFields } from '../downtime/cycle-phase.js';
 
 let chars = [];
 
@@ -500,7 +501,9 @@ async function handleJsonImport(collection, file) {
   }
 }
 
-async function writeJsonDoc(collection, doc) {
+// Exported for direct test drive (the oxp.5 convention: functions whose logic
+// matters are exported and driven, rather than pinned by a source regex).
+export async function writeJsonDoc(collection, doc) {
   const id = doc._id ? String(doc._id) : null;
   const body = { ...doc };
   delete body._id;
@@ -532,9 +535,23 @@ async function writeJsonDoc(collection, doc) {
     case 'attendance':
       throw new Error('Attendance is nested in game_sessions — import via Game Sessions JSON instead.');
 
-    case 'downtime_cycles':
-      if (id) return apiPut(`/api/downtime_cycles/${id}`, body);
+    case 'downtime_cycles': {
+      // CM-4a review finding P1 (2026-08-16). Since CM-4a, PUT
+      // /api/downtime_cycles/:id fires the tracker slate-wipe whenever the body
+      // carries an own `phase` key and the transition resets. A restore is not
+      // a phase transition: it is identity, label and deadline data being put
+      // back. Re-importing a backup of a cycle that is currently in GAME phase
+      // would otherwise have wiped every character's live tracker_state, with
+      // no confirmation dialog anywhere on this path - resetOnTransition(x, x)
+      // is false for every x EXCEPT 'game' (entering game from anywhere but
+      // prep is the legacy reset). Phase is driven from the Cycle tab's phase
+      // buttons, which is the surface that shows the ST the warning.
+      // POST is left alone deliberately: creating a cycle is not a transition,
+      // so it reaches no wipe, and stripping there would drop the status a new
+      // document legitimately needs.
+      if (id) return apiPut(`/api/downtime_cycles/${id}`, withoutPhaseFields(body));
       return apiPost('/api/downtime_cycles', body);
+    }
 
     case 'downtime_submissions':
       if (id) return apiPut(`/api/downtime_submissions/${id}`, body);

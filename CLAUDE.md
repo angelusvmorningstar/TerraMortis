@@ -51,6 +51,10 @@ running the affected suites because a change "looks safe".
   - `tests/desktop-and-css.spec.js` (12) — `#btn-desktop-toggle` never becomes visible under the
     stubbed API.
   - `tests/post-game-1.spec.js` nav-1-3 (3) — `#n-more` has never existed in `NAV_ITEMS`.
+  - `tests/cycle-phase-controls.spec.js` (11) — asserts the pre-CM-1 Cycle tab: three phase buttons
+    and a disabled active button. CM-1 (#1028) replaced that with the four-button
+    downtime/processing/prep/game group. Stale at base, measured identical with and without CM-4a
+    (added to this list 2026-08-16); wants its own cleanup story.
 - Angelus **cannot run the app locally** to smoke-test. Anything needing a human look must be on a
   deployed environment first.
 
