@@ -39,7 +39,7 @@ const TITLE = 'Night Work';
 function sub(activeFeedSpecs) {
   return {
     _id: 'sub-590',
-    cycle_id: 'cycle-590',
+    chapter_id: 'cycle-590',
     character_name: 'Spec Haver',
     character_id: 'char-590',
     player_name: 'P',
@@ -79,7 +79,7 @@ async function setup(page, char, submission) {
     const ok = (body) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(body) });
     if (method === 'PUT' || method === 'PATCH' || method === 'POST') return ok({ ok: true });
     if (url.includes('/api/downtime_submissions')) return ok([submission]);
-    if (url.includes('/api/downtime_cycles'))      return ok([TEST_CYCLE]);
+    if (url.includes('/api/chapters'))      return ok([TEST_CYCLE]);
     if (url.includes('/api/characters/names'))     return ok([{ _id: char._id, name: char.name, moniker: char.moniker, honorific: char.honorific }]);
     if (url.includes('/api/characters'))           return ok([char]);
     return ok([]);

@@ -45,7 +45,7 @@ async function setup(page) {
     if (/\/api\/characters\/c1(\?|$)/.test(u)) return ok(live);
     if (u.includes('/api/characters')) return ok([live]);
     if (u.includes('/api/attendance')) return ok({ attended: false });
-    if (u.includes('/api/downtime_cycles')) return ok([CYCLE]);
+    if (u.includes('/api/chapters')) return ok([CYCLE]);
     if (u.includes('/api/downtime_submissions')) { if (m === 'POST' || m === 'PUT') return ok({ _id: 's', responses: {} }); return ok([]); }
     if (u.includes('/api/territories')) return ok([]);
     if (m === 'POST' || m === 'PUT' || m === 'PATCH') return ok({ ok: true, _id: 's' });

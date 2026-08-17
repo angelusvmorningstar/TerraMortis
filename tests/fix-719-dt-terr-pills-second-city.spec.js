@@ -44,7 +44,7 @@ const TEST_CYCLE = {
 // Project submission — territory set to secondcity (the missing territory in the old hardcoded list)
 const PROJECT_SUB = {
   _id: 'sub-proj-719',
-  cycle_id: 'cycle-001',
+  chapter_id: 'cycle-001',
   character_name: 'Test Character',
   character_id: 'char-proj-719',
   player_name: 'Test Player',
@@ -84,7 +84,7 @@ async function setupProcessing(page) {
     const ok = (body) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(body) });
     if (method === 'PUT' || method === 'PATCH' || method === 'POST') return ok({ ok: true });
     if (url.includes('/api/downtime_submissions'))  return ok([PROJECT_SUB]);
-    if (url.includes('/api/downtime_cycles'))       return ok([TEST_CYCLE]);
+    if (url.includes('/api/chapters'))       return ok([TEST_CYCLE]);
     if (url.includes('/api/characters/names'))      return ok([CHAR_PROJ].map(c => ({ _id: c._id, name: c.name, moniker: c.moniker, honorific: c.honorific })));
     if (url.includes('/api/characters'))            return ok([CHAR_PROJ]);
     if (url.includes('/api/territories'))           return ok([]);

@@ -86,10 +86,10 @@ export async function initCycleView(charList) {
   try {
     // cm-2: the old chapters endpoint became /api/story_cycles. The collection
     // always held Stories (a multi-game grouping), never Chapters (which are
-    // one game plus its downtime, i.e. a downtime_cycles document).
+    // one game plus its downtime, i.e. a `chapters` document).
     [storyCycles, cycles, sessions] = await Promise.all([
       apiGet('/api/story_cycles'),
-      apiGet('/api/downtime_cycles'),
+      apiGet('/api/chapters'),
       apiGet('/api/game_sessions'),
     ]);
   } catch (err) {
@@ -381,7 +381,7 @@ function buildStoryCyclesPanel(storyCycles, allCycles = view.cycles) {
 // Write a phase to a cycle. `phaseOrNull === null` clears the phase (neutral).
 //
 // This function no longer resets the live tracker. CM-4a moved the wipe into
-// the server route that mutates the phase (PUT /api/downtime_cycles/:id), so
+// the server route that mutates the phase (PUT /api/chapters/:id), so
 // it commits in one transaction with the phase write and binds every API
 // caller, not just this button. What stays here is the ST-facing safety
 // surface: the #1003 zero-submission flip warning, and the confirmation
@@ -526,7 +526,7 @@ function buildAccessSection(cy, charList) {
       if (cb.checked) current.add(id); else current.delete(id);
       const updated = [...current];
       try {
-        await apiPut('/api/downtime_cycles/' + cy._id, { out_of_window_player_ids: updated });
+        await apiPut('/api/chapters/' + cy._id, { out_of_window_player_ids: updated });
         cy.out_of_window_player_ids = updated;
       } catch (_err) {
         cb.checked = !cb.checked;
@@ -656,7 +656,7 @@ function buildAttendanceSection(cy, sessions) {
     errEl.classList.remove('is-visible');
     const newId = sel.value || null;
     try {
-      await apiPut('/api/downtime_cycles/' + cy._id, { session_id: newId });
+      await apiPut('/api/chapters/' + cy._id, { session_id: newId });
       cy.session_id = newId;
       renderTable();
     } catch (err) {
@@ -922,7 +922,7 @@ function buildCyclesPanel(cycles, storyCycles, charList = [], sessions = []) {
       publishResult.className = 'cy-publish-result';
       publishResult.textContent = 'Publishing…';
       try {
-        const result = await apiPost('/api/downtime_cycles/' + cy._id + '/publish', {});
+        const result = await apiPost('/api/chapters/' + cy._id + '/publish', {});
         if (result.published === 0) {
           publishResult.textContent = 'No compiled reports found.';
         } else {

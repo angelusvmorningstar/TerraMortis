@@ -56,7 +56,7 @@ const OPEN_CYCLE   = { _id: 'cycle-open-001',   status: 'open',   game_number: 4
 
 // c-001: vessels [3,3] = 6, bonus +2 → feedTotal 8
 const SUB_LOGGED_FEED = {
-  _id: 'sub-489-001', character_id: 'c-001', cycle_id: 'cycle-closed-001', status: 'submitted',
+  _id: 'sub-489-001', character_id: 'c-001', chapter_id: 'cycle-closed-001', status: 'submitted',
   feeding_vitae_allocation: [3, 3],
   feeding_vitae_tally: { total_bonus: 2 },
 };
@@ -95,14 +95,14 @@ async function setup(page, {
   await page.route('**/api/players/display-names', route =>
     route.fulfill({ status: 200, contentType: 'application/json', body: '[]' })
   );
-  await page.route('**/api/downtime_cycles', route =>
+  await page.route('**/api/chapters', route =>
     route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(cycles) })
   );
   await page.route('**/api/downtime_submissions**', route => {
-    // Mirror the real endpoint: scope returned submissions to ?cycle_id=.
-    const cid = new URL(route.request().url()).searchParams.get('cycle_id');
+    // Mirror the real endpoint: scope returned submissions to ?chapter_id=.
+    const cid = new URL(route.request().url()).searchParams.get('chapter_id');
     const body = cid
-      ? submissions.filter(s => String(s.cycle_id) === cid)
+      ? submissions.filter(s => String(s.chapter_id) === cid)
       : submissions;
     return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(body) });
   });
@@ -148,7 +148,7 @@ test('AC2: char with no submission for the last cycle shows V 0/10', async ({ pa
 test('AC3: deferred feed (no allocation) shows V 0/10', async ({ page }) => {
   await setup(page, {
     submissions: [
-      { _id: 'sub-def', character_id: 'c-003', cycle_id: 'cycle-closed-001', status: 'submitted',
+      { _id: 'sub-def', character_id: 'c-003', chapter_id: 'cycle-closed-001', status: 'submitted',
         feeding_deferred: true },
     ],
   });
@@ -160,7 +160,7 @@ test('AC3: deferred feed (no allocation) shows V 0/10', async ({ page }) => {
 test('AC3: submission with a tally but no vessel allocation shows V 0/10', async ({ page }) => {
   await setup(page, {
     submissions: [
-      { _id: 'sub-tally', character_id: 'c-003', cycle_id: 'cycle-closed-001', status: 'submitted',
+      { _id: 'sub-tally', character_id: 'c-003', chapter_id: 'cycle-closed-001', status: 'submitted',
         feeding_vitae_tally: { total_bonus: 5 } },
     ],
   });
@@ -186,7 +186,7 @@ test('AC4: no cycles at all → V 0/10', async ({ page }) => {
 test('AC5: feed total above vMax is clamped to V 10/10', async ({ page }) => {
   await setup(page, {
     submissions: [
-      { _id: 'sub-over', character_id: 'c-001', cycle_id: 'cycle-closed-001', status: 'submitted',
+      { _id: 'sub-over', character_id: 'c-001', chapter_id: 'cycle-closed-001', status: 'submitted',
         feeding_vitae_allocation: [5, 5, 5], feeding_vitae_tally: { total_bonus: 3 } },
     ],
   });
@@ -218,7 +218,7 @@ test('coverage: a submission with both influence_spend and a feed roll resolves 
   await setup(page, {
     submissions: [
       {
-        _id: 'sub-both', character_id: 'c-004', cycle_id: 'cycle-closed-001', status: 'submitted',
+        _id: 'sub-both', character_id: 'c-004', chapter_id: 'cycle-closed-001', status: 'submitted',
         responses: { influence_spend: JSON.stringify({ the_harbour: 2, the_academy: 1 }) },
         feeding_vitae_allocation: [4, 4],
         feeding_vitae_tally: { total_bonus: 1 },
@@ -235,7 +235,7 @@ test('coverage: a submission with both influence_spend and a feed roll resolves 
 test('coverage: empty feeding_vitae_allocation array counts as no logged feed', async ({ page }) => {
   await setup(page, {
     submissions: [
-      { _id: 'sub-empty', character_id: 'c-001', cycle_id: 'cycle-closed-001', status: 'submitted',
+      { _id: 'sub-empty', character_id: 'c-001', chapter_id: 'cycle-closed-001', status: 'submitted',
         feeding_vitae_allocation: [] },
     ],
   });
@@ -246,7 +246,7 @@ test('coverage: empty feeding_vitae_allocation array counts as no logged feed', 
 test('coverage: logged feed with allocation but no tally → V is allocation sum / vMax', async ({ page }) => {
   await setup(page, {
     submissions: [
-      { _id: 'sub-notally', character_id: 'c-001', cycle_id: 'cycle-closed-001', status: 'submitted',
+      { _id: 'sub-notally', character_id: 'c-001', chapter_id: 'cycle-closed-001', status: 'submitted',
         feeding_vitae_allocation: [2, 2] },
     ],
   });

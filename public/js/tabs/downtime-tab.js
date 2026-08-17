@@ -12,7 +12,7 @@ export async function initDowntimeTab(el, char, territories = []) {
   let cycles = [], subs = [];
   try {
     [cycles, subs] = await Promise.all([
-      apiGet('/api/downtime_cycles'),
+      apiGet('/api/chapters'),
       apiGet('/api/downtime_submissions'),
     ]);
     subs.forEach(s => {
@@ -117,7 +117,7 @@ export async function initDowntimeTab(el, char, territories = []) {
       .sort((a, b) => (String(b._id) > String(a._id) ? 1 : -1));
     const recentClosed = closedCycles[0] || null;
     const myRecentSub = recentClosed
-      ? mySubs.find(s => String(s.cycle_id) === String(recentClosed._id))
+      ? mySubs.find(s => String(s.chapter_id) === String(recentClosed._id))
       : null;
 
     if (recentClosed && myRecentSub && !myRecentSub.published_outcome) {
@@ -145,7 +145,7 @@ export async function renderPastOutcomes(el, char) {
   let cycles = [], subs = [];
   try {
     [cycles, subs] = await Promise.all([
-      apiGet('/api/downtime_cycles'),
+      apiGet('/api/chapters'),
       apiGet('/api/downtime_submissions'),
     ]);
     subs.forEach(s => {
@@ -167,7 +167,7 @@ export async function renderPastOutcomes(el, char) {
 
   let h = '<h3 class="dt-history-heading">Past Outcomes</h3>';
   for (const sub of publishedSubs) {
-    const label = cycleMap[String(sub.cycle_id)] || 'Unknown Cycle';
+    const label = cycleMap[String(sub.chapter_id)] || 'Unknown Cycle';
     const dateStr = _cycleDate(sub, cycles);
     const hasResponses = sub.responses && Object.keys(sub.responses).length > 0;
     h += `<details class="dt-history-row">`;
@@ -292,7 +292,7 @@ function renderRawSubmission(sub) {
 }
 
 function _cycleDate(sub, cycles) {
-  const cycle = cycles.find(c => String(c._id) === String(sub.cycle_id));
+  const cycle = cycles.find(c => String(c._id) === String(sub.chapter_id));
   if (!cycle) return '';
   const raw = cycle.closed_at || cycle.deadline_at;
   if (!raw) return '';

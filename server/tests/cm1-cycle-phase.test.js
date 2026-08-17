@@ -35,7 +35,11 @@ import {
 import { downtimeCycleSchema } from '../schemas/downtime_submission.schema.js';
 
 const DB     = fs.readFileSync('../public/js/downtime/db.js', 'utf8');
-const ROUTES = fs.readFileSync('../server/routes/downtime.js', 'utf8');
+// cm-2b split the old downtime.js in two: cyclesRouter (now the Chapters
+// router) went to chapters.js, submissionsRouter stayed. cm1's assertions span
+// both, so both are read.
+const ROUTES = fs.readFileSync('../server/routes/chapters.js', 'utf8')
+             + fs.readFileSync('../server/routes/downtime.js', 'utf8');
 const VIEWS  = fs.readFileSync('../public/js/admin/cycle-views.js', 'utf8');
 const FEED   = fs.readFileSync('../public/js/tabs/feeding-tab.js', 'utf8');
 
@@ -264,7 +268,7 @@ describe('cm1 — getFeedingCycle picks by game_number, never creation order', (
     globalThis.fetch = async (url) => {
       const u = String(url);
       if (u.includes('/api/downtime_submissions')) {
-        const m = u.match(/cycle_id=([^&]+)/);
+        const m = u.match(/chapter_id=([^&]+)/);
         const cid = m ? decodeURIComponent(m[1]) : null;
         return { ok: true, status: 200, json: async () => (subsByCycleId || {})[cid] || [] };
       }
@@ -277,7 +281,7 @@ describe('cm1 — getFeedingCycle picks by game_number, never creation order', (
     const dt6 = { _id: 'dt6', game_number: 6, phase: 'prep' };
     const game7 = { _id: 'game7', game_number: 7, phase: 'game' };
     const db = await importDbWithSubs([game7, dt6], {
-      dt6: [{ _id: 's1', character_id: 'ryan', cycle_id: 'dt6' }],
+      dt6: [{ _id: 's1', character_id: 'ryan', chapter_id: 'dt6' }],
       game7: [],
     });
     const picked = await db.getFeedingCycle();

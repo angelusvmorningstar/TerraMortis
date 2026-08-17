@@ -13,7 +13,7 @@ This document maps every data domain to its authoritative source: the MongoDB co
 | Questionnaire responses | `questionnaire` | `GET/PUT /api/questionnaire` | player.html → questionnaire flow |
 | Character history | `history` | `GET/PUT /api/history` | admin.html → Player tab |
 
-**`tracker_state` has a SECOND deletion path (CM-4a, 2026-08-16).** `DELETE /api/tracker_state` is no longer the only thing that empties this collection. `PUT /api/downtime_cycles/:id` deletes **every** `tracker_state` document, in one transaction with the phase write, whenever the request body carries an own `phase` key and `resetOnTransition(from, to)` is true (`public/js/downtime/cycle-phase.js`). ST/dev only, same auth as the DELETE. A body without `phase` never touches the collection; the Data Portability importer strips `phase`/`game_phase`/`status` from its cycle restore PUT so a backup restore cannot fire it.
+**`tracker_state` has a SECOND deletion path (CM-4a, 2026-08-16).** `DELETE /api/tracker_state` is no longer the only thing that empties this collection. `PUT /api/chapters/:id` deletes **every** `tracker_state` document, in one transaction with the phase write, whenever the request body carries an own `phase` key and `resetOnTransition(from, to)` is true (`public/js/downtime/cycle-phase.js`). ST/dev only, same auth as the DELETE. A body without `phase` never touches the collection; the Data Portability importer strips `phase`/`game_phase`/`status` from its cycle restore PUT so a backup restore cannot fire it.
 
 **Tracker client note:** Two localStorage implementations currently exist and are fragmented:
 - `public/js/game/tracker.js` — keyed by `_id`, used by suite sheet + ST tracker tab *(canonical going forward)*
@@ -61,8 +61,46 @@ Migration to `tracker_state` API is task #10. Until done, tracker state is local
 | Domain | Collection | API | Managed in UI |
 |--------|-----------|-----|---------------|
 | Stories (the multi-game tier above a Chapter) | `story_cycles` | `GET /api/story_cycles`, `GET /api/story_cycles/:id` *(public read)*; `POST`/`PATCH`/`DELETE` *(ST-auth)* | admin.html → Cycle tab, Stories panel |
-| Downtime cycles | `downtime_cycles` | `GET/POST /api/downtime_cycles` | admin.html → Downtime tab |
+| Chapters (one game plus its downtime: the downtime → processing → prep → game span) | `chapters` | `GET/POST /api/chapters` | admin.html → Cycle tab (create/phase/Story link), Downtime tab (processing) |
 | Downtime submissions (player forms + ST outcomes) | `downtime_submissions` | `GET/PUT /api/downtime_submissions` | player.html (submit) + admin.html Downtime tab (process) |
+
+**`chapters` was `downtime_cycles` until cm-2b (2026-08-17).** The collection, the route
+(`/api/downtime_cycles` → `/api/chapters`), the route file (`cyclesRouter` moved out of
+`server/routes/downtime.js` into its own `server/routes/chapters.js`) and the one FK that names it
+from a submission (`downtime_submissions.cycle_id` → `chapter_id`) all renamed together, per
+`cycle-model.md` §11a. The old name described one PHASE of what the document spans; CM-1 (#1028)
+had already made it span all four.
+
+`downtime_submissions` itself is deliberately NOT renamed — a submission's identity genuinely is
+about the downtime phase. Nor are the two OTHER `cycle_id` fields in this database, which point at
+the same collection under their own names and were out of cm-2b's scope:
+`project_invitations.cycle_id` (`server/schemas/project_invitation.schema.js`, required) and
+`ranking_ballots.cycle_id` (`server/schemas/ranking_ballot.schema.js`, required), plus
+`npcs.linked_cycle_id`. Reconciling those is unstarted follow-up work.
+
+**The cutover is NOT live yet.** The migration script
+(`server/scripts/cm-2b-downtime-cycles-to-chapters.mjs`) ships dry-run-verified only; `--apply` is
+held until TM Cockpit's own side coordinates. See `specs/cm-2b-cross-repo-coordination.md`.
+
+**Until `--apply` has run and burnt in, `downtime_submissions` carries the Chapter FK under EITHER
+name, and there is one shared shim for that: `server/helpers/chapter-fk.js`.** The FK rename is
+destructive (`$rename` removes `cycle_id`), so neither deploy order was safe on its own — code
+review found both. Contract, deliberately asymmetric:
+
+- **READ** `chapter_id`, falling back to `cycle_id` when `chapter_id` is absent, both storage types
+  (the issue #497 ObjectId/string split goes through the same helper). Every server-side read site
+  uses it: `downtime.js`'s list/hold-flags filters, `requireOpenCycle`, the deadline gate, the
+  joint-project delete cascade and accept lookup, the published-email Chapter label,
+  `chapters.js`'s DELETE-orphan guard and `/publish`, and `territories.js`'s feeding-rights lock.
+  Responses are normalised to name it `chapter_id` on the wire, so client readers need no shim.
+- **WRITE** `chapter_id` only. `POST`/`PUT /api/downtime_submissions` reject a body carrying
+  `cycle_id` outright: **400 `LEGACY_CYCLE_ID_REJECTED`**. The Data Portability importer shapes an
+  older backup's `cycle_id` to `chapter_id` at the writer instead (Lesson #105).
+
+The `cycle_id` half is transitional and comes out in a follow-up story once the migration is
+applied and stable. Grep `LEGACY_CHAPTER_FK` for every site. **Do not add a new read site that
+bypasses this module**, and do not extend it to accept legacy writes — that is the exact hazard it
+exists to close.
 
 **`story_cycles` shape (cm-2 rename, cm-3 addition):**
 `{ _id, number, label, created_at, final_chapter_id? }`. No JSON-schema file exists for this
@@ -70,7 +108,7 @@ collection; `server/routes/story-cycles.js` validates the three writable fields 
 deliberately did not introduce one for a four-field collection.
 
 **`story_cycles.final_chapter_id` (cm-3, 2026-08-17) — the maintenance clock's only manual input.**
-A string holding the `_id` of one of that Story's own member `downtime_cycles` documents, or `null`.
+A string holding the `_id` of one of that Story's own member `chapters` documents, or `null`.
 The ST picks it from a "Final chapter" `<select>` in the Cycle tab's Stories table. **A Story is
 closed exactly when this field is set** — there is no separate `closed` flag. It is the sole ST-set
 signal behind `isFinalChapterOfStory(cycle, storyCycle)` (`public/js/downtime/db.js`), which returns
@@ -82,7 +120,7 @@ shared `storyCycleForCycle` helper in `db.js`, never their own copy.
 
 Freely re-settable, including back to `null`: no confirmation dialog, no history on the field.
 Guarded in the other direction only — `PATCH` validates that the named cycle exists and belongs to
-this Story (400 otherwise), and `PUT`/`DELETE /api/downtime_cycles/:id` refuse with
+this Story (400 otherwise), and `PUT`/`DELETE /api/chapters/:id` refuse with
 409 `CYCLE_IS_STORY_FINALE` when the target cycle is currently some Story's `final_chapter_id`, so
 the pointer can never be left dangling.
 
@@ -101,11 +139,11 @@ auto-migrates it. **An ST must set Story 1's "Final chapter" to Game 3 in the Cy
 table at or after deploy** for that audit panel and the corresponding player warning strip to become
 visible again. Until then both stay dark for Story 1, correctly but unhelpfully.
 
-**`downtime_cycles.is_chapter_finale` is DEAD as of cm-3.** It was the per-chapter ST checkbox on the
+**`chapters.is_chapter_finale` is DEAD as of cm-3.** It was the per-chapter ST checkbox on the
 DT Prep panel (chm-1) that `final_chapter_id` replaces. No production code reads it any more, no
 migration was run, and existing values are left on live documents untouched (same convention as
 `chapters` after cm-2). The Prep panel now shows a read-only derived badge in its place.
-`downtime_cycles.maintenance_audit` (`{[character_id]: {pt, mci}}`, chm-2) is unchanged in shape and
+`chapters.maintenance_audit` (`{[character_id]: {pt, mci}}`, chm-2) is unchanged in shape and
 role — only what gates its panel's visibility changed source. The per-character rule behind both
 surfaces ("who holds PT/MCI", "who still needs a tick") lives in one place,
 `public/js/downtime/maintenance.js`.
@@ -133,6 +171,10 @@ migration was written: there was nothing to move.
 **Payment data (FIN):** Each `attendance[n]` entry carries structured `payment: { method, amount }` (fin.2 schema). Legacy submissions with flat `payment_method: 'Cash'` are read via `public/js/game/payment-helpers.js` → `readPayment(entry)` which normalises old values ('Cash' → 'cash', 'PayID (Symon)' → 'payid', etc.) and returns `{ method, amount: 0 }` for legacy rows. Both Check-In and Finance tabs read through this helper.
 
 **Finance shape:** `game_sessions[n].finances = { expenses: [{category, amount, date?, note?}], transfers: [{to, amount, date?}], notes }`. Takings card in Finance tab is derived from `attendance[n].payment` via `derivePayments(session)`. Balance = collected − expenses − transfers. Nothing is stored as a computed field.
+
+**Session ↔ Chapter link (CM-6, folded into `cm-4`):** `game_sessions.chapter_id` is the enforced FK to the `chapters` document the session belongs to. Nullable; where set it is 1:1, and that is a **database constraint, not a convention** — a partial unique index `chapter_id_unique_notnull` (`{chapter_id: 1}`, `unique`, `partialFilterExpression: {chapter_id: {$type: ['objectId','string']}}`) created at boot in `server/index.js`. Never infer the pairing by matching `game_number`: `cycle-model.md` §11a records two separate live bugs caused by exactly that inference. The historical backfill lives as an explicit, evidence-cited table (`GAME_SESSION_PAIRINGS`) in `server/scripts/cm-4-renumber-chapter-merge.mjs`.
+
+**`chapter_id` has ONE canonical stored type: `ObjectId`.** The partial unique index treats an `ObjectId` and its 24-hex string form as *distinct* keys, so a mixed-type field silently defeats the 1:1 constraint. Every write path coerces — `coerceChapterId` in `server/routes/game-sessions.js`, applied on `POST /api/game_sessions` and `PUT /api/game_sessions/:id`, plus the 24-hex `pattern` on `gameSessionSchema`. This matters because both live writers (`public/js/admin/attendance.js`, `public/js/game/signin-tab.js`) GET the whole session document and PUT it straight back after editing an unrelated field, and JSON has no ObjectId. A duplicate pairing surfaces as **409 `CHAPTER_ALREADY_PAIRED`**, never a 500. Any new writer of this field must go through the route, not straight to Mongo.
 
 ---
 

@@ -67,7 +67,7 @@ function buildChar(withIS = true) {
 // Pre-seeded submission: project slot 1 already has ambience_change + Weaponry pool
 function buildSub(skill = 'Weaponry') {
   return {
-    _id: 'sub-773', cycle_id: 'cycle-773', character_id: 'char-773',
+    _id: 'sub-773', chapter_id: 'cycle-773', character_id: 'char-773',
     status: 'draft',
     responses: {
       project_1_action:    'ambience_change',
@@ -94,7 +94,7 @@ async function setupSuite(page, char, sub) {
   await page.route(/\/api\/characters\/char-773$/, r => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(char) }));
   await page.route(/\/api\/characters$/, r => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([char]) }));
   await page.route('**/api/characters/names', r => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([{ _id: char._id, name: char.name, moniker: null }]) }));
-  await page.route('**/api/downtime_cycles', r => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([CYCLE_773]) }));
+  await page.route('**/api/chapters', r => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([CYCLE_773]) }));
   await page.route(/\/api\/downtime_submissions($|\?)/, r => {
     if (r.request().method() === 'GET') return r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(sub ? [sub] : []) });
     return r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ _id: 'sub-773', status: 'draft', responses: {} }) });

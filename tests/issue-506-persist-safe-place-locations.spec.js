@@ -84,9 +84,9 @@ async function setup(page, { char = CHAR_SP_STORED, cycle = ACTIVE_CYCLE, submis
     if (/\/api\/characters\/char-506(\?|$)/.test(url))  return ok(char);
     if (url.includes('/api/characters'))          return ok([char]);
     if (url.includes('/api/attendance'))          return ok({ attended });
-    if (url.includes('/api/downtime_cycles'))     return ok(cycle ? [cycle] : []);
+    if (url.includes('/api/chapters'))     return ok(cycle ? [cycle] : []);
     if (url.includes('/api/downtime_submissions')) {
-      if (method === 'POST' || method === 'PUT') return ok({ _id: 'sub-506', cycle_id: cycle ? cycle._id : null, character_id: char._id, status: 'submitted', responses: {} });
+      if (method === 'POST' || method === 'PUT') return ok({ _id: 'sub-506', chapter_id: cycle ? cycle._id : null, character_id: char._id, status: 'submitted', responses: {} });
       return ok(submission ? [submission] : []);
     }
     if (url.includes('/api/territories'))         return ok([]);
@@ -122,7 +122,7 @@ test.describe('Player DT form — persist Safe Place locations (#506)', () => {
   test('AC#1 precedence: an in-progress submission edit overrides the stored location', async ({ page }) => {
     // Submission has a value for slot 0 only; slot 1 falls back to sp.location.
     const submission = {
-      _id: 'sub-506-existing', cycle_id: ACTIVE_CYCLE._id,
+      _id: 'sub-506-existing', chapter_id: ACTIVE_CYCLE._id,
       character_id: CHAR_SP_STORED._id, character_name: CHAR_SP_STORED.name,
       player_name: 'Test Player', status: 'draft',
       responses: { safe_place_location_0: 'EDITED THIS CYCLE' },

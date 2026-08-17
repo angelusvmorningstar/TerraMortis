@@ -198,7 +198,7 @@ export async function reconcileInfluenceDT() {
     const cycleId = String(cycle._id);
     if (_reconciledCycles.has(cycleId)) return;   // already run this session
 
-    const subRes = await fetch(`${API_BASE}/api/downtime_submissions?cycle_id=${cycleId}`, { headers: authHeaders() });
+    const subRes = await fetch(`${API_BASE}/api/downtime_submissions?chapter_id=${cycleId}`, { headers: authHeaders() });
     if (!subRes.ok) { return; }   // transient failure — do not mark done; next initTracker retries
     const subs = await subRes.json();
 

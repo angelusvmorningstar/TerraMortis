@@ -23,7 +23,7 @@ beforeAll(async () => {
   await setupDb();
   app = createTestApp();
 
-  const cycle = await getCollection('downtime_cycles').insertOne({
+  const cycle = await getCollection('chapters').insertOne({
     status: 'active',
     label: 'Test cycle issue-24',
     created_at: new Date().toISOString(),
@@ -43,7 +43,7 @@ afterAll(async () => {
   if (CREATED_IDS.length > 0) {
     await getCollection('downtime_submissions').deleteMany({ _id: { $in: CREATED_IDS } });
   }
-  await getCollection('downtime_cycles').deleteOne({ _id: new ObjectId(CYCLE_ID) });
+  await getCollection('chapters').deleteOne({ _id: new ObjectId(CYCLE_ID) });
   await getCollection('characters').deleteOne({ _id: new ObjectId(CHAR_ID) });
   await teardownDb();
 });
@@ -55,7 +55,7 @@ describe('Issue #24: DT submission round-trips personal_story free-text fields',
       .post('/api/downtime_submissions')
       .set('X-Test-User', playerUser([CHAR_ID]))
       .send({
-        cycle_id: CYCLE_ID,
+        chapter_id: CYCLE_ID,
         character_id: CHAR_ID,
         status: 'draft',
         responses: {
@@ -76,7 +76,7 @@ describe('Issue #24: DT submission round-trips personal_story free-text fields',
       .post('/api/downtime_submissions')
       .set('X-Test-User', playerUser([CHAR_ID]))
       .send({
-        cycle_id: CYCLE_ID,
+        chapter_id: CYCLE_ID,
         character_id: CHAR_ID,
         status: 'draft',
         responses: {
@@ -99,7 +99,7 @@ describe('Issue #24: DT submission round-trips personal_story free-text fields',
       .post('/api/downtime_submissions')
       .set('X-Test-User', playerUser([CHAR_ID]))
       .send({
-        cycle_id: CYCLE_ID,
+        chapter_id: CYCLE_ID,
         character_id: CHAR_ID,
         status: 'draft',
         responses: {

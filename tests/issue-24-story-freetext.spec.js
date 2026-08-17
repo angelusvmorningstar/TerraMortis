@@ -70,7 +70,7 @@ async function loginAsPlayer(page) {
   await page.route('**/api/players*', route =>
     route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([]) })
   );
-  await page.route('**/api/downtime_cycles*', route =>
+  await page.route('**/api/chapters*', route =>
     route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([ACTIVE_CYCLE]) })
   );
   await page.route('**/api/downtime_submissions*', route => {
@@ -172,7 +172,7 @@ test.describe('Issue #24: Story section free-text NPC fields', () => {
       return route.fulfill({
         status: 200, contentType: 'application/json',
         body: JSON.stringify([{
-          _id: 'sub-saved', cycle_id: ACTIVE_CYCLE._id,
+          _id: 'sub-saved', chapter_id: ACTIVE_CYCLE._id,
           character_id: TEST_CHAR._id, status: 'draft',
           responses: { personal_story_npc_name: 'Elara the Merchant', personal_story_text: 'Trade secrets.' },
         }]),

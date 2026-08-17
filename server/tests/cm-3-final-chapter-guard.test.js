@@ -1,12 +1,12 @@
 /**
- * cm-3 AC10 — the named-finale guard on /api/downtime_cycles.
+ * cm-3 AC10 — the named-finale guard on /api/chapters.
  *
  * `story_cycles.final_chapter_id` is a bare string pointer at one cycle's
  * `_id`; nothing in Mongo enforces the reference. Two operations could break
  * it, and both are refused at the route with a 409:
  *
  *   - moving the named cycle to a different Story (or unassigning it) via
- *     PUT /api/downtime_cycles/:id, the per-cycle Story picker's write;
+ *     PUT /api/chapters/:id, the per-cycle Story picker's write;
  *   - deleting the named cycle outright.
  *
  * Either would leave `final_chapter_id` dangling, which the client derivation
@@ -29,7 +29,7 @@ import { setupDb, teardownDb } from './helpers/db-setup.js';
 import { getCollection } from '../db.js';
 
 let app;
-const cleanup = { story_cycles: [], downtime_cycles: [] };
+const cleanup = { story_cycles: [], chapters: [] };
 
 beforeAll(async () => {
   await setupDb();
@@ -57,11 +57,11 @@ async function seedStory(number, label, n = 2) {
 
   const cycles = [];
   for (let i = 1; i <= n; i++) {
-    const ins = await getCollection('downtime_cycles').insertOne({
+    const ins = await getCollection('chapters').insertOne({
       game_number: i, label: `${label} — Game ${i}`, status: 'closed',
       story_cycle_id: String(sc.insertedId),
     });
-    cleanup.downtime_cycles.push(ins.insertedId);
+    cleanup.chapters.push(ins.insertedId);
     cycles.push(ins.insertedId);
   }
   return { storyId: sc.insertedId, cycles };
@@ -74,14 +74,14 @@ async function nameFinale(storyId, cycleId) {
   );
 }
 
-describe('cm-3 AC10 — PUT /api/downtime_cycles/:id refuses to move a named finale', () => {
+describe('cm-3 AC10 — PUT /api/chapters/:id refuses to move a named finale', () => {
   it('409s when the named finale is reassigned to another Story', async () => {
     const a = await seedStory(60, 'Guard Story A');
     const b = await seedStory(61, 'Guard Story B');
     await nameFinale(a.storyId, a.cycles[1]);
 
     const res = await request(app)
-      .put(`/api/downtime_cycles/${a.cycles[1]}`)
+      .put(`/api/chapters/${a.cycles[1]}`)
       .set('X-Test-User', stUser())
       .send({ story_cycle_id: String(b.storyId) });
 
@@ -93,7 +93,7 @@ describe('cm-3 AC10 — PUT /api/downtime_cycles/:id refuses to move a named fin
     expect(res.body.story_cycle_id).toBe(String(a.storyId));
 
     // And nothing was written.
-    const after = await getCollection('downtime_cycles').findOne({ _id: a.cycles[1] });
+    const after = await getCollection('chapters').findOne({ _id: a.cycles[1] });
     expect(String(after.story_cycle_id)).toBe(String(a.storyId));
   });
 
@@ -102,7 +102,7 @@ describe('cm-3 AC10 — PUT /api/downtime_cycles/:id refuses to move a named fin
     await nameFinale(a.storyId, a.cycles[0]);
 
     const res = await request(app)
-      .put(`/api/downtime_cycles/${a.cycles[0]}`)
+      .put(`/api/chapters/${a.cycles[0]}`)
       .set('X-Test-User', stUser())
       .send({ story_cycle_id: null });
 
@@ -116,7 +116,7 @@ describe('cm-3 AC10 — PUT /api/downtime_cycles/:id refuses to move a named fin
     await nameFinale(a.storyId, a.cycles[1]);   // Game 2 is the finale
 
     const res = await request(app)
-      .put(`/api/downtime_cycles/${a.cycles[0]}`)   // …so Game 1 may move
+      .put(`/api/chapters/${a.cycles[0]}`)   // …so Game 1 may move
       .set('X-Test-User', stUser())
       .send({ story_cycle_id: String(b.storyId) });
 
@@ -133,7 +133,7 @@ describe('cm-3 AC10 — PUT /api/downtime_cycles/:id refuses to move a named fin
     await nameFinale(a.storyId, a.cycles[1]);
 
     const res = await request(app)
-      .put(`/api/downtime_cycles/${a.cycles[1]}`)
+      .put(`/api/chapters/${a.cycles[1]}`)
       .set('X-Test-User', stUser())
       .send({ story_cycle_id: String(a.storyId), label: 'Restored label' });
 
@@ -146,7 +146,7 @@ describe('cm-3 AC10 — PUT /api/downtime_cycles/:id refuses to move a named fin
     await nameFinale(a.storyId, a.cycles[1]);
 
     const res = await request(app)
-      .put(`/api/downtime_cycles/${a.cycles[1]}`)
+      .put(`/api/chapters/${a.cycles[1]}`)
       .set('X-Test-User', stUser())
       .send({ label: 'Renamed finale' });
 
@@ -155,20 +155,20 @@ describe('cm-3 AC10 — PUT /api/downtime_cycles/:id refuses to move a named fin
   });
 });
 
-describe('cm-3 AC10 — DELETE /api/downtime_cycles/:id refuses to delete a named finale', () => {
+describe('cm-3 AC10 — DELETE /api/chapters/:id refuses to delete a named finale', () => {
   it('409s on the cycle a Story names as its final chapter', async () => {
     const a = await seedStory(67, 'Guard Story H');
     await nameFinale(a.storyId, a.cycles[1]);
 
     const res = await request(app)
-      .delete(`/api/downtime_cycles/${a.cycles[1]}`)
+      .delete(`/api/chapters/${a.cycles[1]}`)
       .set('X-Test-User', stUser());
 
     expect(res.status).toBe(409);
     expect(res.body.error).toBe('CYCLE_IS_STORY_FINALE');
     expect(res.body.message).toMatch(/Guard Story H/);
 
-    const still = await getCollection('downtime_cycles').findOne({ _id: a.cycles[1] });
+    const still = await getCollection('chapters').findOne({ _id: a.cycles[1] });
     expect(still).not.toBeNull();
   });
 
@@ -177,7 +177,7 @@ describe('cm-3 AC10 — DELETE /api/downtime_cycles/:id refuses to delete a name
     await nameFinale(a.storyId, a.cycles[1]);
 
     const res = await request(app)
-      .delete(`/api/downtime_cycles/${a.cycles[0]}`)
+      .delete(`/api/chapters/${a.cycles[0]}`)
       .set('X-Test-User', stUser());
 
     expect(res.status).toBe(200);
@@ -185,13 +185,13 @@ describe('cm-3 AC10 — DELETE /api/downtime_cycles/:id refuses to delete a name
   });
 
   it('does not fire for a cycle no Story names', async () => {
-    const ins = await getCollection('downtime_cycles').insertOne({
+    const ins = await getCollection('chapters').insertOne({
       game_number: 90, label: 'Unnamed', status: 'closed',
     });
-    cleanup.downtime_cycles.push(ins.insertedId);
+    cleanup.chapters.push(ins.insertedId);
 
     const res = await request(app)
-      .delete(`/api/downtime_cycles/${ins.insertedId}`)
+      .delete(`/api/chapters/${ins.insertedId}`)
       .set('X-Test-User', stUser());
 
     expect(res.status).toBe(200);
@@ -202,7 +202,7 @@ describe('cm-3 AC10 — DELETE /api/downtime_cycles/:id refuses to delete a name
     await nameFinale(a.storyId, new ObjectId());   // dangling on purpose
 
     const res = await request(app)
-      .delete(`/api/downtime_cycles/${a.cycles[0]}`)
+      .delete(`/api/chapters/${a.cycles[0]}`)
       .set('X-Test-User', stUser());
 
     expect(res.status).toBe(200);

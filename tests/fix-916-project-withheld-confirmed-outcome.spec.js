@@ -61,7 +61,7 @@ function baseSub(id) {
   return {
     _id: id,
     character_id: 'char-916',
-    cycle_id: 'cycle-916',
+    chapter_id: 'cycle-916',
     // published_outcome carries the compiled project narrative (as a push would produce),
     // with a heading matching the project title so the card is injected next to it.
     published_outcome: `## Moving Blood over old Ground\n\n${NECRO_PROSE}`,
@@ -115,7 +115,7 @@ const SUB_LEGACY_RESPONSE = {
 const SUB_MIXED = {
   _id: 'sub-916-mixed',
   character_id: 'char-916',
-  cycle_id: 'cycle-916',
+  chapter_id: 'cycle-916',
   published_outcome: `## Moving Blood over old Ground\n\n${NECRO_PROSE}\n\n## Follow the Money\n\nThe trail runs cold.`,
   responses: {
     project_1_title: 'Moving Blood over old Ground', project_1_action: 'misc',
@@ -146,7 +146,7 @@ async function setup(page, submissions) {
 
     if (method === 'POST' || method === 'PUT' || method === 'PATCH') return ok({ ok: true });
     if (url.includes('/api/auth/me'))              return ok(PLAYER_USER);
-    if (url.includes('/api/downtime_cycles'))      return ok([CYCLE_916]);
+    if (url.includes('/api/chapters'))      return ok([CYCLE_916]);
     if (url.includes('/api/downtime_submissions')) return ok(submissions);
     if (url.includes('/api/archive_documents'))    return ok([]);
     if (url.includes('/api/characters/names'))     return ok([{ _id: CHAR_916._id, name: CHAR_916.name, moniker: null, honorific: null }]);

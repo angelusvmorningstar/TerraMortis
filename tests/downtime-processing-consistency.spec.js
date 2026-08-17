@@ -66,7 +66,7 @@ const CHAR_SORC = {
 function makeFeedingSubmission(overrides = {}) {
   return {
     _id: 'sub-feed-001',
-    cycle_id: 'cycle-001',
+    chapter_id: 'cycle-001',
     character_name: 'Charlie Test',
     character_id: 'char-allies',
     player_name: 'Test Player',
@@ -93,7 +93,7 @@ function makeFeedingSubmission(overrides = {}) {
 function makeSorcSubmission(overrides = {}) {
   return {
     _id: 'sub-sorc-001',
-    cycle_id: 'cycle-001',
+    chapter_id: 'cycle-001',
     character_name: 'Sorc McSorcface',
     character_id: 'char-sorc',
     player_name: 'Sorc Player',
@@ -116,7 +116,7 @@ function makeSorcSubmission(overrides = {}) {
 function makeMeritSubmission(actionType, reviewOverrides = {}) {
   return {
     _id: `sub-merit-${actionType}-001`,
-    cycle_id: 'cycle-001',
+    chapter_id: 'cycle-001',
     character_name: 'Charlie Test',
     character_id: 'char-allies',
     player_name: 'Test Player',
@@ -147,7 +147,7 @@ function makeMeritSubmission(actionType, reviewOverrides = {}) {
 function makeContactsSubmission(request = 'Tell me about the murders downtown', reviewOverrides = {}) {
   return {
     _id: 'sub-contacts-001',
-    cycle_id: 'cycle-001',
+    chapter_id: 'cycle-001',
     character_name: 'Charlie Test',
     character_id: 'char-allies',
     player_name: 'Test Player',
@@ -168,7 +168,7 @@ function makeContactsSubmission(request = 'Tell me about the murders downtown', 
 function makeProjectSubmission(reviewOverrides = {}) {
   return {
     _id: 'sub-proj-001',
-    cycle_id: 'cycle-001',
+    chapter_id: 'cycle-001',
     character_name: 'Charlie Test',
     character_id: 'char-allies',
     player_name: 'Test Player',
@@ -217,7 +217,7 @@ async function setup(page, submissions, chars = [CHAR_ALLIES, CHAR_SORC]) {
   await page.route('**/api/game_sessions*', route =>
     route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([]) })
   );
-  await page.route('**/api/downtime_cycles*', route =>
+  await page.route('**/api/chapters*', route =>
     route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([TEST_CYCLE]) })
   );
   await page.route('**/api/downtime_submissions*', route =>

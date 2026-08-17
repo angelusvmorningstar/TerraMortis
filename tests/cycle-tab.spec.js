@@ -80,8 +80,8 @@ async function mockCycleApis(page, {
   await page.route(/\/api\/story_cycles\//, route => {
     route.fulfill({ status: deleteStatus, contentType: 'application/json', body: JSON.stringify(deleteResponse) });
   });
-  // downtime_cycles: override catch-all with phase-tagged data
-  await page.route(/\/api\/downtime_cycles$/, route =>
+  // chapters: override catch-all with phase-tagged data
+  await page.route(/\/api\/chapters$/, route =>
     route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(cycles) })
   );
 }
@@ -438,7 +438,7 @@ test.describe('Admin — Cycle Tab: error handling', () => {
     await page.route(/\/api\/story_cycles$/, route =>
       route.fulfill({ status: 500, contentType: 'application/json', body: JSON.stringify({ error: 'SERVER_ERROR' }) })
     );
-    await page.route(/\/api\/downtime_cycles$/, route =>
+    await page.route(/\/api\/chapters$/, route =>
       route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([]) })
     );
     await page.goto('/admin.html');

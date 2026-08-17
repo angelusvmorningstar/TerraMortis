@@ -69,7 +69,7 @@ async function setup(page) {
       await p.route(/\/api\/characters$/, r => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([VOTER]) }));
       await p.route('**/api/characters/status', r => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(ALL.map(statusProjection)) }));
       await p.route('**/api/characters/names', r => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(ALL.map(c => ({ _id: c._id, name: c.name }))) }));
-      await p.route('**/api/downtime_cycles', r => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([ACTIVE_CYCLE]) }));
+      await p.route('**/api/chapters', r => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([ACTIVE_CYCLE]) }));
       await p.route('**/api/ranking_ballots/mine*', r => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(null) }));
       await p.route('**/api/ranking_ballots/aggregate*', r => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ clan_points: {}, covenant_points: {} }) }));
       await p.route(/\/api\/ranking_ballots$/, r => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true }) }));

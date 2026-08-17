@@ -60,7 +60,7 @@ function buildChar(overrides = {}) {
 function buildPriorSub(method) {
   return {
     _id: 'sub-dt35-prior',
-    cycle_id: ACTIVE_CYCLE._id,
+    chapter_id: ACTIVE_CYCLE._id,
     character_id: 'char-001',
     status: 'draft',
     responses: {
@@ -96,10 +96,10 @@ async function setupSuite(page, char, priorSub = null) {
     r.fulfill({ status: 200, contentType: 'application/json',
       body: JSON.stringify([{ _id: char._id, name: char.name }]) })
   );
-  await page.route('**/api/downtime_cycles', r =>
+  await page.route('**/api/chapters', r =>
     r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([ACTIVE_CYCLE]) })
   );
-  // Use regex so the route matches ?cycle_id=... query strings too
+  // Use regex so the route matches ?chapter_id=... query strings too
   await page.route(/\/api\/downtime_submissions($|\?)/, r => {
     if (r.request().method() === 'GET') {
       return r.fulfill({
@@ -111,7 +111,7 @@ async function setupSuite(page, char, priorSub = null) {
       return r.fulfill({
         status: 200, contentType: 'application/json',
         body: JSON.stringify({
-          _id: 'sub-dt35-new', cycle_id: ACTIVE_CYCLE._id,
+          _id: 'sub-dt35-new', chapter_id: ACTIVE_CYCLE._id,
           character_id: char._id, status: 'submitted', responses: {},
         }),
       });

@@ -59,7 +59,7 @@ function buildAlliesSub(poolStatus) {
   const resolved = poolStatus ? [{ pool_status: poolStatus }] : [];
   return {
     _id: `sub-allies-432-${poolStatus || 'empty'}`,
-    cycle_id: 'cycle-432',
+    chapter_id: 'cycle-432',
     character_id: 'char-merit-432',
     character_name: 'Merit Tester',
     player_name: 'Test Player',
@@ -78,7 +78,7 @@ function buildAlliesSub(poolStatus) {
 function buildStatusSub(poolStatus) {
   return {
     _id: `sub-status-432-${poolStatus}`,
-    cycle_id: 'cycle-432',
+    chapter_id: 'cycle-432',
     character_id: 'char-merit-432',
     character_name: 'Merit Tester',
     player_name: 'Test Player',
@@ -97,7 +97,7 @@ function buildStatusSub(poolStatus) {
 function buildRetainerSub(poolStatus) {
   return {
     _id: `sub-retainer-432-${poolStatus}`,
-    cycle_id: 'cycle-432',
+    chapter_id: 'cycle-432',
     character_id: 'char-merit-432',
     character_name: 'Merit Tester',
     player_name: 'Test Player',
@@ -116,7 +116,7 @@ function buildRetainerSub(poolStatus) {
 function buildContactsSub(poolStatus) {
   return {
     _id: `sub-contacts-432-${poolStatus}`,
-    cycle_id: 'cycle-432',
+    chapter_id: 'cycle-432',
     character_id: 'char-merit-432',
     character_name: 'Merit Tester',
     player_name: 'Test Player',
@@ -150,7 +150,7 @@ async function setup(page, submissions) {
   await page.route('**/api/characters/names', route =>
     route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([CHAR_MERIT].map(c => ({ _id: c._id, name: c.name, moniker: c.moniker, honorific: c.honorific }))) })
   );
-  await page.route('**/api/downtime_cycles*', route =>
+  await page.route('**/api/chapters*', route =>
     route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([ACTIVE_CYCLE]) })
   );
   await page.route('**/api/downtime_submissions*', route => {
@@ -296,7 +296,7 @@ test.describe('fix.432: Checklist merit slot star icon (A/S/R/C columns)', () =>
   test('AC-8: project pool_status "validated" → P1 shows ★ (projects path regression guard)', async ({ page }) => {
     const sub = {
       _id: 'sub-proj-432',
-      cycle_id: 'cycle-432',
+      chapter_id: 'cycle-432',
       character_id: 'char-merit-432',
       character_name: 'Merit Tester',
       player_name: 'Test Player',

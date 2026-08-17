@@ -131,7 +131,7 @@ async function setup(page, { char = CHAR_WITH_CP, attended = false } = {}) {
     if (/\/api\/characters\/char-508(\?|$)/.test(url))  return ok(live);
     if (url.includes('/api/characters'))          return ok([live]);
     if (url.includes('/api/attendance'))          return ok({ attended });
-    if (url.includes('/api/downtime_cycles'))     return ok([ACTIVE_CYCLE]);
+    if (url.includes('/api/chapters'))     return ok([ACTIVE_CYCLE]);
     if (url.includes('/api/downtime_submissions')) {
       if (method === 'POST' || method === 'PUT') return ok({ _id: 'sub-508', responses: {} });
       return ok([]);

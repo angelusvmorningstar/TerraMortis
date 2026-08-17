@@ -26,7 +26,7 @@ beforeAll(async () => {
   app = createTestApp();
 
   // Seed an active cycle for the submission.
-  const cycle = await getCollection('downtime_cycles').insertOne({
+  const cycle = await getCollection('chapters').insertOne({
     status: 'active',
     label: 'Test cycle NPCR.12',
     created_at: new Date().toISOString(),
@@ -48,7 +48,7 @@ afterAll(async () => {
   if (CREATED_IDS.length > 0) {
     await subs.deleteMany({ _id: { $in: CREATED_IDS } });
   }
-  await getCollection('downtime_cycles').deleteOne({ _id: new ObjectId(CYCLE_ID) });
+  await getCollection('chapters').deleteOne({ _id: new ObjectId(CYCLE_ID) });
   await getCollection('characters').deleteOne({ _id: new ObjectId(CHAR_ID) });
   await teardownDb();
 });
@@ -59,7 +59,7 @@ describe('NPCR.12: DT submission round-trips story_moment_relationship_id', () =
       .post('/api/downtime_submissions')
       .set('X-Test-User', playerUser([CHAR_ID]))
       .send({
-        cycle_id: CYCLE_ID,
+        chapter_id: CYCLE_ID,
         character_id: CHAR_ID,
         status: 'draft',
         responses: {
@@ -79,7 +79,7 @@ describe('NPCR.12: DT submission round-trips story_moment_relationship_id', () =
       .post('/api/downtime_submissions')
       .set('X-Test-User', playerUser([CHAR_ID]))
       .send({
-        cycle_id: CYCLE_ID,
+        chapter_id: CYCLE_ID,
         character_id: CHAR_ID,
         status: 'draft',
         responses: {

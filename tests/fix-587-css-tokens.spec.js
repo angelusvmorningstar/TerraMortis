@@ -36,7 +36,7 @@ const TITLE = 'Hunting the Hunter';
 function investigateSub() {
   return {
     _id: 'sub-587',
-    cycle_id: 'cycle-587',
+    chapter_id: 'cycle-587',
     character_name: 'Einar Test',
     character_id: 'char-587',
     player_name: 'P',
@@ -69,7 +69,7 @@ async function setup(page) {
     const ok = (body) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(body) });
     if (method === 'PUT' || method === 'PATCH' || method === 'POST') return ok({ ok: true });
     if (url.includes('/api/downtime_submissions')) return ok([investigateSub()]);
-    if (url.includes('/api/downtime_cycles'))      return ok([TEST_CYCLE]);
+    if (url.includes('/api/chapters'))      return ok([TEST_CYCLE]);
     if (url.includes('/api/characters/names'))     return ok([{ _id: CHAR._id, name: CHAR.name, moniker: CHAR.moniker, honorific: CHAR.honorific }]);
     if (url.includes('/api/characters'))           return ok([CHAR]);
     return ok([]);

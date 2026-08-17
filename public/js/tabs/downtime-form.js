@@ -1191,7 +1191,7 @@ async function saveDraft() {
       responseDoc = await apiPost('/api/downtime_submissions', {
         character_id: currentChar._id,
         character_name: currentChar.name,
-        cycle_id: currentCycle._id,
+        chapter_id: currentCycle._id,
         status: nextStatus,
         responses,
       });
@@ -1287,7 +1287,7 @@ async function submitForm() {
       responseDoc = await apiPost('/api/downtime_submissions', {
         character_id: currentChar._id,
         character_name: currentChar.name,
-        cycle_id: currentCycle?._id || null,
+        chapter_id: currentCycle?._id || null,
         status: 'submitted',
         responses,
         submitted_at: new Date().toISOString(),
@@ -1427,7 +1427,7 @@ export async function renderDowntimeTab(targetEl, char, territories, options = {
 
   // Load current cycle — priority: active > game > prep > closed > anything
   try {
-    const cycles = await apiGet('/api/downtime_cycles');
+    const cycles = await apiGet('/api/chapters');
     const sorted = cycles.sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''));
     const LIVE_STATUSES = ['active', 'game', 'prep'];
     currentCycle = sorted.find(c => LIVE_STATUSES.includes(c.status))
@@ -1470,7 +1470,7 @@ export async function renderDowntimeTab(targetEl, char, territories, options = {
   priorPublishedLabel = null;
   if (currentCycle) {
     try {
-      const subs = await apiGet(`/api/downtime_submissions?cycle_id=${currentCycle._id}`);
+      const subs = await apiGet(`/api/downtime_submissions?chapter_id=${currentCycle._id}`);
       _allSubmissions = subs || [];
       responseDoc = subs.find(s =>
         s.character_id === currentChar._id || s.character_id?.toString() === currentChar._id?.toString()
@@ -1542,13 +1542,13 @@ export async function renderDowntimeTab(targetEl, char, territories, options = {
       const charId = String(currentChar._id);
       const currentCycleId = String(currentCycle._id);
       const priorPublished = allSubs
-        .filter(s => String(s.character_id) === charId && s.published_outcome && String(s.cycle_id) !== currentCycleId)
+        .filter(s => String(s.character_id) === charId && s.published_outcome && String(s.chapter_id) !== currentCycleId)
         .sort((a, b) => (String(b._id) > String(a._id) ? 1 : -1));
       if (priorPublished.length) {
         // Try to find cycle label
         try {
-          const cycles = await apiGet('/api/downtime_cycles');
-          const priorCycle = cycles.find(c => String(c._id) === String(priorPublished[0].cycle_id));
+          const cycles = await apiGet('/api/chapters');
+          const priorCycle = cycles.find(c => String(c._id) === String(priorPublished[0].chapter_id));
           priorPublishedLabel = priorCycle?.label || 'previous cycle';
         } catch { priorPublishedLabel = 'previous cycle'; }
       }
@@ -1687,7 +1687,7 @@ async function renderHistoryPanel(el, char) {
   try {
     [allSubs, cycles] = await Promise.all([
       apiGet('/api/downtime_submissions'),
-      apiGet('/api/downtime_cycles'),
+      apiGet('/api/chapters'),
     ]);
   } catch {
     el.innerHTML = '<p class="placeholder-msg">Could not load history.</p>';
@@ -1709,8 +1709,8 @@ async function renderHistoryPanel(el, char) {
     h += '<p class="placeholder-msg dt-hist-empty">No previous submissions.</p>';
   } else {
     for (const sub of charSubs) {
-      const cycle   = cycleMap[String(sub.cycle_id)];
-      const label   = cycle?.label || `Cycle ${String(sub.cycle_id).slice(-4)}`;
+      const cycle   = cycleMap[String(sub.chapter_id)];
+      const label   = cycle?.label || `Cycle ${String(sub.chapter_id).slice(-4)}`;
       const status  = sub.approval_status || 'pending';
       const statusCss = status === 'approved' ? 'approved' : status === 'modified' ? 'modified' : status === 'rejected' ? 'rejected' : 'pending';
       const statusLabel = status.charAt(0).toUpperCase() + status.slice(1);
@@ -2441,7 +2441,7 @@ function renderForm(container) {
       regencyConfirmBtn.disabled = true;
       regencyConfirmBtn.textContent = 'Confirming…';
       if (statusEl) statusEl.textContent = '';
-      apiPost(`/api/downtime_cycles/${currentCycle._id}/confirm-feeding`, {
+      apiPost(`/api/chapters/${currentCycle._id}/confirm-feeding`, {
         territory_id: ri.territoryId,
         rights,
       }).then(updated => {
@@ -4922,7 +4922,7 @@ function renderSafePlaceLocationsSection(saved) {
 
 // dt-form.23 (ADR-003 §Q2): regent-only confirmation section. Canonical
 // store is `cycle.regent_confirmations[]` (same as the regency tab);
-// this surface POSTs to /api/downtime_cycles/:id/confirm-feeding with
+// this surface POSTs to /api/chapters/:id/confirm-feeding with
 // the territory's current `feeding_rights[]` as the rights snapshot,
 // and the predicate `_isRegencyConfirmedThisCycle()` reads it back.
 // Multi-territory regents are not modelled — `findRegentTerritory()`
@@ -5159,7 +5159,7 @@ function renderSorcerySection(saved) {
 async function _hydrateMgPriorOutcomesForm(lockedSlots) {
   if (!lockedSlots.length || !currentCycle) return;
 
-  const allCycles = await apiGet('/api/downtime_cycles');
+  const allCycles = await apiGet('/api/chapters');
   const sortedCycles = allCycles
     .filter(c => c.cycle_number < currentCycle.cycle_number)
     .sort((a, b) => b.cycle_number - a.cycle_number);
@@ -5173,7 +5173,7 @@ async function _hydrateMgPriorOutcomesForm(lockedSlots) {
   }
 
   const priorSubs = await apiGet(
-    `/api/downtime_submissions?cycle_id=${priorCycle._id}&character_id=${currentChar._id}`,
+    `/api/downtime_submissions?chapter_id=${priorCycle._id}&character_id=${currentChar._id}`,
   );
   const priorSub = priorSubs[0];
 

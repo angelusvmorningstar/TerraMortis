@@ -1,6 +1,11 @@
 /**
  * migrate-dt1-submissions.js
  *
+ * ARCHIVED 2026-08-17 (story cm-2b, review rework). Same reasoning as its
+ * sibling `migrate-dt1.js`: a spent one-off that was still at `server/` root
+ * rather than in `scripts/archive/`, still reading `downtime_cycles` and
+ * writing `cycle_id`. Nothing references it. Archived rather than re-pointed.
+ *
  * One-time import: load Downtime 1 historical submissions from
  * TM_downtime1_submissions.json into the downtime_submissions collection.
  *

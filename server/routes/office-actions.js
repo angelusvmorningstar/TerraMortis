@@ -159,7 +159,7 @@ router.post('/', validate(officeActionSchema), async (req, res) => {
   const game_session_id = String(session._id);
 
   if (GATED_TYPES.has(action_type)) {
-    const cycles = await getCollection('downtime_cycles').find().toArray();
+    const cycles = await getCollection('chapters').find().toArray();
     const liveCycle = currentCycleInGamePhase(cycles);
     if (!liveCycle)
       return res.status(403).json({ error: 'FORBIDDEN', message: 'No game session is currently in progress' });

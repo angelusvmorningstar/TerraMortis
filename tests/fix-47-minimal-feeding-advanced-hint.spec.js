@@ -62,7 +62,7 @@ async function setupSuite(page, char) {
     r.fulfill({ status: 200, contentType: 'application/json',
       body: JSON.stringify([{ _id: char._id, name: char.name }]) })
   );
-  await page.route('**/api/downtime_cycles', r =>
+  await page.route('**/api/chapters', r =>
     r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([ACTIVE_CYCLE]) })
   );
   await page.route(/\/api\/downtime_submissions/, r =>

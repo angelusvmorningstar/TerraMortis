@@ -2272,7 +2272,7 @@ async function _loadLifecycleData() {
   try {
     const [nextSession, cycles] = await Promise.all([
       fetch('/api/game_sessions/next', { credentials: 'include' }).then(r => r.ok ? r.json() : null).catch(() => null),
-      apiGet('/api/downtime_cycles').catch(() => []),
+      apiGet('/api/chapters').catch(() => []),
     ]);
     const activeCycle = Array.isArray(cycles)
       ? cycles.find(c => c.status === 'open' || c.status === 'active') || null
@@ -2297,12 +2297,12 @@ async function _loadLifecycleData() {
         // not shadow a lower-numbered feeding-open cycle that actually carries
         // the month's submissions - see db.js's getFeedingCycle for the
         // canonical fix and the incident this guards against.
-        feedingCycle = feedingCandidates.find(c => subs.some(s => String(s.cycle_id) === String(c._id))) || feedingCycle;
+        feedingCycle = feedingCandidates.find(c => subs.some(s => String(s.chapter_id) === String(c._id))) || feedingCycle;
         if (char) {
           mySubmission = activeCycle
             ? subs.find(s => String(s.character_id) === String(char._id)) || null
             : subs.find(s => String(s.character_id) === String(char._id)
-                && String(s.cycle_id) === String(feedingCycle?._id)) || null;
+                && String(s.chapter_id) === String(feedingCycle?._id)) || null;
         }
       }
     }

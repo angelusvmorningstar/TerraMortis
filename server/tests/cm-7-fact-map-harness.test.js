@@ -66,7 +66,7 @@ function cleanSessions() {
 }
 
 async function seed(db, { cycles = cleanCycles(), sessions = cleanSessions() } = {}) {
-  if (cycles.length) await db.collection('downtime_cycles').insertMany(cycles);
+  if (cycles.length) await db.collection('chapters').insertMany(cycles);
   if (sessions.length) await db.collection('game_sessions').insertMany(sessions);
 }
 
@@ -81,14 +81,14 @@ describe.skipIf(!dbAvailable)('cm-7 — fact-map harness (DB-backed)', () => {
   beforeEach(async () => {
     _cycleIds = new Map();
     _sessionIds = new Map();
-    await db.collection('downtime_cycles').deleteMany({ [FIXTURE]: true });
+    await db.collection('chapters').deleteMany({ [FIXTURE]: true });
     await db.collection('game_sessions').deleteMany({ [FIXTURE]: true });
     await db.collection('downtime_submissions').deleteMany({ [FIXTURE]: true });
     await db.collection('tracker_state').deleteMany({ [FIXTURE]: true });
   });
 
   afterAll(async () => {
-    await db.collection('downtime_cycles').deleteMany({ [FIXTURE]: true });
+    await db.collection('chapters').deleteMany({ [FIXTURE]: true });
     await db.collection('game_sessions').deleteMany({ [FIXTURE]: true });
     await db.collection('downtime_submissions').deleteMany({ [FIXTURE]: true });
     await db.collection('tracker_state').deleteMany({ [FIXTURE]: true });
@@ -312,7 +312,7 @@ describe.skipIf(!dbAvailable)('cm-7 — fact-map harness (DB-backed)', () => {
       await db.collection('downtime_submissions').insertOne({
         _id: subId,
         [FIXTURE]: true,
-        cycle_id: String(cycleId(11)),
+        chapter_id: String(cycleId(11)),
         character_id: 'test-char',
       });
 

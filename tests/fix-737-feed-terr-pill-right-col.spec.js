@@ -40,7 +40,7 @@ const TERRITORY_ACADEMY_737 = {
 
 const SUB_FEED_737 = {
   _id: 'sub-737-base',
-  cycle_id: 'cycle-737',
+  chapter_id: 'cycle-737',
   character_name: 'Col Placement Tester',
   character_id: 'char-737',
   player_name: 'Test Player 737',
@@ -86,7 +86,7 @@ async function setupProcessing737(page) {
     if (method === 'PUT' || method === 'PATCH' || method === 'POST') return ok({ ok: true });
 
     if (url.includes('/api/downtime_submissions'))  return ok([SUB_FEED_737]);
-    if (url.includes('/api/downtime_cycles'))       return ok([CYCLE_737]);
+    if (url.includes('/api/chapters'))       return ok([CYCLE_737]);
     if (url.includes('/api/characters/names'))      return ok([{ _id: CHAR_737._id, name: CHAR_737.name, moniker: null, honorific: null }]);
     if (url.includes('/api/characters'))            return ok([CHAR_737]);
     if (url.includes('/api/territories'))           return ok([TERRITORY_ACADEMY_737]);

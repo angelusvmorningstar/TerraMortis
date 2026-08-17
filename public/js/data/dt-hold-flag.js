@@ -12,7 +12,7 @@
  *
  * Issue #257 (perf, 2026-05-11): collapsed the per-character fetch loop
  * into a single batch endpoint call. Pre-fix this looped over every
- * character and awaited /api/downtime_submissions?cycle_id=X&character_id=Y
+ * character and awaited /api/downtime_submissions?chapter_id=X&character_id=Y
  * — ~30 sequential MongoDB queries per ST/dev boot, 1–3 for a player.
  * Post-fix one call to /api/downtime_submissions/hold-flags returns the
  * full { <character_id>: bool } map.
@@ -39,7 +39,7 @@ export async function loadDowntimeHoldFlag(chars, opts = {}) {
 
   let activeCycle = null;
   try {
-    const cycles = await apiGet('/api/downtime_cycles');
+    const cycles = await apiGet('/api/chapters');
     activeCycle = (cycles || []).find(c => c.status === 'active') || null;
   } catch { /* fall through — flag stays false */ }
   if (!activeCycle?._id) return;
@@ -49,7 +49,7 @@ export async function loadDowntimeHoldFlag(chars, opts = {}) {
   let map = null;
   try {
     map = await apiGet(
-      `/api/downtime_submissions/hold-flags?cycle_id=${encodeURIComponent(activeCycle._id)}`
+      `/api/downtime_submissions/hold-flags?chapter_id=${encodeURIComponent(activeCycle._id)}`
     );
   } catch {
     // Best-effort — if the call fails, leave the prior flag values intact.

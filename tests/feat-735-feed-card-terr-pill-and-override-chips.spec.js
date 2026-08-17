@@ -50,7 +50,7 @@ const TERRITORY_ACADEMY = {
 // Base feeding submission — player declared Kiss + Human blood type
 const SUB_FEED_BASE = {
   _id: 'sub-735-base',
-  cycle_id: 'cycle-735',
+  chapter_id: 'cycle-735',
   character_name: 'Feed Chip Tester',
   character_id: 'char-735',
   player_name: 'Test Player 735',
@@ -112,7 +112,7 @@ async function setupProcessing(page, submissions) {
     if (method === 'PUT' || method === 'PATCH' || method === 'POST') return ok({ ok: true });
 
     if (url.includes('/api/downtime_submissions'))  return ok(submissions);
-    if (url.includes('/api/downtime_cycles'))       return ok([CYCLE_735]);
+    if (url.includes('/api/chapters'))       return ok([CYCLE_735]);
     if (url.includes('/api/characters/names'))      return ok([{ _id: CHAR_735._id, name: CHAR_735.name, moniker: null, honorific: null }]);
     if (url.includes('/api/characters'))            return ok([CHAR_735]);
     if (url.includes('/api/territories'))           return ok([TERRITORY_ACADEMY]);

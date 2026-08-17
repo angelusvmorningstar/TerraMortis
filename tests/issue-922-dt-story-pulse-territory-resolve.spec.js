@@ -75,7 +75,7 @@ const CYCLE_922 = {
 function mkSub(id, char, feedingTerritories) {
   return {
     _id: id,
-    cycle_id: CYCLE_922._id,
+    chapter_id: CYCLE_922._id,
     character_name: char.name,
     character_id: char._id,
     player_name: char.player,
@@ -113,7 +113,7 @@ async function setup(page, submissions) {
     const ok = body => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(body) });
     if (['PUT', 'PATCH', 'POST'].includes(method)) return ok({ ok: true });
     if (url.includes('/api/downtime_submissions')) return ok(submissions);
-    if (url.includes('/api/downtime_cycles'))      return ok([CYCLE_922]);
+    if (url.includes('/api/chapters'))      return ok([CYCLE_922]);
     if (url.includes('/api/territories'))          return ok(ALL_TERRS);
     if (url.includes('/api/characters/names'))     return ok(ALL_CHARS.map(c => ({ _id: c._id, name: c.name, moniker: c.moniker, honorific: c.honorific })));
     if (url.includes('/api/characters'))           return ok(ALL_CHARS);

@@ -92,18 +92,18 @@ async function setupSuite(page, char, existingSubmission = null) {
     r.fulfill({ status: 200, contentType: 'application/json',
       body: JSON.stringify([{ _id: char._id, name: char.name }]) })
   );
-  await page.route('**/api/downtime_cycles', r =>
+  await page.route('**/api/chapters', r =>
     r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([ACTIVE_CYCLE]) })
   );
 
-  // Use regex so query-string variants (?cycle_id=…) are also matched.
+  // Use regex so query-string variants (?chapter_id=…) are also matched.
   await page.route(/\/api\/downtime_submissions/, r => {
     if (r.request().method() === 'POST') {
       const reqBody = JSON.parse(r.request().postData() || '{}');
       return r.fulfill({
         status: 200, contentType: 'application/json',
         body: JSON.stringify({
-          _id: 'sub-dt37-new', cycle_id: ACTIVE_CYCLE._id,
+          _id: 'sub-dt37-new', chapter_id: ACTIVE_CYCLE._id,
           character_id: char._id, status: 'submitted',
           responses: reqBody.responses || {},
         }),
@@ -115,7 +115,7 @@ async function setupSuite(page, char, existingSubmission = null) {
         status: 200, contentType: 'application/json',
         body: JSON.stringify({
           _id: existingSubmission?._id || 'sub-dt37-existing',
-          cycle_id: ACTIVE_CYCLE._id,
+          chapter_id: ACTIVE_CYCLE._id,
           character_id: char._id, status: 'submitted',
           responses: reqBody.responses || {},
         }),
@@ -252,7 +252,7 @@ test.describe('dt-form.37: render path correctly parses JSON-string targets from
     const char = buildSorcChar();
     const existingSub = {
       _id: 'sub-dt37-existing',
-      cycle_id: ACTIVE_CYCLE._id,
+      chapter_id: ACTIVE_CYCLE._id,
       character_id: char._id,
       status: 'draft',
       responses: {
@@ -286,7 +286,7 @@ test.describe('dt-form.37: render path correctly parses JSON-string targets from
     const char = buildSorcChar();
     const existingSub = {
       _id: 'sub-dt37-legacy',
-      cycle_id: ACTIVE_CYCLE._id,
+      chapter_id: ACTIVE_CYCLE._id,
       character_id: char._id,
       status: 'draft',
       responses: {
@@ -315,7 +315,7 @@ test.describe('dt-form.37: render path correctly parses JSON-string targets from
     const char = buildSorcChar();
     const existingSub = {
       _id: 'sub-dt37-empty',
-      cycle_id: ACTIVE_CYCLE._id,
+      chapter_id: ACTIVE_CYCLE._id,
       character_id: char._id,
       status: 'draft',
       responses: {

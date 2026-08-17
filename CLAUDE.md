@@ -108,7 +108,7 @@ Roll calculator, sheet viewer, territory tracker. Reads character data from API 
 
 ### API server (`server/`)
 
-Express 5, ES modules. Routes: `/api/characters`, `/api/territories`, `/api/downtime_cycles`, `/api/downtime_submissions`, `/api/game_sessions`, `/api/session_logs`. Auth via `/api/auth/discord`. Health check at `/api/health`.
+Express 5, ES modules. Routes: `/api/characters`, `/api/territories`, `/api/chapters` (the Chapter collection, `downtime_cycles` until cm-2b), `/api/downtime_submissions`, `/api/game_sessions`, `/api/session_logs`. Auth via `/api/auth/discord`. Health check at `/api/health`.
 
 ## v2 Schema
 

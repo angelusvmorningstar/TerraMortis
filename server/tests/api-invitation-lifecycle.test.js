@@ -30,7 +30,7 @@ beforeAll(async () => {
 });
 
 afterEach(async () => {
-  for (const id of createdCycleIds) await getCollection('downtime_cycles').deleteOne({ _id: id });
+  for (const id of createdCycleIds) await getCollection('chapters').deleteOne({ _id: id });
   createdCycleIds = [];
   for (const id of createdSubIds) await getCollection('downtime_submissions').deleteOne({ _id: id });
   createdSubIds = [];
@@ -43,7 +43,7 @@ afterAll(async () => {
 });
 
 async function insertCycle(overrides = {}) {
-  const col = getCollection('downtime_cycles');
+  const col = getCollection('chapters');
   const doc = { label: 'JDT-3 Test', game_number: 999, status: 'active', ...overrides };
   const r = await col.insertOne(doc);
   createdCycleIds.push(r.insertedId);
@@ -54,7 +54,7 @@ async function insertSub(charId, cycleId, overrides = {}) {
   const col = getCollection('downtime_submissions');
   const doc = {
     character_id: new ObjectId(charId),
-    cycle_id: cycleId,
+    chapter_id: cycleId,
     status: 'draft',
     responses: {},
     ...overrides,
@@ -67,7 +67,7 @@ async function insertSub(charId, cycleId, overrides = {}) {
 // Helper: create joint via the lead-side endpoint, mirroring real flow.
 async function createJoint(cycle, leadChar, leadSub, inviteeIds, overrides = {}) {
   const res = await request(app)
-    .post(`/api/downtime_cycles/${cycle._id}/joint_projects`)
+    .post(`/api/chapters/${cycle._id}/joint_projects`)
     .set('X-Test-User', playerUser([leadChar.id]))
     .send({
       lead_character_id: leadChar.id,

@@ -258,7 +258,7 @@ function wireRankingSave(el, voterId, cycleId) {
 
 async function resolveActiveCycleId() {
   try {
-    const cycles = await apiGet('/api/downtime_cycles');
+    const cycles = await apiGet('/api/chapters');
     const sorted = [...(cycles || [])].sort((a, b) => String(b._id).localeCompare(String(a._id)));
     const live = sorted.find(c => LIVE_CYCLE_STATUSES.includes(c.status));
     return live ? String(live._id) : null;

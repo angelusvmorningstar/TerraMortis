@@ -1,6 +1,7 @@
 # Downtime Submission Schema
 
-Describes the shape of documents in the `downtime_submissions` and `downtime_cycles` collections.
+Describes the shape of documents in the `downtime_submissions` and `chapters` collections
+(`chapters` was `downtime_cycles` until cm-2b, 2026-08-17).
 Derived from `downtime-form.js` (`collectResponses`), `feeding-tab.js`, and `downtime-views.js`.
 
 **Last synced**: 2026-04-04
@@ -14,7 +15,7 @@ Derived from `downtime-form.js` (`collectResponses`), `feeding-tab.js`, and `dow
 | `_id` | ObjectId | auto | MongoDB primary key |
 | `character_id` | string | yes | FK -> characters._id |
 | `character_name` | string | yes | Denormalised for display |
-| `cycle_id` | string/null | yes | FK -> downtime_cycles._id |
+| `chapter_id` | string/null | yes | FK -> chapters._id (was `cycle_id` -> `downtime_cycles._id` until cm-2b) |
 | `status` | string | yes | `"draft"` or `"submitted"` |
 | `submitted_at` | string | no | ISO timestamp of submission |
 | `approval_status` | string | no | `"pending"` / `"approved"` / `"modified"` / `"rejected"` |
@@ -248,7 +249,7 @@ Used by `feeding_roll`, `feeding_roll_player`, and resolved action rolls:
 
 ---
 
-## `downtime_cycles` collection
+## `chapters` collection (was `downtime_cycles` until cm-2b)
 
 | Field | Type | Notes |
 |---|---|---|

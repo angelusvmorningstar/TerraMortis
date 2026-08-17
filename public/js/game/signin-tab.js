@@ -79,7 +79,7 @@ async function loadLastCycleData() {
   _infSpentByCharId = new Map();
   _feedVitaeByCharId = new Map();
   try {
-    const allCycles = await apiGet('/api/downtime_cycles');
+    const allCycles = await apiGet('/api/chapters');
     // The cycles API sorts by _id desc, but DT1 was re-imported with a newer
     // _id than DT3 — so array order no longer tracks recency. Order on
     // game_number explicitly to pick the genuine most-recent cycle.
@@ -87,7 +87,7 @@ async function loadLastCycleData() {
       .filter(c => c.status && c.status !== 'open')
       .sort((a, b) => (b.game_number || 0) - (a.game_number || 0))[0] || null;
     if (!lastClosed) return;
-    const subs = await apiGet('/api/downtime_submissions?cycle_id=' + lastClosed._id);
+    const subs = await apiGet('/api/downtime_submissions?chapter_id=' + lastClosed._id);
     for (const sub of (subs || [])) {
       const charId = String(sub.character_id);
 

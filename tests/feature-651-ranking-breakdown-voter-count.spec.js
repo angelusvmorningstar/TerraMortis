@@ -76,7 +76,7 @@ async function setup(page, user, { mine = null } = {}) {
         r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(ALL.map(statusProjection)) }));
       await p.route('**/api/characters/names', r =>
         r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(ALL.map(c => ({ _id: c._id, name: c.name }))) }));
-      await p.route('**/api/downtime_cycles', r =>
+      await p.route('**/api/chapters', r =>
         r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([ACTIVE_CYCLE]) }));
       await p.route('**/api/ranking_ballots/mine*', r =>
         r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(mine) }));

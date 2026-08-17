@@ -86,7 +86,7 @@ async function setupSuite(page, char) {
     r.fulfill({ status: 200, contentType: 'application/json',
       body: JSON.stringify([{ _id: char._id, name: char.name }]) })
   );
-  await page.route('**/api/downtime_cycles', r =>
+  await page.route('**/api/chapters', r =>
     r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([ACTIVE_CYCLE]) })
   );
   // Submissions: GET returns empty (no prior submission), POST returns a saved doc with _id
@@ -95,7 +95,7 @@ async function setupSuite(page, char) {
       return r.fulfill({
         status: 200, contentType: 'application/json',
         body: JSON.stringify({
-          _id: 'sub-dt34-new', cycle_id: ACTIVE_CYCLE._id,
+          _id: 'sub-dt34-new', chapter_id: ACTIVE_CYCLE._id,
           character_id: char._id, status: 'submitted', responses: {},
         }),
       });

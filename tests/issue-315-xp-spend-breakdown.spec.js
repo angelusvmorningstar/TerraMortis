@@ -76,7 +76,7 @@ function makeXpSub(overrides = {}) {
   };
   return {
     _id: overrides._id ?? 'sub-xp-315',
-    cycle_id: 'cycle-315',
+    chapter_id: 'cycle-315',
     character_name: 'Alice Vunder',
     character_id:   'char-alice-315',
     player_name:    'Alice Player',
@@ -100,7 +100,7 @@ function makeXpSub(overrides = {}) {
 function makeLegacyFlatSub() {
   return {
     _id: 'sub-xp-legacy-315',
-    cycle_id: 'cycle-315',
+    chapter_id: 'cycle-315',
     character_name: 'Alice Vunder',
     character_id:   'char-alice-315',
     player_name:    'Alice Player',
@@ -140,7 +140,7 @@ async function setup(page, submissions) {
 
     if (method === 'PUT' || method === 'PATCH' || method === 'POST') return ok({ ok: true });
     if (url.includes('/api/downtime_submissions')) return ok(submissions);
-    if (url.includes('/api/downtime_cycles'))      return ok([TEST_CYCLE]);
+    if (url.includes('/api/chapters'))      return ok([TEST_CYCLE]);
     if (url.includes('/api/characters/names'))     return ok([{ _id: CHAR_MEKHET._id, name: CHAR_MEKHET.name, moniker: null, honorific: null }]);
     if (url.includes('/api/characters'))           return ok([CHAR_MEKHET]);
     if (url.includes('/api/territories'))          return ok([]);

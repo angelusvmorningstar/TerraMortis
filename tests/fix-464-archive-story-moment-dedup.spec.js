@@ -52,7 +52,7 @@ const CYCLE_464 = {
 const SUB_AC1 = {
   _id: 'sub-464-ac1',
   character_id: 'char-464',
-  cycle_id: 'cycle-464',
+  chapter_id: 'cycle-464',
   published_outcome: '## Story Moment\n\nThe narrative moment written by the ST in the push text.',
   st_narrative: {
     story_moment: { response: 'The structured story moment text from admin tool.', status: 'complete' },
@@ -68,7 +68,7 @@ const SUB_AC1 = {
 const SUB_AC2 = {
   _id: 'sub-464-ac2',
   character_id: 'char-464',
-  cycle_id: 'cycle-464',
+  chapter_id: 'cycle-464',
   published_outcome: '## Story Moment\n\nContent from push text only — no structured field.',
   st_narrative: {},
   responses: {},
@@ -81,7 +81,7 @@ const SUB_AC2 = {
 const SUB_AC3 = {
   _id: 'sub-464-ac3',
   character_id: 'char-464',
-  cycle_id: 'cycle-464',
+  chapter_id: 'cycle-464',
   published_outcome: '## Home Report\n\nThe home report in push text.',
   st_narrative: {
     home_report: { response: 'The structured home report from admin tool.', status: 'complete' },
@@ -98,7 +98,7 @@ const SUB_AC3 = {
 const SUB_AC4 = {
   _id: 'sub-464-ac4',
   character_id: 'char-464',
-  cycle_id: 'cycle-464',
+  chapter_id: 'cycle-464',
   published_outcome: 'Some general narrative text with no section headings.',
   st_narrative: {
     letter_from_home: { response: 'Dear Alice,\n\nLegacy letter content here.', status: 'complete' },
@@ -115,7 +115,7 @@ const SUB_AC4 = {
 const SUB_AC4B = {
   _id: 'sub-464-ac4b',
   character_id: 'char-464',
-  cycle_id: 'cycle-464',
+  chapter_id: 'cycle-464',
   published_outcome: '## Story Moment\n\nThe push text story moment.',
   st_narrative: {
     touchstone: { response: 'Touchstone vignette content.', status: 'complete' },
@@ -131,7 +131,7 @@ const SUB_AC4B = {
 const SUB_COMBINED = {
   _id: 'sub-464-combined',
   character_id: 'char-464',
-  cycle_id: 'cycle-464',
+  chapter_id: 'cycle-464',
   published_outcome: '## Story Moment\n\nStory push text.\n\n## Home Report\n\nHome report push text.',
   st_narrative: {
     story_moment: { response: 'Structured story moment.', status: 'complete' },
@@ -159,7 +159,7 @@ async function setup(page, submissions) {
 
     if (method === 'POST' || method === 'PUT' || method === 'PATCH') return ok({ ok: true });
     if (url.includes('/api/auth/me'))              return ok(PLAYER_USER);
-    if (url.includes('/api/downtime_cycles'))      return ok([CYCLE_464]);
+    if (url.includes('/api/chapters'))      return ok([CYCLE_464]);
     if (url.includes('/api/downtime_submissions')) return ok(submissions);
     if (url.includes('/api/archive_documents'))    return ok([]);
     if (url.includes('/api/characters/names'))     return ok([{ _id: CHAR_464._id, name: CHAR_464.name, moniker: null, honorific: null }]);

@@ -87,7 +87,7 @@ const TEST_CYCLE = {
 function makeSubmission(id, charId, charName) {
   return {
     _id: id,
-    cycle_id: 'cycle-312',
+    chapter_id: 'cycle-312',
     character_name: charName,
     character_id: charId,
     player_name: 'Test Player',
@@ -134,7 +134,7 @@ async function setup(page, submissions, chars) {
     const ok = (body) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(body) });
     if (method === 'PUT' || method === 'PATCH' || method === 'POST') return ok({ ok: true });
     if (url.includes('/api/downtime_submissions')) return ok(submissions);
-    if (url.includes('/api/downtime_cycles'))      return ok([TEST_CYCLE]);
+    if (url.includes('/api/chapters'))      return ok([TEST_CYCLE]);
     if (url.includes('/api/characters/names'))     return ok(chars.map(c => ({ _id: c._id, name: c.name, moniker: c.moniker, honorific: c.honorific })));
     if (url.includes('/api/characters'))           return ok(chars);
     if (url.includes('/api/territories'))          return ok([]);

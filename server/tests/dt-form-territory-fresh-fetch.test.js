@@ -183,7 +183,7 @@ describe('renderDowntimeTab — territory fresh-fetch (issue #224)', () => {
     apiModule.apiGet.mockImplementation(url => {
       if (url.startsWith('/api/characters/')) return Promise.resolve({ ...STUB_CHAR });
       if (url === '/api/territories') return Promise.resolve(STUB_TERRITORIES);
-      if (url === '/api/downtime_cycles') return Promise.resolve([]);
+      if (url === '/api/chapters') return Promise.resolve([]);
       if (url === '/api/downtime_submissions') return Promise.resolve([]);
       return Promise.resolve([]);
     });

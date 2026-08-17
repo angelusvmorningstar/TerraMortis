@@ -6,12 +6,14 @@ import { requireRole } from '../middleware/auth.js';
 // cm-2: this router was `chapters.js` serving `/api/chapters` off a `chapters`
 // collection. The collection never held Chapters — under the settled cycle
 // model (cycle-model.md §3) a Chapter is one game plus its downtime, i.e. a
-// `downtime_cycles` document, and what this collection actually groups is the
+// `chapters` document (named `downtime_cycles` until cm-2b), and what this
+// collection actually groups is the
 // multi-game tier above that: a Story. Collection, route, file and field all
 // renamed together. Behaviour is unchanged: same five endpoints, same auth,
 // same status codes, same inline {number, label} validation.
 const col = () => getCollection('story_cycles');
-const cycles = () => getCollection('downtime_cycles');
+// cm-2b: the Chapter container, formerly `downtime_cycles`.
+const cycles = () => getCollection('chapters');
 
 function parseId(id) {
   try { return new ObjectId(id); } catch { return null; }
@@ -71,7 +73,7 @@ storyCyclesRouter.patch('/:id', requireRole('st'), async (req, res) => {
   // cm-3: `final_chapter_id` names the ONE cycle the ST has chosen as this
   // Story's final chapter. It is the only manual input behind
   // isFinalChapterOfStory (public/js/downtime/db.js), and it replaces BOTH
-  // the per-chapter downtime_cycles.is_chapter_finale checkbox and any
+  // the per-chapter chapters.is_chapter_finale checkbox and any
   // separate "closed" flag: a Story is closed exactly when this field is set.
   //
   // Why a pointer rather than a flag plus a max-game_number computation (the
@@ -82,7 +84,7 @@ storyCyclesRouter.patch('/:id', requireRole('st'), async (req, res) => {
   // sibling-cycle list to evaluate.
   //
   // This is the one place a bad pointer could be written, so validate it at
-  // the write: the value must resolve to a real downtime_cycles document that
+  // the write: the value must resolve to a real chapters document that
   // belongs to THIS Story. Validated inline, same shape as number/label; this
   // collection has no JSON-schema file and cm-3 deliberately does not add one.
   if (req.body.final_chapter_id !== undefined) {

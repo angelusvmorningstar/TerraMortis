@@ -26,7 +26,7 @@
  * Follows the pattern established by issue-1143-office-actions-auth-safety.
  * test.js: real Supertest requests against the mounted app + tm_suite_test,
  * prefixed test fixtures, full-collection defensive clears for the shared
- * game_sessions/downtime_cycles collections, describe.skipIf(!dbAvailable)
+ * game_sessions/chapters collections, describe.skipIf(!dbAvailable)
  * for a clean skip when MongoDB is unreachable.
  *
  * DB-backed: real MongoDB required. See db-setup.js.
@@ -47,7 +47,7 @@ const NAME_PREFIX = 'OAQ-2 Probe';
 async function cleanup() {
   await getCollection('characters').deleteMany({ name: { $regex: `^${NAME_PREFIX}` } });
   await getCollection('territories').deleteMany({ name: { $regex: `^${NAME_PREFIX}` } });
-  await getCollection('downtime_cycles').deleteMany({ label: { $regex: `^${NAME_PREFIX}` } });
+  await getCollection('chapters').deleteMany({ label: { $regex: `^${NAME_PREFIX}` } });
   await getCollection('game_sessions').deleteMany({ title: { $regex: `^${NAME_PREFIX}` } });
   await getCollection('office_actions').deleteMany({ actor_name: { $regex: `^${NAME_PREFIX}` } });
   await getCollection('contested_roll_requests').deleteMany({ actor_name: { $regex: `^${NAME_PREFIX}` } });
@@ -60,8 +60,8 @@ async function seedGameSessionAndCycle() {
   await getCollection('game_sessions').insertOne({
     title: `${NAME_PREFIX} Session`, session_date: today, game_number: 999,
   });
-  await getCollection('downtime_cycles').deleteMany({});
-  await getCollection('downtime_cycles').insertOne({
+  await getCollection('chapters').deleteMany({});
+  await getCollection('chapters').insertOne({
     label: `${NAME_PREFIX} Cycle`, phase: 'game', game_number: 999,
   });
 }

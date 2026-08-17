@@ -96,7 +96,7 @@ const procExpandedKeys = new Set(); // tracks which action rows are expanded in 
 let _procFilters = { statuses: new Set(), chars: new Set(), phases: new Set(), territories: new Set(), sources: new Set() };
 let cycleReminders = [];       // processing_reminders from the current cycle document
 let _sorcByTarget = new Map(); // built in renderProcessingMode; maps lowercased charName → [{entry, riteName, tradition, resultNote}]
-let _mgPriorSubCache = new Map(); // keyed by prior cycle_id → array of submissions; cleared on each renderProcessingMode
+let _mgPriorSubCache = new Map(); // keyed by prior chapter_id → array of submissions; cleared on each renderProcessingMode
 let cachedTerritories = null;  // territories from DB (for ambience dashboard); null = not yet loaded
 let _procQueueMap = null;      // Map<key, entry> built once per renderProcessingMode call; null outside render
 let _procCtxMap   = null;      // Map<key, ctxObj> built once per renderProcessingMode call; proto.8-13 populate ctxObj
@@ -1282,6 +1282,13 @@ async function loadCycleById(cycleId) {
   const statusCss   = isPrep ? 'prep' : isActive ? 'pending' : isGame ? 'game' : 'approved';
   let statusHtml = `<span class="dt-status-badge dt-status-${statusCss}">${statusLabel}</span>` +
     `<span class="domain-count">${cycle.submission_count || 0} submissions</span>`;
+  // cm-4 (the renumber): Chapter 1 holds no downtime submissions at all — its downtime WAS
+  // character creation (cycle-model.md §5). Without this, the list simply shows "0 submissions"
+  // against the first chapter with no explanation anywhere, which reads as missing data rather
+  // than as the recorded fact it is. Reuses `domain-count`; no new component class.
+  if (cycle.placeholder && cycle.placeholder_note) {
+    statusHtml += `<span class="domain-count">${esc(cycle.placeholder_note)}</span>`;
+  }
   if (deadlineStr) {
     statusHtml += `<span class="dt-deadline${deadlinePast ? ' dt-deadline-past' : ''}">Deadline: ${esc(deadlineStr)}</span>`;
   }
@@ -1867,7 +1874,7 @@ async function processFilePreview(file) {
   const devCycleId = 'dev-preview-cycle';
   const devSubs = parsed.map((sub, i) => ({
     _id: `dev-preview-${i}`,
-    cycle_id: devCycleId,
+    chapter_id: devCycleId,
     character_id: sub._character_id ? String(sub._character_id) : null,
     character_name: sub.submission.character_name,
     player_name: sub.submission.player_name,
@@ -5297,7 +5304,7 @@ function renderProcessingMode(container) {
 
   // ── JDT-5: joint outcome save ─────────────────────────────────────────
   // Persists cycle.joint_projects[i].st_joint_outcome via the existing PUT
-  // /api/downtime_cycles/:id route (no new endpoint required for v1).
+  // /api/chapters/:id route (no new endpoint required for v1).
   container.querySelectorAll('.proc-joint-outcome-save-btn').forEach(btn => {
     btn.addEventListener('click', async e => {
       e.stopPropagation();
@@ -5311,7 +5318,7 @@ function renderProcessingMode(container) {
         const newJoints = (currentCycle.joint_projects || []).map(j =>
           String(j._id) === String(jointId) ? { ...j, st_joint_outcome: text } : j
         );
-        await apiPut(`/api/downtime_cycles/${currentCycle._id}`, { joint_projects: newJoints });
+        await apiPut(`/api/chapters/${currentCycle._id}`, { joint_projects: newJoints });
         currentCycle.joint_projects = newJoints;
         if (statusEl) {
           statusEl.textContent = 'Saved';
@@ -5333,7 +5340,7 @@ function renderProcessingMode(container) {
       if (!ok) return;
       const statusEl = container.querySelector(`.proc-joint-st-override-status[data-joint-id="${jointId}"]`);
       try {
-        await apiPost(`/api/downtime_cycles/${currentCycle._id}/joint_projects/${jointId}/cancel`, {
+        await apiPost(`/api/chapters/${currentCycle._id}/joint_projects/${jointId}/cancel`, {
           st_override: true,
         });
         if (statusEl) {

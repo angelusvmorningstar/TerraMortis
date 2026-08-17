@@ -72,11 +72,11 @@ async function mockCycleApis(page, {
   await page.route(/\/api\/story_cycles\//, route =>
     route.fulfill({ status: 200, contentType: 'application/json', body: '{}' })
   );
-  await page.route(/\/api\/downtime_cycles$/, route =>
+  await page.route(/\/api\/chapters$/, route =>
     route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(currentCycles) })
   );
-  // PUT /api/downtime_cycles/:id
-  await page.route(/\/api\/downtime_cycles\/[^/]+$/, route => {
+  // PUT /api/chapters/:id
+  await page.route(/\/api\/chapters\/[^/]+$/, route => {
     if (route.request().method() === 'PUT') {
       const id = route.request().url().split('/').pop();
       if (putStatus !== 200) {
@@ -182,7 +182,7 @@ test.describe('Cycle tab — phase buttons: non-game transitions', () => {
     const dtBtn = row1.locator('button[data-phase="downtime"]');
 
     let putBody = null;
-    await page.route(/\/api\/downtime_cycles\/cyc-001/, route => {
+    await page.route(/\/api\/chapters\/cyc-001/, route => {
       if (route.request().method() === 'PUT') {
         putBody = JSON.parse(route.request().postData() || '{}');
         return route.fulfill({ status: 200, contentType: 'application/json',
@@ -208,7 +208,7 @@ test.describe('Cycle tab — phase buttons: non-game transitions', () => {
     const row2 = rows.nth(1);
 
     let putBody = null;
-    await page.route(/\/api\/downtime_cycles\/cyc-002/, route => {
+    await page.route(/\/api\/chapters\/cyc-002/, route => {
       if (route.request().method() === 'PUT') {
         putBody = JSON.parse(route.request().postData() || '{}');
         return route.fulfill({ status: 200, contentType: 'application/json',
@@ -226,7 +226,7 @@ test.describe('Cycle tab — phase buttons: non-game transitions', () => {
 
   test('API failure on phase change shows inline error', async ({ page }) => {
     // Override cycles PUT to fail
-    await page.route(/\/api\/downtime_cycles\//, route => {
+    await page.route(/\/api\/chapters\//, route => {
       if (route.request().method() === 'PUT') {
         return route.fulfill({ status: 500, contentType: 'application/json',
           body: JSON.stringify({ error: 'SERVER_ERROR', message: 'DB write failed' }) });
@@ -277,7 +277,7 @@ test.describe('Cycle tab — Game phase: confirm + tracker reset', () => {
       calls.push({ method: route.request().method(), url: route.request().url() });
       route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ deleted: 3 }) });
     });
-    await page.route(/\/api\/downtime_cycles\/cyc-002/, route => {
+    await page.route(/\/api\/chapters\/cyc-002/, route => {
       if (route.request().method() === 'PUT') {
         calls.push({ method: 'PUT', url: route.request().url(), body: JSON.parse(route.request().postData() || '{}') });
         return route.fulfill({ status: 200, contentType: 'application/json',
@@ -310,7 +310,7 @@ test.describe('Cycle tab — Game phase: confirm + tracker reset', () => {
       deleteCalled = true;
       route.fulfill({ status: 200, contentType: 'application/json', body: '{"deleted":0}' });
     });
-    await page.route(/\/api\/downtime_cycles\/cyc-002/, route => {
+    await page.route(/\/api\/chapters\/cyc-002/, route => {
       if (route.request().method() === 'PUT') { putCalled = true; }
       route.continue();
     });
@@ -335,7 +335,7 @@ test.describe('Cycle tab — Game phase: confirm + tracker reset', () => {
     await page.route(/\/api\/tracker_state$/, route =>
       route.fulfill({ status: 200, contentType: 'application/json', body: '{"deleted":2}' })
     );
-    await page.route(/\/api\/downtime_cycles\/cyc-002/, route => {
+    await page.route(/\/api\/chapters\/cyc-002/, route => {
       if (route.request().method() === 'PUT') {
         return route.fulfill({ status: 200, contentType: 'application/json',
           body: JSON.stringify({ _id: 'cyc-002', game_phase: 'game' }) });

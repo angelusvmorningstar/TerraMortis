@@ -55,7 +55,7 @@ const TERRITORY_ACADEMY_741 = {
 // Current-cycle submission — parked rite in slot 1
 const SUB_PARKED = {
   _id: 'sub-741-cur',
-  cycle_id: 'cycle-741-cur',
+  chapter_id: 'cycle-741-cur',
   character_name: 'Mandragora Tester',
   character_id: 'char-741',
   player_name: 'Test Player 741',
@@ -96,7 +96,7 @@ const SUB_PARKED = {
 // Prior-cycle submission WITH a resolution note
 const SUB_PRIOR_WITH_RESOLUTION = {
   _id: 'sub-741-pri-yes',
-  cycle_id: 'cycle-741-pri',
+  chapter_id: 'cycle-741-pri',
   character_name: 'Mandragora Tester',
   character_id: 'char-741',
   player_name: 'Test Player 741',
@@ -167,7 +167,7 @@ async function setupProcessing741(page, currentSubs, priorSubs) {
       if (url.includes('cycle-741-pri')) return ok(priorSubs);
       return ok(currentSubs);
     }
-    if (url.includes('/api/downtime_cycles'))  return ok([CYCLE_CURRENT, CYCLE_PRIOR]);
+    if (url.includes('/api/chapters'))  return ok([CYCLE_CURRENT, CYCLE_PRIOR]);
     if (url.includes('/api/characters/names')) return ok([{ _id: CHAR_741._id, name: CHAR_741.name, moniker: null, honorific: null }]);
     if (url.includes('/api/characters'))       return ok([CHAR_741]);
     if (url.includes('/api/territories'))      return ok([TERRITORY_ACADEMY_741]);
@@ -273,7 +273,7 @@ test.describe('feat.741: prior cycle resolution for parked Mandragora rites', ()
   test('AC-Edge: first cycle (no prior cycle) shows "No prior resolution recorded" immediately — no perpetual Loading', async ({ page }) => {
     // Only one cycle exists — no prior cycle possible
     const CYCLE_ONLY = { _id: 'cycle-741-only', cycle_number: 1, status: 'active', confirmed_ambience: {}, narrative_notes: '' };
-    const SUB_FIRST_CYCLE = { ...SUB_PARKED, cycle_id: 'cycle-741-only' };
+    const SUB_FIRST_CYCLE = { ...SUB_PARKED, chapter_id: 'cycle-741-only' };
 
     await page.addInitScript(({ user }) => {
       localStorage.setItem('tm_auth_token', 'local-test-token');
@@ -287,7 +287,7 @@ test.describe('feat.741: prior cycle resolution for parked Mandragora rites', ()
       const ok = (body) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(body) });
       if (method === 'PUT' || method === 'PATCH' || method === 'POST') return ok({ ok: true });
       if (url.includes('/api/downtime_submissions')) return ok([SUB_FIRST_CYCLE]);
-      if (url.includes('/api/downtime_cycles'))      return ok([CYCLE_ONLY]);
+      if (url.includes('/api/chapters'))      return ok([CYCLE_ONLY]);
       if (url.includes('/api/characters/names'))     return ok([{ _id: CHAR_741._id, name: CHAR_741.name, moniker: null, honorific: null }]);
       if (url.includes('/api/characters'))           return ok([CHAR_741]);
       if (url.includes('/api/territories'))          return ok([TERRITORY_ACADEMY_741]);

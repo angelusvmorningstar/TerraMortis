@@ -63,7 +63,7 @@ async function setupPage(page, mocks) {
 
   await page.route('http://localhost:3000/api/characters**', route =>
     route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(mocks.characters) }));
-  await page.route('http://localhost:3000/api/downtime_cycles**', route =>
+  await page.route('http://localhost:3000/api/chapters**', route =>
     route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(mocks.cycles) }));
   await page.route('http://localhost:3000/api/downtime_submissions**', route =>
     route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(mocks.submissions) }));
@@ -90,7 +90,7 @@ async function openWizard(page) {
 test('wizard shows "all checks passed" and Begin Reset is enabled when no issues', async ({ page }) => {
   const mocks = baseMocks(page, {
     submissions: [{
-      _id: 'sub-001', cycle_id: 'cycle-001',
+      _id: 'sub-001', chapter_id: 'cycle-001',
       character_id: 'char-001', character_name: 'Alice Test', player_name: 'Test Player',
       approval_status: 'approved',
       st_review: { outcome_text: 'A full narrative.', outcome_visibility: 'ready' },
@@ -116,7 +116,7 @@ test('wizard shows "all checks passed" and Begin Reset is enabled when no issues
 test('wizard blocks Begin Reset when a staged submission has blank narrative', async ({ page }) => {
   const mocks = baseMocks(page, {
     submissions: [{
-      _id: 'sub-blank', cycle_id: 'cycle-001',
+      _id: 'sub-blank', chapter_id: 'cycle-001',
       character_id: 'char-001', character_name: 'Alice Test', player_name: 'Test Player',
       approval_status: 'approved',
       // outcome_text is blank — this is the risk scenario
@@ -155,7 +155,7 @@ test('wizard blocks Begin Reset when a staged submission has blank narrative', a
 test('wizard blocks Begin Reset for unresolved submissions', async ({ page }) => {
   const mocks = baseMocks(page, {
     submissions: [{
-      _id: 'sub-unresolved', cycle_id: 'cycle-001',
+      _id: 'sub-unresolved', chapter_id: 'cycle-001',
       character_id: 'char-001', character_name: 'Alice Test', player_name: 'Test Player',
       approval_status: 'approved',
       // No outcome_visibility set — unresolved
@@ -205,14 +205,14 @@ test('dismiss-all button appears with multiple blocking items and clears them', 
     ],
     submissions: [
       {
-        _id: 'sub-a', cycle_id: 'cycle-001',
+        _id: 'sub-a', chapter_id: 'cycle-001',
         character_id: 'char-001', character_name: 'Alice', player_name: 'P1',
         approval_status: 'approved', st_review: {},
         _raw: { sphere_actions: [], contact_actions: { requests: [] }, retainer_actions: { actions: [] }, projects: [], feeding: null },
         responses: {}, projects_resolved: [], merit_actions_resolved: [],
       },
       {
-        _id: 'sub-b', cycle_id: 'cycle-001',
+        _id: 'sub-b', chapter_id: 'cycle-001',
         character_id: 'char-002', character_name: 'Bob', player_name: 'P2',
         approval_status: 'approved', st_review: {},
         _raw: { sphere_actions: [], contact_actions: { requests: [] }, retainer_actions: { actions: [] }, projects: [], feeding: null },

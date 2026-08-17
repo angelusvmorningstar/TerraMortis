@@ -76,7 +76,7 @@ async function setupRegent(page, { cycle, char = CHAR_REGENT, territories = [TER
 
   await bootApp(page, user, {
     routes: async (p) => {
-      await p.route(/\/api\/downtime_cycles/, r => r.fulfill({
+      await p.route(/\/api\/chapters/, r => r.fulfill({
         status: 200, contentType: 'application/json', body: JSON.stringify(cycles),
       }));
       await p.route(/\/api\/downtime_submissions/, r => r.fulfill({
@@ -105,7 +105,7 @@ async function openDtTab(page) {
 async function openRegencyTab(page) {
   await page.evaluate(() => window.goTab('regency'));
   await page.waitForSelector('#t-regency.active', { timeout: 5000 });
-  // renderRegencyTab is async: fetches /api/characters/names, /api/downtime_cycles,
+  // renderRegencyTab is async: fetches /api/characters/names, /api/chapters,
   // /api/downtime_submissions. Wait for the feeding-rights grid to confirm render complete.
   await page.waitForSelector('#t-regency .regency-wrap, #t-regency .dt-residency-grid', { timeout: 6000 });
 }

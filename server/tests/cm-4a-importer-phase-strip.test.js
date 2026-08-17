@@ -2,7 +2,7 @@
  * CM-4a review finding P1 (2026-08-16) — the Data Portability importer must not
  * re-drive a phase transition.
  *
- * CM-4a made PUT /api/downtime_cycles/:id destructive: a body carrying an own
+ * CM-4a made PUT /api/chapters/:id destructive: a body carrying an own
  * `phase` key fires the tracker slate-wipe when the transition resets. The
  * story's own reasoning held that a same-phase round-trip import was therefore
  * safe "by construction, since resetOnTransition(x, x) is false for every x".
@@ -69,11 +69,11 @@ describe('cm-4a P1 — the importer strips live phase state from a cycle restore
   });
 
   it('PUTs the identity/label/deadline data but no phase, game_phase or status', async () => {
-    await writeJsonDoc('downtime_cycles', { ...EXPORTED_CYCLE });
+    await writeJsonDoc('chapters', { ...EXPORTED_CYCLE });
 
     expect(vi.mocked(apiPut)).toHaveBeenCalledTimes(1);
     const [path, body] = vi.mocked(apiPut).mock.calls[0];
-    expect(path).toBe(`/api/downtime_cycles/${EXPORTED_CYCLE._id}`);
+    expect(path).toBe(`/api/chapters/${EXPORTED_CYCLE._id}`);
 
     // The restore still restores.
     expect(body).toMatchObject({
@@ -92,7 +92,7 @@ describe('cm-4a P1 — the importer strips live phase state from a cycle restore
 
   it('leaves the create path alone — a POST is not a transition and reaches no wipe', async () => {
     const { _id, ...noId } = EXPORTED_CYCLE;
-    await writeJsonDoc('downtime_cycles', noId);
+    await writeJsonDoc('chapters', noId);
     expect(vi.mocked(apiPut)).not.toHaveBeenCalled();
     expect(vi.mocked(apiPost)).toHaveBeenCalledTimes(1);
     expect(vi.mocked(apiPost).mock.calls[0][1]).toMatchObject({ phase: 'game', status: 'game' });
@@ -115,7 +115,7 @@ const dbAvailable = await isDbAvailable();
 describe.skipIf(!dbAvailable)('cm-4a P1 — re-importing a game-phase cycle (real DB)', () => {
   let app;
   const LABEL_PREFIX = 'CM-4a P1 Probe';
-  const cycles = () => getCollection('downtime_cycles');
+  const cycles = () => getCollection('chapters');
   const tracker = () => getCollection('tracker_state');
 
   async function cleanup() {
@@ -149,7 +149,7 @@ describe.skipIf(!dbAvailable)('cm-4a P1 — re-importing a game-phase cycle (rea
   }
 
   const put = (id, body) =>
-    request(app).put(`/api/downtime_cycles/${id}`).set('X-Test-User', stUser()).send(body);
+    request(app).put(`/api/chapters/${id}`).set('X-Test-User', stUser()).send(body);
 
   it('CONTROL: the unstripped export body DOES wipe the live tracker', async () => {
     const id = await seedLiveGameNight();
@@ -163,7 +163,7 @@ describe.skipIf(!dbAvailable)('cm-4a P1 — re-importing a game-phase cycle (rea
   it('the importer body does NOT wipe the live tracker, and still restores the data', async () => {
     const id = await seedLiveGameNight();
     vi.mocked(apiPut).mockClear();
-    await writeJsonDoc('downtime_cycles', { ...EXPORTED_CYCLE });
+    await writeJsonDoc('chapters', { ...EXPORTED_CYCLE });
     const body = vi.mocked(apiPut).mock.calls[0][1];
 
     const res = await put(id, body);

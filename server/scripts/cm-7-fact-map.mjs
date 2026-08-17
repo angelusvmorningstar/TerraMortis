@@ -3,7 +3,7 @@
  *
  * Closes `D:\Terra Mortis\cycle-model.md` §6 precondition 2 and extends GitHub issue #1031.
  * Read-only always — this file never writes to any collection. `buildFactMap(db)` snapshots
- * every human-visible surface keyed (directly or indirectly) on `downtime_cycles.game_number`;
+ * every human-visible surface keyed (directly or indirectly) on `chapters.game_number`;
  * `runFactMapCheck(pre, post)` diffs two snapshots and is FALSIFIABLE BY CONSTRUCTION — a run
  * that finds nothing to compare throws rather than reporting a false green (§6 precondition 2's
  * own wording: "a run reporting '0 failures' over 0 comparisons fails hard").
@@ -25,7 +25,7 @@ export const COVERAGE_SET = [
     id: 1,
     fact: 'Cycle self-identity',
     fields: 'game_number, label, phase/game_phase/status',
-    sources: ['downtime_cycles collection (legacy-mirror rule, cycle-model.md §7)'],
+    sources: ['chapters collection (legacy-mirror rule, cycle-model.md §7)'],
     mapField: 'cycles[].{game_number,label,phase,game_phase,status}',
   },
   {
@@ -125,7 +125,7 @@ function cycleTabLabel(cycle) {
  *   test can scope a snapshot to its own fixture-marked documents without touching real data.
  */
 export async function buildFactMap(db, { cycleFilter = {}, sessionFilter = {} } = {}) {
-  const cycleDocs = await db.collection('downtime_cycles').find(cycleFilter).toArray();
+  const cycleDocs = await db.collection('chapters').find(cycleFilter).toArray();
   const sessionDocs = await db.collection('game_sessions').find(sessionFilter).toArray();
 
   // Trap that must not be reused (cycle-model.md §6): never sort or key by _id/created_at for
@@ -180,7 +180,7 @@ export async function buildFactMap(db, { cycleFilter = {}, sessionFilter = {} } 
     .filter(n => n > 1 && !gameNumbers.has(n - 1))
     .sort((a, b) => a - b);
 
-  // Item 7: game_sessions <-> downtime_cycles correspondence by game_number, both directions.
+  // Item 7: game_sessions <-> chapters correspondence by game_number, both directions.
   const sessionCountByGameNumber = new Map();
   for (const s of sessions) {
     if (s.game_number == null) continue;
@@ -209,9 +209,12 @@ export async function buildFactMap(db, { cycleFilter = {}, sessionFilter = {} } 
     .map(s => s.game_number);
 
   // Item 1, extended: two live cycles sharing one non-null game_number is a real, previously-
-  // occurring incident (the duplicate "Game 7" downtime_cycles document from the Game 7 crisis,
-  // recorded in this repo's own sprint-status.yaml) — an explicit check, not something the
-  // ordering/continuity checks above happen to catch as a side effect.
+  // occurring incident (the duplicate "Game 7" document from the Game 7 crisis, recorded in this
+  // repo's own sprint-status.yaml) — an explicit check, not something the ordering/continuity
+  // checks above happen to catch as a side effect.
+  // NOTE ON NAMES: that incident predates cm-2b. The collection was called `downtime_cycles` when
+  // it happened; it is `chapters` now. The code below reads the current name, deliberately — the
+  // history is what the old name belongs to, not the query.
   const duplicateGameNumbers = [...cycleCountByGameNumber.entries()]
     .filter(([, count]) => count > 1)
     .map(([n]) => n)

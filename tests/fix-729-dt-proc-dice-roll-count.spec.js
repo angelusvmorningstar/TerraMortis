@@ -43,7 +43,7 @@ const TEST_CYCLE = {
 function makeSub(projectsResolved) {
   return {
     _id: 'sub-729',
-    cycle_id: 'cycle-729',
+    chapter_id: 'cycle-729',
     character_name: 'Aleksei',
     character_id: 'char-729',
     player_name: 'Test Player',
@@ -79,7 +79,7 @@ async function setupProcessing(page, sub) {
     const ok = (body) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(body) });
     if (method === 'PUT' || method === 'PATCH' || method === 'POST') return ok({ ok: true });
     if (url.includes('/api/downtime_submissions'))  return ok([sub]);
-    if (url.includes('/api/downtime_cycles'))       return ok([TEST_CYCLE]);
+    if (url.includes('/api/chapters'))       return ok([TEST_CYCLE]);
     if (url.includes('/api/characters/names'))      return ok([{ _id: TEST_CHAR._id, name: TEST_CHAR.name, moniker: null, honorific: null }]);
     if (url.includes('/api/characters'))            return ok([TEST_CHAR]);
     if (url.includes('/api/territories'))           return ok([]);

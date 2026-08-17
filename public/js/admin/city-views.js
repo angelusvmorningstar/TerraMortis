@@ -73,7 +73,7 @@ export async function initCityView() {
   await refreshSeats();
 
   try {
-    const cycles = await apiGet('/api/downtime_cycles');
+    const cycles = await apiGet('/api/chapters');
     const sorted = cycles.sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''));
     _activeCycle = sorted.find(c => c.status === 'active') || null;
     // #751: plumb the cycle number into shared state for the editor's

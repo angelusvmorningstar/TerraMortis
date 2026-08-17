@@ -71,10 +71,10 @@ async function mockCycleApis(page, { cycles = TEST_CYCLES, putStatus = 200 } = {
   await page.route(/\/api\/story_cycles\//, route =>
     route.fulfill({ status: 200, contentType: 'application/json', body: '{}' })
   );
-  await page.route(/\/api\/downtime_cycles$/, route =>
+  await page.route(/\/api\/chapters$/, route =>
     route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(currentCycles) })
   );
-  await page.route(/\/api\/downtime_cycles\/[^/]+$/, route => {
+  await page.route(/\/api\/chapters\/[^/]+$/, route => {
     if (route.request().method() === 'PUT') {
       const id = route.request().url().split('/').pop();
       if (putStatus !== 200) {
@@ -210,7 +210,7 @@ test.describe('Cycle tab — Prep Access: toggle behaviour', () => {
     await navigateToCycleTab(page);
 
     let putBody = null;
-    await page.route(/\/api\/downtime_cycles\/cyc-001/, route => {
+    await page.route(/\/api\/chapters\/cyc-001/, route => {
       if (route.request().method() === 'PUT') {
         putBody = JSON.parse(route.request().postData() || '{}');
         return route.fulfill({ status: 200, contentType: 'application/json',
@@ -238,7 +238,7 @@ test.describe('Cycle tab — Prep Access: toggle behaviour', () => {
     await navigateToCycleTab(page);
 
     const puts = [];
-    await page.route(/\/api\/downtime_cycles\/cyc-002/, route => {
+    await page.route(/\/api\/chapters\/cyc-002/, route => {
       if (route.request().method() === 'PUT') {
         const body = JSON.parse(route.request().postData() || '{}');
         puts.push(body.out_of_window_player_ids);

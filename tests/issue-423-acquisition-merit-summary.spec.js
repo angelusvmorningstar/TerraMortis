@@ -66,7 +66,7 @@ const CHAR_CARVER = {
 function buildSub(overrides = {}) {
   return {
     _id: 'sub-carver-423',
-    cycle_id: 'cycle-423',
+    chapter_id: 'cycle-423',
     character_id: 'char-carver-423',
     character_name: 'Carver',
     player_name: 'Test Player',
@@ -179,7 +179,7 @@ async function setupDtStory(page, submissions, chars) {
     if (method === 'PUT' || method === 'PATCH' || method === 'POST') return ok({ ok: true });
 
     if (url.includes('/api/downtime_submissions'))  return ok(submissions);
-    if (url.includes('/api/downtime_cycles'))       return ok([ACTIVE_CYCLE]);
+    if (url.includes('/api/chapters'))       return ok([ACTIVE_CYCLE]);
     if (url.includes('/api/characters/names'))      return ok(chars.map(c => ({ _id: c._id, name: c.name, moniker: c.moniker, honorific: c.honorific })));
     if (url.includes('/api/characters'))            return ok(chars);
     if (url.includes('/api/territories'))           return ok([]);

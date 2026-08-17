@@ -129,7 +129,7 @@ async function setupAdmin(page, chars, territories = []) {
     );
   }
   await page.route('**/api/game_sessions*',        route => route.fulfill({ status: 200, contentType: 'application/json', body: '[]' }));
-  await page.route('**/api/downtime_cycles*',      route => route.fulfill({ status: 200, contentType: 'application/json', body: '[]' }));
+  await page.route('**/api/chapters*',      route => route.fulfill({ status: 200, contentType: 'application/json', body: '[]' }));
   await page.route('**/api/downtime_submissions*', route => route.fulfill({ status: 200, contentType: 'application/json', body: '[]' }));
   await page.route('**/api/territories*',          route =>
     route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(territories) })
@@ -212,7 +212,7 @@ async function setupPlayer(page, char, territories = [], submission = null, cycl
   await page.route(`**/api/characters/${char._id}`, route =>
     route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(char) })
   );
-  await page.route('**/api/downtime_cycles*', route =>
+  await page.route('**/api/chapters*', route =>
     route.fulfill({ status: 200, contentType: 'application/json',
       body: JSON.stringify(cycle ? [cycle] : []) })
   );
@@ -680,7 +680,7 @@ test.describe('Tracker — DT influence reconciliation (fix.668)', () => {
   const INFLUENCE_SUBMISSION = {
     _id: 'sub-inf-001',
     character_id: INFLUENCE_CHAR._id,
-    cycle_id: 'cycle-dt4',
+    chapter_id: 'cycle-dt4',
     responses: {
       influence_spend: JSON.stringify({ academy: 2 }),
     },
@@ -693,7 +693,7 @@ test.describe('Tracker — DT influence reconciliation (fix.668)', () => {
 
   async function setupTrackerWithReconcile(page, submissions = [INFLUENCE_SUBMISSION]) {
     await setupSuite(page, [INFLUENCE_CHAR]);
-    await page.route('**/api/downtime_cycles*', route =>
+    await page.route('**/api/chapters*', route =>
       route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([CLOSED_CYCLE]) })
     );
     await page.route('**/api/downtime_submissions*', route =>
@@ -796,7 +796,7 @@ test.describe('Feeding confirm — vitae API write and influence localStorage', 
     _id: 'sub-001',
     player_id: PLAYER_USER.player_id,
     character_id: FEED_CHAR._id,
-    cycle_id: ACTIVE_CYCLE._id,
+    chapter_id: ACTIVE_CYCLE._id,
     status: 'reviewed',
     responses: {
       feeding_method: 'seduction',
@@ -1100,7 +1100,7 @@ test.describe('Ambience — 9-level dropdown and live territory vitae tally', ()
       _id: 'sub-001',
       player_id: PLAYER_USER.player_id,
       character_id: FEED_CHAR._id,
-      cycle_id: ACTIVE_CYCLE._id,
+      chapter_id: ACTIVE_CYCLE._id,
       status: 'submitted',
       responses: {
         feeding_method: 'seduction',

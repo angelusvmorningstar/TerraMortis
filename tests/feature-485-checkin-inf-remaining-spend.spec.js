@@ -58,7 +58,7 @@ const SUBMISSIONS_WITH_SPEND = [
   {
     _id: 'sub-001',
     character_id: 'c-001',
-    cycle_id: 'cycle-closed-001',
+    chapter_id: 'cycle-closed-001',
     status: 'submitted',
     responses: {
       influence_spend: JSON.stringify({ the_harbour: 2, the_academy: 1, the_north_shore: 0 }),
@@ -71,7 +71,7 @@ const SUBMISSIONS_DT1 = [
   {
     _id: 'sub-003',
     character_id: 'c-003',
-    cycle_id: 'cycle-closed-001',
+    chapter_id: 'cycle-closed-001',
     status: 'submitted',
     responses: {}, // no influence_spend
   },
@@ -106,14 +106,14 @@ async function setup(page, {
   await page.route('**/api/players/display-names', route =>
     route.fulfill({ status: 200, contentType: 'application/json', body: '[]' })
   );
-  await page.route('**/api/downtime_cycles', route =>
+  await page.route('**/api/chapters', route =>
     route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(cycles) })
   );
   await page.route('**/api/downtime_submissions**', route => {
-    // Mirror the real endpoint: scope returned submissions to ?cycle_id=.
-    const cid = new URL(route.request().url()).searchParams.get('cycle_id');
+    // Mirror the real endpoint: scope returned submissions to ?chapter_id=.
+    const cid = new URL(route.request().url()).searchParams.get('chapter_id');
     const body = cid
-      ? submissions.filter(s => String(s.cycle_id) === cid)
+      ? submissions.filter(s => String(s.chapter_id) === cid)
       : submissions;
     return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(body) });
   });
@@ -177,7 +177,7 @@ test('AC1 live: cycle with status "game" is treated as a past cycle (not skipped
   const gameCycle = { _id: 'cycle-game-001', status: 'game', game_number: 3 };
   await setup(page, {
     cycles: [gameCycle, OPEN_CYCLE],
-    submissions: SUBMISSIONS_WITH_SPEND.map(s => ({ ...s, cycle_id: 'cycle-game-001' })),
+    submissions: SUBMISSIONS_WITH_SPEND.map(s => ({ ...s, chapter_id: 'cycle-game-001' })),
   });
   // c-001 spent 3 of 4 → remaining = 1
   const aliceRow = page.locator('.si-row[data-char-id="c-001"]');
@@ -199,7 +199,7 @@ test('regression: spend resolves from highest game_number cycle, not array order
     // reproducing the broken _id-desc ordering from the live data.
     cycles: [dt1, dt3, OPEN_CYCLE],
     submissions: [
-      { _id: 'sub-dt3', character_id: 'c-001', cycle_id: 'cycle-dt3', status: 'submitted',
+      { _id: 'sub-dt3', character_id: 'c-001', chapter_id: 'cycle-dt3', status: 'submitted',
         responses: { influence_spend: JSON.stringify({ the_harbour: 3 }) } },
     ],
   });
@@ -218,7 +218,7 @@ test('regression: spend resolves from highest game_number cycle, not array order
 test('absolute spend: negative per-territory value counts toward spend, not refund', async ({ page }) => {
   await setup(page, {
     submissions: [
-      { _id: 'sub-abs', character_id: 'c-001', cycle_id: 'cycle-closed-001', status: 'submitted',
+      { _id: 'sub-abs', character_id: 'c-001', chapter_id: 'cycle-closed-001', status: 'submitted',
         responses: { influence_spend: JSON.stringify({ the_academy: -2, the_harbour: 1 }) } },
     ],
   });
@@ -231,7 +231,7 @@ test('absolute spend: negative per-territory value counts toward spend, not refu
 test('clamp: absolute spend exceeding max shows 0, not negative remaining', async ({ page }) => {
   await setup(page, {
     submissions: [
-      { _id: 'sub-over', character_id: 'c-001', cycle_id: 'cycle-closed-001', status: 'submitted',
+      { _id: 'sub-over', character_id: 'c-001', chapter_id: 'cycle-closed-001', status: 'submitted',
         responses: { influence_spend: JSON.stringify({ the_academy: -4, the_harbour: 6 }) } },
     ],
   });
@@ -277,7 +277,7 @@ test('regression: WP resource display still shows max/max after INF change', asy
 
 // ── Graceful degradation: API failure → max/max ───────────────────────────────
 
-test('graceful degradation: downtime_cycles API error → INF shows max/max', async ({ page }) => {
+test('graceful degradation: chapters API error → INF shows max/max', async ({ page }) => {
   await page.addInitScript(({ user }) => {
     localStorage.setItem('tm_auth_token', 'fake-test-token');
     localStorage.setItem('tm_auth_expires', String(Date.now() + 3600000));
@@ -297,8 +297,8 @@ test('graceful degradation: downtime_cycles API error → INF shows max/max', as
   await page.route('**/api/players/display-names', route =>
     route.fulfill({ status: 200, contentType: 'application/json', body: '[]' })
   );
-  // downtime_cycles returns 500 error
-  await page.route('**/api/downtime_cycles', route =>
+  // chapters returns 500 error
+  await page.route('**/api/chapters', route =>
     route.fulfill({ status: 500, contentType: 'application/json', body: JSON.stringify({ error: 'SERVER_ERROR' }) })
   );
   await page.route('**/api/st_mods**', route =>
@@ -319,10 +319,10 @@ test('graceful degradation: downtime_cycles API error → INF shows max/max', as
 
 // ── AC5: both new API calls are fired on load ─────────────────────────────────
 
-test('AC5: downtime_cycles and downtime_submissions are both requested on init', async ({ page }) => {
+test('AC5: chapters and downtime_submissions are both requested on init', async ({ page }) => {
   const requested = new Set();
   page.on('request', req => {
-    if (req.url().includes('/api/downtime_cycles')) requested.add('cycles');
+    if (req.url().includes('/api/chapters')) requested.add('cycles');
     if (req.url().includes('/api/downtime_submissions')) requested.add('submissions');
   });
 

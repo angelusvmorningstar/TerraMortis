@@ -95,7 +95,7 @@ async function setup(page) {
     if (url.includes('/api/territories'))                 return ok([]);
     if (url.includes('/api/game_sessions'))               return ok([]);
     if (url.includes('/api/session_logs'))                return ok([]);
-    if (url.includes('/api/downtime_cycles'))             return ok([]);
+    if (url.includes('/api/chapters'))             return ok([]);
     if (url.includes('/api/downtime_submissions'))        return ok([]);
     if (url.includes('/api/players'))                     return ok([]);
     return ok([]);
@@ -123,7 +123,7 @@ async function setupWithBonus(page) {
     if (url.includes('/api/territories'))                 return ok([]);
     if (url.includes('/api/game_sessions'))               return ok([]);
     if (url.includes('/api/session_logs'))                return ok([]);
-    if (url.includes('/api/downtime_cycles'))             return ok([]);
+    if (url.includes('/api/chapters'))             return ok([]);
     if (url.includes('/api/downtime_submissions'))        return ok([]);
     if (url.includes('/api/players'))                     return ok([]);
     return ok([]);

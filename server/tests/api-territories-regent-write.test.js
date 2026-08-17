@@ -36,7 +36,7 @@ afterEach(async () => {
   for (const tid of territoryIds) {
     await getCollection('territories').deleteOne({ _id: tid });
   }
-  for (const cid of cycleIds) await getCollection('downtime_cycles').deleteOne({ _id: cid });
+  for (const cid of cycleIds) await getCollection('chapters').deleteOne({ _id: cid });
   for (const sid of submissionIds) await getCollection('downtime_submissions').deleteOne({ _id: sid });
   territoryIds.length = 0;
   cycleIds.length = 0;
@@ -56,7 +56,7 @@ async function seedTerritory({ slug = 'rfr_test_territory', regent_id = 'regent-
 }
 
 async function seedActiveCycle() {
-  const col = getCollection('downtime_cycles');
+  const col = getCollection('chapters');
   const result = await col.insertOne({ label: 'RFR Test Cycle', status: 'active' });
   cycleIds.push(result.insertedId);
   return { _id: result.insertedId };
@@ -71,7 +71,7 @@ async function seedSubmission({ cycleId, character_id, territorySlug = 'the_seco
   const doc = {
     character_id,
     character_name: 'Test Char',
-    cycle_id: cycleId,
+    chapter_id: cycleId,
     status: 'submitted',
     responses: {
       feeding_territories: JSON.stringify({ [territoryKey || territorySlug]: state }),
@@ -262,20 +262,20 @@ describe('PATCH /api/territories/:id/feeding-rights — locks', () => {
   });
 });
 
-// ── Issue #497: mixed-type cycle_id tolerance in the lock check ──────────────
-// downtime_submissions.cycle_id is stored as both string (DT1) and ObjectId
+// ── Issue #497: mixed-type chapter_id tolerance in the lock check ──────────────
+// downtime_submissions.chapter_id is stored as both string (DT1) and ObjectId
 // (DT2+). The lock check must find submissions of BOTH types for the active
 // cycle, or a regent could strip feeding rights from a character whose
 // string-typed submission was silently dropped by a type-strict query.
-describe('PATCH /api/territories/:id/feeding-rights — #497 mixed cycle_id', () => {
-  it('locks when the matching submission has a STRING-typed cycle_id', async () => {
+describe('PATCH /api/territories/:id/feeding-rights — #497 mixed chapter_id', () => {
+  it('locks when the matching submission has a STRING-typed chapter_id', async () => {
     const cycle = await seedActiveCycle();
     const terr = await seedTerritory({
       slug: 'rfr_test_497_str',
       regent_id: 'regent-497s',
       feeding_rights: ['fed-char', 'safe-char'],
     });
-    // cycle_id stored as a STRING (DT1 shape) — the bug this story fixes.
+    // chapter_id stored as a STRING (DT1 shape) — the bug this story fixes.
     await seedSubmission({
       cycleId: String(cycle._id),
       character_id: 'fed-char',
@@ -291,7 +291,7 @@ describe('PATCH /api/territories/:id/feeding-rights — #497 mixed cycle_id', ()
     expect(res.body.locked).toEqual(['fed-char']);
   });
 
-  it('locks when the matching submission has an OBJECTID-typed cycle_id (no regression)', async () => {
+  it('locks when the matching submission has an OBJECTID-typed chapter_id (no regression)', async () => {
     const cycle = await seedActiveCycle();
     const terr = await seedTerritory({
       slug: 'rfr_test_497_oid',

@@ -89,7 +89,7 @@ const CHAR_CONRAD = {
 // DT1 CSV format — sphere actions in responses
 const SUB_BRANDY_ALLIES = {
   _id: 'sub-brandy',
-  cycle_id: 'cycle-dtq2',
+  chapter_id: 'cycle-dtq2',
   character_id: 'char-brandy',
   character_name: 'Brandy LaRoux',
   player_name: 'Test Player',
@@ -113,7 +113,7 @@ const SUB_BRANDY_ALLIES = {
 // Submission with contact actions
 const SUB_CONRAD_CONTACTS = {
   _id: 'sub-conrad',
-  cycle_id: 'cycle-dtq2',
+  chapter_id: 'cycle-dtq2',
   character_id: 'char-conrad',
   character_name: 'Conrad Sondergaard',
   player_name: 'Third Player',
@@ -131,7 +131,7 @@ const SUB_CONRAD_CONTACTS = {
 // Submission with retainer action
 const SUB_ANICHKA_RETAINER = {
   _id: 'sub-anichka',
-  cycle_id: 'cycle-dtq2',
+  chapter_id: 'cycle-dtq2',
   character_id: 'char-anichka',
   character_name: 'Anichka',
   player_name: 'Other Player',
@@ -148,7 +148,7 @@ const SUB_ANICHKA_RETAINER = {
 // DT2+ format — sphere actions in _raw, should use existing merit_actions if present
 const SUB_DT2_FORMAT = {
   _id: 'sub-dt2',
-  cycle_id: 'cycle-dtq2',
+  chapter_id: 'cycle-dtq2',
   character_id: 'char-brandy',
   character_name: 'Brandy LaRoux',
   player_name: 'Test Player',
@@ -175,7 +175,7 @@ const SUB_DT2_FORMAT = {
 // Submission with pre-populated merit_actions (should not be re-processed)
 const SUB_PREPOPULATED = {
   _id: 'sub-prepop',
-  cycle_id: 'cycle-dtq2',
+  chapter_id: 'cycle-dtq2',
   character_id: 'char-brandy',
   character_name: 'Brandy LaRoux',
   player_name: 'Test Player',
@@ -212,7 +212,7 @@ async function setupDtStory(page, submissions, chars) {
     if (method === 'PUT' || method === 'PATCH' || method === 'POST') return ok({ ok: true });
 
     if (url.includes('/api/downtime_submissions'))  return ok(submissions);
-    if (url.includes('/api/downtime_cycles'))       return ok([ACTIVE_CYCLE]);
+    if (url.includes('/api/chapters'))       return ok([ACTIVE_CYCLE]);
     if (url.includes('/api/characters/names'))      return ok(chars.map(c => ({ _id: c._id, name: c.name, moniker: c.moniker, honorific: c.honorific })));
     if (url.includes('/api/characters'))            return ok(chars);
     if (url.includes('/api/territories'))           return ok([]);
@@ -324,7 +324,7 @@ test.describe('DTQ-2: DT Story merit sections from response fields', () => {
   test('character with no merit actions shows no Allies or Contact sections', async ({ page }) => {
     const subNoMerits = {
       _id: 'sub-no-merits',
-      cycle_id: 'cycle-dtq2',
+      chapter_id: 'cycle-dtq2',
       character_id: 'char-brandy',
       character_name: 'Brandy LaRoux',
       player_name: 'Test Player',

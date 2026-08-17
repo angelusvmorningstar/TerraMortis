@@ -50,8 +50,8 @@ describe('epic.708.2 — cycle-views.js', () => {
   it('fetches /api/story_cycles', () =>
     expect(CYCLE_VIEWS).toContain('/api/story_cycles'));
 
-  it('fetches /api/downtime_cycles', () =>
-    expect(CYCLE_VIEWS).toContain('/api/downtime_cycles'));
+  it('fetches /api/chapters', () =>
+    expect(CYCLE_VIEWS).toContain('/api/chapters'));
 
   it('uses apiGet from data/api.js', () =>
     expect(CYCLE_VIEWS).toContain("from '../data/api.js'"));

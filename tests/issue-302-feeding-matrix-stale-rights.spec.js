@@ -59,7 +59,7 @@ const TERR_NS_WITH_RIGHTS = {
 // Submission: Ivana claims feeding_rights in northshore
 const SUBMISSION_302 = {
   _id: 'sub-302',
-  cycle_id: 'cycle-302',
+  chapter_id: 'cycle-302',
   character_name: 'Ivana Horvat',
   character_id: 'char-302',
   player_name: 'Test Player',
@@ -97,7 +97,7 @@ async function setup(page, territories, submissions = [SUBMISSION_302]) {
     const ok = (body) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(body) });
     if (method === 'PUT' || method === 'PATCH' || method === 'POST') return ok({ ok: true });
     if (url.includes('/api/downtime_submissions')) return ok(submissions);
-    if (url.includes('/api/downtime_cycles'))      return ok([TEST_CYCLE]);
+    if (url.includes('/api/chapters'))      return ok([TEST_CYCLE]);
     if (url.includes('/api/characters/names'))     return ok([{ _id: CHAR_302._id, name: CHAR_302.name, moniker: null, honorific: null }]);
     if (url.includes('/api/characters'))           return ok([CHAR_302]);
     if (url.includes('/api/territories'))          return ok(territories);
@@ -231,7 +231,7 @@ test.describe('Issue #302 — Cache invalidation after saving feeding rights', (
       }
       if (method === 'PUT' || method === 'PATCH' || method === 'POST') return ok({ ok: true });
       if (url.includes('/api/downtime_submissions')) return ok([SUBMISSION_302]);
-      if (url.includes('/api/downtime_cycles'))      return ok([TEST_CYCLE]);
+      if (url.includes('/api/chapters'))      return ok([TEST_CYCLE]);
       if (url.includes('/api/characters/names'))     return ok([{ _id: CHAR_302._id, name: CHAR_302.name, moniker: null, honorific: null }]);
       if (url.includes('/api/characters'))           return ok([CHAR_302]);
       if (url.includes('/api/game_sessions'))        return ok([]);

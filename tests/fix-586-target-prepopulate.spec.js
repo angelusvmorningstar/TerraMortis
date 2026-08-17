@@ -48,7 +48,7 @@ const TEST_CYCLE = { _id: 'cycle-586', cycle_number: 3, status: 'active', confir
 function projectSub({ action = 'investigate', title = 'Hunting the Hunter', targetType = 'character', targetValue = 'char-ryan', targetTerr = '', projectsResolved = [] } = {}) {
   return {
     _id: 'sub-586',
-    cycle_id: 'cycle-586',
+    chapter_id: 'cycle-586',
     character_name: 'Einar Test',
     character_id: 'char-einar',
     player_name: 'P',
@@ -86,7 +86,7 @@ async function setup(page, submissions) {
     const ok = (body) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(body) });
     if (method === 'PUT' || method === 'PATCH' || method === 'POST') return ok({ ok: true });
     if (url.includes('/api/downtime_submissions')) return ok(submissions);
-    if (url.includes('/api/downtime_cycles'))      return ok([TEST_CYCLE]);
+    if (url.includes('/api/chapters'))      return ok([TEST_CYCLE]);
     if (url.includes('/api/characters/names'))     return ok(ALL_CHARS.map(c => ({ _id: c._id, name: c.name, moniker: c.moniker, honorific: c.honorific })));
     if (url.includes('/api/characters'))           return ok(ALL_CHARS);
     return ok([]);

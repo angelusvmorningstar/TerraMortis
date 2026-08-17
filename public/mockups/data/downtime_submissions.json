@@ -1,7 +1,7 @@
 [
   {
     "_id": "69da323ccc5483a3c77027a0",
-    "cycle_id": "69d0a3c5052b57f6be774e69",
+    "chapter_id": "69d0a3c5052b57f6be774e69",
     "character_id": "69d720427fdd1b1f9498b0d4",
     "character_name": "Yusuf Mammon Kalusicj",
     "player_name": "Peter Kalt",
@@ -310,7 +310,7 @@
   },
   {
     "_id": "69da37d0cc5483a3c77027a1",
-    "cycle_id": "69d0a3c5052b57f6be774e69",
+    "chapter_id": "69d0a3c5052b57f6be774e69",
     "character_id": "69d73ea49162ece35897a47c",
     "character_name": "Alice Vunder",
     "player_name": "Katherine Honan",
@@ -522,7 +522,7 @@
   },
   {
     "_id": "69da37d0cc5483a3c77027a2",
-    "cycle_id": "69d0a3c5052b57f6be774e69",
+    "chapter_id": "69d0a3c5052b57f6be774e69",
     "character_id": "69d73ea49162ece35897a47d",
     "character_name": "Anichka",
     "player_name": "Katie",
@@ -630,7 +630,7 @@
   },
   {
     "_id": "69da37d0cc5483a3c77027a3",
-    "cycle_id": "69d0a3c5052b57f6be774e69",
+    "chapter_id": "69d0a3c5052b57f6be774e69",
     "character_id": "69d73ea49162ece35897a47e",
     "character_name": "Brandy LaRoux",
     "player_name": "Ashley Knight",
@@ -895,7 +895,7 @@
   },
   {
     "_id": "69da37d1cc5483a3c77027a4",
-    "cycle_id": "69d0a3c5052b57f6be774e69",
+    "chapter_id": "69d0a3c5052b57f6be774e69",
     "character_id": "69d73ea49162ece35897a480",
     "character_name": "Cazz",
     "player_name": "Brae Clarke",
@@ -1090,7 +1090,7 @@
   },
   {
     "_id": "69da37d1cc5483a3c77027a5",
-    "cycle_id": "69d0a3c5052b57f6be774e69",
+    "chapter_id": "69d0a3c5052b57f6be774e69",
     "character_id": "69d73ea49162ece35897a483",
     "character_name": "Conrad Sondergaard",
     "player_name": "Arnold Walsh",
@@ -1316,7 +1316,7 @@
   },
   {
     "_id": "69da37d1cc5483a3c77027a6",
-    "cycle_id": "69d0a3c5052b57f6be774e69",
+    "chapter_id": "69d0a3c5052b57f6be774e69",
     "character_id": "69d73ea49162ece35897a485",
     "character_name": "Dr Margaret Kane",
     "player_name": "Jessica Bokor-Charlier",
@@ -1573,7 +1573,7 @@
   },
   {
     "_id": "69da37d2cc5483a3c77027a7",
-    "cycle_id": "69d0a3c5052b57f6be774e69",
+    "chapter_id": "69d0a3c5052b57f6be774e69",
     "character_id": "69d73ea49162ece35897a486",
     "character_name": "Edna Judge",
     "player_name": "Arlo",
@@ -1769,7 +1769,7 @@
   },
   {
     "_id": "69da37d2cc5483a3c77027a8",
-    "cycle_id": "69d0a3c5052b57f6be774e69",
+    "chapter_id": "69d0a3c5052b57f6be774e69",
     "character_id": "69d73ea49162ece35897a487",
     "character_name": "Einar Solveig",
     "player_name": "Nathan Hodge",
@@ -1971,7 +1971,7 @@
   },
   {
     "_id": "69da37d2cc5483a3c77027a9",
-    "cycle_id": "69d0a3c5052b57f6be774e69",
+    "chapter_id": "69d0a3c5052b57f6be774e69",
     "character_id": "69da21a09aa8d408d64748f6",
     "character_name": "Etsy",
     "player_name": "Daniel Barale",
@@ -2074,7 +2074,7 @@
   },
   {
     "_id": "69da37d3cc5483a3c77027aa",
-    "cycle_id": "69d0a3c5052b57f6be774e69",
+    "chapter_id": "69d0a3c5052b57f6be774e69",
     "character_id": "69d73ea49162ece35897a488",
     "character_name": "Eve",
     "player_name": "Jamie",
@@ -2290,7 +2290,7 @@
   },
   {
     "_id": "69da37d3cc5483a3c77027ab",
-    "cycle_id": "69d0a3c5052b57f6be774e69",
+    "chapter_id": "69d0a3c5052b57f6be774e69",
     "character_id": "69d73ea49162ece35897a48b",
     "character_name": "Ivana Horvatt",
     "player_name": "Lyn Hewett",
@@ -2500,7 +2500,7 @@
   },
   {
     "_id": "69da37d3cc5483a3c77027ac",
-    "cycle_id": "69d0a3c5052b57f6be774e69",
+    "chapter_id": "69d0a3c5052b57f6be774e69",
     "character_id": "69d73ea49162ece35897a48c",
     "character_name": "Jack Fallow",
     "player_name": "George Tomossy",
@@ -2798,7 +2798,7 @@
   },
   {
     "_id": "69da37d4cc5483a3c77027ad",
-    "cycle_id": "69d0a3c5052b57f6be774e69",
+    "chapter_id": "69d0a3c5052b57f6be774e69",
     "character_id": "69d73ea49162ece35897a48e",
     "character_name": "Keeper",
     "player_name": "Symon Geanellos",
@@ -3072,7 +3072,7 @@
   },
   {
     "_id": "69da37d4cc5483a3c77027ae",
-    "cycle_id": "69d0a3c5052b57f6be774e69",
+    "chapter_id": "69d0a3c5052b57f6be774e69",
     "character_id": "69d73ea49162ece35897a490",
     "character_name": "Livia",
     "player_name": "Claire Hosking",
@@ -3242,7 +3242,7 @@
   },
   {
     "_id": "69da37d4cc5483a3c77027af",
-    "cycle_id": "69d0a3c5052b57f6be774e69",
+    "chapter_id": "69d0a3c5052b57f6be774e69",
     "character_id": "69d73ea49162ece35897a491",
     "character_name": "Ludica lachirmore",
     "player_name": "Sky Kowe",
@@ -3486,7 +3486,7 @@
   },
   {
     "_id": "69da37d5cc5483a3c77027b0",
-    "cycle_id": "69d0a3c5052b57f6be774e69",
+    "chapter_id": "69d0a3c5052b57f6be774e69",
     "character_id": "69d73ea49162ece35897a492",
     "character_name": "Macheath",
     "player_name": "Charlie",
@@ -3708,7 +3708,7 @@
   },
   {
     "_id": "69da37d5cc5483a3c77027b1",
-    "cycle_id": "69d0a3c5052b57f6be774e69",
+    "chapter_id": "69d0a3c5052b57f6be774e69",
     "character_id": "69d73ea49162ece35897a494",
     "character_name": "Reed Justice",
     "player_name": "Conan",
@@ -4014,7 +4014,7 @@
   },
   {
     "_id": "69da37d5cc5483a3c77027b2",
-    "cycle_id": "69d0a3c5052b57f6be774e69",
+    "chapter_id": "69d0a3c5052b57f6be774e69",
     "character_id": "69d73ea49162ece35897a495",
     "character_name": "Rene Meyer",
     "player_name": "Luca Venn",
@@ -4240,7 +4240,7 @@
   },
   {
     "_id": "69da37d6cc5483a3c77027b3",
-    "cycle_id": "69d0a3c5052b57f6be774e69",
+    "chapter_id": "69d0a3c5052b57f6be774e69",
     "character_id": "69d73ea49162ece35897a497",
     "character_name": "Ryan Ambrose",
     "player_name": "Patrick Taranto",
@@ -4454,7 +4454,7 @@
   },
   {
     "_id": "69da37d6cc5483a3c77027b4",
-    "cycle_id": "69d0a3c5052b57f6be774e69",
+    "chapter_id": "69d0a3c5052b57f6be774e69",
     "character_id": "69d73ea49162ece35897a498",
     "character_name": "Tegan",
     "player_name": "Alana",
@@ -4646,7 +4646,7 @@
   },
   {
     "_id": "69da37d6cc5483a3c77027b5",
-    "cycle_id": "69d0a3c5052b57f6be774e69",
+    "chapter_id": "69d0a3c5052b57f6be774e69",
     "character_id": "69d73ea49162ece35897a49a",
     "character_name": "Xavier Boussade",
     "player_name": "James G",
@@ -4852,7 +4852,7 @@
   },
   {
     "_id": "69da37d7cc5483a3c77027b6",
-    "cycle_id": "69d0a3c5052b57f6be774e69",
+    "chapter_id": "69d0a3c5052b57f6be774e69",
     "character_id": "69d73ea49162ece35897a496",
     "character_name": "René St. Dominique",
     "player_name": "Matthew Bennett",
@@ -5033,7 +5033,7 @@
   },
   {
     "_id": "69daea765a6d06719db4fcd6",
-    "cycle_id": "69d0a3c5052b57f6be774e69",
+    "chapter_id": "69d0a3c5052b57f6be774e69",
     "character_id": "69d73ea49162ece35897a48d",
     "character_name": "Lady Julia Dolancia",
     "player_name": "Amelia",
@@ -5199,7 +5199,7 @@
   },
   {
     "_id": "69db860a3f5920869f663b7f",
-    "cycle_id": "69d0a3c5052b57f6be774e69",
+    "chapter_id": "69d0a3c5052b57f6be774e69",
     "character_id": "69d73ea49162ece35897a482",
     "character_name": "Charlie Ballsack",
     "player_name": "Kurtis Crisafulli",
@@ -5479,7 +5479,7 @@
   },
   {
     "_id": "69dc5e30a9c52cbbe1e41356",
-    "cycle_id": "69d0a3c5052b57f6be774e69",
+    "chapter_id": "69d0a3c5052b57f6be774e69",
     "character_id": "69d73ea49162ece35897a499",
     "character_name": "Wan Yelong",
     "player_name": "Michael van der Kolff",

@@ -65,7 +65,7 @@ async function setupSuite(page, char, existingSubmission = null) {
     r.fulfill({ status: 200, contentType: 'application/json',
       body: JSON.stringify([{ _id: char._id, name: char.name }]) })
   );
-  await page.route('**/api/downtime_cycles', r =>
+  await page.route('**/api/chapters', r =>
     r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([ACTIVE_CYCLE]) })
   );
   await page.route(/\/api\/downtime_submissions/, r => {
@@ -75,7 +75,7 @@ async function setupSuite(page, char, existingSubmission = null) {
         status: 200, contentType: 'application/json',
         body: JSON.stringify({
           _id: existingSubmission?._id || 'sub-dt32-new',
-          cycle_id: ACTIVE_CYCLE._id, character_id: char._id,
+          chapter_id: ACTIVE_CYCLE._id, character_id: char._id,
           status: 'draft', responses: reqBody.responses || {},
         }),
       });
@@ -136,7 +136,7 @@ test.describe('dt-form.32: Joint authoring removed from MVP', () => {
     const char = buildChar();
     const existingSub = {
       _id: 'sub-dt32-legacy',
-      cycle_id: ACTIVE_CYCLE._id,
+      chapter_id: ACTIVE_CYCLE._id,
       character_id: char._id,
       status: 'draft',
       responses: {

@@ -71,7 +71,7 @@ describe('cm5a — UI wiring (source, per the 708.1 convention)', () => {
   // apiDelete('/api/tracker_state') EXACTLY ONCE, between the confirm and the
   // phase write. That was the defect CM-4a exists to remove: the wipe was a
   // courtesy one UI path extended, made as a second, unrelated HTTP request,
-  // so any other caller of PUT /api/downtime_cycles/:id advanced the phase
+  // so any other caller of PUT /api/chapters/:id advanced the phase
   // with no wipe and no error. The wipe now belongs to the server route that
   // mutates the phase, inside one transaction with it.
   //

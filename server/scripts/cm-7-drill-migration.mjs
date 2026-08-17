@@ -10,9 +10,11 @@
  * migrate-invert-diff round trip. See cm-7's own story, Open Question 1, for why the drill is
  * deliberately kept minimal/generic rather than anticipating CM-4's real shape.
  *
- * SAFETY SCOPE. `planDrillMigration` only ever considers `downtime_cycles` documents carrying
- * `FIXTURE_MARKER: true`. No real document has ever carried that field (grep-confirmed, and it is
- * not declared in `downtime_submission.schema.js`'s cycle schema), so this cannot reach real data
+ * SAFETY SCOPE. `planDrillMigration` only ever considers `chapters` documents carrying
+ * `FIXTURE_MARKER: true` (the collection was `downtime_cycles` when this drill was written; cm-2b
+ * renamed it, and this file was re-pointed with it). No real document has ever carried that field
+ * (grep-confirmed, and it is not declared in `downtime_submission.schema.js`'s `downtimeCycleSchema`
+ * — the CHAPTER schema, whose own name is a cm-2b leftover), so this cannot reach real data
  * even if run outside a test — the same "cannot touch what it was never built to touch" shape as
  * `cm-2-chapters-to-story-cycles.mjs`'s source-shape guard, adapted to a marker field because this
  * script's fixtures are synthetic rather than a real pre-existing collection.
@@ -78,7 +80,7 @@ export function deserializePlan(json) {
   };
 }
 
-export const CYCLES_COLLECTION = 'downtime_cycles';
+export const CYCLES_COLLECTION = 'chapters';
 export const FIXTURE_MARKER = '_cm7_drill_fixture';
 
 /**
@@ -194,7 +196,7 @@ export async function main(argv = process.argv) {
   console.log(`Step      : ${invert ? 'INVERT (undo a prior forward move)' : 'FORWARD (drill renumber)'}`);
   console.log(`DB        : ${dbName}`);
   console.log(`Plan file : ${planFile}`);
-  console.log(`Scope     : only downtime_cycles documents carrying ${FIXTURE_MARKER}: true — never real data.`);
+  console.log(`Scope     : only chapters documents carrying ${FIXTURE_MARKER}: true — never real data.`);
   console.log('');
 
   await connectDb();

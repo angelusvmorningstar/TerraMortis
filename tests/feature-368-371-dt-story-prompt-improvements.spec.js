@@ -60,7 +60,7 @@ const CHAR_WITH_CAL = {
 function makeSub(char, opts = {}) {
   return {
     _id: `sub-${char._id}-dt3`,
-    cycle_id: ACTIVE_CYCLE._id,
+    chapter_id: ACTIVE_CYCLE._id,
     character_name: char.name,
     character_id: char._id,
     player_name: char.player,
@@ -104,16 +104,16 @@ async function setupPage(page, { characters, submissions, territories = [], rela
     if (method === 'PUT' || method === 'PATCH' || method === 'POST') return ok({ ok: true });
 
     if (url.includes('/api/downtime_submissions')) {
-      const m = url.match(/[?&]cycle_id=([^&]+)/);
+      const m = url.match(/[?&]chapter_id=([^&]+)/);
       if (m) {
         const cid = decodeURIComponent(m[1]);
         if (cid === PREV_CYCLE._id) return ok([]);
-        return ok(submissions.filter(s => s.cycle_id === ACTIVE_CYCLE._id));
+        return ok(submissions.filter(s => s.chapter_id === ACTIVE_CYCLE._id));
       }
       return ok(submissions);
     }
 
-    if (url.includes('/api/downtime_cycles')) return ok([ACTIVE_CYCLE, PREV_CYCLE]);
+    if (url.includes('/api/chapters')) return ok([ACTIVE_CYCLE, PREV_CYCLE]);
     if (url.includes('/api/territories'))     return ok(territories);
     if (url.includes('/api/game_sessions'))   return ok([]);
     if (url.includes('/api/session_logs'))    return ok([]);

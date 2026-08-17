@@ -45,7 +45,7 @@ const TEST_CYCLE = {
 // Ambience Increase, slot 1, submitted northshore
 const SUBMISSION_AMBI_INCREASE_NO_OVR = {
   _id: 'sub-289-inc',
-  cycle_id: 'cycle-289',
+  chapter_id: 'cycle-289',
   character_name: 'Ambi Test',
   character_id: 'char-289',
   player_name: 'Test Player',
@@ -112,7 +112,7 @@ async function setup(page, submissions, chars = [CHAR_289]) {
     const ok = (body) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(body) });
     if (method === 'PUT' || method === 'PATCH' || method === 'POST') return ok({ ok: true });
     if (url.includes('/api/downtime_submissions')) return ok(submissions);
-    if (url.includes('/api/downtime_cycles'))      return ok([TEST_CYCLE]);
+    if (url.includes('/api/chapters'))      return ok([TEST_CYCLE]);
     if (url.includes('/api/characters/names'))     return ok(chars.map(c => ({ _id: c._id, name: c.name, moniker: c.moniker, honorific: c.honorific })));
     if (url.includes('/api/characters'))           return ok(chars);
     if (url.includes('/api/territories'))          return ok([]);
@@ -241,7 +241,7 @@ test.describe('Issue #289 — Pill click handler regression', () => {
         return ok({ ok: true });
       }
       if (url.includes('/api/downtime_submissions')) return ok([SUBMISSION_AMBI_INCREASE_NO_OVR]);
-      if (url.includes('/api/downtime_cycles'))      return ok([TEST_CYCLE]);
+      if (url.includes('/api/chapters'))      return ok([TEST_CYCLE]);
       if (url.includes('/api/characters/names'))     return ok([{ _id: CHAR_289._id, name: CHAR_289.name, moniker: null, honorific: null }]);
       if (url.includes('/api/characters'))           return ok([CHAR_289]);
       if (url.includes('/api/territories'))          return ok([]);

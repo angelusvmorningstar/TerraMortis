@@ -60,7 +60,7 @@ const CHAR = {
 function baseSub(id) {
   return {
     _id: id,
-    cycle_id: 'cycle-493',
+    chapter_id: 'cycle-493',
     character_id: 'char-493',
     character_name: 'Outcome Test',
     player_name: 'Test Player 493',
@@ -155,7 +155,7 @@ async function setupStoryPanel(page, submissions) {
     route.fulfill({ status: 200, contentType: 'application/json',
       body: JSON.stringify([{ _id: CHAR._id, name: CHAR.name, moniker: CHAR.moniker, honorific: CHAR.honorific }]) })
   );
-  await page.route('**/api/downtime_cycles*', route =>
+  await page.route('**/api/chapters*', route =>
     route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([ACTIVE_CYCLE]) })
   );
   await page.route('**/api/downtime_submissions*', route => {

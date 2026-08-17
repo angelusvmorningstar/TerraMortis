@@ -56,7 +56,7 @@ const ALL_TERRS      = [TERR_ACADEMY, TERR_HARBOUR, TERR_NS, TERR_DOCKYARDS, TER
 function makePosInfluenceSub() {
   return {
     _id: 'sub-pos-inf-332',
-    cycle_id: 'cycle-332',
+    chapter_id: 'cycle-332',
     character_name: 'Yusuf al-Khatib',
     character_id: 'char-yusuf-332',
     player_name: 'Peter P',
@@ -76,7 +76,7 @@ function makePosInfluenceSub() {
 function makeNegInfluenceSub() {
   return {
     _id: 'sub-neg-inf-332',
-    cycle_id: 'cycle-332',
+    chapter_id: 'cycle-332',
     character_name: 'Yusuf al-Khatib',
     character_id: 'char-yusuf-332',
     player_name: 'Peter P',
@@ -96,7 +96,7 @@ function makeNegInfluenceSub() {
 function makeExceptionalAmbSub() {
   return {
     _id: 'sub-exc-amb-332',
-    cycle_id: 'cycle-332',
+    chapter_id: 'cycle-332',
     character_name: 'Yusuf al-Khatib',
     character_id: 'char-yusuf-332',
     player_name: 'Peter P',
@@ -123,7 +123,7 @@ function makeExceptionalAmbSub() {
 function makeNonExceptionalAmbSub() {
   return {
     _id: 'sub-nonexc-amb-332',
-    cycle_id: 'cycle-332',
+    chapter_id: 'cycle-332',
     character_name: 'Yusuf al-Khatib',
     character_id: 'char-yusuf-332',
     player_name: 'Peter P',
@@ -162,7 +162,7 @@ async function setup(page, submission) {
 
     if (method === 'PUT' || method === 'PATCH' || method === 'POST') return ok({ ok: true });
     if (url.includes('/api/downtime_submissions')) return ok([submission]);
-    if (url.includes('/api/downtime_cycles'))      return ok([TEST_CYCLE]);
+    if (url.includes('/api/chapters'))      return ok([TEST_CYCLE]);
     if (url.includes('/api/characters/names'))     return ok([{ _id: CHAR_YUSUF._id, name: CHAR_YUSUF.name, moniker: null, honorific: null }]);
     if (url.includes('/api/characters'))           return ok([CHAR_YUSUF]);
     if (url.includes('/api/territories'))          return ok(ALL_TERRS);

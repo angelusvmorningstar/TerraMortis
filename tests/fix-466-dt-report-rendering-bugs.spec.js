@@ -59,7 +59,7 @@ const CYCLE_466 = {
 const SUB_PROJCARD = {
   _id: 'sub-466-projcard',
   character_id: 'char-466',
-  cycle_id: 'cycle-466',
+  chapter_id: 'cycle-466',
   published_outcome: '## Research the Barrens\n\nShe searched the edges of the Barrens night after night.',
   st_narrative: {
     project_responses: [
@@ -88,7 +88,7 @@ const SUB_PROJCARD = {
 const SUB_SINGLE_NEWLINES = {
   _id: 'sub-466-single-nl',
   character_id: 'char-466',
-  cycle_id: 'cycle-466',
+  chapter_id: 'cycle-466',
   published_outcome: 'Some general outcome text.',
   st_narrative: {
     story_moment: {
@@ -107,7 +107,7 @@ const SUB_SINGLE_NEWLINES = {
 const SUB_DOUBLE_NEWLINES = {
   _id: 'sub-466-double-nl',
   character_id: 'char-466',
-  cycle_id: 'cycle-466',
+  chapter_id: 'cycle-466',
   published_outcome: 'Some general outcome text.',
   st_narrative: {
     story_moment: {
@@ -137,7 +137,7 @@ async function setup(page, submissions) {
 
     if (method === 'POST' || method === 'PUT' || method === 'PATCH') return ok({ ok: true });
     if (url.includes('/api/auth/me'))              return ok(PLAYER_USER);
-    if (url.includes('/api/downtime_cycles'))      return ok([CYCLE_466]);
+    if (url.includes('/api/chapters'))      return ok([CYCLE_466]);
     if (url.includes('/api/downtime_submissions')) return ok(submissions);
     if (url.includes('/api/archive_documents'))    return ok([]);
     if (url.includes('/api/characters/names'))     return ok([{ _id: CHAR_466._id, name: CHAR_466.name, moniker: null, honorific: null }]);

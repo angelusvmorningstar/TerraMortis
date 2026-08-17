@@ -42,7 +42,7 @@ const DESC_TEXT  = 'Einar will scour The Harbour district in raven form using Ac
 function investigateSub() {
   return {
     _id: 'sub-inv-583',
-    cycle_id: 'cycle-583',
+    chapter_id: 'cycle-583',
     character_name: 'Einar Test',
     character_id: 'char-583',
     player_name: 'Test Player',
@@ -73,7 +73,7 @@ function investigateSub() {
 function ambienceSub() {
   return {
     _id: 'sub-amb-583',
-    cycle_id: 'cycle-583',
+    chapter_id: 'cycle-583',
     character_name: 'Einar Test',
     character_id: 'char-583',
     player_name: 'Test Player',
@@ -113,7 +113,7 @@ async function setup(page, submissions) {
     const ok = (body) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(body) });
     if (method === 'PUT' || method === 'PATCH' || method === 'POST') return ok({ ok: true });
     if (url.includes('/api/downtime_submissions')) return ok(submissions);
-    if (url.includes('/api/downtime_cycles'))      return ok([TEST_CYCLE]);
+    if (url.includes('/api/chapters'))      return ok([TEST_CYCLE]);
     if (url.includes('/api/characters/names'))     return ok([{ _id: CHAR._id, name: CHAR.name, moniker: CHAR.moniker, honorific: CHAR.honorific }]);
     if (url.includes('/api/characters'))           return ok([CHAR]);
     return ok([]);

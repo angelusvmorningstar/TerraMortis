@@ -58,7 +58,7 @@ const BASE_CYCLE = {
 function makeFeedingSub(charId, charName, terrKey, idSuffix = '') {
   return {
     _id: `sub-feed-338-${charId}${idSuffix}`,
-    cycle_id: 'cycle-338',
+    chapter_id: 'cycle-338',
     character_name: charName,
     character_id: charId,
     player_name: 'Test Player',
@@ -75,7 +75,7 @@ function makeFeedingSub(charId, charName, terrKey, idSuffix = '') {
 function makePosInfluenceSub(amount) {
   return {
     _id: 'sub-338-pos-inf',
-    cycle_id: 'cycle-338',
+    chapter_id: 'cycle-338',
     character_name: 'Yusuf al-Khatib',
     character_id: 'char-338-yusuf',
     player_name: 'Peter P',
@@ -92,7 +92,7 @@ function makePosInfluenceSub(amount) {
 function makeNegInfluenceSub() {
   return {
     _id: 'sub-338-neg-inf',
-    cycle_id: 'cycle-338',
+    chapter_id: 'cycle-338',
     character_name: 'Yusuf al-Khatib',
     character_id: 'char-338-yusuf',
     player_name: 'Peter P',
@@ -109,7 +109,7 @@ function makeNegInfluenceSub() {
 function makeExceptionalPosSub() {
   return {
     _id: 'sub-338-exc-pos',
-    cycle_id: 'cycle-338',
+    chapter_id: 'cycle-338',
     character_name: 'Yusuf al-Khatib',
     character_id: 'char-338-yusuf',
     player_name: 'Peter P',
@@ -130,7 +130,7 @@ function makeExceptionalPosSub() {
 function makeExceptionalNegSub() {
   return {
     _id: 'sub-338-exc-neg',
-    cycle_id: 'cycle-338',
+    chapter_id: 'cycle-338',
     character_name: 'Yusuf al-Khatib',
     character_id: 'char-338-yusuf',
     player_name: 'Peter P',
@@ -152,7 +152,7 @@ function makeExceptionalNegSub() {
 function makeDummySub() {
   return {
     _id: 'sub-338-dummy',
-    cycle_id: 'cycle-338',
+    chapter_id: 'cycle-338',
     character_name: 'Dummy',
     character_id: 'char-338-dummy',
     player_name: 'Dummy',
@@ -182,7 +182,7 @@ async function setup(page, { cycle = BASE_CYCLE, subs = [] } = {}) {
 
     if (method === 'PUT' || method === 'PATCH' || method === 'POST') return ok({ ok: true });
     if (url.includes('/api/downtime_submissions')) return ok(subs);
-    if (url.includes('/api/downtime_cycles'))      return ok([cycle]);
+    if (url.includes('/api/chapters'))      return ok([cycle]);
     if (url.includes('/api/characters/names'))     return ok([{ _id: CHAR_YUSUF._id, name: CHAR_YUSUF.name, moniker: null, honorific: null }]);
     if (url.includes('/api/characters'))           return ok([CHAR_YUSUF]);
     if (url.includes('/api/territories'))          return ok(ALL_TERRS);

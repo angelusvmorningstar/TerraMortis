@@ -59,7 +59,7 @@ const CHAR = {
 function baseSub(id) {
   return {
     _id: id,
-    cycle_id: 'cycle-907',
+    chapter_id: 'cycle-907',
     character_id: 'char-907',
     character_name: 'Description Test',
     player_name: 'Test Player 907',
@@ -180,7 +180,7 @@ async function setupPlayerStory(page, submissions) {
     const ok = (body) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(body) });
     if (method === 'POST' || method === 'PUT' || method === 'PATCH') return ok({ ok: true });
     if (url.includes('/api/auth/me'))             return ok(PLAYER_USER);
-    if (url.includes('/api/downtime_cycles'))      return ok([CLOSED_CYCLE]);
+    if (url.includes('/api/chapters'))      return ok([CLOSED_CYCLE]);
     if (url.includes('/api/downtime_submissions')) return ok(submissions);
     if (url.includes('/api/characters/names'))     return ok([{ _id: CHAR._id, name: CHAR.name, moniker: CHAR.moniker, honorific: CHAR.honorific }]);
     if (url.includes('/api/characters'))           return ok([CHAR]);

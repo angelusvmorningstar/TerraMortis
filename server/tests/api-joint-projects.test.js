@@ -1,6 +1,6 @@
 /**
  * API tests — JDT-2 endpoints:
- *   POST /api/downtime_cycles/:cycleId/joint_projects
+ *   POST /api/chapters/:cycleId/joint_projects
  *   GET  /api/project_invitations?cycle_id=...
  *
  * Covers auth, action-type whitelist, atomic creation of joint + invitations,
@@ -28,7 +28,7 @@ beforeAll(async () => {
 });
 
 afterEach(async () => {
-  const cycleCol = getCollection('downtime_cycles');
+  const cycleCol = getCollection('chapters');
   for (const id of createdCycleIds) await cycleCol.deleteOne({ _id: id });
   createdCycleIds = [];
 
@@ -45,7 +45,7 @@ afterAll(async () => {
 });
 
 async function insertCycle(overrides = {}) {
-  const col = getCollection('downtime_cycles');
+  const col = getCollection('chapters');
   const doc = { label: 'JDT-2 Test', game_number: 999, status: 'active', ...overrides };
   const r = await col.insertOne(doc);
   createdCycleIds.push(r.insertedId);
@@ -56,7 +56,7 @@ async function insertSub(charId, cycleId) {
   const col = getCollection('downtime_submissions');
   const doc = {
     character_id: new ObjectId(charId),
-    cycle_id: cycleId,
+    chapter_id: cycleId,
     status: 'draft',
     responses: {},
   };
@@ -79,13 +79,13 @@ function jointBody(leadCharId, leadSubId, leadSlot, inviteeIds, overrides = {}) 
   };
 }
 
-describe('POST /api/downtime_cycles/:cycleId/joint_projects', () => {
+describe('POST /api/chapters/:cycleId/joint_projects', () => {
   it('lead creates a joint with one invitee; cycle and invitations updated atomically', async () => {
     const cycle = await insertCycle();
     const leadSub = await insertSub(testChars[0].id, cycle._id);
 
     const res = await request(app)
-      .post(`/api/downtime_cycles/${cycle._id}/joint_projects`)
+      .post(`/api/chapters/${cycle._id}/joint_projects`)
       .set('X-Test-User', playerUser([testChars[0].id]))
       .send(jointBody(testChars[0].id, leadSub._id, 1, [testChars[1].id]));
 
@@ -99,7 +99,7 @@ describe('POST /api/downtime_cycles/:cycleId/joint_projects', () => {
     expect(res.body.invitations[0].status).toBe('pending');
 
     // Verify side-effects in storage
-    const updated = await getCollection('downtime_cycles').findOne({ _id: cycle._id });
+    const updated = await getCollection('chapters').findOne({ _id: cycle._id });
     expect(updated.joint_projects).toHaveLength(1);
     expect(updated.joint_projects[0]._id).toBe(res.body.joint._id);
 
@@ -115,7 +115,7 @@ describe('POST /api/downtime_cycles/:cycleId/joint_projects', () => {
   it('rejects unauthenticated requests', async () => {
     const cycle = await insertCycle();
     const res = await request(app)
-      .post(`/api/downtime_cycles/${cycle._id}/joint_projects`)
+      .post(`/api/chapters/${cycle._id}/joint_projects`)
       .send({});
     expect(res.status).toBe(401);
   });
@@ -125,7 +125,7 @@ describe('POST /api/downtime_cycles/:cycleId/joint_projects', () => {
     const leadSub = await insertSub(testChars[0].id, cycle._id);
 
     const res = await request(app)
-      .post(`/api/downtime_cycles/${cycle._id}/joint_projects`)
+      .post(`/api/chapters/${cycle._id}/joint_projects`)
       .set('X-Test-User', playerUser([testChars[2].id])) // owns 2, not 0
       .send(jointBody(testChars[0].id, leadSub._id, 1, [testChars[1].id]));
 
@@ -137,7 +137,7 @@ describe('POST /api/downtime_cycles/:cycleId/joint_projects', () => {
     const leadSub = await insertSub(testChars[0].id, cycle._id);
 
     const res = await request(app)
-      .post(`/api/downtime_cycles/${cycle._id}/joint_projects`)
+      .post(`/api/chapters/${cycle._id}/joint_projects`)
       .set('X-Test-User', playerUser([testChars[0].id]))
       .send(jointBody(testChars[0].id, leadSub._id, 1, [testChars[1].id], { action_type: 'xp_spend' }));
 
@@ -151,7 +151,7 @@ describe('POST /api/downtime_cycles/:cycleId/joint_projects', () => {
     const leadSub = await insertSub(testChars[0].id, cycle._id);
 
     const res = await request(app)
-      .post(`/api/downtime_cycles/${cycle._id}/joint_projects`)
+      .post(`/api/chapters/${cycle._id}/joint_projects`)
       .set('X-Test-User', playerUser([testChars[0].id]))
       .send(jointBody(testChars[0].id, leadSub._id, 1, [testChars[0].id]));
 
@@ -163,7 +163,7 @@ describe('POST /api/downtime_cycles/:cycleId/joint_projects', () => {
     const leadSub = await insertSub(testChars[0].id, cycle._id);
 
     const res = await request(app)
-      .post(`/api/downtime_cycles/${cycle._id}/joint_projects`)
+      .post(`/api/chapters/${cycle._id}/joint_projects`)
       .set('X-Test-User', playerUser([testChars[0].id]))
       .send(jointBody(testChars[0].id, leadSub._id, 1, []));
 
@@ -175,7 +175,7 @@ describe('POST /api/downtime_cycles/:cycleId/joint_projects', () => {
     const otherSub = await insertSub(testChars[2].id, cycle._id);
 
     const res = await request(app)
-      .post(`/api/downtime_cycles/${cycle._id}/joint_projects`)
+      .post(`/api/chapters/${cycle._id}/joint_projects`)
       .set('X-Test-User', playerUser([testChars[0].id]))
       .send(jointBody(testChars[0].id, otherSub._id, 1, [testChars[1].id]));
 
@@ -188,13 +188,13 @@ describe('POST /api/downtime_cycles/:cycleId/joint_projects', () => {
     const userHeader = playerUser([testChars[0].id]);
 
     const r1 = await request(app)
-      .post(`/api/downtime_cycles/${cycle._id}/joint_projects`)
+      .post(`/api/chapters/${cycle._id}/joint_projects`)
       .set('X-Test-User', userHeader)
       .send(jointBody(testChars[0].id, leadSub._id, 2, [testChars[1].id]));
     expect(r1.status).toBe(201);
 
     const r2 = await request(app)
-      .post(`/api/downtime_cycles/${cycle._id}/joint_projects`)
+      .post(`/api/chapters/${cycle._id}/joint_projects`)
       .set('X-Test-User', userHeader)
       .send(jointBody(testChars[0].id, leadSub._id, 2, [testChars[2].id]));
     expect(r2.status).toBe(409);
@@ -209,7 +209,7 @@ describe('POST /api/downtime_cycles/:cycleId/joint_projects', () => {
     const leadSub = await insertSub(testChars[0].id, cycle._id);
 
     const res = await request(app)
-      .post(`/api/downtime_cycles/${cycle._id}/joint_projects`)
+      .post(`/api/chapters/${cycle._id}/joint_projects`)
       .set('X-Test-User', playerUser([testChars[0].id]))
       .send(jointBody(testChars[0].id, leadSub._id, 7, [testChars[1].id]));
 
@@ -221,7 +221,7 @@ describe('POST /api/downtime_cycles/:cycleId/joint_projects', () => {
     const leadSub = await insertSub(testChars[0].id, cycle._id);
 
     const res = await request(app)
-      .post(`/api/downtime_cycles/${cycle._id}/joint_projects`)
+      .post(`/api/chapters/${cycle._id}/joint_projects`)
       .set('X-Test-User', playerUser([testChars[0].id]))
       .send(jointBody(testChars[0].id, leadSub._id, 1, [testChars[1].id]));
 
@@ -229,12 +229,12 @@ describe('POST /api/downtime_cycles/:cycleId/joint_projects', () => {
   });
 });
 
-describe('POST /api/downtime_cycles/:cycleId/joint_projects/:jointId/reinvite — JDT-6', () => {
+describe('POST /api/chapters/:cycleId/joint_projects/:jointId/reinvite — JDT-6', () => {
   async function createBaseJoint(testChars) {
     const cycle = await insertCycle();
     const leadSub = await insertSub(testChars[0].id, cycle._id);
     const r = await request(app)
-      .post(`/api/downtime_cycles/${cycle._id}/joint_projects`)
+      .post(`/api/chapters/${cycle._id}/joint_projects`)
       .set('X-Test-User', playerUser([testChars[0].id]))
       .send(jointBody(testChars[0].id, leadSub._id, 1, [testChars[1].id]));
     expect(r.status).toBe(201);
@@ -249,7 +249,7 @@ describe('POST /api/downtime_cycles/:cycleId/joint_projects/:jointId/reinvite �
     const { cycle, joint } = await createBaseJoint(testChars);
 
     const res = await request(app)
-      .post(`/api/downtime_cycles/${cycle._id}/joint_projects/${joint._id}/reinvite`)
+      .post(`/api/chapters/${cycle._id}/joint_projects/${joint._id}/reinvite`)
       .set('X-Test-User', playerUser([testChars[0].id]))
       .send({ invitee_character_ids: [testChars[2].id] });
 
@@ -263,7 +263,7 @@ describe('POST /api/downtime_cycles/:cycleId/joint_projects/:jointId/reinvite �
     const { cycle, joint } = await createBaseJoint(testChars);
 
     const res = await request(app)
-      .post(`/api/downtime_cycles/${cycle._id}/joint_projects/${joint._id}/reinvite`)
+      .post(`/api/chapters/${cycle._id}/joint_projects/${joint._id}/reinvite`)
       .set('X-Test-User', playerUser([testChars[0].id]))
       .send({ invitee_character_ids: [testChars[1].id] });
 
@@ -275,7 +275,7 @@ describe('POST /api/downtime_cycles/:cycleId/joint_projects/:jointId/reinvite �
     const { cycle, joint } = await createBaseJoint(testChars);
 
     const res = await request(app)
-      .post(`/api/downtime_cycles/${cycle._id}/joint_projects/${joint._id}/reinvite`)
+      .post(`/api/chapters/${cycle._id}/joint_projects/${joint._id}/reinvite`)
       .set('X-Test-User', playerUser([testChars[2].id]))
       .send({ invitee_character_ids: [testChars[2].id] });
 
@@ -292,12 +292,12 @@ describe('POST /api/downtime_cycles/:cycleId/joint_projects/:jointId/reinvite �
       .send({});
 
     await request(app)
-      .post(`/api/downtime_cycles/${cycle._id}/joint_projects/${joint._id}/cancel`)
+      .post(`/api/chapters/${cycle._id}/joint_projects/${joint._id}/cancel`)
       .set('X-Test-User', playerUser([testChars[0].id]))
       .send({});
 
     const res = await request(app)
-      .post(`/api/downtime_cycles/${cycle._id}/joint_projects/${joint._id}/reinvite`)
+      .post(`/api/chapters/${cycle._id}/joint_projects/${joint._id}/reinvite`)
       .set('X-Test-User', playerUser([testChars[0].id]))
       .send({ invitee_character_ids: [testChars[2].id] });
 
@@ -306,13 +306,13 @@ describe('POST /api/downtime_cycles/:cycleId/joint_projects/:jointId/reinvite �
   });
 });
 
-describe('POST /api/downtime_cycles/:cycleId/joint_projects/:jointId/cancel — JDT-6', () => {
+describe('POST /api/chapters/:cycleId/joint_projects/:jointId/cancel — JDT-6', () => {
   async function createBaseJoint(testChars, inviteeIds) {
     const cycle = await insertCycle();
     const leadSub = await insertSub(testChars[0].id, cycle._id);
     for (const cid of inviteeIds) await insertSub(cid, cycle._id);
     const r = await request(app)
-      .post(`/api/downtime_cycles/${cycle._id}/joint_projects`)
+      .post(`/api/chapters/${cycle._id}/joint_projects`)
       .set('X-Test-User', playerUser([testChars[0].id]))
       .send(jointBody(testChars[0].id, leadSub._id, 1, inviteeIds));
     expect(r.status).toBe(201);
@@ -332,7 +332,7 @@ describe('POST /api/downtime_cycles/:cycleId/joint_projects/:jointId/cancel — 
       .send({});
 
     const res = await request(app)
-      .post(`/api/downtime_cycles/${cycle._id}/joint_projects/${joint._id}/cancel`)
+      .post(`/api/chapters/${cycle._id}/joint_projects/${joint._id}/cancel`)
       .set('X-Test-User', playerUser([testChars[0].id]))
       .send({});
 
@@ -355,7 +355,7 @@ describe('POST /api/downtime_cycles/:cycleId/joint_projects/:jointId/cancel — 
       .send({});
 
     const res = await request(app)
-      .post(`/api/downtime_cycles/${cycle._id}/joint_projects/${joint._id}/cancel`)
+      .post(`/api/chapters/${cycle._id}/joint_projects/${joint._id}/cancel`)
       .set('X-Test-User', playerUser([testChars[0].id]))
       .send({});
 
@@ -367,7 +367,7 @@ describe('POST /api/downtime_cycles/:cycleId/joint_projects/:jointId/cancel — 
     const { cycle, joint } = await createBaseJoint(testChars, [testChars[1].id]);
 
     const res = await request(app)
-      .post(`/api/downtime_cycles/${cycle._id}/joint_projects/${joint._id}/cancel`)
+      .post(`/api/chapters/${cycle._id}/joint_projects/${joint._id}/cancel`)
       .set('X-Test-User', playerUser([testChars[0].id]))
       .send({});
 
@@ -383,7 +383,7 @@ describe('POST /api/downtime_cycles/:cycleId/joint_projects/:jointId/cancel — 
       .send({});
 
     const res = await request(app)
-      .post(`/api/downtime_cycles/${cycle._id}/joint_projects/${joint._id}/cancel`)
+      .post(`/api/chapters/${cycle._id}/joint_projects/${joint._id}/cancel`)
       .set('X-Test-User', stUser())
       .send({ st_override: true });
 
@@ -393,7 +393,7 @@ describe('POST /api/downtime_cycles/:cycleId/joint_projects/:jointId/cancel — 
     // Support's slot is cleared
     const supportSub = await getCollection('downtime_submissions').findOne({
       character_id: new ObjectId(testChars[1].id),
-      cycle_id: cycle._id,
+      chapter_id: cycle._id,
     });
     expect(supportSub.responses.project_1_action).toBe('');
     expect(supportSub.responses.project_1_joint_id).toBeNull();
@@ -408,7 +408,7 @@ describe('POST /api/downtime_cycles/:cycleId/joint_projects/:jointId/cancel — 
     const { cycle, joint } = await createBaseJoint(testChars, [testChars[1].id]);
 
     const res = await request(app)
-      .post(`/api/downtime_cycles/${cycle._id}/joint_projects/${joint._id}/cancel`)
+      .post(`/api/chapters/${cycle._id}/joint_projects/${joint._id}/cancel`)
       .set('X-Test-User', playerUser([testChars[2].id]))
       .send({});
     expect(res.status).toBe(403);
@@ -422,12 +422,12 @@ describe('POST /api/downtime_cycles/:cycleId/joint_projects/:jointId/cancel — 
       .send({});
 
     await request(app)
-      .post(`/api/downtime_cycles/${cycle._id}/joint_projects/${joint._id}/cancel`)
+      .post(`/api/chapters/${cycle._id}/joint_projects/${joint._id}/cancel`)
       .set('X-Test-User', playerUser([testChars[0].id]))
       .send({});
 
     const res = await request(app)
-      .post(`/api/downtime_cycles/${cycle._id}/joint_projects/${joint._id}/cancel`)
+      .post(`/api/chapters/${cycle._id}/joint_projects/${joint._id}/cancel`)
       .set('X-Test-User', playerUser([testChars[0].id]))
       .send({});
     expect(res.status).toBe(409);
@@ -439,7 +439,7 @@ describe('POST /api/downtime_cycles/:cycleId/joint_projects/:jointId/cancel — 
 
     // ST override path so we can cancel without needing both invitees to decline
     const res = await request(app)
-      .post(`/api/downtime_cycles/${cycle._id}/joint_projects/${joint._id}/cancel`)
+      .post(`/api/chapters/${cycle._id}/joint_projects/${joint._id}/cancel`)
       .set('X-Test-User', stUser())
       .send({ st_override: true });
     expect(res.status).toBe(200);
@@ -453,13 +453,13 @@ describe('POST /api/downtime_cycles/:cycleId/joint_projects/:jointId/cancel — 
   });
 });
 
-describe('PATCH /api/downtime_cycles/:cycleId/joint_projects/:jointId — JDT-6', () => {
+describe('PATCH /api/chapters/:cycleId/joint_projects/:jointId — JDT-6', () => {
   async function createBaseJoint(testChars, inviteeIds) {
     const cycle = await insertCycle();
     const leadSub = await insertSub(testChars[0].id, cycle._id);
     for (const cid of inviteeIds) await insertSub(cid, cycle._id);
     const r = await request(app)
-      .post(`/api/downtime_cycles/${cycle._id}/joint_projects`)
+      .post(`/api/chapters/${cycle._id}/joint_projects`)
       .set('X-Test-User', playerUser([testChars[0].id]))
       .send(jointBody(testChars[0].id, leadSub._id, 1, inviteeIds));
     expect(r.status).toBe(201);
@@ -475,7 +475,7 @@ describe('PATCH /api/downtime_cycles/:cycleId/joint_projects/:jointId — JDT-6'
     const before = joint.description_updated_at;
 
     const res = await request(app)
-      .patch(`/api/downtime_cycles/${cycle._id}/joint_projects/${joint._id}`)
+      .patch(`/api/chapters/${cycle._id}/joint_projects/${joint._id}`)
       .set('X-Test-User', playerUser([testChars[0].id]))
       .send({ description: 'Updated plan: rendezvous at the Wallflower' });
 
@@ -488,7 +488,7 @@ describe('PATCH /api/downtime_cycles/:cycleId/joint_projects/:jointId — JDT-6'
   it('rejects non-leads', async () => {
     const { cycle, joint } = await createBaseJoint(testChars, [testChars[1].id]);
     const res = await request(app)
-      .patch(`/api/downtime_cycles/${cycle._id}/joint_projects/${joint._id}`)
+      .patch(`/api/chapters/${cycle._id}/joint_projects/${joint._id}`)
       .set('X-Test-User', playerUser([testChars[2].id]))
       .send({ description: 'sneak edit' });
     expect(res.status).toBe(403);
@@ -497,7 +497,7 @@ describe('PATCH /api/downtime_cycles/:cycleId/joint_projects/:jointId — JDT-6'
   it('rejects empty body', async () => {
     const { cycle, joint } = await createBaseJoint(testChars, [testChars[1].id]);
     const res = await request(app)
-      .patch(`/api/downtime_cycles/${cycle._id}/joint_projects/${joint._id}`)
+      .patch(`/api/chapters/${cycle._id}/joint_projects/${joint._id}`)
       .set('X-Test-User', playerUser([testChars[0].id]))
       .send({});
     expect(res.status).toBe(400);
@@ -510,25 +510,25 @@ describe('PATCH /api/downtime_cycles/:cycleId/joint_projects/:jointId — JDT-6'
       .set('X-Test-User', playerUser([testChars[1].id]))
       .send({});
     await request(app)
-      .post(`/api/downtime_cycles/${cycle._id}/joint_projects/${joint._id}/cancel`)
+      .post(`/api/chapters/${cycle._id}/joint_projects/${joint._id}/cancel`)
       .set('X-Test-User', playerUser([testChars[0].id]))
       .send({});
 
     const res = await request(app)
-      .patch(`/api/downtime_cycles/${cycle._id}/joint_projects/${joint._id}`)
+      .patch(`/api/chapters/${cycle._id}/joint_projects/${joint._id}`)
       .set('X-Test-User', playerUser([testChars[0].id]))
       .send({ description: 'too late' });
     expect(res.status).toBe(409);
   });
 });
 
-describe('POST /api/downtime_cycles/:cycleId/joint_projects/:jointId/participants/:charId/acknowledge — JDT-6', () => {
+describe('POST /api/chapters/:cycleId/joint_projects/:jointId/participants/:charId/acknowledge — JDT-6', () => {
   async function createAcceptedJoint(testChars) {
     const cycle = await insertCycle();
     const leadSub = await insertSub(testChars[0].id, cycle._id);
     await insertSub(testChars[1].id, cycle._id);
     const r = await request(app)
-      .post(`/api/downtime_cycles/${cycle._id}/joint_projects`)
+      .post(`/api/chapters/${cycle._id}/joint_projects`)
       .set('X-Test-User', playerUser([testChars[0].id]))
       .send(jointBody(testChars[0].id, leadSub._id, 1, [testChars[1].id]));
     expect(r.status).toBe(201);
@@ -548,7 +548,7 @@ describe('POST /api/downtime_cycles/:cycleId/joint_projects/:jointId/participant
     const { cycle, joint } = await createAcceptedJoint(testChars);
 
     const res = await request(app)
-      .post(`/api/downtime_cycles/${cycle._id}/joint_projects/${joint._id}/participants/${testChars[1].id}/acknowledge`)
+      .post(`/api/chapters/${cycle._id}/joint_projects/${joint._id}/participants/${testChars[1].id}/acknowledge`)
       .set('X-Test-User', playerUser([testChars[1].id]))
       .send({});
 
@@ -562,7 +562,7 @@ describe('POST /api/downtime_cycles/:cycleId/joint_projects/:jointId/participant
     const { cycle, joint } = await createAcceptedJoint(testChars);
 
     const res = await request(app)
-      .post(`/api/downtime_cycles/${cycle._id}/joint_projects/${joint._id}/participants/${testChars[1].id}/acknowledge`)
+      .post(`/api/chapters/${cycle._id}/joint_projects/${joint._id}/participants/${testChars[1].id}/acknowledge`)
       .set('X-Test-User', playerUser([testChars[2].id]))
       .send({});
     expect(res.status).toBe(403);
@@ -571,7 +571,7 @@ describe('POST /api/downtime_cycles/:cycleId/joint_projects/:jointId/participant
   it('returns 404 for missing participant', async () => {
     const { cycle, joint } = await createAcceptedJoint(testChars);
     const res = await request(app)
-      .post(`/api/downtime_cycles/${cycle._id}/joint_projects/${joint._id}/participants/${testChars[2].id}/acknowledge`)
+      .post(`/api/chapters/${cycle._id}/joint_projects/${joint._id}/participants/${testChars[2].id}/acknowledge`)
       .set('X-Test-User', stUser())
       .send({});
     expect(res.status).toBe(404);
@@ -584,7 +584,7 @@ describe('DELETE /api/downtime_submissions/:id — JDT-6 joint cascade', () => {
     const leadSub = await insertSub(testChars[leadIdx].id, cycle._id);
     await insertSub(testChars[supportIdx].id, cycle._id);
     const r = await request(app)
-      .post(`/api/downtime_cycles/${cycle._id}/joint_projects`)
+      .post(`/api/chapters/${cycle._id}/joint_projects`)
       .set('X-Test-User', playerUser([testChars[leadIdx].id]))
       .send(jointBody(testChars[leadIdx].id, leadSub._id, 1, [testChars[supportIdx].id]));
     expect(r.status).toBe(201);
@@ -612,7 +612,7 @@ describe('DELETE /api/downtime_submissions/:id — JDT-6 joint cascade', () => {
     expect(res.body.cascade.joints_cancelled).toBe(1);
 
     // Joint is cancelled with the right reason
-    const updatedCycle = await getCollection('downtime_cycles').findOne({ _id: cycle._id });
+    const updatedCycle = await getCollection('chapters').findOne({ _id: cycle._id });
     const j = (updatedCycle.joint_projects || []).find(x => String(x._id) === String(joint._id));
     expect(j.cancelled_at).toBeTruthy();
     expect(j.cancelled_reason).toBe('lead-submission-deleted');
@@ -644,7 +644,7 @@ describe('DELETE /api/downtime_submissions/:id — JDT-6 joint cascade', () => {
     expect(res.body.cascade.joints_cancelled).toBe(0);
 
     // Joint is NOT cancelled
-    const updatedCycle = await getCollection('downtime_cycles').findOne({ _id: cycle._id });
+    const updatedCycle = await getCollection('chapters').findOne({ _id: cycle._id });
     const j = (updatedCycle.joint_projects || []).find(x => String(x._id) === String(joint._id));
     expect(j.cancelled_at).toBeNull();
     // Participant entry is decoupled
@@ -698,7 +698,7 @@ describe('GET /api/project_invitations', () => {
     const leadSub = await insertSub(testChars[0].id, cycle._id);
 
     const created = await request(app)
-      .post(`/api/downtime_cycles/${cycle._id}/joint_projects`)
+      .post(`/api/chapters/${cycle._id}/joint_projects`)
       .set('X-Test-User', playerUser([testChars[0].id]))
       .send(jointBody(testChars[0].id, leadSub._id, 1, [testChars[1].id, testChars[2].id]));
     expect(created.status).toBe(201);
@@ -721,7 +721,7 @@ describe('GET /api/project_invitations', () => {
     // Lead is char 0; invites char 1 + char 2
     const leadSub = await insertSub(testChars[0].id, cycle._id);
     const created = await request(app)
-      .post(`/api/downtime_cycles/${cycle._id}/joint_projects`)
+      .post(`/api/chapters/${cycle._id}/joint_projects`)
       .set('X-Test-User', playerUser([testChars[0].id]))
       .send(jointBody(testChars[0].id, leadSub._id, 1, [testChars[1].id, testChars[2].id]));
     expect(created.status).toBe(201);
