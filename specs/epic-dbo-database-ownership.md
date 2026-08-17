@@ -383,8 +383,15 @@ are inside this repo. Consolidate this side's pair; the cross-repo copy is the W
   **incomplete** — the Cockpit ingest is unbuilt — so this repo's tab stays live and is the working
   surface until it completes. **Do not retire it unilaterally.** The Wiki's story 31-0 handles
   containment on its side.
-- **`feral`.** Awaiting an Angelus ruling: the Wiki drops it, or this repo's `feedMethodEnum`
-  (`server/schemas/downtime_submission.schema.js:58-60`) gains it. Opposite fixes in opposite repos.
+- **`feral`.** **RESOLVED on the Wiki side, 2026-08-16** (found via a cross-repo store audit run from
+  the TM Story/Wiki session): the Wiki's own 31-7 story initially dropped `feral` per an Angelus
+  ruling on 2026-08-15, then he corrected it the same day — Story 11-9's own DQ2 had already weighed
+  and kept it on real evidence, and the "zero usage" audit that justified dropping it tested the
+  wrong signal (a literal-string search against this repo's field, which only ever holds free text).
+  `feral` is restored and stays in the Wiki's `feeding_templates`. **Still open, and still this repo's
+  call**: whether this repo's `feedMethodEnum` (`server/schemas/downtime_submission.schema.js:58-60`)
+  should ever gain `feral` too (Wiki's `deferred-work.md` item 214) — not decided here, no longer
+  "opposite fixes in opposite repos" since only one side is still unsettled.
 - **Boons and debts** (5 and 4 dossier facts). If an Invictus boon is mechanically enforceable it
   stays; if it is narrative leverage the ST adjudicates, it travels. Not yet ruled.
 
