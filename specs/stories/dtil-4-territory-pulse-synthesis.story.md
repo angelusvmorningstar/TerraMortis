@@ -1,7 +1,7 @@
 ---
 id: dtil.4
 epic: dtil
-status: ready-for-dev
+status: done
 priority: medium
 depends_on: []
 ---
@@ -344,3 +344,45 @@ No server route changes; existing PUT accepts the new field.
 - Independent of DTIL-1 (Court Pulse) and DTIL-2/DTIL-3 (Action Queue). All four panels are independent surfaces.
 - Compatible with DTSR-7 (feeding narrative): both append to the Feeding section of the published outcome; ordering is feeding narrative first, then territory pulses (per cycle's editorial preference; tunable at implementation).
 - Closes Epic DTIL when shipped.
+
+---
+
+## Dev Agent Record
+### Agent Model Used
+claude-sonnet-5 (verification pass; no reimplementation)
+### Completion Notes
+Verified alongside dtil-1/2/3 on 2026-08-18. `renderTerritoryPulsePanel`,
+`_buildTerritoryPulsePromptText`, `_feedTerrIdsForSub`, `_terrOidForSlug`, plus the
+copy/save/toggle handlers are already live in `public/js/admin/downtime-views.js`,
+shipped in `84558762` (2026-04-27) — landing in `downtime-views.js`/`downtime-
+story.js` rather than the story's speculative `city-views.js`, since that file
+doesn't own this surface in the live codebase. The panel mounts inside the DT
+City overview render (`## 6. Territory Pulse (DTIL-4)` comment marker), one row
+per `TERRITORY_DATA` entry.
+
+This is the most heavily iterated of the four DTIL stories: 8 follow-up commits
+since initial ship (`5e9dc8b2` #338 feeder cap/covenant aggregation/discipline
+threshold/direct-hands split, `b4a67904` #332 influence contributors, `229f3c16`
+discipline territorial vibe reference, `2465d364` #719 TERRITORY_DATA-derived
+rows, `a7f839df` #470, `5343a15a` #909/#910 slug-routing fixes, `82f74534` #922),
+which is strong independent evidence this shipped and has been in real ST use,
+not just committed and forgotten.
+
+Verified against the AC: per-territory row with name + ambience tier, expandable
+prompt block, Copy button, draft textarea pre-filled from
+`cycle.territory_pulse[oid].draft` (keyed by Mongo `_id` per ADR-002, correctly
+resolved from `TERRITORY_DATA` slugs), Save persists via `updateCycle`. Publish-
+time injection confirmed in `compilePushOutcome` (`downtime-story.js`): iterates
+the submission's fed territories, skips `no_feed` and the Barrens fallback,
+appends `## Territory Pulse — <name>` per territory with a non-empty draft, no
+placeholder when a pulse wasn't authored — matching the AC exactly. The prompt
+framing has evolved well past the story's original strawman wording; that's
+expected drift given "Prompt tuning... tune in a follow-up story" is explicit
+policy on this epic (see dtil-1's Context section) and the current version is
+demonstrably more sophisticated (feeder-cap crowding, covenant fingerprinting
+with a positive/negative naming asymmetry, discipline-threshold filtering).
+### File List
+No files changed this pass (verification only). Original implementation:
+- `public/js/admin/downtime-views.js`
+- `public/js/admin/downtime-story.js`
+- `public/css/admin-layout.css`

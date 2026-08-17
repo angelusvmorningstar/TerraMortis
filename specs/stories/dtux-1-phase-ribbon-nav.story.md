@@ -1,7 +1,7 @@
 ---
 id: dtux.1
 epic: dtux
-status: ready-for-dev
+status: done
 priority: medium
 depends_on: []
 ---
@@ -404,3 +404,37 @@ Land DTUX-1 **before** any DTIL or JDT story. Land it in **parallel** with NPCP 
 - `memory/project_downtime_ui_harmonise.md` — broader UI harmonisation context (CSS-6 through CSS-10).
 - `specs/audits/downtime-ui-audit-2026-04-26.md` — panel chrome inventory; this story changes the *navigation model* and is orthogonal to that audit.
 - Code references: `public/admin.html:107-134`, `public/js/admin/downtime-views.js:214-299, 1399-1504`, `public/js/admin.js:196, 233`, `public/css/admin-layout.css:1230-1359, 6340-6360`.
+
+---
+
+## Dev Agent Record
+### Agent Model Used
+claude-sonnet-5 (verification pass; no reimplementation)
+### Completion Notes
+Picked up on 2026-08-18 right after the same discovery on epic-dtil: this story
+turned out to already be shipped too. `deriveCycleStatus`/`signoffPhase` live in
+`public/js/downtime/db.js` (imported into `downtime-views.js` alongside
+`DTUX_PHASES`); `showDtuxPhase` is the panel router; the ribbon renders from
+`DTUX_PHASES` with `cycle.phase_signoff`-driven badges. Implementing commit
+`b34d5233` (2026-04-27), with real follow-up polish (`3ecc63d2`, `c0750685`
+merge) and a 34-spec E2E suite (`083ef038`, `#308`) — plus dedicated unit
+coverage in `server/tests/derive-cycle-status.test.js`. All on `main`.
+
+Spot-checked against the AC: `#dt-sub-tab-bar` markup is gone from
+`admin.html` (explicit comment: "sub-tab strip removed"), `#dt-sub-ribbon`
+is retired but kept as a hidden no-op div rather than deleted outright — a
+minor, deliberate deviation from the AC's "removed entirely" wording,
+documented inline in the HTML as "kept hidden via JS for deferred markup
+cleanup" rather than silently diverging. `#dt-ready-panel` exists as the
+fifth tab. `phase_signoff` has no dedicated schema file to update — the
+cycle/chapter document has no strict validator on this path (consistent with
+`server/routes/chapters.js`'s existing open-field PUT), so that AC clause is
+trivially satisfied rather than needing a change.
+
+Tracker had the same `ready-for-dev` regression as epic-dtil, from the same
+2026-08-16 reconciliation (`134045a16`); corrected to `done`.
+### File List
+No files changed this pass (verification only). Original implementation spans
+`public/admin.html`, `public/js/admin/downtime-views.js`, `public/js/admin.js`,
+`public/js/downtime/db.js`, `public/css/admin-layout.css`, plus
+`server/tests/derive-cycle-status.test.js` and the DTUX-1 E2E spec from `#308`.

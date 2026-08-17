@@ -1,7 +1,7 @@
 ---
 id: dtil.3
 epic: dtil
-status: ready-for-dev
+status: done
 priority: medium
 depends_on: [dtfp.7, dtil.2]
 ---
@@ -214,3 +214,35 @@ No CSS, no schema, no server route changes.
 - **Depends on DTFP-7** (`mechanical_flag_N` field on submissions). Without DTFP-7, the derivation has nothing to read.
 - **Depends on DTIL-2** (Action Queue panel and `cycle.action_queue_state` shape). DTIL-3 modifies DTIL-2's render flow.
 - Independent of DTIL-1 (Court Pulse) and DTIL-4 (Territory Pulse).
+
+---
+
+## Dev Agent Record
+### Agent Model Used
+claude-sonnet-5 (verification pass; no reimplementation)
+### Completion Notes
+Verified alongside dtil-1/dtil-2 on 2026-08-18. `_deriveActionQueueDefaults` is
+already live in `public/js/admin/downtime-views.js` (shipped in `9823eea1`,
+2026-04-27) and is called from `loadCycleById` — `await
+_deriveActionQueueDefaults(currentCycle, submissions)` — immediately before
+`renderCycleIntelligence`, i.e. before every render, exactly matching the
+"batched, first-read-only, pre-render" shape the AC specifies.
+
+Verified against the AC: flagged+unentried items derive to `action_needed`,
+unflagged+unentried derive to `unread`; existing entries are always skipped
+(`if (stateMap[key]) continue`), so ST overrides are sticky even if the flag
+later changes; the batched write is a single `updateCycle` PUT carrying every
+new entry, not one write per item; a no-op run (all items already entered)
+makes no write at all, matching the "no PUT call" AC. Failure handling matches:
+the PUT is wrapped in try/catch with `console.warn`, and the in-memory map is
+updated before the awaited persistence call so render never blocks on it.
+
+This story's `depends_on: [dtfp.7, dtil.2]` is also satisfied in reality —
+dtfp-7 (`mechanical_flag_N`) shipped in `7da7251e`/merged via `4b078289`, also
+on `main` — though `dtfp-7-mechanical-flag-checkbox` itself is still marked
+`ready-for-dev` in `sprint-status.yaml`. Not corrected here (out of scope for
+this dtil pass); flagging for a separate look, since epic-dtfp likely has the
+same 2026-08-16 misclassification epic-dtil had.
+### File List
+No files changed this pass (verification only). Original implementation:
+- `public/js/admin/downtime-views.js`

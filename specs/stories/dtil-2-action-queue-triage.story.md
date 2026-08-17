@@ -1,7 +1,7 @@
 ---
 id: dtil.2
 epic: dtil
-status: ready-for-dev
+status: done
 priority: medium
 depends_on: []
 ---
@@ -312,3 +312,30 @@ No server changes (existing `PUT /api/chapters/:id` accepts the new field — ro
 - No upstream dependencies for the data path; reads from existing `responses.game_recount_N`.
 - **Pairs with DTIL-3** (auto-state derivation from `mechanical_flag_N`). DTIL-2 ships the manual triage UI; DTIL-3 changes the default-state derivation. Either ships first, but DTIL-2 ships the panel that DTIL-3 modifies.
 - Independent of DTIL-1 (Court Pulse) and DTIL-4 (Territory Pulse) — three separate intelligence surfaces.
+
+---
+
+## Dev Agent Record
+### Agent Model Used
+claude-sonnet-5 (verification pass; no reimplementation)
+### Completion Notes
+Verified alongside dtil-1 on 2026-08-18. `renderActionQueuePanel` and its supporting
+helpers (`_buildActionQueueItems`, `_persistActionQueueEntry`,
+`_handleActionQueueStateChange`, `_handleActionQueueNoteSave`,
+`_handleActionQueueFilter`, `_handleActionQueueRowExpandToggle`) are already live in
+`public/js/admin/downtime-views.js`, shipped in `3baae4f6` (2026-04-27) and mounted
+under `#dt-action-queue-mount` inside `renderCycleIntelligence`.
+
+Verified against the AC: one row per non-empty `game_recount_N` with truncate/expand
+at 120 chars, state `<select>` (the AC's own recommended choice over cycling),
+140-char note input, filter pills with live per-state counts, `unread` default for
+unentried items, persistence through `updateCycle` → `PUT /api/chapters/:id`. Sort
+order is submitted_at desc → character name asc → slot idx asc, which the AC
+explicitly allows as an acceptable alternative to slot-idx-only tiebreaking.
+
+Tracker had regressed to `ready-for-dev` via the same 2026-08-16 stale-status
+reconciliation (`134045a16`) noted on dtil-1; corrected to `done` here.
+### File List
+No files changed this pass (verification only). Original implementation:
+- `public/js/admin/downtime-views.js`
+- `public/css/admin-layout.css`

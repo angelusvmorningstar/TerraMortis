@@ -348,7 +348,15 @@ development_status:
 
   epic-di: in-progress
 
-  di-1-import-dt1-narratives: review
+  # 2026-08-18: DO NOT --apply as currently written. Direct query against live
+  # tm_suite found the target chapter (game_number:1, "Chapter-1 placeholder")
+  # is the WRONG target — the real DT1 (25 submissions, same character roster,
+  # created_at matching this script's own DT1_LOADED_AT constant to the
+  # millisecond) is already live at game_number:2, imported back on 2026-04-17
+  # (439a9ebb, "migrate-dt1-submissions.js ... (applied)"). Applying di-1 as-is
+  # would create a duplicate DT1 dataset under an empty, structurally-unrelated
+  # chapter. See the story file's own flag section for the full finding.
+  di-1-import-dt1-narratives: review        # NEEDS REWORK — see 2026-08-18 note above; do not --apply
   di-2-import-game1-letters: backlog        # needs-product-input — see story file front-matter
   di-3-sync-ordeal-data: done        # investigation spike — produces audit note, not code
 
@@ -637,11 +645,17 @@ development_status:
   # ---- Epic DTIL — DT Intelligence Layer ----
   # Court Pulse + Action Queue + Territory Pulse synthesis surfaces
   # DTIL-3 depends on DTFP-7 (mechanical-flag checkbox)
-  epic-dtil: in-progress
-  dtil-1-court-pulse-synthesis: ready-for-dev
-  dtil-2-action-queue-triage: ready-for-dev
-  dtil-3-auto-state-mechanical-flag: ready-for-dev
-  dtil-4-territory-pulse-synthesis: ready-for-dev
+  # 2026-08-18: verified against live code, not tracker text (bmad-dev-story dtil-1
+  # pickup found the panels already shipped). All four merged to main since
+  # 2026-04-27 (bc1179a5/3baae4f6/9823eea1/84558762) and dtil-4 has iterated
+  # through 8+ follow-up commits since (#332, #338, #470, #719, #909, #910, #922).
+  # The 2026-08-16 stale-status reconciliation (134045a16) misclassified this
+  # epic as never-started; flipped back to done here.
+  epic-dtil: done
+  dtil-1-court-pulse-synthesis: done
+  dtil-2-action-queue-triage: done
+  dtil-3-auto-state-mechanical-flag: done
+  dtil-4-territory-pulse-synthesis: done
   epic-dtil-retrospective: optional
 
   # ---- Epic JDT — Joint Downtimes (largest, ships last) ----
@@ -664,8 +678,13 @@ development_status:
   # Story file: specs/stories/dtux-1-phase-ribbon-nav.story.md
   # Recommended sequencing: land before DTIL-* and JDT-* so those new surfaces
   # inherit the ribbon naturally rather than retrofit it.
-  epic-dtux: in-progress
-  dtux-1-phase-ribbon-nav: ready-for-dev
+  # 2026-08-18: verified against live code (same detour that caught epic-dtil).
+  # b34d5233 (2026-04-27) shipped the ribbon; 3ecc63d2/083ef038 are real follow-up
+  # polish + a 34-spec E2E suite. admin.html/downtime-views.js/db.js all match
+  # the AC (sub-tab bar removed, phase_signoff-driven status, DTUX_PHASES ribbon,
+  # showDtuxPhase router, server/tests/derive-cycle-status.test.js covers it).
+  epic-dtux: done
+  dtux-1-phase-ribbon-nav: done
   epic-dtux-retrospective: optional
 
   # ============================================================
@@ -1079,7 +1098,15 @@ development_status:
   epic-xpl: in-progress                                        # xpl.1 code-reviewed and done (see ms/xpl-1-xp-ledger-write-hook, not yet merged). xpl.2 story created 2026-08-15 after a real investigation found the epic's own original one-line scope wrong on two counts: the game_number:2 cycle (originally labelled "DT1" here, that identity now an open question - see xpl-2's own 2026-08-17 correction note) has zero structured XP data (0 of 25 submissions), and no cycle has any approval signal (approval_status is schema-declared but null on all 104 real xp-bearing submissions live-checked). Angelus's ruling: confirmed-only backfill (only write a row when the character's current live state corroborates the historic request; everything else surfaces in a report for manual review). xpl.2 corrected 2026-08-17 against cm-4's renumber (its scope is game_number 3-7, not 2-6 as originally recorded) - see the story's own STALE correction note before dev-storying. Full detail: specs/stories/xpl-2-historic-reconciliation.md.
 
   xpl-1-xp-ledger-write-hook: done                             # See ms/xpl-1-xp-ledger-write-hook branch for full history - dev-storied, code-reviewed (2 real High findings fixed, live-data-reproduced), 136/136 regression. Committed locally, not merged.
-  xpl-2-historic-reconciliation: ready-for-dev
+  # 2026-08-18: dev-storied. Script + 20 tests written, DT1-identity question
+  # resolved (see di-1's own flag — that's where the real finding landed).
+  # xpl.1 still not merged to dev/main (only on ms/xpl-1-xp-ledger-write-hook,
+  # a stale ~280-file diff cut before cm-2/cm-2b/cm-4/cm-7/gdx-5/6/7/di-1) —
+  # did not block this story's own script, which writes directly to xp_ledger
+  # like every other migration script, but the "verify against xpl.1's own
+  # test suite" check in Task 5 could not be run as a live check. --apply not
+  # run against live tm_suite, per this story's own AC7.
+  xpl-2-historic-reconciliation: review
 
   # ── Epic GDX: Game-Day Experience ─────────────────────────────────────────
   # GitHub-issue-tracked, not a local specs/epic-gdx-*.md file yet (none of

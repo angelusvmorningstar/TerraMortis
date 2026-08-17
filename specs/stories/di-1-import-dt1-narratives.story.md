@@ -6,6 +6,41 @@ priority: medium
 depends_on: []
 ---
 
+> ## ⚠ DO NOT `--apply` — wrong target, found 2026-08-18
+>
+> Direct queries against live `tm_suite`, while dev-storying `xpl-2` (which flagged an unresolved
+> "DT1 identity" question this story's own 2026-08-17 correction surfaced — see that story's Context
+> section), found this story's premise is **factually wrong**, not merely stale terminology:
+>
+> - `chapters` at `game_number: 2` already holds **25 fully-published submissions** — real feeding /
+>   projects / touchstone / letter / territory-report prose, not stubs.
+> - Their character roster is an **exact 25/25 match** against this story's own source JSON
+>   (`st-working/downtime/dt1/TM_downtime1_submissions.json`), including the 5 blank-`character_id`
+>   names this story's own header names individually (Charles Mercer-Willows, Eve Lockridge, Ivana
+>   Horvat, Kirk Grimm, Tegan Groves).
+> - Their `created_at` is `2026-02-28T00:00:00.000Z` — identical, to the millisecond, to this script's
+>   own invented `DT1_LOADED_AT` constant.
+> - `git log`: `439a9ebb` (2026-04-17) — *"migrate-dt1-submissions.js — import DT1 historical
+>   submissions with compiled outcome_text **(applied)**"*. DT1 was already imported to live Mongo
+>   four months before this story was written, under the old `downtime_cycles` collection. `cm-4`'s
+>   renumber (its own commit message: *"each chapter's downtime moves forward to feed the next
+>   chapter's game"*) shifted that real content from `game_number: 1` to `game_number: 2`, and
+>   *separately* created the empty Chapter-1 placeholder this story targets — which, under that same
+>   chapter-anchor model, structurally represents the downtime that would have preceded Game 1. Nothing
+>   preceded Game 1, so there is nothing that belongs there. The placeholder's own note
+>   ("represented by character creation, January–February 2026") already said as much; this story's
+>   2026-08-17 correction pass verified the chapter was empty and re-derivable but did not check
+>   whether the JSON source content was already represented elsewhere under a different chapter — it
+>   was.
+>
+> **Running `--apply` as currently written would create a duplicate DT1 dataset under the wrong,
+> structurally-empty chapter**, alongside the real one already published at `game_number: 2`. This
+> story needs rework (or retirement) before anyone runs it for real: either confirm `game_number: 2`'s
+> existing content is a complete, correct DT1 and retire this script entirely, or identify what real
+> gap (if any) remains between the two sources before writing to any chapter. Not attempted in this
+> pass — flagged for Angelus's own decision, per this project's confirmed-only-and-surface-don't-guess
+> convention.
+
 # Story DI-1: Import DT1 Narratives into Chronicles
 
 As a player viewing the Story / Chronicle tab,

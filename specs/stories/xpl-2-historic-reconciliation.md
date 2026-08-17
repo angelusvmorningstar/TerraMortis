@@ -1,6 +1,6 @@
 # Story xpl.2: Historic reconciliation — DT2-DT6 backfill
 
-Status: ready-for-dev
+Status: review
 
 ## Story
 
@@ -147,51 +147,73 @@ full findings and Angelus's resulting ruling on scope.
 
 ## Tasks / Subtasks
 
-- [ ] Task 1 — Script skeleton + plan phase (AC: 1, 2, 3)
-  - [ ] `server/scripts/xpl-2-historic-xp-reconciliation.mjs`, no shebang, connection via `../db.js`
+- [x] Task 1 — Script skeleton + plan phase (AC: 1, 2, 3)
+  - [x] `server/scripts/xpl-2-historic-xp-reconciliation.mjs`, no shebang, connection via `../db.js`
         (matches every sibling migration script's own convention).
-  - [ ] Item-string parser: one function per category shape (`parseAttributeSkillDisciplineItem` —
-        trivial, the item IS the trait name; `parseMeritItem` — splits on `|`, handles both `flat`
-        and `grad` forms, returns `{name, form, currentDots, maxTarget}` or `{name, form: 'flat',
-        rating}`). Write this as its own small pure function with direct unit coverage — this parser
-        is the single most likely place for a subtle real-data shape this story's investigation
-        didn't sample to break silently.
-  - [ ] `planReconciliation`: query `chapters` for `game_number: 3` through `7`'s `_id`s fresh (do
-        not hardcode the ObjectIds this story's own investigation found — chapter IDs are stable but
-        re-deriving by `game_number` is one query and removes any risk of a stale hardcoded id —
-        this project has already been burned once by a hardcoded-vs-re-derived assumption going
-        stale, see the STALE correction note above), query `downtime_submissions` for those
-        `chapter_id`s with `responses.xp_spend` present, parse each row via the parsers above,
-        classify per AC2, cross-reference confirmed candidates against a fresh live fetch of the
-        character's CURRENT `merits[]`.
-- [ ] Task 2 — Cost reconstruction (AC: 4)
-  - [ ] When a row carries its own `xpCost`, use it directly.
-  - [ ] When absent (real data shows this happens — see Dev Notes), reconstruct from this project's
-        own flat merit-XP rate (1 XP/dot, per `CLAUDE.md`'s XP cost rates section) for the merit
-        category, since every row this story confirms is a merit row (AC2's confirmed classification
-        is merit-only) — no discipline/attribute/skill cost lookup is needed here.
-- [ ] Task 3 — Apply phase + idempotency (AC: 4, 5)
-  - [ ] `applyReconciliation`: dry-run by default (prints what it would insert), `--apply` to write.
-  - [ ] Idempotency guard: before each insert, `findOne` on `xp_ledger` for a `reason` containing the
-        source submission's `_id`; skip if found, log the skip.
-- [ ] Task 4 — Tests (AC: 6)
-  - [ ] `server/tests/xpl-2-historic-xp-reconciliation.test.js` — unit tests for the item parsers and
-        `planReconciliation`'s classification, built from REAL row shapes this story's own
-        investigation pulled (cite them directly — Yusuf Kalusicj's True Worm/Safe Place/Closed Book
-        row, Anichka's Mandragora Garden row, Macheath's Investigation skill row as an unconfirmable
-        example, etc. — see Dev Notes for the full real samples).
-  - [ ] Live integration test against `tm_suite_test` (seeded fixture data, NOT live `tm_suite`):
+  - [x] Item-string parser: `parseMeritItem` (splits on `|`, handles both `flat` and `grad` forms,
+        returns `{name, form, currentDots, maxTarget}` or `{name, form: 'flat', rating}`). No
+        separate attribute/skill/discipline parser was needed — `classifyRow` reads those rows'
+        `item` as the bare trait name directly and never calls `parseMeritItem` on them (they're
+        never merit-form strings), so a dedicated pass-through function would have been a no-op
+        wrapper. Covered directly with unit tests (real + synthetic shapes).
+  - [x] `planReconciliation`: query `chapters` for `game_number: 3` through `7`'s `_id`s fresh (never
+        hardcoded), query `downtime_submissions` for those `chapter_id`s with `responses.xp_spend`
+        present, parse each row, classify per AC2, cross-reference confirmed candidates against a
+        fresh live fetch of the character's CURRENT `merits[]`. **Deviation from the AC1 signature
+        as illustrated**: `planReconciliation` takes a third parameter, `chaptersCollection` —
+        functionally required by this same task's own instruction to re-derive chapter ids by
+        `game_number`, and the AC1 parenthetical (`submissionsCollection, charactersCollection`) reads
+        as illustrative rather than an exhaustive interface contract given that requirement.
+- [x] Task 2 — Cost reconstruction (AC: 4)
+  - [x] When a row carries its own `xpCost`, use it directly.
+  - [x] When absent, reconstruct from `dotsBuying * MERIT_XP_RATE` (1 XP/dot, per `CLAUDE.md`'s XP
+        cost rates section) — verified needed on real data (Anichka's actual production
+        "Mandragora Garden|grad|0|3" row carries no `xpCost` key).
+  - [x] **`new_total` — not specified by this story's own AC4** (which lists historic-specific values
+        for `delta`/`at`/`st_username`/`reason` but is silent on this field). Resolved by reading
+        xpl.1's real write hook (`server/lib/xp-ledger-diff.js`, pulled via `git show` from the
+        still-unmerged `ms/xpl-1-xp-ledger-write-hook` branch, since `xp_ledger.schema.js` does not
+        exist on `dev`/`main` yet — see Dev Agent Record for why): `new_total` there is the trait's
+        cumulative XP-spent tally immediately after the write, not that write's own cost alone. The
+        historic-backfill equivalent, consistent across multiple confirmed rows for the same merit
+        in different cycles, is `maxTarget * MERIT_XP_RATE`. Documented at length in the script's own
+        header comment rather than left implicit.
+- [x] Task 3 — Apply phase + idempotency (AC: 4, 5)
+  - [x] `applyReconciliation`: dry-run by default (prints what it would insert), `--apply` to write.
+  - [x] Idempotency guard: before each insert, `findOne` on `xp_ledger` for a `reason` containing the
+        source submission's `_id`; skip if found, log the skip. Verified idempotent by an actual
+        second `--apply`-mode call in the integration test, not merely asserted.
+- [x] Task 4 — Tests (AC: 6)
+  - [x] `server/tests/xpl-2-historic-xp-reconciliation.test.js` — unit tests for the item parser and
+        `classifyRow`'s classification, built from REAL row shapes AND real live character-merit data
+        pulled directly from production `tm_suite` while dev-storying this (2026-08-18): Yusuf
+        Kalusicj's Safe Place/Closed Book rows (unconfirmable — he holds neither merit at all live),
+        Anichka's Mandragora Garden row (unconfirmable — live rating 1 vs target 3), Macheath's
+        Allies/Contacts rows (confirmed) and Investigation skill row (unconfirmable). Macheath's case
+        surfaced a real design point beyond the story's own text: he holds two merits both named
+        "Allies" (Street rating 5, Underworld rating 1) — see Dev Agent Record.
+  - [x] Live integration test against `tm_suite_test` (seeded fixture data, NOT live `tm_suite`):
         one confirmed merit row round-trips through `--apply` into a correctly-shaped `xp_ledger`
-        document; a second `--apply` run does not duplicate it; an unconfirmable row never gets
-        written even with `--apply`.
-- [ ] Task 5 — Full changed-area regression (AC: 7)
-  - [ ] Run the new suite plus `xpl-1-xp-ledger-diff.test.js`/`xpl-1-xp-ledger-api.test.js` (confirm
-        this story's new script doesn't collide with or duplicate anything the live write hook does)
-        and this project's other migration-script test files for the same plan/apply/main shape
-        precedent (`oxp-11-office-purchase-seat-keying.test.js`) for a sanity comparison of test
-        style, not because they share code.
-  - [ ] Confirm via `git diff`/manual read that no `--apply` was ever actually run against
-        `MONGODB_URI` (live) in this session — this story's own AC7.
+        document; a second `--apply` run does not duplicate it (asserted `{inserted:0, skipped:1}`
+        and a `countDocuments` of 1, not just "no error"); an unconfirmable row never gets written
+        even though `--apply` ran, and a submission on an out-of-scope chapter (`game_number: 2`) is
+        excluded from the plan entirely. 20/20 passing.
+- [x] Task 5 — Full changed-area regression (AC: 7)
+  - [x] Ran the new suite plus `oxp-11-office-purchase-seat-keying.test.js` (the plan/apply/main shape
+        precedent this story names) as a sanity comparison of test style and to confirm no collision:
+        46/46 passing. **`xpl-1-xp-ledger-diff.test.js`/`xpl-1-xp-ledger-api.test.js` could not be run
+        — they do not exist on `dev`/`main`.** xpl.1 itself is not merged; it lives only on the
+        unmerged `ms/xpl-1-xp-ledger-write-hook` branch (confirmed via `git diff dev
+        ms/xpl-1-xp-ledger-write-hook --stat`, a ~280-file diff cut from a much older base, predating
+        cm-2/cm-2b/cm-4/cm-7/gdx-5/6/7/di-1). This is a real, disclosed gap, not a skipped step: this
+        story's own script does not depend on xpl.1's code at runtime (it writes to the `xp_ledger`
+        collection directly, matching every other migration script's convention of bypassing the
+        Express/schema layer), so it works correctly regardless — but the "confirm this story's new
+        script doesn't collide with or duplicate anything the live write hook does" check named in
+        this task cannot be run as a live test suite until xpl.1 merges. Flagged for Angelus.
+  - [x] Confirmed via a manual read of this session's own tool history that `--apply` was never
+        passed to the script in any run, and every run pointed at `MONGODB_DB=tm_suite_test`, never
+        live `tm_suite` — this story's own AC7.
 
 ## Dev Notes
 
@@ -315,4 +337,71 @@ is not a shortcut — it is the honest limit of what this data supports automati
   row samples above. Not re-derivable from any existing doc; this story file is now the record.
 - [Source: specs/epic-xpl-xp-ledger.md] — parent epic, corrected sequencing notes.
 - [Source: specs/stories/xpl-1-xp-ledger-write-hook.md] — the `xp_ledger` document shape this story's
-  backfilled rows must match exactly.
+  backfilled rows must match exactly. **Not present on `dev`/`main`** as of this dev-story pass — see
+  Dev Agent Record; read via `git show ms/xpl-1-xp-ledger-write-hook:specs/stories/xpl-1-xp-ledger-write-hook.md`
+  instead if picking this up before xpl.1 merges.
+
+---
+
+## Dev Agent Record
+### Agent Model Used
+claude-sonnet-5
+### Completion Notes
+
+**The "DT1 identity" question this story's own STALE correction flagged is resolved, and resolves in
+the direction this story already assumed.** Queried live `tm_suite` directly (2026-08-18): the 25
+submissions now at `game_number: 2` carry `responses: {}` (confirmed, matches this story's own
+finding) but rich, already-published `st_review.outcome_text`/`published_outcome` narrative — real
+in-app downtime content, not the static pre-app DT1 material story `di-1` targets. Their character
+roster is an exact 25/25 match against `di-1`'s own source JSON, and `git log` confirms why:
+`439a9ebb` (2026-04-17) already imported DT1 into MongoDB, well before `cm-4`'s renumber shifted it
+from `game_number: 1` to `2`. This story's exclusion of `game_number: 2` (no `xp_spend` data present,
+confirmed both in 2026-08-15's original investigation and again here) holds regardless of the
+identity question — but the identity question itself surfaced a real, separate problem in story
+`di-1` (which is about to `--apply` a duplicate import against the wrong, structurally-empty
+`game_number: 1` chapter). Flagged prominently on `di-1`'s own story file and in `sprint-status.yaml`;
+not this story's own scope to fix, and this story's scope/exclusions are unaffected either way.
+
+**xpl.1 is not merged.** `xp_ledger.schema.js`, `server/lib/xp-ledger-diff.js`, and
+`xpl-1-xp-ledger-write-hook.md`/`xpl-1-xp-ledger-{diff,api}.test.js` all exist only on the unmerged
+`ms/xpl-1-xp-ledger-write-hook` branch (confirmed via `git diff dev ms/xpl-1-xp-ledger-write-hook
+--stat`), not on `dev`/`main`. This did not block implementation — the script writes directly to the
+`xp_ledger` collection via the Mongo driver, matching every other migration script's convention of
+bypassing the Express/schema-validation layer entirely, and `xp_ledger.schema.js`'s own header notes
+it "is not currently wired to Ajv/route validation anywhere" regardless. It DID mean: (a) the exact
+`xp_ledger` document shape was read via `git show <branch>:server/schemas/xp_ledger.schema.js` rather
+than from a file on disk in this checkout; (b) `new_total`'s semantics (not spelled out by this
+story's own AC4) were resolved by reading the real `diffXpLedgerRows` logic the same way, rather than
+guessed; (c) Task 5's "run alongside xpl-1's own test suite" instruction could not be carried out as a
+live check — see Task 5's own notes for what was run instead. None of this required copying xpl.1's
+files into this branch, and none were copied.
+
+**A same-named-merit ambiguity, not called out in this story's own AC2/Dev Notes, was found and
+handled during test-writing against real production data.** Macheath's live sheet holds two merits
+both named "Allies" (Street rating 5, Underworld rating 1). A historic `xp_spend` row's `item` string
+carries no qualifier (`"Allies|grad|2|3"` only), and `xp_ledger.trait_name` has no qualifier slot
+either, so `classifyRow` confirms a graduated row if ANY live entry sharing that name meets the
+target, rather than keying a name-to-single-entry map (which would have non-deterministically refused
+a real, corroborated purchase depending on merit array order). This mirrors a real bug xpl.1's own
+code review already found and fixed in `xp-ledger-diff.js`'s `meritKey` function for the identical
+shape — documented at length in the script's own header comment. Verified against Macheath's actual
+live data, not synthetic-only.
+
+**Confirmed-only philosophy held throughout**: no row was written speculatively; every unconfirmable
+row (including the flat-form and attribute/skill/discipline cases, and every same-named-merit case
+where no entry met the target) is surfaced in the plan's own report, never silently dropped or
+silently written.
+
+**`--apply` was never run against live `tm_suite`** in this pass — every script run in this session
+used `MONGODB_DB=tm_suite_test`, and the vitest suite's own `assertTestDbSafety` guard
+(`server/db.js`) would refuse a live connection under `VITEST` regardless. Running it for real
+against production is Angelus's own action, per this story's own Definition of Done and this
+project's standing convention.
+
+### File List
+- `server/scripts/xpl-2-historic-xp-reconciliation.mjs` (new)
+- `server/tests/xpl-2-historic-xp-reconciliation.test.js` (new, 20 tests, all passing)
+- `specs/stories/xpl-2-historic-reconciliation.md` (this file — task checkboxes, Status, Dev Agent Record)
+- `specs/stories/sprint-status.yaml` (`xpl-2-historic-reconciliation: ready-for-dev → review`)
+- `specs/stories/di-1-import-dt1-narratives.story.md` (flagged, not reworked — see that story's own
+  "DO NOT --apply" note, added as a direct consequence of this story's DT1-identity investigation)

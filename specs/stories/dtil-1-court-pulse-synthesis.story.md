@@ -1,7 +1,7 @@
 ---
 id: dtil.1
 epic: dtil
-status: ready-for-dev
+status: done
 priority: medium
 depends_on: []
 ---
@@ -291,3 +291,39 @@ No server route changes (existing `PUT /api/chapters/:id` accepts the new field 
 
 - No upstream dependencies. Reads from existing `responses.game_recount_N` fields.
 - Independent of every other DTIL story.
+
+---
+
+## Dev Agent Record
+### Agent Model Used
+claude-sonnet-5 (verification pass; no reimplementation)
+### Completion Notes
+Picked up via `/bmad-loop dtil` → `dev-story dtil-1` on 2026-08-18 and found the panel
+already fully implemented and merged to `main`: `renderCourtPulsePanel`,
+`_buildCourtPulsePromptText`, `_handleCourtPulseCopy`, `_handleCourtPulseSave` in
+`public/js/admin/downtime-views.js`, shipped in `bc1179a5` (2026-04-27) and mounted
+into `#dt-cycle-intelligence` via `renderCycleIntelligence`, called from
+`loadCycleById` once submissions load.
+
+Verified against every AC: framing text + per-character attributed blocks sorted by
+`sortName`, readonly `<textarea>` for one-keystroke select, Copy button with
+"Copied" indicator, empty-state placeholder ("No game highlights yet."), scratchpad
+pre-filled from `cycle.st_court_synthesis_draft`, persisted via `updateCycle` (which
+already targets `PUT /api/chapters/:id` post-cm-2b — the story's own route-correction
+concern was moot, since the implementation goes through the shared helper rather than
+a hardcoded route). British English/no em-dash framing text confirmed.
+
+One deliberate deviation from the AC's literal wording: the panel lives on the DT
+**Prep** tab (`#dt-prep-panel`), not "DT Processing" — a reasonable call, since
+DTUX-1's four-tab ribbon (downtime/processing/prep/game) postdates this story's
+AC text, and Prep is the tab whose content always renders regardless of cycle
+status, matching the AC's "visible during any cycle status" requirement.
+
+The story/`sprint-status.yaml` had regressed to `ready-for-dev` via a 2026-08-16
+stale-status reconciliation (`134045a16`) that misclassified epic-dtil as
+never-started; corrected back to `done` here after direct verification against
+live code and git history, not tracker text.
+### File List
+No files changed this pass (verification only). Original implementation:
+- `public/js/admin/downtime-views.js`
+- `public/css/admin-layout.css`
