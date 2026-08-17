@@ -1,6 +1,6 @@
 # Story xpl.2: Historic reconciliation — DT2-DT6 backfill
 
-Status: review
+Status: done
 
 ## Story
 
@@ -215,6 +215,85 @@ full findings and Angelus's resulting ruling on scope.
         passed to the script in any run, and every run pointed at `MONGODB_DB=tm_suite_test`, never
         live `tm_suite` — this story's own AC7.
 
+### Review Findings
+
+3-layer adversarial review (Blind Hunter, Edge Case Hunter, Acceptance Auditor) run 2026-08-18
+against commit `b1728b4c`. All three layers independently converged on the same critical bug.
+
+- [x] [Review][Decision → Patch] No cross-submission dedup for the same character+trait+target —
+      **Resolved by Angelus: add the guard.** Fixed by redesigning the idempotency key itself (see
+      the next finding) to `{character_id, trait_name, new_total}` rather than `submission_id`, which
+      catches this case as a side effect of fixing the critical bug below — a duplicate request for
+      the exact same target, from any submission, now matches an existing ledger row and is skipped.
+      Two DIFFERENT targets for the same merit (a genuine two-step purchase across cycles) still
+      produce two distinct rows, correctly. Covered by a new regression test.
+
+- [x] [Review][Patch] CRITICAL: idempotency guard collides across multiple confirmed rows from the
+      same submission, silently dropping legitimate rows on the FIRST `--apply` run — **Fixed.**
+      `reason` was keyed only on `submission_id`; when a submission has 2+ confirmed rows (the exact
+      real shape the script's own header cites — Macheath's "Allies" + "Contacts", both `grad` merit
+      rows in one submission), the first insert's `reason` contained the shared `sourceTag`, so the
+      second row's `findOne({reason: {$regex: sourceTag}})` matched it and was skipped as "already
+      backfilled" even though it was never written. Redesigned the guard to query on structured
+      fields — `{character_id, category:'merit', trait_name, new_total, st_username}` — instead of a
+      substring match on `reason`. `reason` still cites the source submission for traceability; it is
+      no longer part of the dedup key. New regression test inserts both of a multi-row submission's
+      confirmed rows and asserts both landed.
+      [`server/scripts/xpl-2-historic-xp-reconciliation.mjs` — `applyReconciliation`]
+
+- [x] [Review][Patch] Malformed graduated-form item silently confirms — **Fixed.** A truncated/
+      malformed `item` string missing its target segment (e.g. `"Name|grad|2"`) used to parse
+      `maxTarget` to `0` via `Number(undefined) || 0`, and the corroboration check `rating >= 0` was
+      then satisfied by any live entry of that name, including `rating: 0`. `parseMeritItem` now
+      returns `form: 'grad-malformed'` when the current/target segments don't parse, and `classifyRow`
+      reports it unconfirmable instead of confirming. [`parseMeritItem`/`classifyRow`]
+
+- [x] [Review][Patch] Unvalidated `xpCost`/`dotsBuying` can write `NaN` or negative values into the
+      ledger — **Fixed.** `dotsBuying` is now validated (`Number.isFinite` + non-negative); a
+      malformed/negative value is reported as its own unconfirmable row instead of being folded into
+      the zero bucket or classified further. `xpCost` is now validated the same way in
+      `applyReconciliation` — an absent OR invalid `xpCost` falls back to cost reconstruction, rather
+      than writing `NaN`/negative straight into `xp_ledger.delta`. [`applyReconciliation`,
+      `planReconciliation`]
+
+- [x] [Review][Patch] Missing `character_id` produces a misleading verdict — **Fixed.** When
+      `sub.character_id` is absent, or present but does not resolve to any live character document,
+      merit rows from that submission now report the real problem (no character_id / unresolved
+      character_id) directly, instead of the misleading "no live merit by that name."
+      [`planReconciliation`, `classifyRow`]
+
+- [x] [Review][Patch] `at: null` written when both `submitted_at`/`created_at` are absent — **Fixed.**
+      A row that would otherwise confirm, but whose source submission has neither field, is now
+      routed to `unconfirmable` with an explicit reason instead of writing `at: null`.
+      [`planReconciliation`]
+
+- [x] [Review][Patch] Dry-run `inserted` count is semantically overloaded — **Fixed.**
+      `applyReconciliation` now returns `{inserted, wouldInsert, skipped}`; `inserted` only increments
+      on a real `insertOne` in apply mode, `wouldInsert` only in dry-run mode. `main()` and the test
+      suite updated to the new shape. [`applyReconciliation`]
+
+- [x] [Review][Patch] AC3 asymmetry — **Fixed.** `classifyRow` now attaches `maxTarget`/`currentDots`
+      to unconfirmable graduated-row verdicts too (previously confirmed-only), so the ST report and
+      any future structured consumer get the same "requested dots/target, current live value" detail
+      regardless of bucket. [`planReconciliation`]
+
+- [x] [Review][Patch] Mislabeled test — **Fixed.** Renamed to state plainly that it is a
+      constant-drift guard, not a behavioral scoping test (the actual scoping behavior is covered by
+      the test above it, unchanged). [`server/tests/xpl-2-historic-xp-reconciliation.test.js`]
+
+- [x] [Review][Defer] Idempotency's check-then-insert is non-atomic (no unique index, no
+      transaction) — deferred, pre-existing: matches every other migration script in this repo's own
+      established convention (single human-run-once script; `migrate-office-purchases-to-seats.mjs`
+      has the identical class of non-atomic check-then-insert, mitigated only by "don't run
+      concurrently," not code). Recorded to `specs/deferred-work.md`.
+
+Dismissed as noise (3): an "unescaped regex on ObjectId hex" concern with no evidence any
+in-scope `_id` is non-ObjectId; case/whitespace-sensitive merit-name matching, which already fails
+safe toward `unconfirmable` (the intended direction per this epic's "refuse rather than guess"
+convention); and missing per-row error containment in the apply loop, which matches this codebase's
+established fail-loud/re-run-to-resume convention and becomes fully safe once the idempotency bug
+above is fixed.
+
 ## Dev Notes
 
 ### Investigation findings (2026-08-15, live read-only queries against `tm_suite`)
@@ -398,10 +477,25 @@ used `MONGODB_DB=tm_suite_test`, and the vitest suite's own `assertTestDbSafety`
 against production is Angelus's own action, per this story's own Definition of Done and this
 project's standing convention.
 
+**Code review (2026-08-18)**: 3-layer adversarial review (Blind Hunter, Edge Case Hunter, Acceptance
+Auditor) run against commit `b1728b4c`. All three layers independently converged on the same
+critical bug — see the Review Findings section above for the full detail. 1 decision-needed finding
+(resolved by Angelus: add the cross-submission dedup guard), 8 patch findings, all fixed; 1 deferred
+(non-atomic check-then-insert, matches this repo's established migration-script convention, logged
+to `specs/deferred-work.md`); 3 dismissed as noise (all fail-safe or theoretical, detailed above).
+The idempotency guard was redesigned from a `reason`-substring match on `submission_id` to a
+structured-field match on `{character_id, trait_name, new_total}` — this single change fixed both
+the critical same-submission collision and the resolved cross-submission duplicate-request case.
+Test count grew from 20 to 30 (new coverage: multi-confirmed-row-per-submission, malformed/negative
+`dotsBuying`, missing character link, missing source date, cross-submission duplicate target,
+dry-run counter shape). Full suite re-verified green after every fix, plus the `oxp-11` sanity
+comparison suite (56/56 combined) and a fresh end-to-end `main()` dry-run against `tm_suite_test`.
+
 ### File List
-- `server/scripts/xpl-2-historic-xp-reconciliation.mjs` (new)
-- `server/tests/xpl-2-historic-xp-reconciliation.test.js` (new, 20 tests, all passing)
-- `specs/stories/xpl-2-historic-reconciliation.md` (this file — task checkboxes, Status, Dev Agent Record)
-- `specs/stories/sprint-status.yaml` (`xpl-2-historic-reconciliation: ready-for-dev → review`)
+- `server/scripts/xpl-2-historic-xp-reconciliation.mjs` (new; patched post-review — see Review Findings)
+- `server/tests/xpl-2-historic-xp-reconciliation.test.js` (new, 30 tests, all passing — grew from 20 post-review)
+- `specs/stories/xpl-2-historic-reconciliation.md` (this file — task checkboxes, Status, Dev Agent Record, Review Findings)
+- `specs/stories/sprint-status.yaml` (`xpl-2-historic-reconciliation: ready-for-dev → review → done`)
 - `specs/stories/di-1-import-dt1-narratives.story.md` (flagged, not reworked — see that story's own
   "DO NOT --apply" note, added as a direct consequence of this story's DT1-identity investigation)
+- `specs/deferred-work.md` (deferred finding from the code review appended)

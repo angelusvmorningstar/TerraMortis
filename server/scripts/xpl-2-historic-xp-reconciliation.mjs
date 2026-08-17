@@ -77,11 +77,14 @@
  * naive last-write-wins name map, would have wrongly refused a real,
  * corroborated purchase).
  *
- * COST RECONSTRUCTION: when a row carries its own `xpCost`, that value is
- * used directly. When absent (real data shows this happens — e.g. Anichka's
- * "Mandragora Garden|grad|0|3" row), the cost is reconstructed from this
- * project's flat merit rate, 1 XP/dot (CLAUDE.md — XP cost rates), applied
- * to `dotsBuying` (the dots THIS row requests, not the target).
+ * COST RECONSTRUCTION: when a row carries its own valid, non-negative
+ * numeric `xpCost`, that value is used directly. When absent, or present but
+ * malformed (non-numeric or negative — code review, 2026-08-18: a corrupted
+ * `xpCost` used to be inserted as `NaN`/negative straight into the ledger
+ * with no guard), the cost is reconstructed from this project's flat merit
+ * rate, 1 XP/dot (CLAUDE.md — XP cost rates), applied to `dotsBuying` (the
+ * dots THIS row requests, not the target). Real data needs this path: e.g.
+ * Anichka's "Mandragora Garden|grad|0|3" row carries no `xpCost` at all.
  *
  * `new_total` — not spelled out by the story's own AC4, which lists
  * historic-specific values for `delta`/`at`/`st_username`/`reason` but is
@@ -96,12 +99,44 @@
  * confirmed target dots represent, at the point in history this specific
  * row's own claim is anchored to.
  *
- * IDEMPOTENCE: before each insert, a `findOne` on `xp_ledger` checks for an
- * existing document whose `reason` already cites the source submission's
- * `_id`; a match is skipped, not re-inserted. Source `_id`s are 24
- * lowercase-hex characters, so a literal (unescaped) substring `$regex` is
- * safe here — there is nothing in that alphabet a regex would treat
- * specially.
+ * IDEMPOTENCE (redesigned in code review, 2026-08-18 — see that section of
+ * the story file for the full finding): the guard is keyed on
+ * `{character_id, category: 'merit', trait_name, new_total, st_username}`,
+ * NOT on the source submission id. This single change closes two real gaps
+ * the original submission-id-keyed guard had:
+ *   1. A submission with TWO OR MORE confirmed rows (a real shape — see
+ *      SAME-NAMED MERITS above; Macheath's own submission has both a
+ *      confirmed "Allies" and a confirmed "Contacts" row) used to collide:
+ *      the first insert's `reason` cited the submission id, and the second
+ *      row's lookup matched that same document purely on the shared id
+ *      substring, so it was skipped as "already backfilled" without ever
+ *      being written — on the FIRST `--apply` run, not merely a re-run.
+ *   2. Two DIFFERENT submissions independently requesting the same
+ *      character reach the same target on the same merit (a duplicate or
+ *      resubmitted historic request) are now recognised as the same
+ *      real-world purchase and credited exactly once, instead of both
+ *      passing an id-scoped guard and double-inserting.
+ * Two submissions requesting DIFFERENT targets for the same merit (a
+ * genuine two-step purchase spread across cycles, e.g. 0→2 then 2→3) still
+ * produce two distinct `new_total` values and so still produce two distinct,
+ * correct rows. The `reason` string still cites the source submission id and
+ * game number for traceability — it is no longer part of the dedup key.
+ *
+ * DEFENSIVE VALIDATION (added in code review, 2026-08-18): a graduated item
+ * string missing or unable to parse its target segment (e.g. a truncated
+ * `"Name|grad|2"`) used to default `maxTarget` to `0`, which any live rating
+ * of `0` or higher would trivially "confirm" — now classified unconfirmable
+ * as malformed instead. A negative or non-numeric `dotsBuying` used to be
+ * silently treated the same as a real `0` (form-artifact) row — now reported
+ * as a distinct unconfirmable row instead of silently discarded. A
+ * submission whose `character_id` does not resolve to any live character
+ * document used to report every one of its merit rows as "character has no
+ * live merit by that name" — a misleading diagnosis that hides the real
+ * problem; it now reports the missing/broken character link directly. A
+ * confirmed row whose source submission has neither `submitted_at` nor
+ * `created_at` used to be written with `at: null`; it is now routed to
+ * `unconfirmable` instead, since `null` is not "a real historic date"
+ * (AC4's own requirement).
  *
  * WHAT THIS SCRIPT DELIBERATELY DOES NOT DO: it does not modify xpl.1's
  * live write hook, does not touch any `character` document, does not
@@ -114,6 +149,14 @@
  * This story's own Definition of Done is explicit that `--apply` against
  * live `tm_suite` is NOT run by this dev-story pass; that remains
  * Angelus's own action, same convention as every other migration script.
+ *
+ * KNOWN, DEFERRED LIMITATION: the idempotency guard above is a non-atomic
+ * check-then-insert (a `findOne` followed by `insertOne`, no unique index,
+ * no transaction). Two overlapping `--apply` invocations could both pass the
+ * "not found" check for the same row. Deferred as pre-existing convention,
+ * not a regression this script introduces — every other one-off migration
+ * script in this repo has the identical class of guard, mitigated only by
+ * "a human runs this once, by hand." See specs/deferred-work.md.
  *
  * Usage, from `server/` so that cwd-relative `dotenv/config` picks up
  * `server/.env`:
@@ -144,8 +187,14 @@ export const MERIT_XP_RATE = 1;
 /**
  * Parse one `xp_spend` row's `item` string. Pure — no I/O.
  *
+ * A graduated-form item missing or unable to parse its `currentDots`/
+ * `maxTarget` segments returns `form: 'grad-malformed'` rather than silently
+ * defaulting the missing number to `0` (code review, 2026-08-18: a `0`
+ * default made `classifyRow` trivially "confirm" against any live rating).
+ *
  * @param {string} item
  * @returns {{name:string, form:'grad', currentDots:number, maxTarget:number}
+ *          |{name:string, form:'grad-malformed'}
  *          |{name:string, form:'flat', rating:number}
  *          |{name:string, form:string}}
  */
@@ -154,7 +203,12 @@ export function parseMeritItem(item) {
   const name = parts[0] || '';
   const form = parts[1] || '';
   if (form === 'grad') {
-    return { name, form: 'grad', currentDots: Number(parts[2]) || 0, maxTarget: Number(parts[3]) || 0 };
+    const currentDots = Number(parts[2]);
+    const maxTarget = Number(parts[3]);
+    if (parts.length < 4 || !Number.isFinite(currentDots) || !Number.isFinite(maxTarget)) {
+      return { name, form: 'grad-malformed' };
+    }
+    return { name, form: 'grad', currentDots, maxTarget };
   }
   if (form === 'flat') {
     return { name, form: 'flat', rating: Number(parts[2]) || 0 };
@@ -189,10 +243,16 @@ export function parseXpSpendRows(raw) {
  * `Map<name, Array<meritEntry>>` (see file header SAME-NAMED MERITS for why
  * this is an array, not a single entry).
  *
+ * `maxTarget`/`currentDots` are attached to BOTH confirmed and unconfirmable
+ * graduated-row verdicts (code review, 2026-08-18, AC3 symmetry — the report
+ * owes an ST the same "requested dots/target, current live value" detail as
+ * a structured field regardless of which bucket a row lands in, not only in
+ * the free-text `reason` string).
+ *
  * @param {object} row - {category, item, dotsBuying, xpCost?}
  * @param {Map<string, Array<{rating?: number}>>} meritEntriesByName
  * @returns {{classification:'confirmed', trait_name:string, maxTarget:number, currentDots:number}
- *          |{classification:'unconfirmable', trait_name:string, reason:string}}
+ *          |{classification:'unconfirmable', trait_name:string, reason:string, maxTarget?:number, currentDots?:number}}
  */
 export function classifyRow(row, meritEntriesByName) {
   if (row.category !== 'merit') {
@@ -204,6 +264,14 @@ export function classifyRow(row, meritEntriesByName) {
   }
 
   const parsed = parseMeritItem(row.item);
+
+  if (parsed.form === 'grad-malformed') {
+    return {
+      classification: 'unconfirmable',
+      trait_name: parsed.name || row.item || '(unnamed)',
+      reason: `graduated-form merit item "${row.item}" is malformed — cannot parse current/target dots`,
+    };
+  }
 
   if (parsed.form !== 'grad') {
     return {
@@ -231,6 +299,8 @@ export function classifyRow(row, meritEntriesByName) {
   return {
     classification: 'unconfirmable',
     trait_name: parsed.name,
+    maxTarget: parsed.maxTarget,
+    currentDots: parsed.currentDots,
     reason: entries.length
       ? `graduated merit "${parsed.name}" targets ${parsed.maxTarget} dots; best current live rating is ${bestRating}`
       : `graduated merit "${parsed.name}" targets ${parsed.maxTarget} dots; character has no live merit by that name`,
@@ -264,8 +334,7 @@ export async function planReconciliation(submissionsCollection, charactersCollec
 
   // Batch-fetch every character these submissions touch, once, rather than
   // one findOne per submission.
-  const characterIds = [...new Set(submissions.map(s => s.character_id).filter(Boolean).map(String))];
-  const characters = characterIds.length
+  const characters = submissions.some(s => s.character_id)
     ? await charactersCollection.find({ _id: { $in: submissions.map(s => s.character_id).filter(Boolean) } }).toArray()
     : [];
   const characterByIdStr = new Map(characters.map(c => [String(c._id), c]));
@@ -279,6 +348,7 @@ export async function planReconciliation(submissionsCollection, charactersCollec
     if (!rows.length) continue;
 
     const character = sub.character_id ? characterByIdStr.get(String(sub.character_id)) : null;
+    const characterResolved = !!character;
     const meritEntriesByName = new Map();
     for (const m of (character?.merits || [])) {
       if (!m?.name) continue;
@@ -287,12 +357,12 @@ export async function planReconciliation(submissionsCollection, charactersCollec
     }
 
     const chapter = chapterByIdStr.get(String(sub.chapter_id));
+    const submittedAt = sub.submitted_at || sub.created_at || null;
 
     for (const row of rows) {
-      const dotsBuying = Number(row?.dotsBuying) || 0;
-      if (!dotsBuying) { zeroCount += 1; continue; }
+      const rawDotsBuying = Number(row?.dotsBuying);
+      if (rawDotsBuying === 0) { zeroCount += 1; continue; } // real form artifact, per AC2
 
-      const verdict = classifyRow(row, meritEntriesByName);
       const base = {
         submission_id: sub._id,
         character_id: sub.character_id || null,
@@ -301,16 +371,59 @@ export async function planReconciliation(submissionsCollection, charactersCollec
         chapter_id: sub.chapter_id || null,
         category: row.category,
         item: row.item,
-        dotsBuying,
+        dotsBuying: rawDotsBuying,
         xpCost: row.xpCost,
-        submitted_at: sub.submitted_at || sub.created_at || null,
-        trait_name: verdict.trait_name,
+        submitted_at: submittedAt,
       };
 
+      // A NaN (missing/non-numeric) or negative dotsBuying is not a real
+      // "0 dots" form artifact — it is malformed data. Surface it, don't
+      // silently fold it into the zero bucket or classify it further.
+      if (!Number.isFinite(rawDotsBuying) || rawDotsBuying < 0) {
+        unconfirmable.push({
+          ...base,
+          trait_name: row.item || '(unnamed)',
+          reason: `dotsBuying is malformed or negative (${JSON.stringify(row?.dotsBuying)}) — cannot classify`,
+        });
+        continue;
+      }
+
+      // A merit row on a submission with no resolvable character record
+      // cannot be checked against anything — report the real problem (the
+      // broken/missing character link) rather than letting classifyRow's
+      // empty merit map produce a misleading "no live merit by that name".
+      if (row.category === 'merit' && !characterResolved) {
+        unconfirmable.push({
+          ...base,
+          trait_name: row.item || '(unnamed)',
+          reason: sub.character_id
+            ? `submission's character_id (${sub.character_id}) does not resolve to any live character document — cannot verify against current state`
+            : `submission carries no character_id at all — cannot verify against current state`,
+        });
+        continue;
+      }
+
+      const verdict = classifyRow(row, meritEntriesByName);
+      const withTrait = { ...base, trait_name: verdict.trait_name };
+      const withDots = verdict.maxTarget != null
+        ? { ...withTrait, maxTarget: verdict.maxTarget, currentDots: verdict.currentDots }
+        : withTrait;
+
       if (verdict.classification === 'confirmed') {
-        confirmed.push({ ...base, maxTarget: verdict.maxTarget, currentDots: verdict.currentDots });
+        if (!submittedAt) {
+          // AC4: `at` must be "a real historic date, never now" — a source
+          // submission with neither submitted_at nor created_at has no real
+          // date to write. Route to unconfirmable instead of inserting null.
+          unconfirmable.push({
+            ...withDots,
+            reason: `merit "${verdict.trait_name}" is otherwise confirmed, but the source submission has ` +
+              'neither submitted_at nor created_at — cannot backfill without a real historic date',
+          });
+          continue;
+        }
+        confirmed.push(withDots);
       } else {
-        unconfirmable.push({ ...base, reason: verdict.reason });
+        unconfirmable.push({ ...withDots, reason: verdict.reason });
       }
     }
   }
@@ -327,30 +440,53 @@ export async function planReconciliation(submissionsCollection, charactersCollec
  * `unconfirmable` rows are never passed here — they are report-only, handled
  * entirely by `main()`'s own printing.
  *
+ * Return shape keeps `inserted` (rows actually written, apply mode only) and
+ * `wouldInsert` (rows that would be written, dry-run mode only) separate —
+ * code review, 2026-08-18: a single overloaded `inserted` counter used to
+ * report non-zero even in dry-run mode, a trap for any future caller of this
+ * exported function that checks `result.inserted > 0` to mean "something was
+ * actually written."
+ *
  * @param {import('mongodb').Collection} ledgerCollection
  * @param {Array<object>} confirmedRows - the `confirmed` array from `planReconciliation`
  * @param {{ apply?: boolean, log?: Function }} [opts]
- * @returns {Promise<{inserted:number, skipped:number}>}
+ * @returns {Promise<{inserted:number, wouldInsert:number, skipped:number}>}
  */
 export async function applyReconciliation(ledgerCollection, confirmedRows, { apply = false, log = () => {} } = {}) {
   let inserted = 0;
+  let wouldInsert = 0;
   let skipped = 0;
 
   for (const row of confirmedRows) {
+    const newTotal = row.maxTarget * MERIT_XP_RATE;
+    const xpCostNum = row.xpCost != null ? Number(row.xpCost) : NaN;
+    const delta = (Number.isFinite(xpCostNum) && xpCostNum >= 0)
+      ? xpCostNum
+      : row.dotsBuying * MERIT_XP_RATE; // absent OR malformed xpCost falls back to reconstruction
+
     const sourceTag = String(row.submission_id);
-    const existing = await ledgerCollection.findOne({ reason: { $regex: sourceTag } });
+
+    // Idempotency key: see file header IDEMPOTENCE. Deliberately keyed on
+    // structured fields, not the source submission id, so it catches both
+    // multiple confirmed rows sharing a submission AND a duplicate request
+    // for the same target arriving via a different submission.
+    const existing = await ledgerCollection.findOne({
+      character_id: row.character_id,
+      category: 'merit',
+      trait_name: row.trait_name,
+      new_total: newTotal,
+      st_username: 'historic-reconciliation',
+    });
+
     if (existing) {
       skipped += 1;
-      log(`  SKIP (already backfilled) | ${row.character_name} — ${row.trait_name} (source ${sourceTag})`);
+      log(`  SKIP (already backfilled) | ${row.character_name} — ${row.trait_name} → ${newTotal} XP (source ${sourceTag})`);
       continue;
     }
 
-    const delta = row.xpCost != null ? Number(row.xpCost) : row.dotsBuying * MERIT_XP_RATE;
-    const newTotal = row.maxTarget * MERIT_XP_RATE;
-
     if (!apply) {
+      wouldInsert += 1;
       log(`  WOULD INSERT | ${row.character_name} — ${row.trait_name} +${delta} XP (new_total ${newTotal}, source ${sourceTag})`);
-      inserted += 1;
       continue;
     }
 
@@ -369,7 +505,7 @@ export async function applyReconciliation(ledgerCollection, confirmedRows, { app
     log(`  INSERTED | ${row.character_name} — ${row.trait_name} +${delta} XP (source ${sourceTag})`);
   }
 
-  return { inserted, skipped };
+  return { inserted, wouldInsert, skipped };
 }
 
 export async function main(argv = process.argv) {
@@ -405,9 +541,10 @@ export async function main(argv = process.argv) {
     }
 
     const result = await applyReconciliation(ledgerCollection, plan.confirmed, { apply, log: msg => console.log(msg) });
+    const actioned = apply ? result.inserted : result.wouldInsert;
 
     console.log('');
-    console.log(`Totals: ${result.inserted} ${apply ? 'inserted' : 'would insert'}, ${result.skipped} skipped (already backfilled).`);
+    console.log(`Totals: ${actioned} ${apply ? 'inserted' : 'would insert'}, ${result.skipped} skipped (already backfilled).`);
     if (apply) {
       console.log('Idempotency check: re-run with --apply and confirm every row reports SKIP (already backfilled).');
     } else {

@@ -674,3 +674,14 @@ deferred as pre-existing, not caused by this diff:
   (`:104`, `countDocuments({ story_cycle_id: idStr })`) — an ObjectId-typed FK (from a hand-edit or a
   future importer) would bypass the "linked cycles" refusal and let a Story with real dependents be
   deleted. Pre-existing code, untouched by cm-3's diff (which only extended the PATCH handler).
+
+## Deferred from: code review of xpl-2-historic-reconciliation (2026-08-18)
+
+- **`applyReconciliation`'s idempotency guard is a non-atomic check-then-insert** —
+  `server/scripts/xpl-2-historic-xp-reconciliation.mjs`, `findOne` followed by `insertOne` with no
+  unique index on `xp_ledger` and no transaction. Two overlapping `--apply` invocations could both
+  pass the "not found" check for the same row and insert duplicates. Deferred as pre-existing
+  convention, not a regression this script introduces: every other one-off migration script in this
+  repo (`migrate-office-purchases-to-seats.mjs` is the closest precedent) has the identical class of
+  non-atomic guard, mitigated only by "a human runs this once, by hand," not by code. Revisit if this
+  project ever moves to a pattern where migration scripts can run concurrently or unattended.

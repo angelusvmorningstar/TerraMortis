@@ -1098,15 +1098,24 @@ development_status:
   epic-xpl: in-progress                                        # xpl.1 code-reviewed and done (see ms/xpl-1-xp-ledger-write-hook, not yet merged). xpl.2 story created 2026-08-15 after a real investigation found the epic's own original one-line scope wrong on two counts: the game_number:2 cycle (originally labelled "DT1" here, that identity now an open question - see xpl-2's own 2026-08-17 correction note) has zero structured XP data (0 of 25 submissions), and no cycle has any approval signal (approval_status is schema-declared but null on all 104 real xp-bearing submissions live-checked). Angelus's ruling: confirmed-only backfill (only write a row when the character's current live state corroborates the historic request; everything else surfaces in a report for manual review). xpl.2 corrected 2026-08-17 against cm-4's renumber (its scope is game_number 3-7, not 2-6 as originally recorded) - see the story's own STALE correction note before dev-storying. Full detail: specs/stories/xpl-2-historic-reconciliation.md.
 
   xpl-1-xp-ledger-write-hook: done                             # See ms/xpl-1-xp-ledger-write-hook branch for full history - dev-storied, code-reviewed (2 real High findings fixed, live-data-reproduced), 136/136 regression. Committed locally, not merged.
-  # 2026-08-18: dev-storied. Script + 20 tests written, DT1-identity question
-  # resolved (see di-1's own flag — that's where the real finding landed).
-  # xpl.1 still not merged to dev/main (only on ms/xpl-1-xp-ledger-write-hook,
-  # a stale ~280-file diff cut before cm-2/cm-2b/cm-4/cm-7/gdx-5/6/7/di-1) —
-  # did not block this story's own script, which writes directly to xp_ledger
-  # like every other migration script, but the "verify against xpl.1's own
-  # test suite" check in Task 5 could not be run as a live check. --apply not
-  # run against live tm_suite, per this story's own AC7.
-  xpl-2-historic-reconciliation: review
+  # 2026-08-18: dev-storied, then 3-layer code-reviewed same day. Script + 30
+  # tests (grew from 20 post-review). DT1-identity question resolved (see
+  # di-1's own flag — that's where the real finding landed). xpl.1 still not
+  # merged to dev/main (only on ms/xpl-1-xp-ledger-write-hook, a stale
+  # ~280-file diff cut before cm-2/cm-2b/cm-4/cm-7/gdx-5/6/7/di-1) — did not
+  # block this story's own script, which writes directly to xp_ledger like
+  # every other migration script. Code review: all 3 layers (Blind Hunter,
+  # Edge Case Hunter, Acceptance Auditor) independently converged on the same
+  # critical bug — the idempotency guard collided across multiple confirmed
+  # rows sharing a submission, silently dropping legitimate rows on the FIRST
+  # --apply run. Redesigned the guard to a structured-field key
+  # (character_id + trait_name + new_total) instead of a submission_id regex
+  # match, which also closed a second, Angelus-approved gap (cross-submission
+  # duplicate-target requests). 8 other patch findings fixed, 1 deferred
+  # (non-atomic check-then-insert, matches this repo's migration-script
+  # convention), 3 dismissed as noise. Full detail: the story's own Review
+  # Findings section. --apply never run against live tm_suite.
+  xpl-2-historic-reconciliation: done
 
   # ── Epic GDX: Game-Day Experience ─────────────────────────────────────────
   # GitHub-issue-tracked, not a local specs/epic-gdx-*.md file yet (none of
