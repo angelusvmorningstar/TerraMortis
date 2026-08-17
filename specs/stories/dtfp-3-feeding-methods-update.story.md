@@ -1,10 +1,17 @@
 ---
 id: dtfp.3
 epic: dtfp
-status: ready-for-dev
+status: done
 priority: medium
 depends_on: []
 ---
+
+> ## Dev Agent Record (verification pass, 2026-08-18)
+> Already implemented and merged to `main` — same mistracking `epic-dtil`/`epic-dtux`/rest of
+> `epic-dtfp` had (2026-08-16 stale-status reconciliation `134045a16` misclassified it as
+> never-started). Implementing commit `7da7251e` ("feat(dtfp-3,dtfp-7): feeding methods data refresh
+> + per-highlight mechanical flag" — shared with dtfp-7), merged via `4b078289`, 2026-04-27. No new
+> code written this pass.
 
 # Story DTFP-3: Update FEED_METHODS data and add By Force teaching note
 

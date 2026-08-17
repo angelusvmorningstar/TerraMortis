@@ -1,10 +1,17 @@
 ---
 id: dtfp.1
 epic: dtfp
-status: ready-for-dev
+status: done
 priority: low
 depends_on: []
 ---
+
+> ## Dev Agent Record (verification pass, 2026-08-18)
+> Already implemented and merged to `main` — same mistracking `epic-dtil`/`epic-dtux`/rest of
+> `epic-dtfp` had (2026-08-16 stale-status reconciliation `134045a16` misclassified it as
+> never-started). Implementing commit `633aa628` ("feat(dtfp-1): ambience-direction labels around
+> influence stepper"), follow-up `d01a34b7` ("fix(dtfp-1): keep influence stepper column vertically
+> aligned"), merged via `e52e862e`/`43955a0a`, 2026-04-27. No new code written this pass.
 
 # Story DTFP-1: Influence stepper "decreasing / increasing ambience" labels
 

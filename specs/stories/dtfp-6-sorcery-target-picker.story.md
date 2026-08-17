@@ -1,10 +1,17 @@
 ---
 id: dtfp.6
 epic: dtfp
-status: ready-for-dev
+status: done
 priority: medium
 depends_on: []
 ---
+
+> ## Dev Agent Record (verification pass, 2026-08-18)
+> Already implemented and merged to `main` — same mistracking `epic-dtil`/`epic-dtux`/rest of
+> `epic-dtfp` had (2026-08-16 stale-status reconciliation `134045a16` misclassified it as
+> never-started). Implementing commit `8db44778` ("feat(dtfp-6): structured multi-target picker for
+> sorcery rites"), merged via `b478130d`, 2026-04-27; follow-up fixes since (`e201a0ff`, `e9d6d1f4`,
+> `52b5410e`). No new code written this pass.
 
 # Story DTFP-6: Sorcery target picker harmonisation with extracted shared helper
 

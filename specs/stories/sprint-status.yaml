@@ -348,15 +348,19 @@ development_status:
 
   epic-di: in-progress
 
-  # 2026-08-18: DO NOT --apply as currently written. Direct query against live
-  # tm_suite found the target chapter (game_number:1, "Chapter-1 placeholder")
-  # is the WRONG target — the real DT1 (25 submissions, same character roster,
-  # created_at matching this script's own DT1_LOADED_AT constant to the
-  # millisecond) is already live at game_number:2, imported back on 2026-04-17
-  # (439a9ebb, "migrate-dt1-submissions.js ... (applied)"). Applying di-1 as-is
-  # would create a duplicate DT1 dataset under an empty, structurally-unrelated
-  # chapter. See the story file's own flag section for the full finding.
-  di-1-import-dt1-narratives: review        # NEEDS REWORK — see 2026-08-18 note above; do not --apply
+  # 2026-08-18: RESOLVED — retired, not reworked. The 2026-08-18 finding that
+  # the target chapter (game_number:1) was wrong led to checking whether
+  # game_number:2's already-live content actually IS this story's source data
+  # — it is, word-for-word: st-working/downtime/dt1/TM_downtime1_submissions.json's
+  # own Alice Vunder "Party with Cyrus" narrative is byte-identical to the
+  # live game_number:2 submission's st_review.outcome_text, and the source
+  # JSON self-identifies as cycle_id:"downtime_1". This story's player-facing
+  # goal (DT1 narrative visible in Chronicle alongside DT2/DT3) is already
+  # met by the 2026-04-17 import (439a9ebb) — nothing left to do. The new
+  # script (server/scripts/di-1-import-dt1-narratives.mjs) was never applied;
+  # archived to server/scripts/archive/ alongside the original migrate-dt1*.js
+  # it was meant to replace.
+  di-1-import-dt1-narratives: done
   di-2-import-game1-letters: backlog        # needs-product-input — see story file front-matter
   di-3-sync-ordeal-data: done        # investigation spike — produces audit note, not code
 
@@ -632,14 +636,24 @@ development_status:
   epic-dtsr-retrospective: optional
 
   # ---- Epic DTFP — Player Form Polish ----
-  epic-dtfp: in-progress
-  dtfp-1-influence-stepper-labels: ready-for-dev
-  dtfp-2-alphabetical-chip-order: ready-for-dev
-  dtfp-3-feeding-methods-update: ready-for-dev
-  dtfp-4-templates-as-ux-only: ready-for-dev
-  dtfp-5-kiss-violent-toggle: ready-for-dev
-  dtfp-6-sorcery-target-picker: ready-for-dev
-  dtfp-7-mechanical-flag-checkbox: ready-for-dev
+  # 2026-08-18: verified against live code, not tracker text (same audit that
+  # caught epic-dtil/epic-dtux). All 7 stories have real "merge: dtfp-N ...
+  # from Morningstar" commits, all merged to main 2026-04-27 in the same
+  # DTSR/DTFP/DTUX/CHM/FIN/CSS batch as dtil/dtux (e52e862e, 98415c0e,
+  # 4b078289, d9a743a2, f6c7b28f, b478130d). Spot-checked dtfp-7's
+  # mechanical_flag_N checkbox directly in public/js/tabs/downtime-form.js —
+  # still live. The 2026-08-16 stale-status reconciliation (134045a16)
+  # misclassified this epic the same way it did epic-dtil/epic-dtux; flipped
+  # back to done here. (dtsr-10/dtsr-11, adjacent in this file, were NOT
+  # checked as part of this pass — still genuinely unverified.)
+  epic-dtfp: done
+  dtfp-1-influence-stepper-labels: done
+  dtfp-2-alphabetical-chip-order: done
+  dtfp-3-feeding-methods-update: done
+  dtfp-4-templates-as-ux-only: done
+  dtfp-5-kiss-violent-toggle: done
+  dtfp-6-sorcery-target-picker: done
+  dtfp-7-mechanical-flag-checkbox: done
   epic-dtfp-retrospective: optional
 
   # ---- Epic DTIL — DT Intelligence Layer ----

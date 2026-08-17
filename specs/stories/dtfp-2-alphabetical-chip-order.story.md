@@ -1,10 +1,16 @@
 ---
 id: dtfp.2
 epic: dtfp
-status: ready-for-dev
+status: done
 priority: low
 depends_on: []
 ---
+
+> ## Dev Agent Record (verification pass, 2026-08-18)
+> Already implemented and merged to `main` — same mistracking `epic-dtil`/`epic-dtux`/rest of
+> `epic-dtfp` had (2026-08-16 stale-status reconciliation `134045a16` misclassified it as
+> never-started). Implementing commit `19a00afe` ("feat(dtfp-2): alphabetical render-time order for
+> DT form chips"), merged via `98415c0e`, 2026-04-27. No new code written this pass.
 
 # Story DTFP-2: Alphabetical chip ordering at render time across the DT form
 

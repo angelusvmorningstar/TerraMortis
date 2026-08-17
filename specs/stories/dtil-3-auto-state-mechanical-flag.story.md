@@ -239,10 +239,11 @@ updated before the awaited persistence call so render never blocks on it.
 
 This story's `depends_on: [dtfp.7, dtil.2]` is also satisfied in reality —
 dtfp-7 (`mechanical_flag_N`) shipped in `7da7251e`/merged via `4b078289`, also
-on `main` — though `dtfp-7-mechanical-flag-checkbox` itself is still marked
-`ready-for-dev` in `sprint-status.yaml`. Not corrected here (out of scope for
-this dtil pass); flagging for a separate look, since epic-dtfp likely has the
-same 2026-08-16 misclassification epic-dtil had.
+on `main`. **Update, 2026-08-18:** the suspected epic-dtfp mistracking this
+flagged was confirmed — all 7 dtfp stories had the same 2026-08-16
+misclassification epic-dtil/epic-dtux had, now corrected to `done` in
+`sprint-status.yaml` and each story's own frontmatter (see
+`dtfp-7-mechanical-flag-checkbox.story.md`'s own Dev Agent Record).
 ### File List
 No files changed this pass (verification only). Original implementation:
 - `public/js/admin/downtime-views.js`

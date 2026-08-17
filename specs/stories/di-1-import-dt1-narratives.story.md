@@ -1,12 +1,36 @@
 ---
 id: di.1
 epic: di
-status: review
+status: done
 priority: medium
 depends_on: []
 ---
 
-> ## ⚠ DO NOT `--apply` — wrong target, found 2026-08-18
+> ## ✅ RESOLVED 2026-08-18 — retired, not reworked. `--apply` never run; do not run it.
+>
+> **2026-08-18 update:** the wrong-target finding below (found while dev-storying `xpl-2`) led to
+> checking the follow-up question it raised: does `game_number: 2`'s already-live content actually
+> equal this story's own source data, or is there a real gap left to fill? It's a byte-for-byte
+> match. `st-working/downtime/dt1/TM_downtime1_submissions.json`'s own Alice Vunder record — the
+> "Party with Cyrus" project narrative — is **word-for-word identical** to the live `game_number: 2`
+> submission's `st_review.outcome_text`/`published_outcome`, right down to shared phrasing like "the
+> club is loud, the lights are wrong." The source JSON self-identifies as `"cycle_id": "downtime_1"`.
+> This is not a coincidence or a similar-but-different retelling — it is the same file (or an
+> unmodified copy of it), already imported for real back on 2026-04-17.
+>
+> This story's actual goal — DT1 narrative visible in the player's Chronicle/Story tab alongside
+> DT2/DT3 — is **already met**, and not just at the data layer: `public/js/tabs/story-tab.js`'s
+> Chronicle render filters purely on `character_id` + a truthy `published_outcome`, with no
+> chapter-number gate of any kind, and the live `game_number: 2` submissions already carry a
+> populated `published_outcome`. Every player who was in DT1 already sees it in their Chronicle
+> today. There is nothing left for this story to do.
+>
+> **Retired, not implemented further.** `server/scripts/di-1-import-dt1-narratives.mjs` (this story's
+> own new script) was never run with `--apply` and never will be; moved to `server/scripts/archive/`
+> alongside the original `migrate-dt1.js`/`migrate-dt1-submissions.js` it was written to replace, all
+> three now dead code for the same reason: the job they exist to do is already done.
+>
+> ### Original wrong-target finding (2026-08-18, superseded by the above but kept for the record)
 >
 > Direct queries against live `tm_suite`, while dev-storying `xpl-2` (which flagged an unresolved
 > "DT1 identity" question this story's own 2026-08-17 correction surfaced — see that story's Context
@@ -32,14 +56,6 @@ depends_on: []
 >   2026-08-17 correction pass verified the chapter was empty and re-derivable but did not check
 >   whether the JSON source content was already represented elsewhere under a different chapter — it
 >   was.
->
-> **Running `--apply` as currently written would create a duplicate DT1 dataset under the wrong,
-> structurally-empty chapter**, alongside the real one already published at `game_number: 2`. This
-> story needs rework (or retirement) before anyone runs it for real: either confirm `game_number: 2`'s
-> existing content is a complete, correct DT1 and retire this script entirely, or identify what real
-> gap (if any) remains between the two sources before writing to any chapter. Not attempted in this
-> pass — flagged for Angelus's own decision, per this project's confirmed-only-and-surface-don't-guess
-> convention.
 
 # Story DI-1: Import DT1 Narratives into Chronicles
 
@@ -337,10 +353,12 @@ Verification actually performed, in place of the automated tests this story expl
 
 ### File List
 
-- `server/scripts/di-1-import-dt1-narratives.mjs` (new) — the import script.
+- `server/scripts/archive/di-1-import-dt1-narratives.mjs` (moved from `server/scripts/`, 2026-08-18 —
+  the import script, never applied, retired) — the import script.
 - `specs/stories/di-1-import-dt1-narratives.story.md` (this file) — Status, Tasks/Subtasks, Dev Notes,
   Dev Agent Record.
-- `specs/stories/sprint-status.yaml` — `di-1-import-dt1-narratives` row: `ready-for-dev` → `review`.
+- `specs/stories/sprint-status.yaml` — `di-1-import-dt1-narratives` row: `ready-for-dev` → `review` →
+  `done`.
 
 No changes to `public/js/tabs/story-tab.js` or any other runtime file — verify-only, as scoped.
 
@@ -350,3 +368,8 @@ No changes to `public/js/tabs/story-tab.js` or any other runtime file — verify
   pre-existing defects found and fixed via direct verification against real source data). Status
   `ready-for-dev` → `review`. Production `--apply` and the manual Chronicle smoke test are deliberately
   not done in this session — see Task 6.
+- 2026-08-18 (later same day): while dev-storying `xpl-2`, found the target chapter was wrong (see the
+  flag at the top of this file). Follow-up check found the deeper reason why: `game_number: 2` already
+  holds this exact source data, imported for real back on 2026-04-17, and the player-facing Chronicle
+  already renders it with no chapter-number gate. Story goal already met by pre-existing means. Script
+  retired to `server/scripts/archive/`, never applied. Status `review` → `done`.

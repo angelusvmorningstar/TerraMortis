@@ -1,10 +1,20 @@
 ---
 id: dtfp.7
 epic: dtfp
-status: ready-for-dev
+status: done
 priority: medium
 depends_on: []
 ---
+
+> ## Dev Agent Record (verification pass, 2026-08-18)
+> Already implemented and merged to `main` — same mistracking `epic-dtil`/`epic-dtux`/rest of
+> `epic-dtfp` had (2026-08-16 stale-status reconciliation `134045a16` misclassified it as
+> never-started). Implementing commit `7da7251e` ("feat(dtfp-3,dtfp-7): feeding methods data refresh
+> + per-highlight mechanical flag" — shared with dtfp-3), merged via `4b078289`, 2026-04-27.
+> Spot-checked directly in `public/js/tabs/downtime-form.js` — `mechanical_flag_N` checkbox render
+> and `responses` capture both still live. This is also the field `dtil-3`'s auto-derivation reads
+> (`server/scripts` note in `xpl-2`'s own commit), independently confirming it's real and in active
+> use. No new code written this pass.
 
 # Story DTFP-7: Per-highlight mechanical-flag checkbox
 

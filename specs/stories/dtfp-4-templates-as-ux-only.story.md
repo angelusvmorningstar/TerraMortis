@@ -1,10 +1,17 @@
 ---
 id: dtfp.4
 epic: dtfp
-status: ready-for-dev
+status: done
 priority: medium
 depends_on: []
 ---
+
+> ## Dev Agent Record (verification pass, 2026-08-18)
+> Already implemented and merged to `main` — same mistracking `epic-dtil`/`epic-dtux`/rest of
+> `epic-dtfp` had (2026-08-16 stale-status reconciliation `134045a16` misclassified it as
+> never-started). Implementing commit `1a9f2ed8` ("feat(dtfp-4): treat feeding-method cards as
+> UX-only scaffolding"), merged via `d9a743a2`, 2026-04-27; several real follow-up fixes since
+> (`a0ca922f`, `00aadd32`, `407208e6`, `529aa577`). No new code written this pass.
 
 # Story DTFP-4: Treat feeding-method templates as UX-only quick-pick scaffolding
 

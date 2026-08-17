@@ -1,4 +1,19 @@
 /**
+ * ARCHIVED 2026-08-18 (story di-1, resolved not reworked). Never run with
+ * --apply. The target this script assumed was empty (chapters at
+ * game_number: 1) is genuinely empty and correctly so — under cm-4's
+ * chapter-anchor model it represents the downtime that would have preceded
+ * Game 1, which never existed. The real DT1 content this script's own
+ * source JSON carries (st-working/downtime/dt1/TM_downtime1_submissions.json,
+ * self-identified as cycle_id:"downtime_1") was already imported to live
+ * Mongo back on 2026-04-17 (439a9ebb, migrate-dt1-submissions.js) and lives
+ * today at chapters/game_number:2 — confirmed word-for-word identical
+ * against a live sample (Alice Vunder's "Party with Cyrus" narrative).
+ * Players already see it in their Chronicle (story-tab.js's render has no
+ * chapter-number gate). Nothing left for this script to do. Moved here
+ * alongside migrate-dt1.js/migrate-dt1-submissions.js, the two scripts it
+ * was written to replace — all three are dead code for the same reason.
+ *
  * DI-1 - import the 26 Downtime 1 narratives (written before the app form
  * existed) into `downtime_submissions`, attached to the existing Chapter-1
  * placeholder (`chapters` document at `game_number: 1`). Manual, ST-invoked,

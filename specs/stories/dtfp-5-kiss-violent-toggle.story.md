@@ -1,10 +1,17 @@
 ---
 id: dtfp.5
 epic: dtfp
-status: ready-for-dev
+status: done
 priority: medium
 depends_on: []
 ---
+
+> ## Dev Agent Record (verification pass, 2026-08-18)
+> Already implemented and merged to `main` — same mistracking `epic-dtil`/`epic-dtux`/rest of
+> `epic-dtfp` had (2026-08-16 stale-status reconciliation `134045a16` misclassified it as
+> never-started). Implementing commit `ce30282e` ("feat(dtfp-5): Kiss / Violent feeding declaration
+> toggle"), merged via `f6c7b28f`, 2026-04-27; follow-up fix `b6b25fe5` (#113). No new code written
+> this pass.
 
 # Story DTFP-5: Kiss / Violent feeding toggle on the DT form
 
