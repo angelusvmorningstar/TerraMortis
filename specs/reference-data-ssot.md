@@ -172,6 +172,10 @@ migration was written: there was nothing to move.
 
 **Finance shape:** `game_sessions[n].finances = { expenses: [{category, amount, date?, note?}], transfers: [{to, amount, date?}], notes }`. Takings card in Finance tab is derived from `attendance[n].payment` via `derivePayments(session)`. Balance = collected − expenses − transfers. Nothing is stored as a computed field.
 
+**Session ↔ Chapter link (CM-6, folded into `cm-4`):** `game_sessions.chapter_id` is the enforced FK to the `chapters` document the session belongs to. Nullable; where set it is 1:1, and that is a **database constraint, not a convention** — a partial unique index `chapter_id_unique_notnull` (`{chapter_id: 1}`, `unique`, `partialFilterExpression: {chapter_id: {$type: ['objectId','string']}}`) created at boot in `server/index.js`. Never infer the pairing by matching `game_number`: `cycle-model.md` §11a records two separate live bugs caused by exactly that inference. The historical backfill lives as an explicit, evidence-cited table (`GAME_SESSION_PAIRINGS`) in `server/scripts/cm-4-renumber-chapter-merge.mjs`.
+
+**`chapter_id` has ONE canonical stored type: `ObjectId`.** The partial unique index treats an `ObjectId` and its 24-hex string form as *distinct* keys, so a mixed-type field silently defeats the 1:1 constraint. Every write path coerces — `coerceChapterId` in `server/routes/game-sessions.js`, applied on `POST /api/game_sessions` and `PUT /api/game_sessions/:id`, plus the 24-hex `pattern` on `gameSessionSchema`. This matters because both live writers (`public/js/admin/attendance.js`, `public/js/game/signin-tab.js`) GET the whole session document and PUT it straight back after editing an unrelated field, and JSON has no ObjectId. A duplicate pairing surfaces as **409 `CHAPTER_ALREADY_PAIRED`**, never a 500. Any new writer of this field must go through the route, not straight to Mongo.
+
 ---
 
 ## Players & Auth

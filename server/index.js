@@ -254,6 +254,43 @@ async function start() {
         partialFilterExpression: { request_type: 'status_action', status: 'pending' },
       },
     );
+    // Ensure partial unique index on game_sessions.chapter_id (CM-6, folded into cm-4 per
+    // cycle-model.md §11a step 6) — makes the confirmed-always-1:1 session/Chapter invariant
+    // (Angelus, 2026-08-16) a database constraint rather than a convention.
+    //
+    // `$type` rather than `$exists: true`: a partial filter of `$exists: true` would INCLUDE
+    // documents holding an explicit null, and two of those would then collide on the unique key.
+    // `$ne: null` is not accepted in a partial filter at all. `$type` is, and it is exactly
+    // "unique where not null". Both storage types are listed because issue #497's mixed
+    // ObjectId/string FK split is still live in this database; writes go through
+    // `coerceChapterId` in server/routes/game-sessions.js, which only ever stores ObjectId.
+    //
+    // AWAITED, unlike the three above (cm-4 review, 2026-08-17, triple-confirmed). A unique index
+    // build over data that ALREADY contains a duplicate rejects. Un-awaited, that rejection escapes
+    // this try/catch entirely and surfaces as an unhandled promise rejection, which on Render can
+    // boot-loop the API — the one index of the four whose uniqueness constraint spans data an ST
+    // can hand-edit, so the one most able to find a duplicate at boot. Awaiting it means a
+    // duplicate is caught below and logged as a startup problem instead of killing the process.
+    try {
+      await getDb().collection('game_sessions').createIndex(
+        { chapter_id: 1 },
+        {
+          name: 'chapter_id_unique_notnull',
+          unique: true,
+          background: true,
+          partialFilterExpression: { chapter_id: { $type: ['objectId', 'string'] } },
+        },
+      );
+    } catch (indexErr) {
+      // Nested deliberately: a live duplicate must be loud, but it must not take the rules-engine
+      // gate down with it, and it must not read as "failed to connect to MongoDB" (which is what
+      // the outer catch says).
+      console.error(
+        "Could not create the game_sessions.chapter_id unique index — the session/Chapter 1:1 " +
+        'invariant is NOT enforced on this boot. Two sessions are probably paired with the same ' +
+        `chapter. Resolve by hand: ${indexErr.message}`
+      );
+    }
     await runRulesEngineGate();
   } catch (err) {
     console.error('Failed to connect to MongoDB:', err.message);

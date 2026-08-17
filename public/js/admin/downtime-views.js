@@ -1282,6 +1282,13 @@ async function loadCycleById(cycleId) {
   const statusCss   = isPrep ? 'prep' : isActive ? 'pending' : isGame ? 'game' : 'approved';
   let statusHtml = `<span class="dt-status-badge dt-status-${statusCss}">${statusLabel}</span>` +
     `<span class="domain-count">${cycle.submission_count || 0} submissions</span>`;
+  // cm-4 (the renumber): Chapter 1 holds no downtime submissions at all — its downtime WAS
+  // character creation (cycle-model.md §5). Without this, the list simply shows "0 submissions"
+  // against the first chapter with no explanation anywhere, which reads as missing data rather
+  // than as the recorded fact it is. Reuses `domain-count`; no new component class.
+  if (cycle.placeholder && cycle.placeholder_note) {
+    statusHtml += `<span class="domain-count">${esc(cycle.placeholder_note)}</span>`;
+  }
   if (deadlineStr) {
     statusHtml += `<span class="dt-deadline${deadlinePast ? ' dt-deadline-past' : ''}">Deadline: ${esc(deadlineStr)}</span>`;
   }

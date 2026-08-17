@@ -22,6 +22,18 @@ export const gameSessionSchema = {
     game_number:      { type: 'integer', minimum: 1 },
     chapter_number:   { type: 'integer', minimum: 1 },
     chapter_label:    { type: 'string' },
+    // CM-6 (folded into cm-4, cycle-model.md §11a step 6): the enforced link from a session to
+    // the Chapter it belongs to. Nullable; the invariant is 1:1 where set, and that is enforced
+    // by a PARTIAL UNIQUE INDEX (unique where not null) rather than by convention - created at
+    // boot in server/index.js and by cm-4-renumber-chapter-merge.mjs's own --apply.
+    // Typed as a string here because this schema validates the JSON request BODY, where an
+    // ObjectId arrives as its 24-character hex form; the migration itself writes a real ObjectId.
+    // The `pattern` is load-bearing, not decoration (cm-4 review, 2026-08-17): a free-form string
+    // here would be stored verbatim, and the partial unique index treats a string and an ObjectId
+    // as DISTINCT keys, so a junk value would sit inside the index and quietly weaken the 1:1
+    // constraint. The route coerces every accepted value to a real ObjectId before storage - see
+    // `coerceChapterId` in server/routes/game-sessions.js.
+    chapter_id:       { type: ['string', 'null'], pattern: '^[0-9a-fA-F]{24}$' },
     doors_open:       { type: 'string' },
     downtime_deadline:{ type: 'string' },
     // FIN-7: single per-session door fee. Paid attendance rows mirror this
