@@ -1,7 +1,7 @@
 ---
 id: di.1
 epic: di
-status: ready-for-dev
+status: review
 priority: medium
 depends_on: []
 ---
@@ -140,6 +140,41 @@ DI-1 is the only DI story with finished tooling. DI-2 is unscoped (source data l
 
 ---
 
+## Tasks / Subtasks
+
+- [x] Task 1: Write `server/scripts/di-1-import-dt1-narratives.mjs` (AC: source path, dry run, apply, idempotency)
+  - [x] Follow the project's plan/apply/main convention (mirrored off `dbo-2-dossier-fact-key-backfill.mjs`): `loadSourceRecords`, `planImport` (pure, read-only), `applyImport` (writes, dry-run default), `main`.
+  - [x] Source path resolved relative to the script's own location (`server/scripts/` → `../../st-working/...`), not hardcoded to project root — confirmed correct against the archived script's own documented wrong-relative-path bug (it lived one directory level shallower).
+  - [x] Target chapter re-derived by `game_number: 1` query every run, never hardcoded to the `_id` named in this story's Context.
+  - [x] Halts (does not guess or create) if the chapter is missing, or found but not carrying `placeholder: true` / `submission_count: 0`.
+  - [x] Idempotent: an existing `(character_id, chapter_id)` submission is reported `SKIP (exists)` and left untouched unless `--force`.
+- [x] Task 2: Resolve all 26 characters correctly (AC: Apply — `CHAR_ID_FIXES` characters resolve to a valid character ObjectId)
+  - [x] Read-only live query against `tm_suite.characters` for the 5 blank-`character_id` names (Charles Mercer-Willows, Eve Lockridge, Ivana Horvat, Kirk Grimm, Tegan Groves) — found the archived script's own hardcoded `CHAR_ID_FIXES` map is **stale**: all 5 of its ids belong to a prior, no-longer-live character import (`69cf7da8...` prefix), while the real live ids (confirmed by exact name match) share the `69d73ea4...` prefix the other 21 source records already carry inline. Fixed by resolving these 5 by a live `characters.name` lookup at run time instead of trusting any hardcoded map — re-derive, don't hardcode, same discipline this project's other migration scripts already follow.
+  - [x] Verified the other 21 inline source `character_id`s still resolve against live `characters` (20/21 exact `_id` matches; the 21st, "Cazz" → `69d73ea49162ece35897a480`, is a genuine character rename to "Casamir" since DT1 was recorded — harmless, since the script trusts the given `character_id` over the source's snapshot `character_name`).
+- [x] Task 3: Build clean `published_outcome` markdown (AC: Chronicle rendering — markdown)
+  - [x] Read the real DT1 source data directly rather than trusting the archived script's shape: found `merit_actions_resolved[i].header` (not `st_narrative.action_responses[i].response`, which is empty string on every record with real merit-action content) is where the actual narrative text lives.
+  - [x] Found and avoided a genuine defect the archived script's own approach would have reproduced: nesting `### Title` sub-headings inside one `## Projects` block leaks literal `#` characters into the rendered page, because `parseOutcomeSections` only consumes a line starting with exactly `## `. Used one top-level `## <Title>` heading per project instead (matching the live `compilePushOutcome` convention for DT2/DT3), and single `## Territory Reports` / `## Merit Actions` headings with plain-text (no markdown) per-item paragraphs for the two grouped sections.
+  - [x] Verified `st_narrative` is written verbatim (plain-string `touchstone`/`letter_from_home`, not the DTSR-2 `{status, response}` shape) so `renderStoryMoment()` cannot fire a second, duplicate render of the same content — confirmed by reading its exact truthiness check against `.response`.
+  - [x] Ran `buildPublishedOutcome` directly (no DB) against all 26 real source records: zero lines starting with a bare `#` outside a proper `## ` heading, zero backticks, zero empty outputs.
+  - [x] Found and fixed a cosmetic redundancy while doing that direct check: `feeding_review.best_ambience` already names its own territory (e.g. "The Second City — +2"), so unconditionally prepending `feeding_review.territories` produced "The Second City — The Second City — +2" for every single-territory character. Now only prepends `territories` when `best_ambience` doesn't already start with it.
+- [x] Task 4: Verify the render path needs no changes (AC: Chronicle rendering — sort order, No regressions)
+  - [x] Read `story-tab.js`'s `renderChronicle`/`renderLatestReport`/`renderOutcomeWithCards` in full — confirmed the `chapter_id` → `game_number` sort (shipped in `cm-2b`/`cm-4`) needs no DT1-specific change.
+  - [x] Confirmed `buildPlayerMeritActions`/`renderMeritActionCards` (the legacy per-action card path) safely no-op on a DT1 document (`responses: {}`, no `sphere_N_*`/`status_N_*` keys), so DT1's Merit Actions content only ever renders once, via the `published_outcome` heading — no duplicate-card risk.
+  - [x] No edits made to `story-tab.js`, matching the story's own "verify only" scope.
+- [x] Task 5: Dry-run verification against live `tm_suite` (AC: Dry run)
+  - [x] Ran the script with no `--apply` (read-only) against the real configured database: target chapter found and reported correctly (`game_number: 1`, `placeholder: true`, `submission_count: 0`), all 26 records reported `WOULD INSERT`, 0 skipped, all 5 blank-id characters correctly resolved via `live-lookup-by-name`.
+- [ ] Task 6: Run the script with `--apply` against production, and manually verify Chronicle rendering for 3 sample characters (AC: Apply, Chronicle rendering — sort order & markdown, Smoke test sample size)
+  - [ ] **NOT DONE IN THIS SESSION, DELIBERATELY.** Per `memory/feedback_imports.md` and this story's own "Production credentials" note: the user runs MongoDB import scripts personally; the dev's job is to deliver a script that's ready to run with clear output, not to run it themselves. The script is dry-run-verified and ready; running `node scripts/di-1-import-dt1-narratives.mjs --apply` from `server/` against live `tm_suite`, then spot-checking the Chronicle tab for the 3 sample characters named in the AC, is Angelus's own next action.
+
+## Dev Notes
+
+See "Tasks / Subtasks" above for the investigation trail — this story's own Context section already carried most of the design groundwork (it was corrected once already, 2026-08-17, against the live `cm-2b`/`cm-4` rename), so no separate Dev Notes duplication here. Two genuinely new findings surfaced during this dev pass, beyond what the Context predicted:
+
+1. The archived `migrate-dt1.js`'s `CHAR_ID_FIXES` map is stale (wrong `_id`s for all 5 characters it names) — this story's own re-derive-by-name fix is a **new** finding, not something the Context flagged in advance.
+2. `merit_actions_resolved[i].header`, not `action_responses[i].response`, is where DT1's real merit-action narrative text lives — the archived script's reference logic would have produced a silently blank Merit Actions section for the 20 characters that have one.
+
+---
+
 ## Implementation Notes
 
 ### Sequence
@@ -213,3 +248,70 @@ This is a one-shot import + render verification. Manual smoke test as described 
 - `st-working/downtime/dt1/TM_downtime1_submissions.json` — source data (26 records).
 - `public/js/tabs/story-tab.js` — `renderChronicle`/`renderLatestReport` (already sort correctly; verify only).
 - `memory/feedback_imports.md` — user runs all MongoDB import scripts personally; the dev delivers ready-to-run tooling.
+
+---
+
+## Dev Agent Record
+
+### Completion Notes
+
+Script written and dry-run-verified against live `tm_suite`; the real `--apply` and the manual
+Chronicle smoke test are Angelus's own next action (see Task 6). No tests were written — the story's
+own "No tests required" note is explicit, and this is a one-shot import script, matching the
+convention of every other `dbo-*`/`cm-*` migration script in this repo.
+
+Verification actually performed, in place of the automated tests this story explicitly waives:
+
+- `buildPublishedOutcome` (the pure markdown-assembly function) run directly against all 26 real
+  source records, no DB involved. Zero lines starting with a bare `#` outside a proper `## ` heading,
+  zero backticks, zero empty outputs.
+- The full script run in dry-run mode (no `--apply`, read-only) against the real configured
+  `tm_suite`: target chapter found and reported correctly, all 26 records `WOULD INSERT`, 0 skipped,
+  the 5 blank-`character_id` records all correctly resolved via live name lookup.
+- Both genuine defects below were found by this direct verification, not predicted by the story text,
+  and are now fixed:
+  1. **The archived `migrate-dt1.js`'s `CHAR_ID_FIXES` map is stale.** All 5 hardcoded ids belong to a
+     prior, no-longer-live character import (confirmed: none of the 5 ids resolve in live
+     `characters`; the real ids, found by exact name match, share the `69d73ea4...` prefix the other
+     21 source records already carry). Fixed by resolving these 5 dynamically by name at run time
+     instead of trusting the hardcoded map — this also happens to be the correct convention (re-derive,
+     don't hardcode) independent of the staleness bug.
+  2. **`merit_actions_resolved[i].header`, not `st_narrative.action_responses[i].response`, holds the
+     real narrative text.** Confirmed by reading several non-empty records directly — every record with
+     merit-action content has `action_responses[*].response === ''`. The archived script read the empty
+     field; had this story literally copied that logic, 20 of 26 characters would have gotten a
+     silently blank Merit Actions section.
+  3. (Cosmetic, also caught by the direct check) `feeding_review.best_ambience` already names its own
+     territory, so unconditionally prepending `feeding_review.territories` produced a duplicated
+     territory name for every single-territory character (e.g. "The Second City — The Second City —
+     +2"). Fixed to only prepend `territories` when `best_ambience` doesn't already start with it.
+- One deliberate structural deviation from the archived script's reference shape: `published_outcome`
+  uses only single-level `## ` headings (one per project, one grouped `## Territory Reports` / `##
+  Merit Actions` heading with plain-text per-item paragraphs) rather than nesting `### Title`
+  sub-headings inside `## Projects`. `parseOutcomeSections` (`public/js/data/helpers.js`) only consumes
+  a line starting with exactly `## `, so a `### ` line renders as literal text with visible hash
+  characters — directly violating this story's own "no ## characters in display" AC. This still
+  delivers "one card per project" (each project genuinely gets its own heading/section) without
+  reformatting DT1 to the full v2 six-section shape, which stays explicitly out of scope.
+- A genuine, unrelated, pre-existing character rename was found and is **not** a defect: DT1's source
+  calls one character "Cazz" (`character_id: 69d73ea49162ece35897a480`); the live `characters`
+  document at that same `_id` is now named "Casamir". Harmless — the script trusts the given
+  `character_id` over the source's snapshot `character_name`, and `character_name` is written as
+  DT1 recorded it (a timestamped snapshot, same convention every other submission's `character_name`
+  already follows).
+
+### File List
+
+- `server/scripts/di-1-import-dt1-narratives.mjs` (new) — the import script.
+- `specs/stories/di-1-import-dt1-narratives.story.md` (this file) — Status, Tasks/Subtasks, Dev Notes,
+  Dev Agent Record.
+- `specs/stories/sprint-status.yaml` — `di-1-import-dt1-narratives` row: `ready-for-dev` → `review`.
+
+No changes to `public/js/tabs/story-tab.js` or any other runtime file — verify-only, as scoped.
+
+### Change Log
+
+- 2026-08-18: Story implemented (script written, dry-run-verified against live `tm_suite`, two real
+  pre-existing defects found and fixed via direct verification against real source data). Status
+  `ready-for-dev` → `review`. Production `--apply` and the manual Chronicle smoke test are deliberately
+  not done in this session — see Task 6.
