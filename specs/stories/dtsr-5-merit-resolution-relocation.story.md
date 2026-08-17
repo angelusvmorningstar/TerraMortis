@@ -1,10 +1,16 @@
 ---
 id: dtsr.5
 epic: dtsr
-status: ready-for-dev
+status: done
 priority: medium
 depends_on: []
 ---
+
+> ## Dev Agent Record (verification pass, 2026-08-18)
+> Already implemented and merged to `main` — same mistracking `epic-dtil`/`epic-dtux`/`epic-dtfp` had
+> (2026-08-16 stale-status reconciliation `134045a16` misclassified it as never-started). Implementing
+> commit `1afd7c1f` ("feat(dtsr-5): relocate merit Outcome zone into left column"), merged via
+> `98415c0e`, 2026-04-27. No new code written this pass.
 
 # Story DTSR-5: Relocate merit Outcome resolution from sidebar into the main panel slot
 

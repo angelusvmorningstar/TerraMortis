@@ -621,18 +621,24 @@ development_status:
   # ---- Epic DTSR — Story Surface Reform ----
   # DT Story admin tab + player Story view + merit panels in DT Processing
   # Pairs with epic-dtp (DTP-1/2/3 ready-for-dev = rendering half of v2 player report)
-  epic-dtsr: in-progress
+  # 2026-08-18: verified against live code, not tracker text (same audit that
+  # caught epic-dtil/epic-dtux/epic-dtfp — same 2026-08-16 stale-status
+  # reconciliation 134045a16 misclassification, same fix). dtsr-5/6/8/9/10/11
+  # all have real "feat(dtsr-N)" commits merged via "merge: ... from
+  # Morningstar" (98415c0e, 0b5100b6, 1d286d58, 4b078289), all on main,
+  # 2026-04-27 — same batch as dtil/dtux/dtfp.
+  epic-dtsr: done
   dtsr-1-section-reorder-rumours-rename: done
   dtsr-2-story-moment-consolidation: done
   dtsr-3-active-cycle-scope: done
   dtsr-4-inline-edit-historical-cycles: done
-  dtsr-5-merit-resolution-relocation: ready-for-dev
-  dtsr-6-merit-summary-format-verify: ready-for-dev
+  dtsr-5-merit-resolution-relocation: done
+  dtsr-6-merit-summary-format-verify: done
   dtsr-7-feeding-narrative-field: done
-  dtsr-8-player-flag-ui: ready-for-dev
-  dtsr-9-st-flag-inbox: ready-for-dev
-  dtsr-10-narrative-textarea-min-height: ready-for-dev
-  dtsr-11-collapse-completed-cards: ready-for-dev
+  dtsr-8-player-flag-ui: done
+  dtsr-9-st-flag-inbox: done
+  dtsr-10-narrative-textarea-min-height: done
+  dtsr-11-collapse-completed-cards: done
   epic-dtsr-retrospective: optional
 
   # ---- Epic DTFP — Player Form Polish ----
@@ -644,8 +650,8 @@ development_status:
   # mechanical_flag_N checkbox directly in public/js/tabs/downtime-form.js —
   # still live. The 2026-08-16 stale-status reconciliation (134045a16)
   # misclassified this epic the same way it did epic-dtil/epic-dtux; flipped
-  # back to done here. (dtsr-10/dtsr-11, adjacent in this file, were NOT
-  # checked as part of this pass — still genuinely unverified.)
+  # back to done here. (dtsr-10/dtsr-11, adjacent in this file, were checked
+  # in a follow-up pass same day — see epic-dtsr below, also corrected.)
   epic-dtfp: done
   dtfp-1-influence-stepper-labels: done
   dtfp-2-alphabetical-chip-order: done

@@ -1,10 +1,16 @@
 ---
 id: dtsr.11
 epic: dtsr
-status: ready-for-dev
+status: done
 priority: low
 depends_on: []
 ---
+
+> ## Dev Agent Record (verification pass, 2026-08-18)
+> Already implemented and merged to `main` — same mistracking `epic-dtil`/`epic-dtux`/`epic-dtfp` had
+> (2026-08-16 stale-status reconciliation `134045a16` misclassified it as never-started). Implementing
+> commit `fddf7b7a` ("feat(dtsr-11): global Collapse complete (all) toggle in DT Story"), merged via
+> `4b078289`, 2026-04-27. No new code written this pass.
 
 # Story DTSR-11: Global "collapse completed cards" toggle in DT Story
 

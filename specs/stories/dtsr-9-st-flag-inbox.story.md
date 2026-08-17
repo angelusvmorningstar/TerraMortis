@@ -1,10 +1,17 @@
 ---
 id: dtsr.9
 epic: dtsr
-status: ready-for-dev
+status: done
 priority: medium
 depends_on: [dtsr.8]
 ---
+
+> ## Dev Agent Record (verification pass, 2026-08-18)
+> Already implemented and merged to `main` — same mistracking `epic-dtil`/`epic-dtux`/`epic-dtfp` had
+> (2026-08-16 stale-status reconciliation `134045a16` misclassified it as never-started). Implementing
+> commit `7a84cfa9` ("feat(dtsr-8,dtsr-9): player section flags + ST flag inbox" — shared with
+> dtsr-8, its own dependency, also confirmed done), merged via `1d286d58`, 2026-04-27. No new code
+> written this pass.
 
 # Story DTSR-9: ST flag inbox in DT Story tab
 

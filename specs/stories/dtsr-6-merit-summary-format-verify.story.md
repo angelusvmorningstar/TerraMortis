@@ -1,10 +1,16 @@
 ---
 id: dtsr.6
 epic: dtsr
-status: ready-for-dev
+status: done
 priority: low
 depends_on: []
 ---
+
+> ## Dev Agent Record (verification pass, 2026-08-18)
+> Already implemented and merged to `main` — same mistracking `epic-dtil`/`epic-dtux`/`epic-dtfp` had
+> (2026-08-16 stale-status reconciliation `134045a16` misclassified it as never-started). Implementing
+> commit `431686f5` ("feat(dtsr-6): merit summary row format Merit / Desired / Results"), merged via
+> `0b5100b6`, 2026-04-27. No new code written this pass.
 
 # Story DTSR-6: Verify and align renderMeritSummary to the "Merit / Desired outcome / Results" format
 
