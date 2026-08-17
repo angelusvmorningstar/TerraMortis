@@ -31,11 +31,11 @@ async function importTracker({ cycles, subsByCycleId, trackerByCharId }) {
       return { ok: true, status: 200, json: async () => (trackerByCharId[charId] || null) };
     }
     if (u.includes('/api/downtime_submissions')) {
-      const m = u.match(/cycle_id=([^&]+)/);
+      const m = u.match(/chapter_id=([^&]+)/);
       const cid = m ? decodeURIComponent(m[1]) : null;
       return { ok: true, status: 200, json: async () => (subsByCycleId[cid] || []) };
     }
-    if (u.includes('/api/downtime_cycles')) {
+    if (u.includes('/api/chapters')) {
       return { ok: true, status: 200, json: async () => cycles };
     }
     return { ok: true, status: 200, json: async () => ({}) };

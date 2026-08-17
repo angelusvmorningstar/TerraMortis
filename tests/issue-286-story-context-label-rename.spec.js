@@ -55,7 +55,7 @@ const TEST_CYCLE = {
 
 const SUBMISSION_WITH_STORY_CONTEXT = {
   _id: 'sub-286-ctx',
-  cycle_id: 'cycle-286',
+  chapter_id: 'cycle-286',
   character_name: 'Test Character',
   character_id: 'char-t1',
   player_name: 'Test Player',
@@ -105,7 +105,7 @@ const SUBMISSION_WITH_STORY_CONTEXT = {
 // Submission with NO story_context — tests blank state
 const SUBMISSION_NO_STORY_CONTEXT = {
   _id: 'sub-286-empty',
-  cycle_id: 'cycle-286',
+  chapter_id: 'cycle-286',
   character_name: 'Test Character',
   character_id: 'char-t1',
   player_name: 'Test Player',
@@ -148,7 +148,7 @@ const SUBMISSION_NO_STORY_CONTEXT = {
 // DT Story tab submission: feeding validated, story_context set on feeding_review
 const SUBMISSION_FOR_STORY_TAB = {
   _id: 'sub-286-story',
-  cycle_id: 'cycle-286',
+  chapter_id: 'cycle-286',
   character_name: 'Test Character',
   character_id: 'char-t1',
   player_name: 'Test Player',
@@ -181,7 +181,7 @@ const SUBMISSION_FOR_STORY_TAB = {
 // Player-facing story tab: resolved project with player_facing_note (and NO story_context leakage)
 const SUBMISSION_PLAYER_STORY = {
   _id: 'sub-286-player',
-  cycle_id: 'cycle-286',
+  chapter_id: 'cycle-286',
   character_name: 'Test Character',
   character_id: 'char-t1',
   player_name: 'Test Player',
@@ -242,7 +242,7 @@ async function setupProcessing(page, submissions, chars = [CHAR_TEST]) {
     const ok = (body) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(body) });
     if (method === 'PUT' || method === 'PATCH' || method === 'POST') return ok({ ok: true });
     if (url.includes('/api/downtime_submissions')) return ok(submissions);
-    if (url.includes('/api/downtime_cycles'))      return ok([TEST_CYCLE]);
+    if (url.includes('/api/chapters'))      return ok([TEST_CYCLE]);
     if (url.includes('/api/characters/names'))     return ok(chars.map(c => ({ _id: c._id, name: c.name, moniker: c.moniker, honorific: c.honorific })));
     if (url.includes('/api/characters'))           return ok(chars);
     if (url.includes('/api/territories'))          return ok([]);
@@ -288,7 +288,7 @@ async function setupDtStory(page, submissions, chars = [CHAR_TEST]) {
     const ok = (body) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(body) });
     if (method === 'PUT' || method === 'PATCH' || method === 'POST') return ok({ ok: true });
     if (url.includes('/api/downtime_submissions')) return ok(submissions);
-    if (url.includes('/api/downtime_cycles'))      return ok([{ ...TEST_CYCLE, status: 'active' }]);
+    if (url.includes('/api/chapters'))      return ok([{ ...TEST_CYCLE, status: 'active' }]);
     if (url.includes('/api/characters/names'))     return ok(chars.map(c => ({ _id: c._id, name: c.name, moniker: c.moniker, honorific: c.honorific })));
     if (url.includes('/api/characters'))           return ok(chars);
     if (url.includes('/api/territories'))          return ok([]);
@@ -404,7 +404,7 @@ test.describe('Issue #286 — Save-on-blur field name', () => {
       }
       if (method === 'PUT' || method === 'PATCH' || method === 'POST') return ok({ ok: true });
       if (url.includes('/api/downtime_submissions')) return ok([SUBMISSION_NO_STORY_CONTEXT]);
-      if (url.includes('/api/downtime_cycles'))      return ok([TEST_CYCLE]);
+      if (url.includes('/api/chapters'))      return ok([TEST_CYCLE]);
       if (url.includes('/api/characters/names'))     return ok([CHAR_TEST].map(c => ({ _id: c._id, name: c.name, moniker: c.moniker, honorific: c.honorific })));
       if (url.includes('/api/characters'))           return ok([CHAR_TEST]);
       if (url.includes('/api/territories'))          return ok([]);

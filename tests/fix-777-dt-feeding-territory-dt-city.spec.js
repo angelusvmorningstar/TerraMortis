@@ -65,7 +65,7 @@ const TERR_NS_777 = {
 function makeMainFeedOidSub() {
   return {
     _id: 'sub-777-main',
-    cycle_id: 'cycle-777',
+    chapter_id: 'cycle-777',
     character_name: 'Hazel Wren',
     character_id: 'char-hazel-777',
     player_name: 'Hazel Player',
@@ -102,7 +102,7 @@ function makeMainFeedWithOverrideSub() {
 function makeRoteFeedOidSub() {
   return {
     _id: 'sub-777-rote',
-    cycle_id: 'cycle-777',
+    chapter_id: 'cycle-777',
     character_name: 'Hazel Wren',
     character_id: 'char-hazel-777',
     player_name: 'Hazel Player',
@@ -164,7 +164,7 @@ async function setup(page, submission, territories = [TERR_NS_777]) {
     const ok = (body) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(body) });
     if (method === 'PUT' || method === 'PATCH' || method === 'POST') return ok({ ok: true });
     if (url.includes('/api/downtime_submissions')) return ok([submission]);
-    if (url.includes('/api/downtime_cycles'))      return ok([TEST_CYCLE]);
+    if (url.includes('/api/chapters'))      return ok([TEST_CYCLE]);
     if (url.includes('/api/characters/names'))     return ok([{ _id: CHAR_777._id, name: CHAR_777.name, moniker: null, honorific: null }]);
     if (url.includes('/api/characters'))           return ok([CHAR_777]);
     if (url.includes('/api/territories'))          return ok(territories);

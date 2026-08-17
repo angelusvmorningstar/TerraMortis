@@ -114,7 +114,7 @@ function makeSub({ _id, charId, projectsResolved = [], responses = {}, forceHasC
   return {
     _id,
     character_id: charId,
-    cycle_id: 'cycle_test_001',
+    chapter_id: 'cycle_test_001',
     status: 'submitted',
     responses,
     projects_resolved: projectsResolved,

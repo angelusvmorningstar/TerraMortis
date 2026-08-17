@@ -67,7 +67,7 @@ function buildChar(overrides = {}) {
 function buildLegacyCustomSub() {
   return {
     _id: 'sub-fix473-legacy',
-    cycle_id: GAME_CYCLE._id,
+    chapter_id: GAME_CYCLE._id,
     character_id: 'char-fix473',
     status: 'submitted',
     responses: {
@@ -97,7 +97,7 @@ function buildNewCustomSub() {
 function buildPresetSub() {
   return {
     _id: 'sub-fix473-preset',
-    cycle_id: GAME_CYCLE._id,
+    chapter_id: GAME_CYCLE._id,
     character_id: 'char-fix473',
     status: 'submitted',
     responses: {
@@ -127,7 +127,7 @@ async function setupRoutes(page, submission = null) {
     r.fulfill({ status: 200, contentType: 'application/json',
       body: JSON.stringify([{ _id: 'char-fix473', name: 'Yusuf Kalusicj', moniker: null, honorific: null }]) })
   );
-  await page.route('**/api/downtime_cycles*', r =>
+  await page.route('**/api/chapters*', r =>
     r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([GAME_CYCLE]) })
   );
   await page.route('**/api/downtime_submissions*', r =>
@@ -222,7 +222,7 @@ test.describe('fix.473: custom pool feeding submission renders roll area', () =>
         return r.fulfill({
           status: 200, contentType: 'application/json',
           body: JSON.stringify({
-            _id: 'sub-473-saved', cycle_id: GAME_CYCLE._id,
+            _id: 'sub-473-saved', chapter_id: GAME_CYCLE._id,
             character_id: char._id, status: 'draft',
             responses: capturedBody?.responses || {},
           }),

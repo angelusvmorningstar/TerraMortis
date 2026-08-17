@@ -68,7 +68,7 @@ const CHAR_PROJ = {
 // With 1 feeder: overfeeding cell should show "1/7", not "0/7".
 const SUBMISSION_FEED_ACADEMY = {
   _id: 'sub-809-feed',
-  cycle_id: 'cycle-809',
+  chapter_id: 'cycle-809',
   character_name: 'Feeder Test',
   character_id: 'char-809-feeder',
   player_name: 'Player Feed',
@@ -98,7 +98,7 @@ const SUBMISSION_FEED_ACADEMY = {
 // After fix: "up" maps to 'increase' → proj_pos.academy = 2 → Projects shows "+2".
 const SUBMISSION_PROJ_UP = {
   _id: 'sub-809-proj-up',
-  cycle_id: 'cycle-809',
+  chapter_id: 'cycle-809',
   character_name: 'Project Test',
   character_id: 'char-809-proj',
   player_name: 'Player Proj',
@@ -148,7 +148,7 @@ async function setup(page, submissions, chars = [CHAR_FEEDER, CHAR_PROJ]) {
     const ok = (body) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(body) });
     if (method === 'PUT' || method === 'PATCH' || method === 'POST') return ok({ ok: true });
     if (url.includes('/api/downtime_submissions')) return ok(submissions);
-    if (url.includes('/api/downtime_cycles'))      return ok([TEST_CYCLE]);
+    if (url.includes('/api/chapters'))      return ok([TEST_CYCLE]);
     if (url.includes('/api/characters/names'))     return ok(chars.map(c => ({ _id: c._id, name: c.name, moniker: c.moniker, honorific: c.honorific })));
     if (url.includes('/api/characters'))           return ok(chars);
     if (url.includes('/api/territories'))          return ok([]);

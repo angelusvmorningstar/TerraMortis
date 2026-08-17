@@ -80,7 +80,7 @@ const CHAR = {
 function baseSub(id) {
   return {
     _id: id,
-    cycle_id: 'cycle-491',
+    chapter_id: 'cycle-491',
     character_id: 'char-491',
     character_name: 'Menace Test',
     player_name: 'Test Player',
@@ -203,7 +203,7 @@ async function setupStoryPanel(page, submissions) {
     route.fulfill({ status: 200, contentType: 'application/json',
       body: JSON.stringify([{ _id: CHAR._id, name: CHAR.name, moniker: CHAR.moniker, honorific: CHAR.honorific }]) })
   );
-  await page.route('**/api/downtime_cycles*', route =>
+  await page.route('**/api/chapters*', route =>
     route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([ACTIVE_CYCLE]) })
   );
   await page.route('**/api/downtime_submissions*', route => {
@@ -250,7 +250,7 @@ async function setupProcessingPanel(page, submissions) {
     if (method === 'PUT' || method === 'PATCH' || method === 'POST') return ok({ ok: true });
 
     if (url.includes('/api/downtime_submissions'))  return ok(submissions);
-    if (url.includes('/api/downtime_cycles'))        return ok([ACTIVE_CYCLE]);
+    if (url.includes('/api/chapters'))        return ok([ACTIVE_CYCLE]);
     if (url.includes('/api/characters/names'))       return ok([{ _id: CHAR._id, name: CHAR.name, moniker: CHAR.moniker, honorific: CHAR.honorific }]);
     if (url.includes('/api/characters'))             return ok([CHAR]);
     if (url.includes('/api/territories'))            return ok([]);

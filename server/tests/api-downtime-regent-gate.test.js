@@ -1,5 +1,5 @@
 /**
- * API tests — POST /api/downtime_cycles/:id/confirm-feeding
+ * API tests — POST /api/chapters/:id/confirm-feeding
  *
  * Tests the regent feeding confirmation gate: identity checks, append-only
  * enforcement, gate computation, and edge cases.
@@ -29,7 +29,7 @@ let insertedTerrIds = [];
 // carrying `regent_id` values by the regent-id migration script run on
 // 2026-05-05 (server/scripts/migrate-regent-to-id.js + backup at
 // scripts/_backups/territory-fk-migration-2026-05-05T05-36-59-765Z.json).
-// The confirm-feeding gate at routes/downtime.js:139 queries every
+// The confirm-feeding gate in routes/chapters.js queries every
 // territory with `regent_id` set; pre-existing territories leak into the
 // query alongside the test's own inserts and force allConfirmed=false
 // because the test only confirms its single territory. Snapshot the
@@ -58,7 +58,7 @@ beforeAll(async () => {
 });
 
 afterEach(async () => {
-  const cycleCol = getCollection('downtime_cycles');
+  const cycleCol = getCollection('chapters');
   const terrCol  = getCollection('territories');
   for (const id of insertedCycleIds) await cycleCol.deleteOne({ _id: id });
   for (const id of insertedTerrIds) await terrCol.deleteOne({ _id: id });
@@ -86,7 +86,7 @@ afterAll(async () => {
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
 async function insertCycle(overrides = {}) {
-  const col = getCollection('downtime_cycles');
+  const col = getCollection('chapters');
   const doc = {
     label: 'Test Cycle',
     game_number: 999,
@@ -111,13 +111,13 @@ async function insertTerritory(slug, regentCharId, overrides = {}) {
 //  CONFIRM-FEEDING
 // ══════════════════════════════════════
 
-describe('POST /api/downtime_cycles/:id/confirm-feeding', () => {
+describe('POST /api/chapters/:id/confirm-feeding', () => {
   it('Regent can confirm their territory rights', async () => {
     const cycle = await insertCycle();
     const terr = await insertTerritory('terr-test-1', REGENT_A);
 
     const res = await request(app)
-      .post(`/api/downtime_cycles/${cycle._id}/confirm-feeding`)
+      .post(`/api/chapters/${cycle._id}/confirm-feeding`)
       .set('X-Test-User', playerUser([REGENT_A]))
       .send({ territory_id: terr._idStr, rights: [OTHER] });
 
@@ -140,7 +140,7 @@ describe('POST /api/downtime_cycles/:id/confirm-feeding', () => {
     });
 
     const res = await request(app)
-      .post(`/api/downtime_cycles/${cycle._id}/confirm-feeding`)
+      .post(`/api/chapters/${cycle._id}/confirm-feeding`)
       .set('X-Test-User', playerUser([REGENT_A]))
       .send({ territory_id: terr._idStr, rights: [REGENT_B] });
 
@@ -161,7 +161,7 @@ describe('POST /api/downtime_cycles/:id/confirm-feeding', () => {
     });
 
     const res = await request(app)
-      .post(`/api/downtime_cycles/${cycle._id}/confirm-feeding`)
+      .post(`/api/chapters/${cycle._id}/confirm-feeding`)
       .set('X-Test-User', playerUser([REGENT_A]))
       .send({ territory_id: terr._idStr, rights: [REGENT_B, OTHER] });
 
@@ -176,7 +176,7 @@ describe('POST /api/downtime_cycles/:id/confirm-feeding', () => {
     await insertTerritory('terr-gate-b', REGENT_B);
 
     const res = await request(app)
-      .post(`/api/downtime_cycles/${cycle._id}/confirm-feeding`)
+      .post(`/api/chapters/${cycle._id}/confirm-feeding`)
       .set('X-Test-User', playerUser([REGENT_A]))
       .send({ territory_id: terrA._idStr, rights: [] });
 
@@ -189,7 +189,7 @@ describe('POST /api/downtime_cycles/:id/confirm-feeding', () => {
     const terr = await insertTerritory('terr-gate-sole', REGENT_A);
 
     const res = await request(app)
-      .post(`/api/downtime_cycles/${cycle._id}/confirm-feeding`)
+      .post(`/api/chapters/${cycle._id}/confirm-feeding`)
       .set('X-Test-User', playerUser([REGENT_A]))
       .send({ territory_id: terr._idStr, rights: [] });
 
@@ -202,7 +202,7 @@ describe('POST /api/downtime_cycles/:id/confirm-feeding', () => {
     const terr = await insertTerritory('terr-wrong-regent', REGENT_A);
 
     const res = await request(app)
-      .post(`/api/downtime_cycles/${cycle._id}/confirm-feeding`)
+      .post(`/api/chapters/${cycle._id}/confirm-feeding`)
       .set('X-Test-User', playerUser([REGENT_B]))
       .send({ territory_id: terr._idStr, rights: [] });
 
@@ -214,7 +214,7 @@ describe('POST /api/downtime_cycles/:id/confirm-feeding', () => {
     const terr = await insertTerritory('terr-st-bypass', REGENT_A);
 
     const res = await request(app)
-      .post(`/api/downtime_cycles/${cycle._id}/confirm-feeding`)
+      .post(`/api/chapters/${cycle._id}/confirm-feeding`)
       .set('X-Test-User', stUser())
       .send({ territory_id: terr._idStr, rights: [] });
 
@@ -227,7 +227,7 @@ describe('POST /api/downtime_cycles/:id/confirm-feeding', () => {
     await insertTerritory('terr-no-regent', null, { regent_id: null });
 
     const res = await request(app)
-      .post(`/api/downtime_cycles/${cycle._id}/confirm-feeding`)
+      .post(`/api/chapters/${cycle._id}/confirm-feeding`)
       .set('X-Test-User', playerUser([REGENT_A]))
       .send({ territory_id: terrA._idStr, rights: [] });
 
@@ -238,7 +238,7 @@ describe('POST /api/downtime_cycles/:id/confirm-feeding', () => {
   it('Returns 404 for non-existent cycle', async () => {
     const fakeId = new ObjectId();
     const res = await request(app)
-      .post(`/api/downtime_cycles/${fakeId}/confirm-feeding`)
+      .post(`/api/chapters/${fakeId}/confirm-feeding`)
       .set('X-Test-User', stUser())
       .send({ territory_id: new ObjectId().toHexString(), rights: [] });
     expect(res.status).toBe(404);
@@ -249,7 +249,7 @@ describe('POST /api/downtime_cycles/:id/confirm-feeding', () => {
     const terr = await insertTerritory('terr-closed', REGENT_A);
 
     const res = await request(app)
-      .post(`/api/downtime_cycles/${cycle._id}/confirm-feeding`)
+      .post(`/api/chapters/${cycle._id}/confirm-feeding`)
       .set('X-Test-User', playerUser([REGENT_A]))
       .send({ territory_id: terr._idStr, rights: [] });
 
@@ -261,7 +261,7 @@ describe('POST /api/downtime_cycles/:id/confirm-feeding', () => {
     await insertTerritory('terr-slug-rejected', REGENT_A);
 
     const res = await request(app)
-      .post(`/api/downtime_cycles/${cycle._id}/confirm-feeding`)
+      .post(`/api/chapters/${cycle._id}/confirm-feeding`)
       .set('X-Test-User', stUser())
       .send({ territory_id: 'terr-slug-rejected', rights: [] });
 
@@ -272,7 +272,7 @@ describe('POST /api/downtime_cycles/:id/confirm-feeding', () => {
   it('Returns 401 without auth', async () => {
     const cycle = await insertCycle();
     const res = await request(app)
-      .post(`/api/downtime_cycles/${cycle._id}/confirm-feeding`)
+      .post(`/api/chapters/${cycle._id}/confirm-feeding`)
       .send({ territory_id: new ObjectId().toHexString(), rights: [] });
     expect(res.status).toBe(401);
   });

@@ -18,7 +18,7 @@ export { CYCLE_PHASE_SEQUENCE, PHASE_MIRROR, statusToPhase, phaseIndex, FEEDING_
 // ── Cycles ──────────────────────────────────────────────────────────────────
 
 export async function getCycles() {
-  return apiGet('/api/downtime_cycles');
+  return apiGet('/api/chapters');
 }
 
 export async function getActiveCycle() {
@@ -45,11 +45,11 @@ export async function createCycle(gameNumber, { status = 'prep', deadlineAt = nu
   };
   if (deadlineAt) body.deadline_at = deadlineAt;
   if (storyCycleId) body.story_cycle_id = storyCycleId;
-  return apiPost('/api/downtime_cycles', body);
+  return apiPost('/api/chapters', body);
 }
 
 export async function deleteCycle(id) {
-  return apiDelete('/api/downtime_cycles/' + id);
+  return apiDelete('/api/chapters/' + id);
 }
 
 /** Derive the game number for a new cycle: closed cycle count + 1 for current, +1 for next. */
@@ -63,7 +63,7 @@ async function nextGameNumber() {
 }
 
 export async function updateCycle(id, updates) {
-  return apiPut('/api/downtime_cycles/' + id, updates);
+  return apiPut('/api/chapters/' + id, updates);
 }
 
 export async function closeCycle(cycle) {
@@ -260,13 +260,13 @@ export function storyCycleForCycle(cycle, storyCycles) {
 /**
  * cm-3: is this cycle the final chapter of its Story?
  *
- * Replaces `downtime_cycles.is_chapter_finale`, a per-chapter checkbox the ST
+ * Replaces `chapters.is_chapter_finale`, a per-chapter checkbox the ST
  * had to remember to tick on exactly the right cycle. cycle-model.md §3 rules
  * that the maintenance clock stays tied to the Story, and that the warning,
  * the drop and the classification all become derived rather than toggled.
  *
  * Pure: no I/O, no mutation. Two inputs —
- *   `cycle`      the downtime_cycles document being classified;
+ *   `cycle`      the `chapters` document being classified;
  *   `storyCycle` its resolved story_cycles document (see storyCycleForCycle),
  *                or null/undefined when the FK does not resolve (Story deleted
  *                out from under the cycle) — which yields false, never a throw.
@@ -342,7 +342,7 @@ export function zeroSubmissionFlipMessage(warn) {
 // ── Submissions ─────────────────────────────────────────────────────────────
 
 export async function getSubmissionsForCycle(cycleId) {
-  return apiGet('/api/downtime_submissions?cycle_id=' + cycleId);
+  return apiGet('/api/downtime_submissions?chapter_id=' + cycleId);
 }
 
 export async function updateSubmission(id, updates) {
@@ -373,7 +373,7 @@ export async function upsertCycle(parsedSubmissions, characters) {
     const charName = parsed.submission.character_name;
     const charId   = parsed._character_id ? String(parsed._character_id) : null;
     const doc = {
-      cycle_id: cycle._id,
+      chapter_id: cycle._id,
       character_id: parsed._character_id ? String(parsed._character_id) : null,
       character_name: charName,
       player_name: parsed.submission.player_name,
@@ -397,7 +397,7 @@ export async function upsertCycle(parsedSubmissions, characters) {
   }
 
   // Update cycle submission count
-  await apiPut('/api/downtime_cycles/' + cycle._id, {
+  await apiPut('/api/chapters/' + cycle._id, {
     submission_count: (existing.length - updated) + updated + created,
   });
 
@@ -571,7 +571,11 @@ export function mapRawToResponses(parsed, characters) {
 // ── Rolls ───────────────────────────────────────────────────────────────────
 
 export async function saveRoll(submissionId, source, index, rollFields) {
-  const sub = await apiGet('/api/downtime_submissions?cycle_id=').catch(() => null);
+  // cm-2b review: there used to be a `apiGet('/api/downtime_submissions?chapter_id=')`
+  // here — an EMPTY query value, which is falsy server-side, so it fetched the
+  // entire submissions collection and threw the result away. Dead under the old
+  // field name too, but the rename touched this exact line, so it is removed
+  // here rather than carried forward. The PUT below is the whole function.
   // Simplified: update the submission's _raw with the roll data
   // Full implementation in Story 4.3 (Feeding Roll Resolution)
   return apiPut('/api/downtime_submissions/' + submissionId, {

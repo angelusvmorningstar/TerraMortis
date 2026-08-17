@@ -1,7 +1,7 @@
 [
   {
     "_id": "69da323ccc5483a3c77027a0",
-    "cycle_id": "69d0a3c5052b57f6be774e69",
+    "chapter_id": "69d0a3c5052b57f6be774e69",
     "character_id": "69d720427fdd1b1f9498b0d4",
     "character_name": "Yusuf Mammon Kalusicj",
     "player_name": "Peter Kalt",
@@ -790,7 +790,7 @@
   },
   {
     "_id": "69da37d0cc5483a3c77027a1",
-    "cycle_id": "69d0a3c5052b57f6be774e69",
+    "chapter_id": "69d0a3c5052b57f6be774e69",
     "character_id": "69d73ea49162ece35897a47c",
     "character_name": "Alice Vunder",
     "player_name": "Katherine Honan",
@@ -1272,7 +1272,7 @@
   },
   {
     "_id": "69da37d0cc5483a3c77027a2",
-    "cycle_id": "69d0a3c5052b57f6be774e69",
+    "chapter_id": "69d0a3c5052b57f6be774e69",
     "character_id": "69d73ea49162ece35897a47d",
     "character_name": "Anichka",
     "player_name": "Katie",

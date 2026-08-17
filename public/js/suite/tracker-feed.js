@@ -230,7 +230,7 @@ async function recordFeedOnSubmission(c) {
   try {
     const cycle = await getFeedingCycle();
     if (!cycle) { toast('Feed applied, but no open cycle to record the roll against \u2014 player tab may still show "ready to roll".'); return; }
-    const subs = await apiGet('/api/downtime_submissions?cycle_id=' + cycle._id);
+    const subs = await apiGet('/api/downtime_submissions?chapter_id=' + cycle._id);
     const sub = subs.find((s) => String(s.character_id) === String(c._id));
     if (!sub) { toast(`Feed applied, but ${displayName(c)} has no submission this cycle \u2014 player tab may still show "ready to roll".`); return; }
     await apiPut(`/api/downtime_submissions/${sub._id}`, { feeding_roll_player: lastRoll });

@@ -52,7 +52,7 @@ const CYCLE_468 = {
 const SUB_WITH_GENERAL_NOTES = {
   _id: 'sub-468-with-notes',
   character_id: 'char-468',
-  cycle_id: 'cycle-468',
+  chapter_id: 'cycle-468',
   published_outcome: [
     '## Music on the Wind\n\nShe heard the old melody carried through the night air.',
     '## ST Notes and Extra Story\n\nThe Cruac rite you attempted resonated with the ley lines beneath the city.',
@@ -76,7 +76,7 @@ const SUB_WITH_GENERAL_NOTES = {
 const SUB_WITHOUT_GENERAL_NOTES = {
   _id: 'sub-468-no-notes',
   character_id: 'char-468',
-  cycle_id: 'cycle-468',
+  chapter_id: 'cycle-468',
   published_outcome: '## Music on the Wind\n\nShe heard the old melody carried through the night air.',
   st_narrative: {
     project_responses: [
@@ -108,7 +108,7 @@ async function setup(page, submissions) {
 
     if (method === 'POST' || method === 'PUT' || method === 'PATCH') return ok({ ok: true });
     if (url.includes('/api/auth/me'))              return ok(PLAYER_USER);
-    if (url.includes('/api/downtime_cycles'))      return ok([CYCLE_468]);
+    if (url.includes('/api/chapters'))      return ok([CYCLE_468]);
     if (url.includes('/api/downtime_submissions')) return ok(submissions);
     if (url.includes('/api/archive_documents'))    return ok([]);
     if (url.includes('/api/characters/names'))     return ok([{ _id: CHAR_468._id, name: CHAR_468.name, moniker: null, honorific: null }]);

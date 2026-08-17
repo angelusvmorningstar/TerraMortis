@@ -39,14 +39,14 @@ test('admin app becomes visible with local-test-token', async ({ page }) => {
         attributes: { Strength: { dots: 3, bonus: 0 }, Dexterity: { dots: 2, bonus: 0 }, Stamina: { dots: 2, bonus: 0 }, Intelligence: { dots: 2, bonus: 0 }, Wits: { dots: 2, bonus: 0 }, Resolve: { dots: 2, bonus: 0 }, Presence: { dots: 2, bonus: 0 }, Manipulation: { dots: 2, bonus: 0 }, Composure: { dots: 2, bonus: 0 } },
         skills: {}, disciplines: {}, merits: [], powers: [], ordeals: {},
       }]) });
-    } else if (url.includes('/api/downtime_cycles')) {
+    } else if (url.includes('/api/chapters')) {
       route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([{
         _id: 'cycle-001', cycle_number: 2, status: 'open',
         confirmed_ambience: {}, narrative_notes: '',
       }]) });
     } else if (url.includes('/api/downtime_submissions')) {
       route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([{
-        _id: 'sub-proj-001', cycle_id: 'cycle-001', character_name: 'Charlie Test',
+        _id: 'sub-proj-001', chapter_id: 'cycle-001', character_name: 'Charlie Test',
         character_id: 'char-pt4', player_name: 'Test Player', submitted_at: '2026-04-15T00:00:00Z',
         _raw: { projects: [{ action_type: 'ambience_increase', desired_outcome: 'Test', detail: 'Test detail', primary_pool: { expression: 'Strength 3 = 3' } }], feeding: null, sphere_actions: [], contact_actions: { requests: [] }, retainer_actions: { actions: [] } },
         responses: { project_1_action: 'ambience_increase', project_1_outcome: 'Test', project_1_description: 'Test detail', project_1_pool_expr: 'Strength 3 = 3' },

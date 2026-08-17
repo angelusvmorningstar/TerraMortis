@@ -30,13 +30,13 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
-  if (cycleIds.length) await getCollection('downtime_cycles').deleteMany({ _id: { $in: cycleIds } });
+  if (cycleIds.length) await getCollection('chapters').deleteMany({ _id: { $in: cycleIds } });
   if (subIds.length)   await getCollection('downtime_submissions').deleteMany({ _id: { $in: subIds } });
   await teardownDb();
 });
 
 async function insertCycle(overrides = {}) {
-  const col = getCollection('downtime_cycles');
+  const col = getCollection('chapters');
   const doc = { game_number: 715, label: 'Fix 715 Test Cycle', status: 'active', ...overrides };
   const { insertedId } = await col.insertOne(doc);
   cycleIds.push(insertedId);
@@ -46,7 +46,7 @@ async function insertCycle(overrides = {}) {
 async function insertSub(cycleId, charId, overrides = {}) {
   const col = getCollection('downtime_submissions');
   const doc = {
-    cycle_id: cycleId,
+    chapter_id: cycleId,
     character_id: charId,
     character_name: 'Fix715 Char',
     status: 'draft',

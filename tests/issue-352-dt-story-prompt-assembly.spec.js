@@ -66,7 +66,7 @@ const DT3_CYCLE = {
 function makeDt3Sub({ personalStoryText = null } = {}) {
   return {
     _id: 'sub-352-dt3-reed',
-    cycle_id: DT3_CYCLE._id,
+    chapter_id: DT3_CYCLE._id,
     character_name: 'Reed Justice',
     character_id: CHAR_REED._id,
     player_name: 'Reed Player',
@@ -92,7 +92,7 @@ function makeDt3Sub({ personalStoryText = null } = {}) {
 function makeDt2Sub(stNarrative = {}) {
   return {
     _id: 'sub-352-dt2-reed',
-    cycle_id: DT2_CYCLE._id,
+    chapter_id: DT2_CYCLE._id,
     character_name: 'Reed Justice',
     character_id: CHAR_REED._id,
     player_name: 'Reed Player',
@@ -147,7 +147,7 @@ async function setupPage(page, { dt3Sub, dt2Sub = null } = {}) {
     if (method === 'PUT' || method === 'PATCH' || method === 'POST') return ok({ ok: true });
 
     if (url.includes('/api/downtime_submissions')) {
-      const m = url.match(/[?&]cycle_id=([^&]+)/);
+      const m = url.match(/[?&]chapter_id=([^&]+)/);
       if (m) {
         const cid = decodeURIComponent(m[1]);
         if (cid === DT3_CYCLE._id) return ok([dt3Sub]);
@@ -155,7 +155,7 @@ async function setupPage(page, { dt3Sub, dt2Sub = null } = {}) {
       }
       return ok([dt3Sub]);
     }
-    if (url.includes('/api/downtime_cycles')) return ok([DT3_CYCLE, DT2_CYCLE]);
+    if (url.includes('/api/chapters')) return ok([DT3_CYCLE, DT2_CYCLE]);
     if (url.includes('/api/characters/names')) return ok([
       { _id: CHAR_REED._id, name: CHAR_REED.name, moniker: null, honorific: null },
     ]);

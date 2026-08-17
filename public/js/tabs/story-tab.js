@@ -38,7 +38,7 @@ export async function renderLatestReport(el, char) {
   try {
     [subs, cycles] = await Promise.all([
       apiGet('/api/downtime_submissions'),
-      apiGet('/api/downtime_cycles'),
+      apiGet('/api/chapters'),
     ]);
     subs.forEach(s => {
       if (!s.published_outcome && s.st_review?.outcome_visibility === 'published') {
@@ -57,8 +57,8 @@ export async function renderLatestReport(el, char) {
   const published = subs
     .filter(s => String(s.character_id) === charId && s.published_outcome)
     .sort((a, b) => {
-      const ga = cycleMap[String(a.cycle_id)]?.game_number ?? 0;
-      const gb = cycleMap[String(b.cycle_id)]?.game_number ?? 0;
+      const ga = cycleMap[String(a.chapter_id)]?.game_number ?? 0;
+      const gb = cycleMap[String(b.chapter_id)]?.game_number ?? 0;
       return gb - ga;
     });
 
@@ -68,7 +68,7 @@ export async function renderLatestReport(el, char) {
   }
 
   const sub = published[0];
-  const cycleLabel = cycleMap[String(sub.cycle_id)]?.label || `Cycle ${String(sub.cycle_id).slice(-4)}`;
+  const cycleLabel = cycleMap[String(sub.chapter_id)]?.label || `Cycle ${String(sub.chapter_id).slice(-4)}`;
   let h = '<div class="story-feed">';
   h += `<div class="story-entry">`;
   h += `<div class="story-cycle-label">${esc(cycleLabel)}</div>`;
@@ -84,7 +84,7 @@ export async function renderStoryTab(el, char) {
   try {
     [subs, cycles] = await Promise.all([
       apiGet('/api/downtime_submissions'),
-      apiGet('/api/downtime_cycles'),
+      apiGet('/api/chapters'),
     ]);
     // STs receive raw docs; promote st_review → published_outcome so ST portal view matches player view
     subs.forEach(s => {
@@ -187,8 +187,8 @@ function renderChronicle(subs, cycles, char) {
   const published = subs
     .filter(s => String(s.character_id) === charId && s.published_outcome)
     .sort((a, b) => {
-      const ga = cycleMap[String(a.cycle_id)]?.game_number ?? 0;
-      const gb = cycleMap[String(b.cycle_id)]?.game_number ?? 0;
+      const ga = cycleMap[String(a.chapter_id)]?.game_number ?? 0;
+      const gb = cycleMap[String(b.chapter_id)]?.game_number ?? 0;
       return gb - ga;
     });
 
@@ -199,8 +199,8 @@ function renderChronicle(subs, cycles, char) {
   const isST = isSTRole();
   let h = '<div class="story-feed">';
   for (const sub of published) {
-    const cycleLabel = cycleMap[String(sub.cycle_id)]?.label || `Cycle ${String(sub.cycle_id).slice(-4)}`;
-    const cycleStatus = cycleStatusMap[String(sub.cycle_id)] || '';
+    const cycleLabel = cycleMap[String(sub.chapter_id)]?.label || `Cycle ${String(sub.chapter_id).slice(-4)}`;
+    const cycleStatus = cycleStatusMap[String(sub.chapter_id)] || '';
     // DTSR-4: ST inline edit gated to historical cycles (closed/complete only).
     const editable = isST && (cycleStatus === 'closed' || cycleStatus === 'complete');
     h += `<div class="story-entry" data-sub-id="${esc(String(sub._id))}">`;
@@ -936,7 +936,7 @@ function _findSubById(subId) {
 
 function _renderEntryInPlace(entryEl, sub) {
   // Recompute editability from the same gate the original render used.
-  const cycleStatus = _chronicleCtx?.cycleStatusMap?.[String(sub.cycle_id)] || '';
+  const cycleStatus = _chronicleCtx?.cycleStatusMap?.[String(sub.chapter_id)] || '';
   const editable = isSTRole() && (cycleStatus === 'closed' || cycleStatus === 'complete');
   const body = renderOutcomeWithCards(sub, { editable });
   const cycleLabel = entryEl.querySelector('.story-cycle-label')?.outerHTML || '';

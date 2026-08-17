@@ -63,7 +63,7 @@ function buildChar(overrides = {}) {
 function lockedSub(responses = {}) {
   return {
     _id: 'sub-746',
-    cycle_id: 'cycle-746-cur',
+    chapter_id: 'cycle-746-cur',
     character_id: 'char-746',
     status: 'draft',
     responses: {
@@ -90,7 +90,7 @@ async function setupSuite(page, char, sub, cycles = [CYCLE_CURRENT]) {
   await page.route(/\/api\/characters\/char-746$/, r => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(char) }));
   await page.route(/\/api\/characters$/, r => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([char]) }));
   await page.route('**/api/characters/names', r => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([{ _id: 'char-746', name: 'Crone Tester', moniker: null }]) }));
-  await page.route('**/api/downtime_cycles', r => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(cycles) }));
+  await page.route('**/api/chapters', r => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(cycles) }));
   await page.route(/\/api\/downtime_submissions($|\?)/, r => {
     if (r.request().method() === 'GET') return r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(sub ? [sub] : []) });
     return r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ _id: 'sub-746', status: 'draft', responses: {} }) });
@@ -205,7 +205,7 @@ test.describe('feat.746 — DT form: Mandragora Garden locked rite slots', () =>
     const char = buildChar();
     const priorSub = {
       _id: 'sub-746-prior',
-      cycle_id: 'cycle-746-pri',
+      chapter_id: 'cycle-746-pri',
       character_id: 'char-746',
       status: 'processed',
       responses: { sorcery_slot_count: '1', sorcery_1_rite: 'Rite of Warding' },
@@ -214,7 +214,7 @@ test.describe('feat.746 — DT form: Mandragora Garden locked rite slots', () =>
 
     await setupSuite(page, char, lockedSub(), [CYCLE_CURRENT, CYCLE_PRIOR]);
     // Override the submissions route to serve prior sub when queried by cycle
-    await page.route(/\/api\/downtime_submissions\?cycle_id=cycle-746-pri/, r =>
+    await page.route(/\/api\/downtime_submissions\?chapter_id=cycle-746-pri/, r =>
       r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([priorSub]) }),
     );
 
@@ -277,7 +277,7 @@ test.describe('feat.746 — DT form: Mandragora Garden locked rite slots', () =>
     // Submission without locked flag — normal state
     const sub = {
       _id: 'sub-746-normal',
-      cycle_id: 'cycle-746-cur',
+      chapter_id: 'cycle-746-cur',
       character_id: 'char-746',
       status: 'draft',
       responses: { _mode: 'advanced', sorcery_slot_count: '1', sorcery_1_rite: 'Rite of Warding' },
@@ -332,7 +332,7 @@ test.describe('feat.746 — DT form: Mandragora Garden locked rite slots', () =>
     // Existing draft with different rite chosen
     const existingSub = {
       _id: 'sub-746-existing',
-      cycle_id: 'cycle-746-cur',
+      chapter_id: 'cycle-746-cur',
       character_id: 'char-746',
       status: 'draft',
       responses: { _mode: 'advanced', sorcery_slot_count: '1', sorcery_1_rite: 'Some Other Rite' },

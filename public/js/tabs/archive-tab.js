@@ -57,7 +57,7 @@ async function renderArchiveList() {
   try {
     [subs, cycles] = await Promise.all([
       apiGet('/api/downtime_submissions').catch(() => []),
-      apiGet('/api/downtime_cycles').catch(() => []),
+      apiGet('/api/chapters').catch(() => []),
     ]);
     subs.forEach(s => {
       if (!s.published_outcome && s.st_review?.outcome_visibility === 'published') {
@@ -76,8 +76,8 @@ async function renderArchiveList() {
   const downtimeSubs = subs
     .filter(s => String(s.character_id) === charId && s.published_outcome)
     .sort((a, b) => {
-      const ka = cycleOrderMap[String(a.cycle_id)] || '';
-      const kb = cycleOrderMap[String(b.cycle_id)] || '';
+      const ka = cycleOrderMap[String(a.chapter_id)] || '';
+      const kb = cycleOrderMap[String(b.chapter_id)] || '';
       return String(kb).localeCompare(String(ka));
     });
 
@@ -139,7 +139,7 @@ function renderDowntimeGroup(heading, submissions, cycleMap) {
   let h = `<div class="arc-doc-group">`;
   h += `<div class="arc-doc-group-title">${esc(heading)}</div>`;
   for (const sub of submissions) {
-    const cycleLabel = cycleMap[String(sub.cycle_id)] || 'Unknown Cycle';
+    const cycleLabel = cycleMap[String(sub.chapter_id)] || 'Unknown Cycle';
     h += `<div class="arc-doc-item" data-sub-id="${esc(String(sub._id))}">`;
     h += `<span class="arc-doc-title">${esc(cycleLabel)}</span>`;
     h += `<span class="arc-doc-meta">Downtime narrative</span>`;
@@ -156,7 +156,7 @@ function openDowntimeDetail(subId, allSubs, cycleMap) {
     _el.innerHTML = '<p class="placeholder-msg">Downtime narrative not found.</p>';
     return;
   }
-  const cycleLabel = cycleMap[String(sub.cycle_id)] || 'Unknown Cycle';
+  const cycleLabel = cycleMap[String(sub.chapter_id)] || 'Unknown Cycle';
 
   let h = '<div class="arc-detail">';
   h += `<button class="qf-back-btn" id="arc-back">&larr; Back to Archive</button>`;

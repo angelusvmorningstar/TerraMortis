@@ -46,7 +46,7 @@ const NAMES = [
 ];
 
 function priorSub(responses) {
-  return { _id: 'sub-dt727', cycle_id: ACTIVE_CYCLE._id, character_id: 'char-001', status: 'draft', responses };
+  return { _id: 'sub-dt727', chapter_id: ACTIVE_CYCLE._id, character_id: 'char-001', status: 'draft', responses };
 }
 
 async function setupSuite(page, char, sub) {
@@ -62,7 +62,7 @@ async function setupSuite(page, char, sub) {
   await page.route(/\/api\/characters\/char-001$/, r => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(char) }));
   await page.route(/\/api\/characters$/, r => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([char]) }));
   await page.route('**/api/characters/names', r => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(NAMES) }));
-  await page.route('**/api/downtime_cycles', r => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([ACTIVE_CYCLE]) }));
+  await page.route('**/api/chapters', r => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([ACTIVE_CYCLE]) }));
   await page.route(/\/api\/downtime_submissions($|\?)/, r => {
     if (r.request().method() === 'GET') return r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(sub ? [sub] : []) });
     return r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ _id: 'sub-dt727', status: 'draft', responses: {} }) });

@@ -52,7 +52,7 @@ const CYCLE_470 = {
 const SUB_FEEDING_AND_PULSE = {
   _id: 'sub-470-feed-and-pulse',
   character_id: 'char-470',
-  cycle_id: 'cycle-470',
+  chapter_id: 'cycle-470',
   published_outcome: [
     '## Feeding\n\nShe moved through the North Shore with practised ease, finding the blood warm and willing.',
     '## Territory Pulse — The North Shore\n\nThe North Shore is well looked after this cycle and the blood comes accordingly.',
@@ -68,7 +68,7 @@ const SUB_FEEDING_AND_PULSE = {
 const SUB_FEEDING_ONLY = {
   _id: 'sub-470-feed-only',
   character_id: 'char-470',
-  cycle_id: 'cycle-470',
+  chapter_id: 'cycle-470',
   published_outcome: '## Feeding\n\nShe moved through the North Shore with practised ease.',
   st_narrative: {},
   responses: {},
@@ -81,7 +81,7 @@ const SUB_FEEDING_ONLY = {
 const SUB_PULSE_ONLY = {
   _id: 'sub-470-pulse-only',
   character_id: 'char-470',
-  cycle_id: 'cycle-470',
+  chapter_id: 'cycle-470',
   published_outcome: '## Territory Pulse — The North Shore\n\nThe North Shore is well looked after this cycle.',
   st_narrative: {},
   responses: {},
@@ -106,7 +106,7 @@ async function setup(page, submissions) {
 
     if (method === 'POST' || method === 'PUT' || method === 'PATCH') return ok({ ok: true });
     if (url.includes('/api/auth/me'))              return ok(PLAYER_USER);
-    if (url.includes('/api/downtime_cycles'))      return ok([CYCLE_470]);
+    if (url.includes('/api/chapters'))      return ok([CYCLE_470]);
     if (url.includes('/api/downtime_submissions')) return ok(submissions);
     if (url.includes('/api/archive_documents'))    return ok([]);
     if (url.includes('/api/characters/names'))     return ok([{ _id: CHAR_470._id, name: CHAR_470.name, moniker: null, honorific: null }]);

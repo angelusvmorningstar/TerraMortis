@@ -4,7 +4,7 @@
  * The tracker slate-wipe stops being a courtesy the admin Cycle tab extends
  * (two independent HTTP calls, only one of which touches the cycle document)
  * and becomes a consequence of the phase write itself, performed by the route
- * that mutates `downtime_cycles.phase`, inside one Mongo transaction.
+ * that mutates `chapters.phase`, inside one Mongo transaction.
  *
  * Ruling document: D:/Terra Mortis/cycle-model.md Rev 3 sections 7 and 11a;
  * story: specs/stories/cm-4a-phase-transition-server-enforcement.md.
@@ -70,10 +70,11 @@ import { phaseToggleTarget } from '../../public/js/admin/cycle-views.js';
 import { createTestApp, stUser, playerUser } from './helpers/test-app.js';
 import { setupDb, teardownDb, isDbAvailable } from './helpers/db-setup.js';
 import { getCollection } from '../db.js';
-import { isTransactionsUnsupported } from '../routes/downtime.js';
+// cm-2b: cyclesRouter and its three helpers moved to routes/chapters.js.
+import { isTransactionsUnsupported } from '../routes/chapters.js';
 
 const PHASE_MODULE = fs.readFileSync('../public/js/downtime/cycle-phase.js', 'utf8');
-const ROUTE  = fs.readFileSync('routes/downtime.js', 'utf8');
+const ROUTE  = fs.readFileSync('routes/chapters.js', 'utf8');
 const VIEWS  = fs.readFileSync('../public/js/admin/cycle-views.js', 'utf8');
 
 // The five values a transition can move between, `null` included (a
@@ -330,7 +331,7 @@ let app;
 const LABEL_PREFIX = 'CM-4a Probe';
 const TRACKER_MARK = 'cm4a-probe';
 
-const cycles = () => getCollection('downtime_cycles');
+const cycles = () => getCollection('chapters');
 const tracker = () => getCollection('tracker_state');
 
 async function makeCycle(fields = {}) {
@@ -368,7 +369,7 @@ describe.skipIf(!dbAvailable)('cm-4a — route enforcement (real DB)', () => {
   afterAll(async () => { await cleanup(); await teardownDb(); });
 
   const put = (id, body, user = stUser()) =>
-    request(app).put(`/api/downtime_cycles/${id}`).set('X-Test-User', user).send(body);
+    request(app).put(`/api/chapters/${id}`).set('X-Test-User', user).send(body);
 
   // ── AC4: every ordered pair, exhaustively. ────────────────────────────────
   describe('the 25-pair transition table', () => {

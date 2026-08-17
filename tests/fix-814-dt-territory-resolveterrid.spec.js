@@ -48,7 +48,7 @@ const CHAR_PROJ = {
 // 3 successes -> contrib 2. The delta must land on HARBOUR (override), not ACADEMY (submitted).
 const SUB_AMB_OVERRIDE = {
   _id: 'sub-814-ovr',
-  cycle_id: 'cycle-814',
+  chapter_id: 'cycle-814',
   character_name: 'Override Test',
   character_id: 'char-814-proj',
   player_name: 'Player Proj',
@@ -83,7 +83,7 @@ async function setupAmbience(page, submissions, chars = [CHAR_PROJ]) {
     const ok = (b) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(b) });
     if (method === 'PUT' || method === 'PATCH' || method === 'POST') return ok({ ok: true });
     if (url.includes('/api/downtime_submissions')) return ok(submissions);
-    if (url.includes('/api/downtime_cycles'))      return ok([CYCLE_AMB]);
+    if (url.includes('/api/chapters'))      return ok([CYCLE_AMB]);
     if (url.includes('/api/characters/names'))     return ok(chars.map(c => ({ _id: c._id, name: c.name, moniker: c.moniker, honorific: c.honorific })));
     if (url.includes('/api/characters'))           return ok(chars);
     if (url.includes('/api/territories'))          return ok([]);  // use TERRITORY_DATA fallback (slugs)
@@ -177,7 +177,7 @@ const CYCLE_STORY = {
 
 function storySub(overrides = {}) {
   return {
-    _id: 'sub-814s', cycle_id: 'cycle-814s',
+    _id: 'sub-814s', chapter_id: 'cycle-814s',
     character_id: 'char-814-home', character_name: 'Home Body', player_name: 'Player Home',
     status: 'submitted', responses: {},
     _raw: { sphere_actions: [], contact_actions: { requests: [] }, retainer_actions: { actions: [] } },
@@ -217,7 +217,7 @@ async function setupStory(page, submissions, chars, viewName = 'Home Body') {
   await page.route('**/api/auth/me', r => ok(r, ST_USER));
   await page.route(/\/api\/characters$/, r => ok(r, chars));
   await page.route('**/api/characters/names', r => ok(r, chars.map(c => ({ _id: c._id, name: c.name, moniker: c.moniker, honorific: c.honorific }))));
-  await page.route('**/api/downtime_cycles*', r => ok(r, [CYCLE_STORY]));
+  await page.route('**/api/chapters*', r => ok(r, [CYCLE_STORY]));
   await page.route('**/api/downtime_submissions*', r => {
     if (['PATCH', 'PUT', 'POST'].includes(r.request().method())) return ok(r, { ok: true });
     return ok(r, submissions);

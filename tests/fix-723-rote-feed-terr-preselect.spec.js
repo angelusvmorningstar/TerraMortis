@@ -43,7 +43,7 @@ const TEST_CYCLE = {
 function makeRoteSub(territory, stTerrOverride = null) {
   return {
     _id: 'sub-rote-723',
-    cycle_id: 'cycle-001',
+    chapter_id: 'cycle-001',
     character_name: 'Aleksei',
     character_id: 'char-rote-723',
     player_name: 'Test Player',
@@ -86,7 +86,7 @@ async function setupProcessing(page, sub) {
     const ok = (body) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(body) });
     if (method === 'PUT' || method === 'PATCH' || method === 'POST') return ok({ ok: true });
     if (url.includes('/api/downtime_submissions'))  return ok([sub]);
-    if (url.includes('/api/downtime_cycles'))       return ok([TEST_CYCLE]);
+    if (url.includes('/api/chapters'))       return ok([TEST_CYCLE]);
     if (url.includes('/api/characters/names'))      return ok([CHAR_ROTE].map(c => ({ _id: c._id, name: c.name, moniker: c.moniker, honorific: c.honorific })));
     if (url.includes('/api/characters'))            return ok([CHAR_ROTE]);
     if (url.includes('/api/territories'))           return ok([]);

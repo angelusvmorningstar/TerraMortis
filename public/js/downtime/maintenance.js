@@ -54,7 +54,7 @@ export function maintenanceEligibleChars(chars) {
 
 /**
  * Given a character and that character's row from
- * `downtime_cycles.maintenance_audit`, which of their merits still need a
+ * `chapters.maintenance_audit`, which of their merits still need a
  * tick? An absent row and an explicit `false` are the same thing: not yet
  * confirmed. Only a literal `true` clears a merit.
  */

@@ -59,7 +59,7 @@ const CHAR = {
 function baseSub(id) {
   return {
     _id: id,
-    cycle_id: 'cycle-713',
+    chapter_id: 'cycle-713',
     character_id: 'char-713',
     character_name: 'Allies Test Char',
     player_name: 'Test Player',
@@ -126,7 +126,7 @@ async function setup(page, submissions) {
     if (['PUT', 'PATCH', 'POST'].includes(method)) return ok({ ok: true });
 
     if (url.includes('/api/downtime_submissions')) return ok(submissions);
-    if (url.includes('/api/downtime_cycles'))      return ok([ACTIVE_CYCLE]);
+    if (url.includes('/api/chapters'))      return ok([ACTIVE_CYCLE]);
     if (url.includes('/api/characters/names'))     return ok([{ _id: CHAR._id, name: CHAR.name, moniker: CHAR.moniker, honorific: CHAR.honorific }]);
     if (url.includes('/api/characters'))           return ok([CHAR]);
     if (url.includes('/api/territories'))          return ok([]);

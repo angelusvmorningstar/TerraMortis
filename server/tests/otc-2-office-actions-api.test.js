@@ -33,7 +33,7 @@ const GAME_SESSION_ID = 'otc-2-test-session';
 async function cleanup() {
   await getCollection('characters').deleteMany({ name: { $regex: `^${NAME_PREFIX}` } });
   await getCollection('territories').deleteMany({ name: { $regex: `^${NAME_PREFIX}` } });
-  await getCollection('downtime_cycles').deleteMany({ label: { $regex: `^${NAME_PREFIX}` } });
+  await getCollection('chapters').deleteMany({ label: { $regex: `^${NAME_PREFIX}` } });
   await getCollection('game_sessions').deleteMany({ title: { $regex: `^${NAME_PREFIX}` } });
   // Scoped by actor_name, not game_session_id — since issue-1143, the
   // persisted game_session_id is the REAL server-derived session's _id, not
@@ -105,7 +105,7 @@ async function seedTargets(count, startingCity = 1) {
 }
 
 async function seedGameCycle(gameNumber = 900) {
-  const { insertedId } = await getCollection('downtime_cycles').insertOne({
+  const { insertedId } = await getCollection('chapters').insertOne({
     label: `${NAME_PREFIX} Cycle`,
     phase: 'game',
     game_number: gameNumber,
@@ -128,13 +128,13 @@ afterAll(async () => {
 describe('otc.2 — POST /api/office_actions phase gate', () => {
   it('rejects a raise with 403 when no cycle is in game phase', async () => {
     // Clears ALL cycles, not just this file's prefixed ones — the route
-    // scans every downtime_cycles document, so a leftover 'game'-phase
+    // scans every chapters document, so a leftover 'game'-phase
     // cycle from elsewhere in the shared tm_suite_test would make these
     // negative tests pass for the wrong reason (Codex review finding,
     // 2026-08-12). vitest runs this project's test files sequentially in
     // one process (fileParallelism: false), so this is safe for the
     // duration of this file's own run.
-    await getCollection('downtime_cycles').deleteMany({});
+    await getCollection('chapters').deleteMany({});
     const actorId = await seedActor({ city: 3 });
     const [targetId] = await seedTargets(1);
 
@@ -151,14 +151,14 @@ describe('otc.2 — POST /api/office_actions phase gate', () => {
 
   it('rejects a raise with 403 when the only cycle is in prep phase (not game)', async () => {
     // Clears ALL cycles, not just this file's prefixed ones — the route
-    // scans every downtime_cycles document, so a leftover 'game'-phase
+    // scans every chapters document, so a leftover 'game'-phase
     // cycle from elsewhere in the shared tm_suite_test would make these
     // negative tests pass for the wrong reason (Codex review finding,
     // 2026-08-12). vitest runs this project's test files sequentially in
     // one process (fileParallelism: false), so this is safe for the
     // duration of this file's own run.
-    await getCollection('downtime_cycles').deleteMany({});
-    await getCollection('downtime_cycles').insertOne({
+    await getCollection('chapters').deleteMany({});
+    await getCollection('chapters').insertOne({
       label: `${NAME_PREFIX} Cycle`, phase: 'prep', game_number: 901,
     });
     const actorId = await seedActor({ city: 3 });
@@ -176,13 +176,13 @@ describe('otc.2 — POST /api/office_actions phase gate', () => {
 
   it('rejects grant_first and strip_last too, not just the paid types', async () => {
     // Clears ALL cycles, not just this file's prefixed ones — the route
-    // scans every downtime_cycles document, so a leftover 'game'-phase
+    // scans every chapters document, so a leftover 'game'-phase
     // cycle from elsewhere in the shared tm_suite_test would make these
     // negative tests pass for the wrong reason (Codex review finding,
     // 2026-08-12). vitest runs this project's test files sequentially in
     // one process (fileParallelism: false), so this is safe for the
     // duration of this file's own run.
-    await getCollection('downtime_cycles').deleteMany({});
+    await getCollection('chapters').deleteMany({});
     const actorId = await seedActor({ city: 3 });
     const [target0, target1] = await seedTargets(2, 0);
     await getCollection('characters').updateOne({ _id: target1 }, { $set: { 'status.city': 1 } });
@@ -214,7 +214,7 @@ describe('otc.2 — POST /api/office_actions phase gate', () => {
   });
 
   it('rejects lower too — GATED_TYPES must cover all four action types, not just raise', async () => {
-    await getCollection('downtime_cycles').deleteMany({});
+    await getCollection('chapters').deleteMany({});
     const actorId = await seedActor({ city: 3 });
     const [targetId] = await seedTargets(1, 2); // status.city: 2, so lower would otherwise be valid
 
@@ -230,11 +230,11 @@ describe('otc.2 — POST /api/office_actions phase gate', () => {
     // 'game' and took the highest game_number AMONG THOSE MATCHES, so a
     // stale cycle stuck in game phase outranked a genuinely newer cycle
     // that had moved on — the newer cycle was never in the filtered set.
-    await getCollection('downtime_cycles').deleteMany({});
-    await getCollection('downtime_cycles').insertOne({
+    await getCollection('chapters').deleteMany({});
+    await getCollection('chapters').insertOne({
       label: `${NAME_PREFIX} Stale Game Cycle`, phase: 'game', game_number: 905,
     });
-    await getCollection('downtime_cycles').insertOne({
+    await getCollection('chapters').insertOne({
       label: `${NAME_PREFIX} Current Prep Cycle`, phase: 'prep', game_number: 906,
     });
     const actorId = await seedActor({ city: 3 });
@@ -254,13 +254,13 @@ describe('otc.2 — POST /api/office_actions phase gate', () => {
 describe('otc.2 — POST /api/office_actions budget = effective City Status (the regression)', () => {
   it('includes the regent-ambience bonus, which the old formula silently dropped', async () => {
     // Clears ALL cycles, not just this file's prefixed ones — the route
-    // scans every downtime_cycles document, so a leftover 'game'-phase
+    // scans every chapters document, so a leftover 'game'-phase
     // cycle from elsewhere in the shared tm_suite_test would make these
     // negative tests pass for the wrong reason (Codex review finding,
     // 2026-08-12). vitest runs this project's test files sequentially in
     // one process (fileParallelism: false), so this is safe for the
     // duration of this file's own run.
-    await getCollection('downtime_cycles').deleteMany({});
+    await getCollection('chapters').deleteMany({});
     await seedGameCycle(903);
 
     // city 0 + Head of State title (+3) + Verdant ambience (+1) = 4.
@@ -284,13 +284,13 @@ describe('otc.2 — POST /api/office_actions budget = effective City Status (the
 
   it('caps the budget at 10, which the old formula never applied', async () => {
     // Clears ALL cycles, not just this file's prefixed ones — the route
-    // scans every downtime_cycles document, so a leftover 'game'-phase
+    // scans every chapters document, so a leftover 'game'-phase
     // cycle from elsewhere in the shared tm_suite_test would make these
     // negative tests pass for the wrong reason (Codex review finding,
     // 2026-08-12). vitest runs this project's test files sequentially in
     // one process (fileParallelism: false), so this is safe for the
     // duration of this file's own run.
-    await getCollection('downtime_cycles').deleteMany({});
+    await getCollection('chapters').deleteMany({});
     await seedGameCycle(904);
 
     // city 8 + Head of State title (+3) = raw 11. The OLD formula used this

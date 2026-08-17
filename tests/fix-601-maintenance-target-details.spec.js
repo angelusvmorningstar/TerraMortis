@@ -45,7 +45,7 @@ const MAINT_DESC = 'Carver continues to provide advice to folks as and when requ
 function maintenanceSub() {
   return {
     _id: 'sub-maint-601',
-    cycle_id: 'cycle-601',
+    chapter_id: 'cycle-601',
     character_name: 'Carver Test',
     character_id: 'char-carver',
     player_name: 'P',
@@ -69,7 +69,7 @@ function maintenanceSub() {
 function investigateSub() {
   return {
     _id: 'sub-inv-601',
-    cycle_id: 'cycle-601',
+    chapter_id: 'cycle-601',
     character_name: 'Carver Test',
     character_id: 'char-carver',
     player_name: 'P',
@@ -103,7 +103,7 @@ async function setup(page, submissions) {
     const ok = (body) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(body) });
     if (method === 'PUT' || method === 'PATCH' || method === 'POST') return ok({ ok: true });
     if (url.includes('/api/downtime_submissions')) return ok(submissions);
-    if (url.includes('/api/downtime_cycles'))      return ok([TEST_CYCLE]);
+    if (url.includes('/api/chapters'))      return ok([TEST_CYCLE]);
     if (url.includes('/api/characters/names'))     return ok(ALL_CHARS.map(c => ({ _id: c._id, name: c.name, moniker: c.moniker, honorific: c.honorific })));
     if (url.includes('/api/characters'))           return ok(ALL_CHARS);
     return ok([]);

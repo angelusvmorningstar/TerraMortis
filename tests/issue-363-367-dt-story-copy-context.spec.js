@@ -70,7 +70,7 @@ const CHAR_REED = {
 function makeStoryMomentSub(char, opts = {}) {
   return {
     _id: `sub-${char._id}-dt3`,
-    cycle_id: DT3_CYCLE._id,
+    chapter_id: DT3_CYCLE._id,
     character_name: char.name,
     character_id: char._id,
     player_name: char.player,
@@ -122,16 +122,16 @@ async function setupPage(page, { characters, submissions, routeDelay = 0 } = {})
     if (method === 'PUT' || method === 'PATCH' || method === 'POST') return ok({ ok: true });
 
     if (url.includes('/api/downtime_submissions')) {
-      const m = url.match(/[?&]cycle_id=([^&]+)/);
+      const m = url.match(/[?&]chapter_id=([^&]+)/);
       if (m) {
         const cid = decodeURIComponent(m[1]);
         if (cid === DT2_CYCLE._id) return ok([]);
-        return ok(submissions.filter(s => s.cycle_id === DT3_CYCLE._id));
+        return ok(submissions.filter(s => s.chapter_id === DT3_CYCLE._id));
       }
       return ok(submissions);
     }
 
-    if (url.includes('/api/downtime_cycles')) {
+    if (url.includes('/api/chapters')) {
       return routeDelay > 0
         ? okDelayed([DT3_CYCLE, DT2_CYCLE], routeDelay)
         : ok([DT3_CYCLE, DT2_CYCLE]);
@@ -261,7 +261,7 @@ test.describe('fix.364 — legacy vignette prev-cycle path', () => {
     // DT2 sub — processed as a vignette using the legacy touchstone field (pre-consolidation)
     const dt2Sub = {
       _id: 'sub-reed-dt2-364',
-      cycle_id: DT2_CYCLE._id,
+      chapter_id: DT2_CYCLE._id,
       character_name: CHAR_REED.name,
       character_id: CHAR_REED._id,
       player_name: CHAR_REED.player,
@@ -284,7 +284,7 @@ test.describe('fix.364 — legacy vignette prev-cycle path', () => {
       const ok = body => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(body) });
       if (method !== 'GET') return ok({ ok: true });
       if (url.includes('/api/downtime_submissions')) {
-        const m = url.match(/[?&]cycle_id=([^&]+)/);
+        const m = url.match(/[?&]chapter_id=([^&]+)/);
         if (m) {
           const cid = decodeURIComponent(m[1]);
           if (cid === DT2_CYCLE._id) return ok([dt2Sub]);
@@ -292,7 +292,7 @@ test.describe('fix.364 — legacy vignette prev-cycle path', () => {
         }
         return ok([dt3Sub]);
       }
-      if (url.includes('/api/downtime_cycles'))    return ok([DT3_CYCLE, DT2_CYCLE]);
+      if (url.includes('/api/chapters'))    return ok([DT3_CYCLE, DT2_CYCLE]);
       if (url.includes('/api/characters/names'))   return ok([{ _id: CHAR_REED._id, name: CHAR_REED.name, moniker: null, honorific: null }]);
       if (url.includes('/api/characters'))         return ok([CHAR_REED]);
       if (url.includes('/api/territories'))        return ok([]);
@@ -366,7 +366,7 @@ test.describe('fix.364 — no previous cycle submission', () => {
     const dt3Sub = makeStoryMomentSub(CHAR_REED, {
       responses: { personal_story_text: 'Something brief.' },
     });
-    // setupPage returns empty array for DT2 cycle_id by default
+    // setupPage returns empty array for DT2 chapter_id by default
     await setupPage(page, { characters: [CHAR_REED], submissions: [dt3Sub] });
     await selectChar(page, CHAR_REED._id);
 

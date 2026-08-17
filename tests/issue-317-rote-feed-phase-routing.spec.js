@@ -45,7 +45,7 @@ const TEST_CYCLE = {
 function makeRoteSub(actionType) {
   return {
     _id: `sub-317-${actionType}`,
-    cycle_id: 'cycle-317',
+    chapter_id: 'cycle-317',
     character_name: 'Alice Vunder',
     character_id:   'char-alice-317',
     player_name:    'Alice Player',
@@ -69,7 +69,7 @@ function makeRoteSub(actionType) {
 function makePatrolSub() {
   return {
     _id: 'sub-317-patrol',
-    cycle_id: 'cycle-317',
+    chapter_id: 'cycle-317',
     character_name: 'Alice Vunder',
     character_id:   'char-alice-317',
     player_name:    'Alice Player',
@@ -105,7 +105,7 @@ async function setup(page, submissions) {
 
     if (method === 'PUT' || method === 'PATCH' || method === 'POST') return ok({ ok: true });
     if (url.includes('/api/downtime_submissions')) return ok(submissions);
-    if (url.includes('/api/downtime_cycles'))      return ok([TEST_CYCLE]);
+    if (url.includes('/api/chapters'))      return ok([TEST_CYCLE]);
     if (url.includes('/api/characters/names'))     return ok([{ _id: CHAR_ALICE._id, name: CHAR_ALICE.name, moniker: null, honorific: null }]);
     if (url.includes('/api/characters'))           return ok([CHAR_ALICE]);
     if (url.includes('/api/territories'))          return ok([]);

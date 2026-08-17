@@ -50,7 +50,7 @@ const CHAR_B = {
 // Submission with a project action
 const SUBMISSION_PROJECT = {
   _id: 'sub-smoke-proj',
-  cycle_id: 'cycle-admin-smoke',
+  chapter_id: 'cycle-admin-smoke',
   character_name: 'Alpha Smoke',
   character_id: 'char-smoke-a',
   player_name: 'Player One',
@@ -74,7 +74,7 @@ const SUBMISSION_PROJECT = {
 // Submission with a feeding action only
 const SUBMISSION_FEEDING = {
   _id: 'sub-smoke-feed',
-  cycle_id: 'cycle-admin-smoke',
+  chapter_id: 'cycle-admin-smoke',
   character_name: 'Beta Smoke',
   character_id: 'char-smoke-b',
   player_name: 'Player Two',
@@ -106,7 +106,7 @@ async function setup(page, { submissions = [], chars = [CHAR_A, CHAR_B], cycle =
     const ok = (body) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(body) });
     if (method === 'PUT' || method === 'PATCH' || method === 'POST') return ok({ ok: true });
     if (url.includes('/api/downtime_submissions')) return ok(submissions);
-    if (url.includes('/api/downtime_cycles'))      return ok(cycle ? [cycle] : []);
+    if (url.includes('/api/chapters'))      return ok(cycle ? [cycle] : []);
     if (url.includes('/api/characters/names'))     return ok(chars.map(c => ({ _id: c._id, name: c.name, moniker: c.moniker, honorific: c.honorific })));
     if (url.includes('/api/characters'))           return ok(chars);
     if (url.includes('/api/territories'))          return ok([]);

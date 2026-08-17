@@ -71,7 +71,7 @@ async function insertSub(charId, overrides = {}) {
   const col = getCollection('downtime_submissions');
   const doc = {
     character_id: new ObjectId(charId),
-    cycle_id: null,
+    chapter_id: null,
     character_name: 'Test Character',
     player_name: 'Test Player',
     status: 'submitted',

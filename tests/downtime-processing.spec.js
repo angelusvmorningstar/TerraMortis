@@ -65,7 +65,7 @@ const TEST_CYCLE = {
 
 const SUBMISSION_PROJECT = {
   _id: 'sub-proj-001',
-  cycle_id: 'cycle-001',
+  chapter_id: 'cycle-001',
   character_name: 'Charlie Test',
   character_id: 'char-pt4',
   player_name: 'Test Player',
@@ -98,7 +98,7 @@ const SUBMISSION_PROJECT = {
 
 const SUBMISSION_ALLIES = {
   _id: 'sub-allies-001',
-  cycle_id: 'cycle-001',
+  chapter_id: 'cycle-001',
   character_name: 'Charlie Test',
   character_id: 'char-pt4',
   player_name: 'Test Player',
@@ -127,7 +127,7 @@ const SUBMISSION_ALLIES = {
 
 const SUBMISSION_FEEDING = {
   _id: 'sub-feed-001',
-  cycle_id: 'cycle-001',
+  chapter_id: 'cycle-001',
   character_name: 'Charlie Test',
   character_id: 'char-pt4',
   player_name: 'Test Player',
@@ -167,7 +167,7 @@ const SUBMISSION_FEEDING = {
 
 const SUBMISSION_PROJECT_PENDING = {
   _id: 'sub-f96-proj-pending',
-  cycle_id: 'cycle-001',
+  chapter_id: 'cycle-001',
   character_name: 'Charlie Test', character_id: 'char-pt4', player_name: 'Test Player',
   submitted_at: '2026-05-14T00:00:00Z',
   _raw: {
@@ -181,7 +181,7 @@ const SUBMISSION_PROJECT_PENDING = {
 
 const SUBMISSION_PROJECT_CONFIRMED = {
   _id: 'sub-f96-proj-confirmed',
-  cycle_id: 'cycle-001',
+  chapter_id: 'cycle-001',
   character_name: 'Charlie Test', character_id: 'char-pt4', player_name: 'Test Player',
   submitted_at: '2026-05-14T00:00:00Z',
   _raw: {
@@ -195,7 +195,7 @@ const SUBMISSION_PROJECT_CONFIRMED = {
 
 const SUBMISSION_PROJECT_ROLLED = {
   _id: 'sub-f310-proj-rolled',
-  cycle_id: 'cycle-001',
+  chapter_id: 'cycle-001',
   character_name: 'Charlie Test', character_id: 'char-pt4', player_name: 'Test Player',
   submitted_at: '2026-05-14T00:00:00Z',
   _raw: {
@@ -209,7 +209,7 @@ const SUBMISSION_PROJECT_ROLLED = {
 
 const SUBMISSION_PROJECT_VALIDATED = {
   _id: 'sub-f96-proj-validated',
-  cycle_id: 'cycle-001',
+  chapter_id: 'cycle-001',
   character_name: 'Charlie Test', character_id: 'char-pt4', player_name: 'Test Player',
   submitted_at: '2026-05-14T00:00:00Z',
   _raw: {
@@ -223,7 +223,7 @@ const SUBMISSION_PROJECT_VALIDATED = {
 
 const SUBMISSION_FEEDING_PENDING = {
   _id: 'sub-f96-feed-pending',
-  cycle_id: 'cycle-001',
+  chapter_id: 'cycle-001',
   character_name: 'Charlie Test', character_id: 'char-pt4', player_name: 'Test Player',
   submitted_at: '2026-05-14T00:00:00Z',
   _raw: {
@@ -243,7 +243,7 @@ const SUBMISSION_FEEDING_PENDING = {
 
 const SUBMISSION_AUTO_MERIT_PENDING = {
   _id: 'sub-f96-auto-merit',
-  cycle_id: 'cycle-001',
+  chapter_id: 'cycle-001',
   character_name: 'Charlie Test', character_id: 'char-pt4', player_name: 'Test Player',
   submitted_at: '2026-05-14T00:00:00Z',
   _raw: {
@@ -277,7 +277,7 @@ async function setupDowntimeProcessing(page, submissions) {
     if (method === 'PUT' || method === 'PATCH' || method === 'POST') return ok({ ok: true });
 
     if (url.includes('/api/downtime_submissions'))    return ok(submissions);
-    if (url.includes('/api/downtime_cycles'))         return ok([TEST_CYCLE]);
+    if (url.includes('/api/chapters'))         return ok([TEST_CYCLE]);
     if (url.includes('/api/characters/names'))        return ok([CHAR_PT4, CHAR_OTHER].map(c => ({ _id: c._id, name: c.name, moniker: c.moniker, honorific: c.honorific })));
     if (url.includes('/api/characters'))              return ok([CHAR_PT4, CHAR_OTHER]);
     if (url.includes('/api/territories'))             return ok([]);
@@ -597,7 +597,7 @@ test.describe('F310-3: Confirm Dice Pool click triggers pool_status save', () =>
       }
 
       if (url.includes('/api/downtime_submissions'))    return ok([SUBMISSION_PROJECT_PENDING]);
-      if (url.includes('/api/downtime_cycles'))         return ok([TEST_CYCLE]);
+      if (url.includes('/api/chapters'))         return ok([TEST_CYCLE]);
       if (url.includes('/api/characters/names'))        return ok([{ _id: CHAR_PT4._id, name: CHAR_PT4.name, moniker: null, honorific: null }]);
       if (url.includes('/api/characters'))              return ok([CHAR_PT4]);
       if (url.includes('/api/territories'))             return ok([]);

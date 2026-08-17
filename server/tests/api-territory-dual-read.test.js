@@ -34,7 +34,7 @@ beforeAll(async () => {
   // lock-test describe block below creates its OWN active cycle — using
   // status: 'closed' here prevents `findOne({ status: 'active' })` from
   // picking up this one and pointing the lock check at the wrong submissions.
-  const cycle = await getCollection('downtime_cycles').insertOne({
+  const cycle = await getCollection('chapters').insertOne({
     status: 'closed',
     label: 'Test cycle 496.1 (payload-only context)',
     created_at: new Date().toISOString(),
@@ -89,7 +89,7 @@ afterAll(async () => {
     await getCollection('territories').deleteMany({ _id: { $in: CREATED_TERRITORIES } });
   }
   if (CREATED_CYCLES.length > 0) {
-    await getCollection('downtime_cycles').deleteMany({ _id: { $in: CREATED_CYCLES } });
+    await getCollection('chapters').deleteMany({ _id: { $in: CREATED_CYCLES } });
   }
   await getCollection('characters').deleteOne({ _id: new ObjectId(CHAR_ID) });
   await teardownDb();
@@ -98,7 +98,7 @@ afterAll(async () => {
 describe('POST /api/downtime_submissions — territory field format (AC 6 a/b/c)', () => {
   it('(a) accepts ObjectId-keyed feeding_territories and round-trips unchanged', async () => {
     const payload = {
-      cycle_id: CYCLE_ID,
+      chapter_id: CYCLE_ID,
       character_id: CHAR_ID,
       status: 'draft',
       responses: {
@@ -125,7 +125,7 @@ describe('POST /api/downtime_submissions — territory field format (AC 6 a/b/c)
       .post('/api/downtime_submissions')
       .set('X-Test-User', playerUser([CHAR_ID]))
       .send({
-        cycle_id: CYCLE_ID,
+        chapter_id: CYCLE_ID,
         character_id: CHAR_ID,
         status: 'draft',
         responses: {
@@ -138,7 +138,7 @@ describe('POST /api/downtime_submissions — territory field format (AC 6 a/b/c)
 
   it('(c) accepts OID values in the validated enum fields', async () => {
     const payload = {
-      cycle_id: CYCLE_ID,
+      chapter_id: CYCLE_ID,
       character_id: CHAR_ID,
       status: 'draft',
       responses: {
@@ -165,7 +165,7 @@ describe('POST /api/downtime_submissions — territory field format (AC 6 a/b/c)
       .post('/api/downtime_submissions')
       .set('X-Test-User', playerUser([CHAR_ID]))
       .send({
-        cycle_id: CYCLE_ID,
+        chapter_id: CYCLE_ID,
         character_id: CHAR_ID,
         status: 'draft',
         responses: {
@@ -198,7 +198,7 @@ describe('PATCH /api/territories/:id/feeding-rights — OID-keyed submission loc
     testRegentTerritory = result.insertedId;
     CREATED_TERRITORIES.push(result.insertedId);
 
-    const cycle = await getCollection('downtime_cycles').insertOne({
+    const cycle = await getCollection('chapters').insertOne({
       status: 'active',
       label: 'Lock-test cycle (OID)',
     });
@@ -211,7 +211,7 @@ describe('PATCH /api/territories/:id/feeding-rights — OID-keyed submission loc
     const subResult = await getCollection('downtime_submissions').insertOne({
       character_id: 'oid-fed-char',
       character_name: 'OID Fed Char',
-      cycle_id: testCycle,
+      chapter_id: testCycle,
       status: 'submitted',
       responses: {
         feeding_territories: JSON.stringify({
@@ -238,7 +238,7 @@ describe('PATCH /api/territories/:id/feeding-rights — OID-keyed submission loc
     const subResult = await getCollection('downtime_submissions').insertOne({
       character_id: 'oid-fed-char',
       character_name: 'OID Fed Elsewhere',
-      cycle_id: testCycle,
+      chapter_id: testCycle,
       status: 'submitted',
       responses: {
         feeding_territories: JSON.stringify({

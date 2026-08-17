@@ -27,7 +27,7 @@
  * Follows the pattern established by otc-2-office-actions-api.test.js: real
  * Supertest requests against the mounted app + tm_suite_test, prefixed test
  * fixtures, full-collection defensive clears for the shared game_sessions /
- * downtime_cycles collections (a leftover doc from another file could
+ * chapters collections (a leftover doc from another file could
  * otherwise make findLatestSession()/currentCycleInGamePhase() resolve to
  * the wrong record).
  *
@@ -53,7 +53,7 @@ const NAME_PREFIX = 'Issue-1143 Probe';
 async function cleanup() {
   await getCollection('characters').deleteMany({ name: { $regex: `^${NAME_PREFIX}` } });
   await getCollection('territories').deleteMany({ name: { $regex: `^${NAME_PREFIX}` } });
-  await getCollection('downtime_cycles').deleteMany({ label: { $regex: `^${NAME_PREFIX}` } });
+  await getCollection('chapters').deleteMany({ label: { $regex: `^${NAME_PREFIX}` } });
   await getCollection('game_sessions').deleteMany({ title: { $regex: `^${NAME_PREFIX}` } });
   await getCollection('office_actions').deleteMany({ actor_name: { $regex: `^${NAME_PREFIX}` } });
   await getCollection('contested_roll_requests').deleteMany({ actor_name: { $regex: `^${NAME_PREFIX}` } });
@@ -71,8 +71,8 @@ async function seedGameSessionAndCycle() {
     session_date: today,
     game_number: 999,
   });
-  await getCollection('downtime_cycles').deleteMany({});
-  await getCollection('downtime_cycles').insertOne({
+  await getCollection('chapters').deleteMany({});
+  await getCollection('chapters').insertOne({
     label: `${NAME_PREFIX} Cycle`, phase: 'game', game_number: 999,
   });
 }
@@ -230,8 +230,8 @@ describe.skipIf(!dbAvailable)('issue-1143 AC2 — server-derived game_session_id
 
   it('403s when no live game session exists', async () => {
     await getCollection('game_sessions').deleteMany({});
-    await getCollection('downtime_cycles').deleteMany({});
-    await getCollection('downtime_cycles').insertOne({
+    await getCollection('chapters').deleteMany({});
+    await getCollection('chapters').insertOne({
       label: `${NAME_PREFIX} Cycle`, phase: 'game', game_number: 999,
     });
     const actorId = await seedActor({ city: 3 });

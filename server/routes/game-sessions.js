@@ -39,7 +39,7 @@ export async function getNextSession(req, res) {
   // surface. The deadline_at filter prevents picking a 'prep' cycle that
   // hasn't had a deadline set yet.
   if (!session.downtime_deadline) {
-    const cycle = await getCollection('downtime_cycles').findOne(
+    const cycle = await getCollection('chapters').findOne(
       {
         status: { $in: ['prep', 'game', 'active', 'open'] },
         deadline_at: { $exists: true, $ne: null },

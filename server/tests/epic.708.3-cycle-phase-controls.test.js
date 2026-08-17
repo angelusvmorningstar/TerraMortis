@@ -44,7 +44,7 @@ describe('epic.708.3 — cycle-views.js: phase control UI', () => {
 
   // INVERTED BY CM-4a (2026-08-16), kept rather than deleted so the intent
   // stays on the record. The wipe moved off the client entirely: it is now
-  // performed by the server route that mutates downtime_cycles.phase, in one
+  // performed by the server route that mutates chapters.phase, in one
   // transaction with the phase write, so every API caller is bound by it and
   // not just this one button. The DELETE route itself is untouched and still
   // asserted above; what changed is who calls it. Behavioural coverage lives

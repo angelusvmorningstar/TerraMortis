@@ -64,7 +64,7 @@ function makeSub({
   return {
     _id: 'sub_886',
     character_id: 'char_886',
-    cycle_id: 'cycle_886',
+    chapter_id: 'cycle_886',
     status: 'submitted',
     responses,
     projects_resolved: projectsResolved,

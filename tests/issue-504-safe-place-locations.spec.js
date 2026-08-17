@@ -67,7 +67,7 @@ async function setup(page, { char = CHAR_TWO_SP_HAVEN, cycle = ACTIVE_CYCLE, sub
     if (method === 'POST' || method === 'PUT' || method === 'PATCH') return ok({ ok: true, _id: 'sub-504' });
     if (url.includes('/api/auth/me'))             return ok(PLAYER_USER);
     if (url.includes('/api/attendance'))          return ok({ attended });
-    if (url.includes('/api/downtime_cycles'))     return ok(cycle ? [cycle] : []);
+    if (url.includes('/api/chapters'))     return ok(cycle ? [cycle] : []);
     if (url.includes('/api/downtime_submissions')) return ok(submission ? [submission] : []);
     if (url.includes('/api/characters/names'))    return ok([{ _id: char._id, name: char.name, moniker: char.moniker, honorific: char.honorific }]);
     if (url.includes('/api/characters'))          return ok([char]);
@@ -136,7 +136,7 @@ test.describe('Player DT form — Safe Places and Havens (#504)', () => {
 
   test('AC#6: saved location values reload into the inputs', async ({ page }) => {
     const submission = {
-      _id: 'sub-504-existing', cycle_id: ACTIVE_CYCLE._id,
+      _id: 'sub-504-existing', chapter_id: ACTIVE_CYCLE._id,
       character_id: CHAR_TWO_SP_HAVEN._id, character_name: CHAR_TWO_SP_HAVEN.name,
       player_name: 'Test Player', status: 'draft',
       responses: {

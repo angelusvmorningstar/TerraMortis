@@ -54,7 +54,7 @@ const FEED_ROLL_OBJ = {
 // Submission WITH a roll result
 const SUB_WITH_ROLL = {
   _id: 'sub-739-rolled',
-  cycle_id: 'cycle-739',
+  chapter_id: 'cycle-739',
   character_name: 'Clear Roll Tester',
   character_id: 'char-739',
   player_name: 'Test Player 739',
@@ -116,7 +116,7 @@ async function setupProcessing739(page, submissions) {
     if (method === 'PUT' || method === 'PATCH' || method === 'POST') return ok({ ok: true });
 
     if (url.includes('/api/downtime_submissions'))  return ok(submissions);
-    if (url.includes('/api/downtime_cycles'))       return ok([CYCLE_739]);
+    if (url.includes('/api/chapters'))       return ok([CYCLE_739]);
     if (url.includes('/api/characters/names'))      return ok([{ _id: CHAR_739._id, name: CHAR_739.name, moniker: null, honorific: null }]);
     if (url.includes('/api/characters'))            return ok([CHAR_739]);
     if (url.includes('/api/territories'))           return ok([TERRITORY_ACADEMY_739]);

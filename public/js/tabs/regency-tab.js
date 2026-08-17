@@ -69,7 +69,7 @@ export async function renderRegencyTab(container, char, territories) {
 
   // Load active cycle for confirmation state
   try {
-    const cycles = await apiGet('/api/downtime_cycles');
+    const cycles = await apiGet('/api/chapters');
     const sorted = cycles.sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''));
     _activeCycle = sorted.find(c => ['active', 'game', 'prep'].includes(c.status)) || null;
   } catch { _activeCycle = null; }
@@ -97,7 +97,7 @@ async function _computeLocked() {
   if (!terrSlug) return;
 
   try {
-    const subs = await apiGet(`/api/downtime_submissions?cycle_id=${encodeURIComponent(_activeCycle._id)}`);
+    const subs = await apiGet(`/api/downtime_submissions?chapter_id=${encodeURIComponent(_activeCycle._id)}`);
     for (const sub of (subs || [])) {
       if (sub.status !== 'submitted') continue;
       const raw = sub?.responses?.feeding_territories;
@@ -526,7 +526,7 @@ async function confirmFeeding(container) {
   if (statusEl) statusEl.textContent = '';
 
   try {
-    const updated = await apiPost(`/api/downtime_cycles/${_activeCycle._id}/confirm-feeding`, {
+    const updated = await apiPost(`/api/chapters/${_activeCycle._id}/confirm-feeding`, {
       territory_id: ri.territoryId,
       rights,
     });

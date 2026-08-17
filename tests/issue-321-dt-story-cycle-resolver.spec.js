@@ -6,7 +6,7 @@
  *   - Task 2: loadCycleById resets _dtuxStoryInited so dropdown changes refresh DT Story.
  *   - Task 3: Internal resolver fallback uses _id desc + closed/complete set match
  *             (was: missing created_at + 'complete' filter).
- *   - Task 5: Server route sorts /api/downtime_cycles by _id desc (defence in depth).
+ *   - Task 5: Server route sorts /api/chapters by _id desc (defence in depth).
  *
  * Test scenarios:
  *   1. Dropdown drives DT Story init — opening DT Story on cycle B shows cycle B's submissions.
@@ -15,7 +15,7 @@
  *
  * Cross-cycle save guard (Task 4) is covered by code review: _assertCurrentCycle is
  * called from saveNarrativeField + _publishAllSubmissions + handlePushCharacter (all
- * three save paths). The helper normalises string-vs-ObjectId cycle_id shapes.
+ * three save paths). The helper normalises string-vs-ObjectId chapter_id shapes.
  *
  * Regression check (Task 5): tests/issue-320-autosave-st-notes.spec.js must still pass —
  * run both spec files together with: npx playwright test tests/issue-32*.spec.js
@@ -67,7 +67,7 @@ const CYCLE_NEW = {
 function makeSub(cycleId, char, subId) {
   return {
     _id: subId,
-    cycle_id: cycleId,
+    chapter_id: cycleId,
     character_name: char.name,
     character_id:   char._id,
     player_name:    char.player,
@@ -104,15 +104,15 @@ async function setupAdminWithCycles(page, { cyclesOrder } = { cyclesOrder: [CYCL
     if (method === 'PUT' || method === 'PATCH' || method === 'POST') return ok({ ok: true });
 
     if (url.includes('/api/downtime_submissions')) {
-      // Filter by cycle_id query param if present
-      const m = url.match(/[?&]cycle_id=([^&]+)/);
+      // Filter by chapter_id query param if present
+      const m = url.match(/[?&]chapter_id=([^&]+)/);
       if (m) {
         const cid = decodeURIComponent(m[1]);
-        return ok([SUB_OLD, SUB_NEW].filter(s => s.cycle_id === cid));
+        return ok([SUB_OLD, SUB_NEW].filter(s => s.chapter_id === cid));
       }
       return ok([SUB_OLD, SUB_NEW]);
     }
-    if (url.includes('/api/downtime_cycles')) return ok(cyclesOrder);
+    if (url.includes('/api/chapters')) return ok(cyclesOrder);
     if (url.includes('/api/characters/names')) return ok([
       { _id: CHAR_ALICE._id,  name: CHAR_ALICE.name,  moniker: null, honorific: null },
       { _id: CHAR_BRANDY._id, name: CHAR_BRANDY.name, moniker: null, honorific: null },
@@ -200,5 +200,5 @@ test.describe('issue-321: DT Story cycle resolver', () => {
 //
 // Note on Task 4 (cross-cycle save guard): the helper _assertCurrentCycle is called
 // from all three save paths (saveNarrativeField, _publishAllSubmissions, handlePushCharacter).
-// Behaviour is unit-style — throws if normalised cycle_id mismatch. Verified by code
+// Behaviour is unit-style — throws if normalised chapter_id mismatch. Verified by code
 // review; integration test would require artificially injecting cross-cycle state.

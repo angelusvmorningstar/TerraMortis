@@ -116,7 +116,7 @@ function projectSlotProps(n) {
     // JDT-2: Joint project authoring scratch fields. Persisted on the
     // submission to round-trip the lead's draft form state. The
     // canonical joint state lives on cycle.joint_projects (created via
-    // POST /api/downtime_cycles/:id/joint_projects).
+    // POST /api/chapters/:id/joint_projects).
     [`project_${n}_is_joint`]:           { type: 'string' },
     [`project_${n}_joint_description`]:  { type: 'string' },
     [`project_${n}_joint_target_type`]:  { type: 'string' },
@@ -189,16 +189,27 @@ export const downtimeSubmissionSchema = {
 
     // ── Document wrapper ─────────────────────────────────────
     // FK type note (issue #497): canonical STORAGE for character_id and
-    // cycle_id is ObjectId. The inbound REQUEST shape is always a JSON string,
+    // chapter_id is ObjectId. The inbound REQUEST shape is always a JSON string,
     // so the validator must accept 'string' here; the server coerces string →
     // ObjectId before write (POST /downtime_submissions and PUT /:id). Reads
     // tolerate both types during the grace window (dual-type $in / $or
-    // filters) until the one-time #497 migration normalises stored cycle_id.
+    // filters) until the one-time #497 migration normalises stored chapter_id.
+    // cm-2b renamed the field from `cycle_id`; the collection it points INTO
+    // renamed too (downtime_cycles -> chapters). Type and behaviour unchanged.
     // Do NOT tighten these to reject strings — that would 400 every client
     // write. See migrate-submission-cycle-id-to-oid.js.
+    //
+    // WHY THE LEGACY NAME IS NOT REJECTED HERE. This schema is
+    // `additionalProperties: true` and has to stay that way (`responses` is
+    // open-ended by design), so it can never reject a stray `cycle_id` key —
+    // ajv would wave it through to the writer. cm-2b therefore rejects it at
+    // the ROUTE instead: `rejectLegacyChapterFk` (server/helpers/chapter-fk.js)
+    // runs ahead of this validator on POST and PUT and answers 400
+    // LEGACY_CYCLE_ID_REJECTED with a reason the caller can act on. Reads of
+    // the legacy name still resolve, through the same module's dual-read shim.
     character_id:    { type: ['string', 'null'], minLength: 1 },
     character_name:  { type: 'string' },
-    cycle_id:        { type: ['string', 'null'] },
+    chapter_id:      { type: ['string', 'null'] },
     status:          { type: 'string', enum: ['draft', 'submitted'] },
     submitted_at:    { type: 'string' },  // ISO timestamp
     approval_status: { type: 'string', enum: ['pending', 'approved', 'modified', 'rejected'] },

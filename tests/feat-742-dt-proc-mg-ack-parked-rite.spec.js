@@ -55,7 +55,7 @@ const TERRITORY_742 = {
 // Parked rite — not yet acked
 const SUB_PARKED_742 = {
   _id: 'sub-742-cur',
-  cycle_id: 'cycle-742-cur',
+  chapter_id: 'cycle-742-cur',
   character_name: 'Mandragora Acker',
   character_id: 'char-742',
   player_name: 'Test Player 742',
@@ -117,7 +117,7 @@ const SUB_NOT_PARKED_742 = {
 // Prior-cycle submission (used by MG-1 prior-outcome lookup)
 const SUB_PRIOR_742 = {
   _id: 'sub-742-pri',
-  cycle_id: 'cycle-742-pri',
+  chapter_id: 'cycle-742-pri',
   character_name: 'Mandragora Acker',
   character_id: 'char-742',
   player_name: 'Test Player 742',
@@ -162,7 +162,7 @@ async function setupProcessing742(page, currentSubs, priorSubs = [SUB_PRIOR_742]
       if (url.includes('cycle-742-pri')) return ok(priorSubs);
       return ok(currentSubs);
     }
-    if (url.includes('/api/downtime_cycles'))  return ok([CYCLE_742, CYCLE_PRIOR_742]);
+    if (url.includes('/api/chapters'))  return ok([CYCLE_742, CYCLE_PRIOR_742]);
     if (url.includes('/api/characters/names')) return ok([{ _id: CHAR_742._id, name: CHAR_742.name, moniker: null, honorific: null }]);
     if (url.includes('/api/characters'))       return ok([CHAR_742]);
     if (url.includes('/api/territories'))      return ok([TERRITORY_742]);
@@ -231,7 +231,7 @@ test.describe('feat.742: acknowledge action for parked Mandragora rite slots', (
         if (url.includes('cycle-742-pri')) return ok([SUB_PRIOR_742]);
         return ok([SUB_PARKED_742]);
       }
-      if (url.includes('/api/downtime_cycles'))  return ok([CYCLE_742, CYCLE_PRIOR_742]);
+      if (url.includes('/api/chapters'))  return ok([CYCLE_742, CYCLE_PRIOR_742]);
       if (url.includes('/api/characters/names')) return ok([{ _id: CHAR_742._id, name: CHAR_742.name, moniker: null, honorific: null }]);
       if (url.includes('/api/characters'))       return ok([CHAR_742]);
       if (url.includes('/api/territories'))      return ok([TERRITORY_742]);

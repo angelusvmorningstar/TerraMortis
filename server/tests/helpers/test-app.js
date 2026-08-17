@@ -9,7 +9,8 @@ import { requireRole } from '../../middleware/auth.js';
 import { cacheControl, noCache } from '../../middleware/cache-control.js';
 import charactersRouter from '../../routes/characters.js';
 import territoriesRouter from '../../routes/territories.js';
-import { cyclesRouter, submissionsRouter, projectInvitationsRouter } from '../../routes/downtime.js';
+import { cyclesRouter } from '../../routes/chapters.js';
+import { submissionsRouter, projectInvitationsRouter } from '../../routes/downtime.js';
 import gameSessionsRouter from '../../routes/game-sessions.js';
 import playersRouter from '../../routes/players.js';
 import attendanceRouter from '../../routes/attendance.js';
@@ -75,7 +76,7 @@ export function createTestApp() {
   // the headers are wired correctly through the same middleware stack.
   const CACHE_5MIN = cacheControl(300);
   app.use('/api/characters', mockAuth, noCache(), charactersRouter);
-  app.use('/api/downtime_cycles', mockAuth, noCache(), cyclesRouter);
+  app.use('/api/chapters', mockAuth, noCache(), cyclesRouter);
   app.use('/api/downtime_submissions', mockAuth, noCache(), submissionsRouter);
   app.use('/api/ranking_ballots', mockAuth, noCache(), rankingBallotsRouter);
   app.use('/api/project_invitations', mockAuth, noCache(), projectInvitationsRouter);

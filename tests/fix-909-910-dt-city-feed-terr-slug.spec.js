@@ -56,7 +56,7 @@ const BASE_CYCLE = {
 // Submission: validated feeding in North Shore using Majesty
 const SUB_FEEDING_MAJESTY = {
   _id: 'sub-909-feed',
-  cycle_id: 'cycle-909',
+  chapter_id: 'cycle-909',
   character_name: 'Feeder Test',
   character_id: 'char-909',
   player_name: 'Feeder Player',
@@ -82,7 +82,7 @@ const SUB_FEEDING_MAJESTY = {
 // Submission: validated ambience project in North Shore using Majesty (regression guard)
 const SUB_AMBIENCE_PROJECT = {
   _id: 'sub-909-proj',
-  cycle_id: 'cycle-909',
+  chapter_id: 'cycle-909',
   character_name: 'Feeder Test',
   character_id: 'char-909',
   player_name: 'Feeder Player',
@@ -124,7 +124,7 @@ const SUB_AMBIENCE_SUBTLE = {
 // Submission: ambience_target slug field, no ST territory override (AC-3e — Bug C coverage)
 const SUB_AMBIENCE_TARGET_SLUG = {
   _id: 'sub-912-ambtarget',
-  cycle_id: 'cycle-909',
+  chapter_id: 'cycle-909',
   character_name: 'Feeder Test',
   character_id: 'char-909',
   player_name: 'Feeder Player',
@@ -141,7 +141,7 @@ const SUB_AMBIENCE_TARGET_SLUG = {
 // Submission: no_feed — should be excluded from feeders (AC-4)
 const SUB_NO_FEED = {
   _id: 'sub-909-nofeed',
-  cycle_id: 'cycle-909',
+  chapter_id: 'cycle-909',
   character_name: 'Feeder Test',
   character_id: 'char-909',
   player_name: 'Feeder Player',
@@ -157,7 +157,7 @@ const SUB_NO_FEED = {
 // Submission: feeding_territories value = "none" — should be excluded (AC-5)
 const SUB_TERR_NONE = {
   _id: 'sub-909-none',
-  cycle_id: 'cycle-909',
+  chapter_id: 'cycle-909',
   character_name: 'Feeder Test',
   character_id: 'char-909',
   player_name: 'Feeder Player',
@@ -188,7 +188,7 @@ async function setup(page, submissions, cycleOverride, terrsOverride) {
 
     if (method === 'PUT' || method === 'PATCH' || method === 'POST') return ok({ ok: true });
     if (url.includes('/api/downtime_submissions')) return ok(submissions);
-    if (url.includes('/api/downtime_cycles'))      return ok([cycle]);
+    if (url.includes('/api/chapters'))      return ok([cycle]);
     if (url.includes('/api/characters/names'))     return ok([{ _id: CHAR._id, name: CHAR.name, moniker: null, honorific: null }]);
     if (url.includes('/api/characters'))           return ok([CHAR]);
     if (url.includes('/api/territories'))          return ok(terrs);
@@ -236,7 +236,7 @@ test.describe('fix.909: Retally counts disciplines from feeding submissions', ()
 
     // Capture the PATCH sent by recomputeDisciplineProfile
     const putPromise = page.waitForRequest(req =>
-      req.method() === 'PUT' && req.url().includes('/api/downtime_cycles/')
+      req.method() === 'PUT' && req.url().includes('/api/chapters/')
     );
     await page.click('#disc-retally-btn');
     const putReq = await putPromise;
@@ -263,7 +263,7 @@ test.describe('fix.909: Retally counts disciplines from feeding submissions', ()
     await page.waitForSelector('#disc-retally-btn', { timeout: 8000 });
 
     const putPromise = page.waitForRequest(req =>
-      req.method() === 'PUT' && req.url().includes('/api/downtime_cycles/')
+      req.method() === 'PUT' && req.url().includes('/api/chapters/')
     );
     await page.click('#disc-retally-btn');
     const putReq = await putPromise;
@@ -318,7 +318,7 @@ test.describe('fix.909 regression: project-action disciplines still count', () =
     await page.waitForSelector('#disc-retally-btn', { timeout: 8000 });
 
     const putPromise = page.waitForRequest(req =>
-      req.method() === 'PUT' && req.url().includes('/api/downtime_cycles/')
+      req.method() === 'PUT' && req.url().includes('/api/chapters/')
     );
     await page.click('#disc-retally-btn');
     const putReq = await putPromise;
@@ -340,7 +340,7 @@ test.describe('fix.912 Bug B: ambience projects with terminal non-validated stat
     await navigateToCityPhase(page);
     await page.waitForSelector('#disc-retally-btn', { timeout: 8000 });
     const putPromise = page.waitForRequest(req =>
-      req.method() === 'PUT' && req.url().includes('/api/downtime_cycles/')
+      req.method() === 'PUT' && req.url().includes('/api/chapters/')
     );
     await page.click('#disc-retally-btn');
     const putReq = await putPromise;
@@ -355,7 +355,7 @@ test.describe('fix.912 Bug B: ambience projects with terminal non-validated stat
     await navigateToCityPhase(page);
     await page.waitForSelector('#disc-retally-btn', { timeout: 8000 });
     const putPromise = page.waitForRequest(req =>
-      req.method() === 'PUT' && req.url().includes('/api/downtime_cycles/')
+      req.method() === 'PUT' && req.url().includes('/api/chapters/')
     );
     await page.click('#disc-retally-btn');
     const putReq = await putPromise;
@@ -370,7 +370,7 @@ test.describe('fix.912 Bug B: ambience projects with terminal non-validated stat
     await navigateToCityPhase(page);
     await page.waitForSelector('#disc-retally-btn', { timeout: 8000 });
     const putPromise = page.waitForRequest(req =>
-      req.method() === 'PUT' && req.url().includes('/api/downtime_cycles/')
+      req.method() === 'PUT' && req.url().includes('/api/chapters/')
     );
     await page.click('#disc-retally-btn');
     const putReq = await putPromise;
@@ -391,7 +391,7 @@ test.describe('fix.912 Bug C: project_N_ambience_target resolves territory for a
     await navigateToCityPhase(page);
     await page.waitForSelector('#disc-retally-btn', { timeout: 8000 });
     const putPromise = page.waitForRequest(req =>
-      req.method() === 'PUT' && req.url().includes('/api/downtime_cycles/')
+      req.method() === 'PUT' && req.url().includes('/api/chapters/')
     );
     await page.click('#disc-retally-btn');
     const putReq = await putPromise;
@@ -419,7 +419,7 @@ test.describe('fix.912 Bug B: pool_status "resolved" also counted in discipline 
     await navigateToCityPhase(page);
     await page.waitForSelector('#disc-retally-btn', { timeout: 8000 });
     const putPromise = page.waitForRequest(req =>
-      req.method() === 'PUT' && req.url().includes('/api/downtime_cycles/')
+      req.method() === 'PUT' && req.url().includes('/api/chapters/')
     );
     await page.click('#disc-retally-btn');
     const putReq = await putPromise;
@@ -446,7 +446,7 @@ test.describe('fix.912 Bug B: excluded pool_status values do not count', () => {
     await navigateToCityPhase(page);
     await page.waitForSelector('#disc-retally-btn', { timeout: 8000 });
     const putPromise = page.waitForRequest(req =>
-      req.method() === 'PUT' && req.url().includes('/api/downtime_cycles/')
+      req.method() === 'PUT' && req.url().includes('/api/chapters/')
     );
     await page.click('#disc-retally-btn');
     const putReq = await putPromise;
@@ -477,7 +477,7 @@ test.describe('fix.912 Bug A: TERRITORY_SLUG_MAP alias path resolves legacy Mong
     await navigateToCityPhase(page);
     await page.waitForSelector('#disc-retally-btn', { timeout: 8000 });
     const putPromise = page.waitForRequest(req =>
-      req.method() === 'PUT' && req.url().includes('/api/downtime_cycles/')
+      req.method() === 'PUT' && req.url().includes('/api/chapters/')
     );
     await page.click('#disc-retally-btn');
     const putReq = await putPromise;

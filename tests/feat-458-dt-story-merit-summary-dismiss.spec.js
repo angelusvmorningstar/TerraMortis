@@ -55,7 +55,7 @@ const CHAR = {
 function baseSub(id) {
   return {
     _id: id,
-    cycle_id: 'cycle-458',
+    chapter_id: 'cycle-458',
     character_id: 'char-458',
     character_name: 'Test Kindred',
     player_name: 'Test Player',
@@ -153,7 +153,7 @@ async function setup(page, submissions, { interceptPut } = {}) {
     route.fulfill({ status: 200, contentType: 'application/json',
       body: JSON.stringify([{ _id: CHAR._id, name: CHAR.name, moniker: CHAR.moniker, honorific: CHAR.honorific }]) })
   );
-  await page.route('**/api/downtime_cycles*', route =>
+  await page.route('**/api/chapters*', route =>
     route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([ACTIVE_CYCLE]) })
   );
   // Route covers both ?query-param GETs and /id PUT/PATCH paths

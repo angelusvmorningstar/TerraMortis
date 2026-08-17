@@ -6,7 +6,7 @@
  * classification all become derived, not toggled) and §8 (the seam assertion
  * `derived(isFinalChapterOfStory && !maintained) === ST_dropped`).
  *
- * What replaced what: `downtime_cycles.is_chapter_finale` was a per-chapter
+ * What replaced what: `chapters.is_chapter_finale` was a per-chapter
  * checkbox the ST had to remember to tick on exactly the right cycle. It is
  * now a dead field. The classification is derived from ONE Story-level ST
  * signal, `story_cycles.final_chapter_id` — a pointer naming the specific
@@ -572,8 +572,9 @@ describe('cm-3 AC3/AC4/AC5 — consumers gate on the derivation, not the dead fi
 // ── AC10 / AC11 — the guard and the deploy note are recorded ───────────────
 
 describe('cm-3 AC10/AC11 — server guard and the deploy note', () => {
-  it('the reassignment/deletion guard exists on the downtime_cycles router', () => {
-    const src = read('server/routes/downtime.js');
+  it('the reassignment/deletion guard exists on the chapters router', () => {
+    // cm-2b: cyclesRouter moved out of downtime.js into its own chapters.js.
+    const src = read('server/routes/chapters.js');
     expect(src).toMatch(/CYCLE_IS_STORY_FINALE/);
     expect(src).toMatch(/namedFinaleRefusal/);
   });

@@ -79,7 +79,7 @@ const TEST_CYCLE = {
 // Project action in 'committed' state (pool set, not yet rolled)
 const SUBMISSION_PROJECT_COMMITTED = {
   _id: 'sub-proj-committed',
-  cycle_id: 'cycle-001',
+  chapter_id: 'cycle-001',
   character_name: 'Charlie Test',
   character_id: 'char-pt4',
   player_name: 'Test Player',
@@ -119,7 +119,7 @@ const SUBMISSION_PROJECT_COMMITTED = {
 // Project-based Investigate action
 const SUBMISSION_PROJECT_INVESTIGATE = {
   _id: 'sub-proj-inv',
-  cycle_id: 'cycle-001',
+  chapter_id: 'cycle-001',
   character_name: 'Charlie Test',
   character_id: 'char-pt4',
   player_name: 'Test Player',
@@ -158,7 +158,7 @@ const SUBMISSION_PROJECT_INVESTIGATE = {
 // Merit-based Allies investigate (formula: dots2plus2 — should NOT have dice pool)
 const SUBMISSION_ALLIES_INVESTIGATE = {
   _id: 'sub-allies-inv',
-  cycle_id: 'cycle-001',
+  chapter_id: 'cycle-001',
   character_name: 'Charlie Test',
   character_id: 'char-pt4',
   player_name: 'Test Player',
@@ -194,7 +194,7 @@ const SUBMISSION_ALLIES_INVESTIGATE = {
 // Merit-based auto action (non-roll formula) — status buttons should be AUTOMATIC set
 const SUBMISSION_ALLIES_AUTO = {
   _id: 'sub-allies-auto',
-  cycle_id: 'cycle-001',
+  chapter_id: 'cycle-001',
   character_name: 'Charlie Test',
   character_id: 'char-pt4',
   player_name: 'Test Player',
@@ -229,7 +229,7 @@ const SUBMISSION_ALLIES_AUTO = {
 const LONG_RITE_BLOB = 'Panoptic Warding: Ward location against intrusion by supernatural entities using Cruac rite level 3';
 const SUBMISSION_SORCERY = {
   _id: 'sub-sorc-001',
-  cycle_id: 'cycle-001',
+  chapter_id: 'cycle-001',
   character_name: 'Charlie Test',
   character_id: 'char-pt4',
   player_name: 'Test Player',
@@ -260,7 +260,7 @@ const SUBMISSION_SORCERY = {
 // Feeding submission with no territory saved (should default to Barrens, -4)
 const SUBMISSION_FEEDING_NO_TERR = {
   _id: 'sub-feed-noterr',
-  cycle_id: 'cycle-001',
+  chapter_id: 'cycle-001',
   character_name: 'Charlie Test',
   character_id: 'char-pt4',
   player_name: 'Test Player',
@@ -320,7 +320,7 @@ async function setupDowntimeProcessing(page, submissions, chars = [CHAR_PT4, CHA
 
     // Dispatch by URL
     if (url.includes('/api/downtime_submissions'))    return ok(submissions);
-    if (url.includes('/api/downtime_cycles'))         return ok([TEST_CYCLE]);
+    if (url.includes('/api/chapters'))         return ok([TEST_CYCLE]);
     if (url.includes('/api/characters/names'))        return ok(chars.map(c => ({ _id: c._id, name: c.name, moniker: c.moniker, honorific: c.honorific })));
     if (url.includes('/api/characters'))              return ok(chars);
     if (url.includes('/api/territories'))             return ok([]);
@@ -626,7 +626,7 @@ test.describe('DT-Fix-24: Sorcery rite blob pre-populates Notes', () => {
 
 const SUBMISSION_ROTE_FEED = {
   _id: 'sub-rote-feed',
-  cycle_id: 'cycle-001',
+  chapter_id: 'cycle-001',
   character_name: 'Charlie Test',
   character_id: 'char-pt4',
   player_name: 'Test Player',
@@ -784,7 +784,7 @@ test.describe('DTQ-3: Lead ticker on project investigate, not merit investigate'
 // Allies ambience_decrease — mode: auto → compact panel
 const SUBMISSION_ALLIES_AMBIENCE_DEC = {
   _id: 'sub-allies-amb-dec',
-  cycle_id: 'cycle-001',
+  chapter_id: 'cycle-001',
   character_name: 'Charlie Test',
   character_id: 'char-pt4',
   player_name: 'Test Player',
@@ -814,7 +814,7 @@ const SUBMISSION_ALLIES_AMBIENCE_DEC = {
 // Contacts entry — meritCategory ends up as 'contacts' via formula path
 const SUBMISSION_CONTACTS_REQ = {
   _id: 'sub-contacts-req',
-  cycle_id: 'cycle-001',
+  chapter_id: 'cycle-001',
   character_name: 'Charlie Test',
   character_id: 'char-pt4',
   player_name: 'Test Player',
@@ -836,7 +836,7 @@ const SUBMISSION_CONTACTS_REQ = {
 // Retainer entry — actionType: 'resources_retainers', formula: 'none' via misc fallback
 const SUBMISSION_RETAINER_TASK = {
   _id: 'sub-retainer-task',
-  cycle_id: 'cycle-001',
+  chapter_id: 'cycle-001',
   character_name: 'Charlie Test',
   character_id: 'char-pt4',
   player_name: 'Test Player',
@@ -965,7 +965,7 @@ test.describe('DTX-2: Compact panel for binary merit actions', () => {
 // Both have a project action in the same territory
 const SUBMISSION_PROJ_TERR_CHARLIE = {
   _id: 'sub-proj-terr-charlie',
-  cycle_id: 'cycle-001',
+  chapter_id: 'cycle-001',
   character_name: 'Charlie Test',
   character_id: 'char-pt4',
   player_name: 'Test Player',
@@ -1007,7 +1007,7 @@ const CHAR_NON_SUBMITTER_FULL = {
 
 const SUBMISSION_PROJ_TERR_NS = {
   _id: 'sub-proj-terr-ns',
-  cycle_id: 'cycle-001',
+  chapter_id: 'cycle-001',
   character_name: 'Non Submitter',
   character_id: 'char-ns',
   player_name: 'Other Player',
@@ -1036,7 +1036,7 @@ const SUBMISSION_PROJ_TERR_NS = {
 // Feeding overlap: two characters feeding North Shore
 const SUBMISSION_FEED_CHARLIE = {
   _id: 'sub-feed-charlie',
-  cycle_id: 'cycle-001',
+  chapter_id: 'cycle-001',
   character_name: 'Charlie Test',
   character_id: 'char-pt4',
   player_name: 'Test Player',
@@ -1060,7 +1060,7 @@ const SUBMISSION_FEED_CHARLIE = {
 
 const SUBMISSION_FEED_NS = {
   _id: 'sub-feed-ns',
-  cycle_id: 'cycle-001',
+  chapter_id: 'cycle-001',
   character_name: 'Non Submitter',
   character_id: 'char-ns',
   player_name: 'Other Player',
@@ -1085,7 +1085,7 @@ const SUBMISSION_FEED_NS = {
 // Investigate overlap: both investigating 'charlie test' (sortName of CHAR_PT4)
 const SUBMISSION_INV_NS_TARGET_CHARLIE = {
   _id: 'sub-inv-ns-tgt',
-  cycle_id: 'cycle-001',
+  chapter_id: 'cycle-001',
   character_name: 'Non Submitter',
   character_id: 'char-ns',
   player_name: 'Other Player',
@@ -1119,7 +1119,7 @@ const SUBMISSION_INV_CHARLIE_TARGET_CHARLIE = {
 // Hide/protect overlap: Non Submitter has a hide_protect action
 const SUBMISSION_HIDE_PROTECT_NS = {
   _id: 'sub-hide-ns',
-  cycle_id: 'cycle-001',
+  chapter_id: 'cycle-001',
   character_name: 'Non Submitter',
   character_id: 'char-ns',
   player_name: 'Other Player',
@@ -1143,7 +1143,7 @@ const SUBMISSION_HIDE_PROTECT_NS = {
 // Investigate targeting Non Submitter (who has hide_protect above)
 const SUBMISSION_INV_CHARLIE_TARGET_NS = {
   _id: 'sub-inv-charlie-tgt-ns',
-  cycle_id: 'cycle-001',
+  chapter_id: 'cycle-001',
   character_name: 'Charlie Test',
   character_id: 'char-pt4',
   player_name: 'Test Player',
@@ -1407,7 +1407,7 @@ test.describe('DTS-1: ST-created sorcery full panel', () => {
 
   const SUBMISSION_ST_SORCERY = {
     _id: 'sub-st-sorc',
-    cycle_id: 'cycle-001',
+    chapter_id: 'cycle-001',
     character_name: 'Keeper Test',
     character_id: 'char-cruac',
     player_name: 'Test Player',
@@ -1476,7 +1476,7 @@ test.describe('DTS-2: Duplicate action', () => {
 
   const SUBMISSION_SORC_FOR_DUP = {
     _id: 'sub-sorc-dup',
-    cycle_id: 'cycle-001',
+    chapter_id: 'cycle-001',
     character_name: 'Keeper Test',
     character_id: 'char-cruac-dts2',
     player_name: 'Test Player',

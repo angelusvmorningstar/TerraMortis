@@ -59,7 +59,7 @@ const CHAR = {
 function baseSub(overrides = {}) {
   return {
     _id: 'sub-448',
-    cycle_id: 'cycle-448',
+    chapter_id: 'cycle-448',
     character_id: 'char-448',
     character_name: 'Test Kindred',
     player_name: 'Test Player',
@@ -146,7 +146,7 @@ async function setup(page, submission) {
     route.fulfill({ status: 200, contentType: 'application/json',
       body: JSON.stringify([{ _id: CHAR._id, name: CHAR.name, moniker: CHAR.moniker, honorific: CHAR.honorific }]) })
   );
-  await page.route('**/api/downtime_cycles*', route =>
+  await page.route('**/api/chapters*', route =>
     route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([ACTIVE_CYCLE]) })
   );
   await page.route('**/api/downtime_submissions*', route => {

@@ -91,7 +91,7 @@
   const [chars, territories, cycles, submissions] = await Promise.all([
     fetch('./data/chars.json').then(r => r.json()),
     fetch('./data/territories.json').then(r => r.json()).catch(() => []),
-    fetch('./data/downtime_cycles.json').then(r => r.json()).catch(() => []),
+    fetch('./data/chapters.json').then(r => r.json()).catch(() => []),
     fetch('./data/downtime_submissions.json').then(r => r.json()).catch(() => []),
   ]);
 
@@ -107,7 +107,7 @@
       if (/\/api\/characters(\?|$)/.test(u))
         return new Response(JSON.stringify(chars), { headers: { 'Content-Type': 'application/json' } });
 
-      if (/\/api\/downtime_cycles(\?|$)/.test(u))
+      if (/\/api\/chapters(\?|$)/.test(u))
         return new Response(JSON.stringify(cycles), { headers: { 'Content-Type': 'application/json' } });
 
       if (/\/api\/downtime_submissions(\?|$)/.test(u))

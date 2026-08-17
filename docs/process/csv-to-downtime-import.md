@@ -77,10 +77,10 @@ curl -X POST https://tm-suite-api.onrender.com/api/downtime_submissions \
 
 ```js
 const docs = JSON.parse(fs.readFileSync('submissions.json', 'utf8'));
-// Ensure character_id and cycle_id are ObjectIds
+// Ensure character_id and chapter_id are ObjectIds
 for (const doc of docs) {
   doc.character_id = new ObjectId(doc.character_id);
-  if (doc.cycle_id) doc.cycle_id = new ObjectId(doc.cycle_id);
+  if (doc.chapter_id) doc.chapter_id = new ObjectId(doc.chapter_id);
 }
 await db.collection('downtime_submissions').insertMany(docs);
 ```
@@ -94,7 +94,7 @@ The admin app has a CSV import flow at **Downtime → Import CSV** which uses `d
 ```js
 // Check submissions landed
 const subs = await db.collection('downtime_submissions')
-  .find({ cycle_id: cycleObjectId })
+  .find({ chapter_id: cycleObjectId })
   .toArray();
 console.log(`${subs.length} submissions for this cycle`);
 

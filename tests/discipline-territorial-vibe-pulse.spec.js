@@ -86,7 +86,7 @@ function makeCycleMultipleDiscs() {
 
 const EMPTY_SUB = {
   _id: 'sub-vibe-empty',
-  cycle_id: 'cycle-vibe-1',
+  chapter_id: 'cycle-vibe-1',
   character_name: 'Vibe Tester',
   character_id: 'char-vibe-stub',
   player_name: 'Tester',
@@ -114,8 +114,8 @@ async function setup(page, cycle) {
     const ok = (body) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(body) });
 
     if (method === 'PUT' || method === 'PATCH' || method === 'POST') return ok({ ok: true });
-    if (url.includes('/api/downtime_submissions')) return ok([{ ...EMPTY_SUB, cycle_id: cycle._id }]);
-    if (url.includes('/api/downtime_cycles'))      return ok([cycle]);
+    if (url.includes('/api/downtime_submissions')) return ok([{ ...EMPTY_SUB, chapter_id: cycle._id }]);
+    if (url.includes('/api/chapters'))      return ok([cycle]);
     if (url.includes('/api/characters/names'))     return ok([{ _id: CHAR_STUB._id, name: CHAR_STUB.name, moniker: null, honorific: null }]);
     if (url.includes('/api/characters'))           return ok([CHAR_STUB]);
     if (url.includes('/api/territories'))          return ok(ALL_TERRS);

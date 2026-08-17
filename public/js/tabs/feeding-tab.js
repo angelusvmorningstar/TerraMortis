@@ -121,7 +121,7 @@ export async function renderFeedingTab(el, char) {
     // Check for any submission with a roll, published outcome, or deferred flag
     try {
       const [allCycles, allSubs] = await Promise.all([
-        apiGet('/api/downtime_cycles'),
+        apiGet('/api/chapters'),
         apiGet('/api/downtime_submissions'),
       ]);
       allSubs.forEach(s => {
@@ -141,8 +141,8 @@ export async function renderFeedingTab(el, char) {
       const newestLiveCycle = allCycles
         .filter(c => c.status !== 'closed')
         .sort((a, b) => (String(b._id) > String(a._id) ? 1 : -1))[0] || null;
-      if (candidateSub && (!newestLiveCycle || String(candidateSub.cycle_id) === String(newestLiveCycle._id))) {
-        activeCycle = allCycles.find(c => String(c._id) === String(candidateSub.cycle_id)) || null;
+      if (candidateSub && (!newestLiveCycle || String(candidateSub.chapter_id) === String(newestLiveCycle._id))) {
+        activeCycle = allCycles.find(c => String(c._id) === String(candidateSub.chapter_id)) || null;
         mySub = candidateSub;
       }
     } catch { /* ignore */ }
@@ -164,7 +164,7 @@ export async function renderFeedingTab(el, char) {
   // Load submission — skip if already loaded from fallback above
   if (!mySub) {
     try {
-      const subs = await apiGet('/api/downtime_submissions?cycle_id=' + activeCycle._id);
+      const subs = await apiGet('/api/downtime_submissions?chapter_id=' + activeCycle._id);
       const charIdStr = String(char._id);
       mySub = subs.find(s => String(s.character_id) === charIdStr) || null;
     } catch { /* no submissions */ }
@@ -302,7 +302,7 @@ async function renderFeedingHistoryPane(el, char) {
   try {
     [allSubs, cycles] = await Promise.all([
       apiGet('/api/downtime_submissions'),
-      apiGet('/api/downtime_cycles'),
+      apiGet('/api/chapters'),
     ]);
     // Promote st_review → published_outcome for ST portal views
     allSubs.forEach(s => {
@@ -331,8 +331,8 @@ async function renderFeedingHistoryPane(el, char) {
     h += '<p class="placeholder-msg dt-hist-empty">No published feeding results yet.</p>';
   } else {
     for (const sub of charSubs) {
-      const cycle = cycleMap[String(sub.cycle_id)];
-      const label = cycle?.label || `Cycle ${String(sub.cycle_id).slice(-4)}`;
+      const cycle = cycleMap[String(sub.chapter_id)];
+      const label = cycle?.label || `Cycle ${String(sub.chapter_id).slice(-4)}`;
 
       // Extract just the Feeding section from the published outcome
       const feedMatch = sub.published_outcome.match(/##\s*Feeding\s*\n([\s\S]*?)(?=\n##\s|$)/);

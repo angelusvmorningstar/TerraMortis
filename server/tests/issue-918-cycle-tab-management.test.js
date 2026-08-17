@@ -18,12 +18,13 @@ vi.mock('../../public/js/data/api.js', () => ({
 import { resetOnTransition } from '../../public/js/downtime/cycle-phase.js';
 import { phaseToggleTarget } from '../../public/js/admin/cycle-views.js';
 
-const DOWNTIME = fs.readFileSync('../server/routes/downtime.js', 'utf8');
+// cm-2b: the cycle DELETE route moved with cyclesRouter into chapters.js.
+const DOWNTIME = fs.readFileSync('../server/routes/chapters.js', 'utf8');
 const DB       = fs.readFileSync('../public/js/downtime/db.js', 'utf8');
 const VIEWS    = fs.readFileSync('../public/js/admin/cycle-views.js', 'utf8');
 const CSS      = fs.readFileSync('../public/css/admin-layout.css', 'utf8');
 
-// ── Server: DELETE /api/downtime_cycles/:id ──────────────────────────────────
+// ── Server: DELETE /api/chapters/:id ──────────────────────────────────
 
 describe('issue-918 — cycle DELETE route', () => {
   it('DELETE /:id requires ST role', () =>
@@ -37,14 +38,23 @@ describe('issue-918 — cycle DELETE route', () => {
   // its comment, which pushed the submission guard and the 404 past the old
   // limits. Widened, not weakened — every assertion still has to find its
   // target inside this one route handler.
-  it('guards against deleting a cycle with submissions (409)', () => {
+  // cm-2b review rework (2026-08-17): the guard used to be
+  // `countDocuments({ chapter_id: oid })` — an ObjectId-ONLY equality that
+  // counted zero for a Chapter whose submissions carry DT1-era string FKs, and
+  // deleted it, orphaning them. It now goes through the shared dual-read shim.
+  // The behavioural proof is in cm-2b-chapters-route-and-dual-read.test.js;
+  // this is the source contract that the shared helper is what is used, rather
+  // than a re-derived match. Windows widened for the added comment, not
+  // weakened — every assertion still has to land inside this one handler.
+  it('guards against deleting a cycle with submissions (409), via the shared FK shim', () => {
     expect(DOWNTIME).toContain('CYCLE_HAS_SUBMISSIONS');
-    expect(DOWNTIME).toMatch(/cyclesRouter\.delete[\s\S]{0,1200}countDocuments\(\{\s*cycle_id:\s*oid/);
-    expect(DOWNTIME).toMatch(/cyclesRouter\.delete[\s\S]{0,1200}status\(409\)/);
+    expect(DOWNTIME).toMatch(/cyclesRouter\.delete[\s\S]{0,1800}countDocuments\(chapterFkFilter\(oid\)\)/);
+    expect(DOWNTIME).toMatch(/cyclesRouter\.delete[\s\S]{0,1800}status\(409\)/);
+    expect(DOWNTIME).toMatch(/import \{ chapterFkFilter \} from '\.\.\/helpers\/chapter-fk\.js'/);
   });
 
   it('returns 404 when nothing was deleted', () =>
-    expect(DOWNTIME).toMatch(/cyclesRouter\.delete[\s\S]{0,1400}deletedCount === 0[\s\S]{0,120}NOT_FOUND/));
+    expect(DOWNTIME).toMatch(/cyclesRouter\.delete[\s\S]{0,2000}deletedCount === 0[\s\S]{0,120}NOT_FOUND/));
 });
 
 // ── Client db.js helpers ─────────────────────────────────────────────────────
@@ -54,7 +64,7 @@ describe('issue-918 — db.js cycle helpers', () => {
     expect(DB).toMatch(/export async function deleteCycle\(id\)/));
 
   it('deleteCycle DELETEs the cycle endpoint', () =>
-    expect(DB).toMatch(/deleteCycle[\s\S]{0,120}apiDelete\('\/api\/downtime_cycles\/'\s*\+\s*id\)/));
+    expect(DB).toMatch(/deleteCycle[\s\S]{0,120}apiDelete\('\/api\/chapters\/'\s*\+\s*id\)/));
 
   it('imports apiDelete', () =>
     expect(DB).toMatch(/import\s*\{[^}]*apiDelete[^}]*\}\s*from\s*'\.\.\/data\/api\.js'/));

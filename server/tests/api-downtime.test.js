@@ -1,5 +1,5 @@
 /**
- * API tests — /api/downtime_submissions and /api/downtime_cycles.
+ * API tests — /api/downtime_submissions and /api/chapters.
  * Tests role-based filtering, ownership, st_review stripping, CRUD lifecycle.
  */
 
@@ -40,7 +40,7 @@ async function insertSub(charId, overrides = {}) {
   const col = getCollection('downtime_submissions');
   const doc = {
     character_id: new ObjectId(charId),
-    cycle_id: null,
+    chapter_id: null,
     status: 'draft',
     responses: { travel: 'Test travel response' },
     ...overrides,
@@ -54,36 +54,36 @@ async function insertSub(charId, overrides = {}) {
 //  CYCLES
 // ══════════════════════════════════════
 
-describe('GET /api/downtime_cycles', () => {
+describe('GET /api/chapters', () => {
   it('returns cycles for any authenticated user', async () => {
     const res = await request(app)
-      .get('/api/downtime_cycles')
+      .get('/api/chapters')
       .set('X-Test-User', playerUser([]));
     expect(res.status).toBe(200);
     expect(Array.isArray(res.body)).toBe(true);
   });
 
   it('returns 401 without auth', async () => {
-    const res = await request(app).get('/api/downtime_cycles');
+    const res = await request(app).get('/api/chapters');
     expect(res.status).toBe(401);
   });
 });
 
-describe('POST /api/downtime_cycles', () => {
+describe('POST /api/chapters', () => {
   it('allows ST to create a cycle', async () => {
     const res = await request(app)
-      .post('/api/downtime_cycles')
+      .post('/api/chapters')
       .set('X-Test-User', stUser())
       .send({ game_number: 99, label: 'Test Cycle' });
     expect(res.status).toBe(201);
     expect(res.body.game_number).toBe(99);
     // Clean up
-    await getCollection('downtime_cycles').deleteOne({ _id: res.body._id });
+    await getCollection('chapters').deleteOne({ _id: res.body._id });
   });
 
   it('blocks player from creating a cycle', async () => {
     const res = await request(app)
-      .post('/api/downtime_cycles')
+      .post('/api/chapters')
       .set('X-Test-User', playerUser([]))
       .send({ game_number: 99 });
     expect(res.status).toBe(403);
@@ -181,7 +181,7 @@ describe('POST /api/downtime_submissions', () => {
       .set('X-Test-User', playerUser([testChars[0].id]))
       .send({
         character_id: testChars[0].id,
-        cycle_id: null,
+        chapter_id: null,
         status: 'draft',
         responses: { travel: 'Took the bus' },
       });
@@ -253,34 +253,34 @@ describe('PUT /api/downtime_submissions/:id', () => {
     expect(res.body.st_review.outcome_text).toBe('ST verdict');
   });
 
-  // Issue #497: PUT coerces a string cycle_id in the update body to ObjectId
+  // Issue #497: PUT coerces a string chapter_id in the update body to ObjectId
   // before write (mirrors the POST path), so a PUT can never re-introduce the
   // mixed-type split.
-  it('coerces a string cycle_id in the update body to ObjectId', async () => {
+  it('coerces a string chapter_id in the update body to ObjectId', async () => {
     const { ObjectId } = await import('mongodb');
-    const sub = await insertSub(testChars[0].id); // starts with cycle_id: null
+    const sub = await insertSub(testChars[0].id); // starts with chapter_id: null
     const cycleIdStr = new ObjectId().toString();
     const res = await request(app)
       .put(`/api/downtime_submissions/${sub._id}`)
       .set('X-Test-User', stUser())
-      .send({ cycle_id: cycleIdStr });
+      .send({ chapter_id: cycleIdStr });
     expect(res.status).toBe(200);
     const doc = await getCollection('downtime_submissions').findOne({ _id: sub._id });
-    expect(doc.cycle_id).toBeInstanceOf(ObjectId);
-    expect(String(doc.cycle_id)).toBe(cycleIdStr);
+    expect(doc.chapter_id).toBeInstanceOf(ObjectId);
+    expect(String(doc.chapter_id)).toBe(cycleIdStr);
   });
 
-  // Issue #497: a malformed cycle_id is left untouched (no 500) — the coercion
+  // Issue #497: a malformed chapter_id is left untouched (no 500) — the coercion
   // guard only rewrites when parseId succeeds, mirroring POST's behaviour.
-  it('leaves a malformed cycle_id in the update body untouched (no crash)', async () => {
+  it('leaves a malformed chapter_id in the update body untouched (no crash)', async () => {
     const sub = await insertSub(testChars[0].id);
     const res = await request(app)
       .put(`/api/downtime_submissions/${sub._id}`)
       .set('X-Test-User', stUser())
-      .send({ cycle_id: 'not-an-object-id' });
+      .send({ chapter_id: 'not-an-object-id' });
     expect(res.status).toBe(200);
     const doc = await getCollection('downtime_submissions').findOne({ _id: sub._id });
-    expect(doc.cycle_id).toBe('not-an-object-id');
+    expect(doc.chapter_id).toBe('not-an-object-id');
   });
 
   it('returns 404 for non-existent submission', async () => {
@@ -301,7 +301,7 @@ describe('PUT /api/downtime_submissions/:id', () => {
 
   // dt-form.17 (ADR-003 §Q11): cycle-close gate
   it('returns 423 CYCLE_CLOSED when the submission’s cycle is closed', async () => {
-    const cycleCol = getCollection('downtime_cycles');
+    const cycleCol = getCollection('chapters');
     const cycleRes = await cycleCol.insertOne({
       game_number: 9001,
       label: 'Closed Test Cycle',
@@ -309,7 +309,7 @@ describe('PUT /api/downtime_submissions/:id', () => {
       created_at: new Date().toISOString(),
     });
     try {
-      const sub = await insertSub(testChars[0].id, { cycle_id: cycleRes.insertedId });
+      const sub = await insertSub(testChars[0].id, { chapter_id: cycleRes.insertedId });
       const res = await request(app)
         .put(`/api/downtime_submissions/${sub._id}`)
         .set('X-Test-User', playerUser([testChars[0].id]))
@@ -323,7 +323,7 @@ describe('PUT /api/downtime_submissions/:id', () => {
   });
 
   it('allows edits when the cycle is active (gate passes)', async () => {
-    const cycleCol = getCollection('downtime_cycles');
+    const cycleCol = getCollection('chapters');
     const cycleRes = await cycleCol.insertOne({
       game_number: 9002,
       label: 'Active Test Cycle',
@@ -331,7 +331,7 @@ describe('PUT /api/downtime_submissions/:id', () => {
       created_at: new Date().toISOString(),
     });
     try {
-      const sub = await insertSub(testChars[0].id, { cycle_id: cycleRes.insertedId });
+      const sub = await insertSub(testChars[0].id, { chapter_id: cycleRes.insertedId });
       const res = await request(app)
         .put(`/api/downtime_submissions/${sub._id}`)
         .set('X-Test-User', playerUser([testChars[0].id]))

@@ -33,7 +33,7 @@ MongoDB Atlas                        → tm_suite database      All persistent d
 | `territories` | `GET/POST/PUT/DELETE /api/territories` | requireAuth | GET open; writes ST-only |
 | `tracker_state` | `GET/PUT /api/tracker_state/:character_id` | requireAuth + ST | Upsert only; no delete |
 | `game_sessions` | `GET/POST/PUT/DELETE /api/game_sessions` | requireAuth + ST | Stores attendance[] array |
-| `downtime_cycles` | `GET/POST/PUT /api/downtime_cycles` | requireAuth | |
+| `chapters` | `GET/POST/PUT /api/chapters` | requireAuth | Was `downtime_cycles` / `/api/downtime_cycles` until cm-2b. Route lives in `server/routes/chapters.js`. The submission FK it is referenced by (`downtime_submissions.chapter_id`, `cycle_id` before cm-2b) is read through the transitional dual-read shim `server/helpers/chapter-fk.js` — reads fall back to the old name, writes reject it. |
 | `downtime_submissions` | `GET/POST/PUT /api/downtime_submissions` | requireAuth | |
 | `players` | `GET/POST/PUT /api/players` | requireAuth | Emergency contact lives here |
 | `npcs` | `/api/npcs` | requireAuth | |

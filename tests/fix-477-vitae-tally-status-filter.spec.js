@@ -53,7 +53,7 @@ function buildChar() {
 function buildSub(feedingTerritories) {
   return {
     _id: 'sub-fix477',
-    cycle_id: GAME_CYCLE._id,
+    chapter_id: GAME_CYCLE._id,
     character_id: 'char-fix477',
     status: 'submitted',
     responses: {
@@ -81,7 +81,7 @@ async function setupRoutes(page, submission) {
     r.fulfill({ status: 200, contentType: 'application/json',
       body: JSON.stringify([{ _id: 'char-fix477', name: 'Test Character', moniker: null, honorific: null }]) })
   );
-  await page.route('**/api/downtime_cycles*', r =>
+  await page.route('**/api/chapters*', r =>
     r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([GAME_CYCLE]) })
   );
   await page.route('**/api/downtime_submissions*', r =>

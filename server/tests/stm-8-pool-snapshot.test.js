@@ -32,7 +32,7 @@ beforeAll(async () => {
   app = createTestApp();
   // Seed a parent cycle in an open state so PUT/POST submissions pass
   // the requireOpenCycle gate.
-  await getCollection('downtime_cycles').insertOne({
+  await getCollection('chapters').insertOne({
     _id: CYCLE_ID,
     label: 'STM-8 test cycle',
     status: 'active',
@@ -41,7 +41,7 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
-  await getCollection('downtime_cycles').deleteOne({ _id: CYCLE_ID });
+  await getCollection('chapters').deleteOne({ _id: CYCLE_ID });
   if (CREATED_SUB_IDS.length) {
     await getCollection('downtime_submissions').deleteMany({
       _id: { $in: CREATED_SUB_IDS.map(id => new ObjectId(id)) },
@@ -55,7 +55,7 @@ async function createSubmission() {
     .post('/api/downtime_submissions')
     .set('X-Test-User', stUser())
     .send({
-      cycle_id: String(CYCLE_ID),
+      chapter_id: String(CYCLE_ID),
       character_id: CHAR_ID,
       character_name: 'Test STM-8',
       status: 'submitted',

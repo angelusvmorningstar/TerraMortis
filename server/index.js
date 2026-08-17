@@ -11,7 +11,8 @@ import territoriesRouter from './routes/territories.js';
 import trackerRouter from './routes/tracker.js';
 import rankingBallotsRouter from './routes/ranking_ballots.js';
 import sessionsRouter from './routes/sessions.js';
-import { cyclesRouter, submissionsRouter, projectInvitationsRouter } from './routes/downtime.js';
+import { cyclesRouter } from './routes/chapters.js';
+import { submissionsRouter, projectInvitationsRouter } from './routes/downtime.js';
 import npcsRouter from './routes/npcs.js';
 import relationshipsRouter from './routes/relationships.js';
 import npcFlagsRouter from './routes/npc-flags.js';
@@ -95,7 +96,7 @@ app.use('/api/equipment_catalogue', buildEquipmentCatalogueRouter(requireAuth));
 // revalidate. Read-only / slowly-changing endpoints (rule docs,
 // territory list) get `private, max-age=300` for in-session reuse.
 app.use('/api/characters', requireAuth, noCache(), charactersRouter);
-app.use('/api/downtime_cycles', requireAuth, noCache(), cyclesRouter);
+app.use('/api/chapters', requireAuth, noCache(), cyclesRouter);
 app.use('/api/downtime_submissions', requireAuth, noCache(), submissionsRouter);
 app.use('/api/ranking_ballots', requireAuth, noCache(), rankingBallotsRouter);
 app.use('/api/project_invitations', requireAuth, noCache(), projectInvitationsRouter);

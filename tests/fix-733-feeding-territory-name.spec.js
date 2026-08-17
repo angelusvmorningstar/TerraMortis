@@ -71,7 +71,7 @@ const TEST_CYCLE = {
 // Regular feed — key is ObjectID string, status is feeding_rights.
 const SUB_REGULAR_FEED = {
   _id: 'sub-733-regular',
-  cycle_id: 'cycle-733',
+  chapter_id: 'cycle-733',
   character_name: 'Aleksei Romanov',
   character_id: 'char-733-aleksei',
   player_name: 'Test Player',
@@ -99,7 +99,7 @@ const SUB_REGULAR_FEED = {
 // feeding entry uses poaching status for AC-2 variation.
 const SUB_ROTE_FEED = {
   _id: 'sub-733-rote',
-  cycle_id: 'cycle-733',
+  chapter_id: 'cycle-733',
   character_name: 'Tegan Groves',
   character_id: 'char-733-tegan',
   player_name: 'Test Player',
@@ -138,7 +138,7 @@ const SUB_ROTE_FEED = {
 // Legacy slug key — should still resolve (no regression).
 const SUB_SLUG_KEY = {
   _id: 'sub-733-slug',
-  cycle_id: 'cycle-733',
+  chapter_id: 'cycle-733',
   character_name: 'Aleksei Romanov',
   character_id: 'char-733-aleksei',
   player_name: 'Test Player',
@@ -165,7 +165,7 @@ const SUB_SLUG_KEY = {
 // Multiple territory keys — both ObjectIDs.
 const SUB_MULTI_TERR = {
   _id: 'sub-733-multi',
-  cycle_id: 'cycle-733',
+  chapter_id: 'cycle-733',
   character_name: 'Aleksei Romanov',
   character_id: 'char-733-aleksei',
   player_name: 'Test Player',
@@ -206,7 +206,7 @@ async function setup(page, submissions) {
     const ok = body => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(body) });
     if (['PUT', 'PATCH', 'POST'].includes(method)) return ok({ ok: true });
     if (url.includes('/api/downtime_submissions')) return ok(submissions);
-    if (url.includes('/api/downtime_cycles'))      return ok([TEST_CYCLE]);
+    if (url.includes('/api/chapters'))      return ok([TEST_CYCLE]);
     if (url.includes('/api/territories'))          return ok(ALL_TERRS);
     if (url.includes('/api/characters/names'))     return ok(ALL_CHARS.map(c => ({ _id: c._id, name: c.name, moniker: c.moniker, honorific: c.honorific })));
     if (url.includes('/api/characters'))           return ok(ALL_CHARS);

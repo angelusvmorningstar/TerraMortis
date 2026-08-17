@@ -34,7 +34,7 @@ async function seedSession(overrides = {}) {
 }
 
 async function seedCycle(overrides = {}) {
-  const col = getCollection('downtime_cycles');
+  const col = getCollection('chapters');
   const doc = {
     game_number: 99,
     status: 'game',
@@ -66,7 +66,7 @@ beforeEach(async () => {
   }
   const today = new Date().toISOString().slice(0, 10);
   await getCollection('game_sessions').deleteMany({ session_date: { $gte: today } });
-  await getCollection('downtime_cycles').deleteMany({
+  await getCollection('chapters').deleteMany({
     status: { $in: ['prep', 'game', 'active', 'open'] },
   });
 });
@@ -77,7 +77,7 @@ afterEach(async () => {
     sessionIds.length = 0;
   }
   if (cycleIds.length) {
-    await getCollection('downtime_cycles').deleteMany({ _id: { $in: cycleIds } });
+    await getCollection('chapters').deleteMany({ _id: { $in: cycleIds } });
     cycleIds.length = 0;
   }
 });
@@ -88,7 +88,7 @@ afterAll(async () => {
     await getCollection('game_sessions').deleteMany({ _id: { $in: sessionIds } });
   }
   if (cycleIds.length) {
-    await getCollection('downtime_cycles').deleteMany({ _id: { $in: cycleIds } });
+    await getCollection('chapters').deleteMany({ _id: { $in: cycleIds } });
   }
 });
 

@@ -40,7 +40,7 @@ function buildChar(merits) {
 const HERD = { category: 'domain', name: 'Herd', rating: 2, cp: 2, dots: 2 };
 const FLOCK = { category: 'general', name: 'Flock', rating: 3, cp: 3, dots: 3 };
 
-const PRIOR = { _id: 'sub-dt599', cycle_id: ACTIVE_CYCLE._id, character_id: 'char-001', status: 'draft', responses: { _feed_method: 'predator', feed_violence: 'kiss' } };
+const PRIOR = { _id: 'sub-dt599', chapter_id: ACTIVE_CYCLE._id, character_id: 'char-001', status: 'draft', responses: { _feed_method: 'predator', feed_violence: 'kiss' } };
 
 async function setupSuite(page, char) {
   await page.addInitScript((u) => {
@@ -55,7 +55,7 @@ async function setupSuite(page, char) {
   await page.route(/\/api\/characters\/char-001$/, r => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(char) }));
   await page.route(/\/api\/characters$/, r => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([char]) }));
   await page.route('**/api/characters/names', r => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([{ _id: char._id, name: char.name }]) }));
-  await page.route('**/api/downtime_cycles', r => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([ACTIVE_CYCLE]) }));
+  await page.route('**/api/chapters', r => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([ACTIVE_CYCLE]) }));
   await page.route(/\/api\/downtime_submissions($|\?)/, r => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([PRIOR]) }));
 
   await page.goto('/');

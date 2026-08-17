@@ -40,7 +40,7 @@ const TITLE = 'Hunting the Hunter';
 function investigateSub({ projectsResolved = [] } = {}) {
   return {
     _id: 'sub-594',
-    cycle_id: 'cycle-594',
+    chapter_id: 'cycle-594',
     character_name: 'Einar Test',
     character_id: 'char-einar',
     player_name: 'P',
@@ -76,7 +76,7 @@ async function setup(page, submissions) {
     const ok = (body) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(body) });
     if (method === 'PUT' || method === 'PATCH' || method === 'POST') return ok({ ok: true });
     if (url.includes('/api/downtime_submissions')) return ok(submissions);
-    if (url.includes('/api/downtime_cycles'))      return ok([TEST_CYCLE]);
+    if (url.includes('/api/chapters'))      return ok([TEST_CYCLE]);
     if (url.includes('/api/characters/names'))     return ok(ALL_CHARS.map(c => ({ _id: c._id, name: c.name, moniker: c.moniker, honorific: c.honorific })));
     if (url.includes('/api/characters'))           return ok(ALL_CHARS);
     return ok([]);
@@ -115,7 +115,7 @@ test.describe('Fix #594 — dossier target read', () => {
   // QA top-up: the dossier handles BOTH investigate and attack — cover attack too.
   test('attack: player-seeded target shows in the dossier', async ({ page }) => {
     const attackSub = {
-      _id: 'sub-594-atk', cycle_id: 'cycle-594',
+      _id: 'sub-594-atk', chapter_id: 'cycle-594',
       character_name: 'Einar Test', character_id: 'char-einar', player_name: 'P',
       submitted_at: '2026-06-05T00:00:00Z',
       _raw: { projects: [{ action_type: 'attack', title: 'Ambush', desired_outcome: 'Ambush', detail: 'Strike.', primary_pool: { expression: 'Strength 2 + Brawl 2 = 4' } }], feeding: null, sphere_actions: [], contact_actions: { requests: [] }, retainer_actions: { actions: [] } },

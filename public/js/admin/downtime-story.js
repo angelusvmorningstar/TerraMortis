@@ -90,9 +90,9 @@ function _terrGridVal(grid, terrId) {
 
 // ── Module state ─────────────────────────────────────────────────────────────
 
-let _allSubmissions = [];   // GET /api/downtime_submissions?cycle_id=
+let _allSubmissions = [];   // GET /api/downtime_submissions?chapter_id=
 let _allCharacters  = [];   // GET /api/characters
-let _currentCycle   = null; // GET /api/downtime_cycles/:id — for DTIL-4 territory pulse injection
+let _currentCycle   = null; // GET /api/chapters/:id — for DTIL-4 territory pulse injection
 let _currentTerritories = []; // GET /api/territories — for slug→_id resolution at compile time (ADR-002)
 let _currentCharId  = null;
 let _currentSub     = null;
@@ -105,7 +105,7 @@ const _pushErrors   = new Map(); // charId → error message for failed pushes
 // cross-cycle writes throw loudly instead of corrupting data.
 
 function _normaliseCycleId(id) {
-  // Schema drift: cycle_id is sometimes a string, sometimes {$oid: "..."}.
+  // Schema drift: chapter_id is sometimes a string, sometimes {$oid: "..."}.
   // DT2 submissions store as string, DT3+ as ObjectId (confirmed live 2026-05-17).
   if (id == null) return null;
   if (typeof id === 'string') return id;
@@ -116,7 +116,7 @@ function _normaliseCycleId(id) {
 function _assertCurrentCycle(submissionId) {
   const sub = _allSubmissions.find(s => s._id === submissionId);
   if (!sub || !_currentCycle) return;
-  const subCycle = _normaliseCycleId(sub.cycle_id);
+  const subCycle = _normaliseCycleId(sub.chapter_id);
   const viewCycle = _normaliseCycleId(_currentCycle._id);
   if (subCycle && viewCycle && subCycle !== viewCycle) {
     throw new Error(
@@ -141,7 +141,7 @@ export async function initDtStory(cycleId) {
   let resolvedCycleId = cycleId;
   if (!resolvedCycleId) {
     try {
-      const cycles = await apiGet('/api/downtime_cycles');
+      const cycles = await apiGet('/api/chapters');
       if (Array.isArray(cycles) && cycles.length) {
         // Issue #321: created_at is absent on existing cycle docs, so use _id
         // as a creation-order proxy (Mongo ObjectIds encode a timestamp).
@@ -164,9 +164,9 @@ export async function initDtStory(cycleId) {
 
   try {
     const [subs, chars, cycles, terrs] = await Promise.all([
-      apiGet('/api/downtime_submissions?cycle_id=' + resolvedCycleId),
+      apiGet('/api/downtime_submissions?chapter_id=' + resolvedCycleId),
       apiGet('/api/characters'),
-      apiGet('/api/downtime_cycles').catch(() => []),
+      apiGet('/api/chapters').catch(() => []),
       apiGet('/api/territories').catch(() => []),
     ]);
     _allSubmissions = (Array.isArray(subs) ? subs : []).map(sub => ({
@@ -3727,9 +3727,9 @@ async function _publishAllSubmissions(submissions) {
 export async function publishAllForCycle(cycleId) {
   try {
     const [subs, chars, cycles] = await Promise.all([
-      apiGet('/api/downtime_submissions?cycle_id=' + cycleId),
+      apiGet('/api/downtime_submissions?chapter_id=' + cycleId),
       _allCharacters.length ? Promise.resolve(_allCharacters) : apiGet('/api/characters'),
-      apiGet('/api/downtime_cycles').catch(() => []),
+      apiGet('/api/chapters').catch(() => []),
     ]);
     if (!_allCharacters.length) _allCharacters = Array.isArray(chars) ? chars : [];
     // DTIL-4: ensure _currentCycle is populated so compilePushOutcome can
@@ -3864,8 +3864,8 @@ async function handleCopyStoryMomentContext(btn) {
   let prevLegacyVignette = null;
   let prevCycleNumber    = null;
   try {
-    const cycleId   = sub.cycle_id;
-    const allCycles = await apiGet('/api/downtime_cycles').catch(() => []);
+    const cycleId   = sub.chapter_id;
+    const allCycles = await apiGet('/api/chapters').catch(() => []);
     const cycles    = Array.isArray(allCycles) ? allCycles : [];
     const currentCycle   = cycles.find(c => String(c._id) === String(cycleId));
     const currentGameNum = currentCycle?.game_number ?? null;
@@ -3873,7 +3873,7 @@ async function handleCopyStoryMomentContext(btn) {
     if (currentGameNum != null) {
       const prevCycle = cycles.find(c => c.game_number === currentGameNum - 1);
       if (prevCycle) {
-        const prevSubs = await apiGet(`/api/downtime_submissions?cycle_id=${prevCycle._id}`).catch(() => []);
+        const prevSubs = await apiGet(`/api/downtime_submissions?chapter_id=${prevCycle._id}`).catch(() => []);
         const prevSub  = (Array.isArray(prevSubs) ? prevSubs : [])
           .find(s => String(s.character_id) === String(sub.character_id));
         if (prevSub) {
@@ -4036,9 +4036,9 @@ async function handleCopyProjectContext(btn) {
 
   let cycleData = null, territories = [];
   try {
-    const cycleId = sub.cycle_id;
+    const cycleId = sub.chapter_id;
     const [allCycles, terrs] = await Promise.all([
-      apiGet('/api/downtime_cycles').catch(() => []),
+      apiGet('/api/chapters').catch(() => []),
       apiGet('/api/territories').catch(() => []),
     ]);
     cycleData   = (Array.isArray(allCycles) ? allCycles : []).find(c => String(c._id) === String(cycleId)) || null;
@@ -4171,9 +4171,9 @@ async function handleCopyTerritoryContext(btn) {
 
   let cycleData = null, territories = [];
   try {
-    const cycleId = sub.cycle_id;
+    const cycleId = sub.chapter_id;
     const [allCycles, terrs] = await Promise.all([
-      apiGet('/api/downtime_cycles').catch(() => []),
+      apiGet('/api/chapters').catch(() => []),
       apiGet('/api/territories').catch(() => []),
     ]);
     cycleData   = (Array.isArray(allCycles) ? allCycles : []).find(c => String(c._id) === String(cycleId)) || null;

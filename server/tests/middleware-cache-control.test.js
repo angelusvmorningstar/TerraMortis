@@ -86,8 +86,8 @@ describe('cache-control wiring — integration via test-app (#255)', () => {
     expect(res.headers['cache-control']).toBe('no-cache, no-store, must-revalidate');
   });
 
-  it('/api/downtime_cycles is no-cache (mutates per-cycle)', async () => {
-    const res = await request(app).get('/api/downtime_cycles').set('X-Test-User', stUser());
+  it('/api/chapters is no-cache (mutates per-cycle)', async () => {
+    const res = await request(app).get('/api/chapters').set('X-Test-User', stUser());
     expect(res.status).toBe(200);
     expect(res.headers['cache-control']).toBe('no-cache, no-store, must-revalidate');
   });

@@ -14,7 +14,7 @@ import { setupDb, teardownDb } from './helpers/db-setup.js';
 import { getCollection } from '../db.js';
 
 let app;
-const cleanupIds = { story_cycles: [], downtime_cycles: [] };
+const cleanupIds = { story_cycles: [], chapters: [] };
 
 beforeAll(async () => {
   await setupDb();
@@ -234,7 +234,7 @@ describe('PATCH /api/story_cycles/:id', () => {
   // ── cm-3: the `final_chapter_id` pointer (AC1) ───────────────────────────
   // The ST names ONE of this Story's own member cycles as its final chapter.
   // Setting it is what closes a Story; there is no separate boolean. It
-  // replaces the per-chapter `downtime_cycles.is_chapter_finale` checkbox
+  // replaces the per-chapter `chapters.is_chapter_finale` checkbox
   // rather than adding to it.
   //
   // This is the one place a bad pointer could be written, so the referential
@@ -249,11 +249,11 @@ describe('PATCH /api/story_cycles/:id', () => {
     const storyId = create.body._id;
     cleanupIds.story_cycles.push(new ObjectId(storyId));
 
-    const ins = await getCollection('downtime_cycles').insertOne({
+    const ins = await getCollection('chapters').insertOne({
       game_number: 1, label: `${label} — Game 1`, status: 'closed',
       story_cycle_id: String(storyId), ...cycleFields,
     });
-    cleanupIds.downtime_cycles.push(ins.insertedId);
+    cleanupIds.chapters.push(ins.insertedId);
     return { storyId, cycleId: String(ins.insertedId) };
   }
 
@@ -345,8 +345,8 @@ describe('PATCH /api/story_cycles/:id', () => {
 
   it('cm-3: rejects a cycle with no Story at all (400)', async () => {
     const { storyId } = await storyWithCycle(31, 'Orphan Pointer');
-    const ins = await getCollection('downtime_cycles').insertOne({ game_number: 99, label: 'Orphan' });
-    cleanupIds.downtime_cycles.push(ins.insertedId);
+    const ins = await getCollection('chapters').insertOne({ game_number: 99, label: 'Orphan' });
+    cleanupIds.chapters.push(ins.insertedId);
 
     const res = await request(app)
       .patch(`/api/story_cycles/${storyId}`)
@@ -425,12 +425,12 @@ describe('DELETE /api/story_cycles/:id', () => {
     cleanupIds.story_cycles.push(new ObjectId(storyCycleId));
 
     // Insert a downtime cycle referencing this story cycle
-    const cycleCol = getCollection('downtime_cycles');
+    const cycleCol = getCollection('chapters');
     const cycleIns = await cycleCol.insertOne({
       label: 'DT 5', game_number: 5, status: 'prep',
       story_cycle_id: storyCycleId, created_at: new Date().toISOString(),
     });
-    cleanupIds.downtime_cycles.push(cycleIns.insertedId);
+    cleanupIds.chapters.push(cycleIns.insertedId);
 
     const res = await request(app)
       .delete(`/api/story_cycles/${storyCycleId}`)

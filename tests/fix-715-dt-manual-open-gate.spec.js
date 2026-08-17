@@ -55,7 +55,7 @@ function makeCycle(overrides = {}) {
 async function setup(page, cycle) {
   await bootApp(page, PLAYER_USER, {
     routes: async (p) => {
-      await p.route('**/api/downtime_cycles**', r =>
+      await p.route('**/api/chapters**', r =>
         r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([cycle]) }));
       await p.route('**/api/characters**', r =>
         r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([CHAR]) }));

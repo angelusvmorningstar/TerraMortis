@@ -68,7 +68,7 @@ async function setup(page, { char = CHAR_306, cycle = PREP_CYCLE_WITH_OOW } = {}
     const ok = (body) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(body) });
     if (method === 'POST' || method === 'PUT' || method === 'PATCH') return ok({ ok: true, _id: 'sub-306-draft' });
     if (url.includes('/api/auth/me'))             return ok(PLAYER_USER);
-    if (url.includes('/api/downtime_cycles'))     return ok(cycle ? [cycle] : []);
+    if (url.includes('/api/chapters'))     return ok(cycle ? [cycle] : []);
     if (url.includes('/api/downtime_submissions')) return ok([]);
     if (url.includes('/api/characters/names'))    return ok([{ _id: char._id, name: char.name, moniker: char.moniker, honorific: char.honorific }]);
     if (url.includes('/api/characters'))          return ok([char]);

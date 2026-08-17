@@ -98,7 +98,7 @@ async function setup(page, char) {
     if (/\/api\/characters\/char-522(\?|$)/.test(url))  return ok(live);
     if (url.includes('/api/characters'))          return ok([live]);
     if (url.includes('/api/attendance'))          return ok({ attended: false });
-    if (url.includes('/api/downtime_cycles'))     return ok([ACTIVE_CYCLE]);
+    if (url.includes('/api/chapters'))     return ok([ACTIVE_CYCLE]);
     if (url.includes('/api/downtime_submissions')) { if (method === 'POST' || method === 'PUT') return ok({ _id: 'sub-522', responses: {} }); return ok([]); }
     if (url.includes('/api/territories'))         return ok([]);
     if (method === 'POST' || method === 'PUT' || method === 'PATCH') return ok({ ok: true, _id: 'sub-522' });

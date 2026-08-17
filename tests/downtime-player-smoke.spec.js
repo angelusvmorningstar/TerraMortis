@@ -78,7 +78,7 @@ async function setup(page, { char = CHAR_MINIMAL, cycle = ACTIVE_CYCLE, submissi
     if (method === 'POST' || method === 'PUT' || method === 'PATCH') return ok({ ok: true, _id: 'sub-draft-001' });
     // Return the proper user so validateToken() doesn't overwrite tm_auth_user with []
     if (url.includes('/api/auth/me'))            return ok(PLAYER_USER);
-    if (url.includes('/api/downtime_cycles'))     return ok(cycle ? [cycle] : []);
+    if (url.includes('/api/chapters'))     return ok(cycle ? [cycle] : []);
     if (url.includes('/api/downtime_submissions')) return ok(submission ? [submission] : []);
     if (url.includes('/api/characters/names'))    return ok([{ _id: char._id, name: char.name, moniker: char.moniker, honorific: char.honorific }]);
     if (url.includes('/api/characters'))          return ok([char]);
@@ -237,7 +237,7 @@ test.describe('Player DT form — Existing submission loads', () => {
 
   test('Previously submitted form still shows submit button (edit mode)', async ({ page }) => {
     const existingSubmission = {
-      _id: 'sub-existing', cycle_id: ACTIVE_CYCLE._id,
+      _id: 'sub-existing', chapter_id: ACTIVE_CYCLE._id,
       character_id: CHAR_MINIMAL._id, character_name: CHAR_MINIMAL.name,
       player_name: 'Test Player', status: 'submitted',
       submitted_at: new Date().toISOString(),
@@ -266,7 +266,7 @@ test.describe('Player DT form — XP budget rendering (issue #291)', () => {
   };
 
   const XP_SUBMISSION = {
-    _id: 'sub-xp-test', cycle_id: ACTIVE_CYCLE._id,
+    _id: 'sub-xp-test', chapter_id: ACTIVE_CYCLE._id,
     character_id: CHAR_WITH_XP._id, character_name: CHAR_WITH_XP.name,
     player_name: 'Test Player', status: 'draft',
     responses: {},
@@ -291,7 +291,7 @@ test.describe('Player DT form — XP budget rendering (issue #291)', () => {
       const ok = (body) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(body) });
       if (method === 'POST' || method === 'PUT' || method === 'PATCH') return ok({ ok: true, _id: 'sub-xp-test' });
       if (url.includes('/api/auth/me'))                    return ok(PLAYER_USER);
-      if (url.includes('/api/downtime_cycles'))             return ok([ACTIVE_CYCLE]);
+      if (url.includes('/api/chapters'))             return ok([ACTIVE_CYCLE]);
       if (url.includes('/api/downtime_submissions'))        return ok([XP_SUBMISSION]);
       if (url.includes('/api/characters/game-xp'))          return ok([]);
       if (url.includes('/api/characters/names'))            return ok([{ _id: CHAR_WITH_XP._id, name: CHAR_WITH_XP.name, moniker: null, honorific: null }]);

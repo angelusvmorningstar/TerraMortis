@@ -1,16 +1,17 @@
 /**
  * Contract tests — CYCLE epic #708, story 5: Publish Pipeline
- * Static-grep assertions over server/routes/downtime.js and
+ * Static-grep assertions over server/routes/chapters.js and
  * public/js/admin/cycle-views.js.
  */
 
 import { describe, it, expect } from 'vitest';
 import fs from 'fs';
 
-const DOWNTIME    = fs.readFileSync('../server/routes/downtime.js', 'utf8');
+// cm-2b: the publish route moved with cyclesRouter into chapters.js.
+const DOWNTIME    = fs.readFileSync('../server/routes/chapters.js', 'utf8');
 const CYCLE_VIEWS = fs.readFileSync('../public/js/admin/cycle-views.js', 'utf8');
 
-describe('epic.708.5 — downtime.js: POST /:id/publish endpoint', () => {
+describe('epic.708.5 — chapters.js: POST /:id/publish endpoint', () => {
   it('registers a POST handler on cyclesRouter', () => {
     expect(DOWNTIME).toContain('cyclesRouter.post');
   });

@@ -67,7 +67,7 @@ const CYCLE = {
 function makeSub(char, subId, stNarrative = {}) {
   return {
     _id: subId,
-    cycle_id: CYCLE._id,
+    chapter_id: CYCLE._id,
     character_name: char.name,
     character_id:   char._id,
     player_name:    char.player,
@@ -118,14 +118,14 @@ async function setupWithDelay(page, putDelayMs = 0) {
       return ok({ ok: true });
     }
     if (url.includes('/api/downtime_submissions')) {
-      const m = url.match(/[?&]cycle_id=([^&]+)/);
+      const m = url.match(/[?&]chapter_id=([^&]+)/);
       if (m) {
         const cid = decodeURIComponent(m[1]);
-        return ok([SUB_ALICE, SUB_BRANDY].filter(s => s.cycle_id === cid));
+        return ok([SUB_ALICE, SUB_BRANDY].filter(s => s.chapter_id === cid));
       }
       return ok([SUB_ALICE, SUB_BRANDY]);
     }
-    if (url.includes('/api/downtime_cycles'))   return ok([CYCLE]);
+    if (url.includes('/api/chapters'))   return ok([CYCLE]);
     if (url.includes('/api/characters/names'))  return ok([
       { _id: CHAR_ALICE._id,  name: CHAR_ALICE.name,  moniker: null, honorific: null },
       { _id: CHAR_BRANDY._id, name: CHAR_BRANDY.name, moniker: null, honorific: null },

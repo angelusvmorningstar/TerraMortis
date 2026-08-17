@@ -53,7 +53,7 @@ const RESULT_NOTE = '2 successes; potency 3 disease, 5 nights';
 // Submission: rite ≤60 chars (blobRite used), ritual_result_note set in review
 const mkSorcSub = (riteName, resultNote) => ({
   _id: 'sub-sorc-717',
-  cycle_id: 'cycle-001',
+  chapter_id: 'cycle-001',
   character_name: 'Ivana Sorcerer',
   character_id: 'char-sorc',
   player_name: 'Test Player',
@@ -91,7 +91,7 @@ async function setupSorcery(page, submissions, rulesDb = []) {
     const ok = (body) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(body) });
     if (method === 'PUT' || method === 'PATCH' || method === 'POST') return ok({ ok: true });
     if (url.includes('/api/downtime_submissions'))  return ok(submissions);
-    if (url.includes('/api/downtime_cycles'))       return ok([TEST_CYCLE]);
+    if (url.includes('/api/chapters'))       return ok([TEST_CYCLE]);
     if (url.includes('/api/characters/names'))      return ok([CHAR_SORC].map(c => ({ _id: c._id, name: c.name, moniker: c.moniker, honorific: c.honorific })));
     if (url.includes('/api/characters'))            return ok([CHAR_SORC]);
     if (url.includes('/api/territories'))           return ok([]);

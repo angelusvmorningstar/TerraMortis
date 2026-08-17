@@ -1,6 +1,17 @@
 /**
  * migrate-dt1.js
  *
+ * ARCHIVED 2026-08-17 (story cm-2b, review rework). This ran once, long ago,
+ * and nothing in the repo references it. It was still sitting at `server/`
+ * root, outside `scripts/archive/`, reading `downtime_cycles` and writing
+ * `cycle_id` — so re-running it post-migration would have written invisible
+ * orphans, and post-`--drop-source` it would have proceeded on a null cycle
+ * lookup with no guard at all. Moved here rather than re-pointed at
+ * `chapters`/`chapter_id`, because the correct action for a spent one-off is
+ * archival, not maintenance. Its relative source-data path
+ * (`../st-working/...`) is now wrong by two directory levels, which is the
+ * usual state of everything in this folder.
+ *
  * Import Downtime 1 historical data into MongoDB.
  *
  * Creates a downtime_cycles document for Downtime 1 (closed),

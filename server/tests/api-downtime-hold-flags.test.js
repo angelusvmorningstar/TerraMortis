@@ -31,7 +31,7 @@ beforeAll(async () => {
 });
 
 afterEach(async () => {
-  const cycleCol = getCollection('downtime_cycles');
+  const cycleCol = getCollection('chapters');
   const subCol   = getCollection('downtime_submissions');
   for (const id of insertedCycleIds) await cycleCol.deleteOne({ _id: id });
   for (const id of insertedSubmissionIds) await subCol.deleteOne({ _id: id });
@@ -44,7 +44,7 @@ afterAll(async () => {
 });
 
 async function insertCycle(overrides = {}) {
-  const col = getCollection('downtime_cycles');
+  const col = getCollection('chapters');
   const doc = { label: 'Test Cycle', status: 'active', ...overrides };
   const result = await col.insertOne(doc);
   insertedCycleIds.push(result.insertedId);
@@ -54,7 +54,7 @@ async function insertCycle(overrides = {}) {
 async function insertSubmission(cycleId, characterId, overrides = {}) {
   const col = getCollection('downtime_submissions');
   const doc = {
-    cycle_id: cycleId,
+    chapter_id: cycleId,
     character_id: characterId,
     status: 'draft',
     responses: {},
@@ -66,7 +66,7 @@ async function insertSubmission(cycleId, characterId, overrides = {}) {
 }
 
 describe('GET /api/downtime_submissions/hold-flags', () => {
-  it('returns 400 when cycle_id is missing', async () => {
+  it('returns 400 when chapter_id is missing', async () => {
     const res = await request(app)
       .get('/api/downtime_submissions/hold-flags')
       .set('X-Test-User', stUser());
@@ -74,9 +74,9 @@ describe('GET /api/downtime_submissions/hold-flags', () => {
     expect(res.body.error).toBe('VALIDATION_ERROR');
   });
 
-  it('returns 400 when cycle_id is malformed', async () => {
+  it('returns 400 when chapter_id is malformed', async () => {
     const res = await request(app)
-      .get('/api/downtime_submissions/hold-flags?cycle_id=not-an-objectid')
+      .get('/api/downtime_submissions/hold-flags?chapter_id=not-an-objectid')
       .set('X-Test-User', stUser());
     expect(res.status).toBe(400);
     expect(res.body.error).toBe('VALIDATION_ERROR');
@@ -85,7 +85,7 @@ describe('GET /api/downtime_submissions/hold-flags', () => {
   it('returns an empty map when no submissions exist for the cycle', async () => {
     const cycle = await insertCycle();
     const res = await request(app)
-      .get(`/api/downtime_submissions/hold-flags?cycle_id=${cycle._id}`)
+      .get(`/api/downtime_submissions/hold-flags?chapter_id=${cycle._id}`)
       .set('X-Test-User', stUser());
     expect(res.status).toBe(200);
     expect(res.body).toEqual({});
@@ -102,7 +102,7 @@ describe('GET /api/downtime_submissions/hold-flags', () => {
       status: 'draft',
     });
     const res = await request(app)
-      .get(`/api/downtime_submissions/hold-flags?cycle_id=${cycle._id}`)
+      .get(`/api/downtime_submissions/hold-flags?chapter_id=${cycle._id}`)
       .set('X-Test-User', stUser());
     expect(res.status).toBe(200);
     expect(res.body[CHAR_A]).toBe(false); // _has_minimum=true → NOT on hold
@@ -114,7 +114,7 @@ describe('GET /api/downtime_submissions/hold-flags', () => {
     await insertSubmission(cycle._id, CHAR_A, { responses: {}, status: 'submitted' });
     await insertSubmission(cycle._id, CHAR_B, { responses: {}, status: 'draft' });
     const res = await request(app)
-      .get(`/api/downtime_submissions/hold-flags?cycle_id=${cycle._id}`)
+      .get(`/api/downtime_submissions/hold-flags?chapter_id=${cycle._id}`)
       .set('X-Test-User', stUser());
     expect(res.status).toBe(200);
     expect(res.body[CHAR_A]).toBe(false);
@@ -128,7 +128,7 @@ describe('GET /api/downtime_submissions/hold-flags', () => {
     await insertSubmission(cycle._id, OTHER_PLAYER_CHAR, { responses: { _has_minimum: false } });
 
     const res = await request(app)
-      .get(`/api/downtime_submissions/hold-flags?cycle_id=${cycle._id}`)
+      .get(`/api/downtime_submissions/hold-flags?chapter_id=${cycle._id}`)
       .set('X-Test-User', playerUser([CHAR_A, CHAR_B]));
     expect(res.status).toBe(200);
     expect(res.body[CHAR_A]).toBe(false);
@@ -142,20 +142,20 @@ describe('GET /api/downtime_submissions/hold-flags', () => {
     // CHAR_B intentionally has no submission
 
     const res = await request(app)
-      .get(`/api/downtime_submissions/hold-flags?cycle_id=${cycle._id}`)
+      .get(`/api/downtime_submissions/hold-flags?chapter_id=${cycle._id}`)
       .set('X-Test-User', playerUser([CHAR_A, CHAR_B]));
     expect(res.status).toBe(200);
     expect(res.body[CHAR_A]).toBe(false);
     expect(CHAR_B in res.body).toBe(false);
   });
 
-  it('honours legacy string-stored cycle_id (CSV-imported submissions)', async () => {
+  it('honours legacy string-stored chapter_id (CSV-imported submissions)', async () => {
     const cycle = await insertCycle();
-    // Submission stored with cycle_id as string (CSV-import shape)
+    // Submission stored with chapter_id as string (CSV-import shape)
     await insertSubmission(String(cycle._id), CHAR_A, { responses: { _has_minimum: false } });
 
     const res = await request(app)
-      .get(`/api/downtime_submissions/hold-flags?cycle_id=${cycle._id}`)
+      .get(`/api/downtime_submissions/hold-flags?chapter_id=${cycle._id}`)
       .set('X-Test-User', stUser());
     expect(res.status).toBe(200);
     expect(res.body[CHAR_A]).toBe(true);
@@ -164,7 +164,7 @@ describe('GET /api/downtime_submissions/hold-flags', () => {
   it('returns 401 when no auth header is supplied', async () => {
     const cycle = await insertCycle();
     const res = await request(app)
-      .get(`/api/downtime_submissions/hold-flags?cycle_id=${cycle._id}`);
+      .get(`/api/downtime_submissions/hold-flags?chapter_id=${cycle._id}`);
     expect(res.status).toBe(401);
   });
 });

@@ -45,14 +45,14 @@ window.fetch = function shimFetch(url, opts = {}) {
   console.debug(`[shim] ${method} ${apiPath}`);
 
   if (method === 'GET') {
-    if (seg[0] === 'downtime_cycles') return ok(cycles);
+    if (seg[0] === 'chapters') return ok(cycles);
 
     if (seg[0] === 'downtime_submissions') {
-      const cycleId = new URL(urlStr, location.href).searchParams.get('cycle_id');
+      const cycleId = new URL(urlStr, location.href).searchParams.get('chapter_id');
       const result = cycleId
-        ? submissions.filter(s => String(s.cycle_id) === String(cycleId))
+        ? submissions.filter(s => String(s.chapter_id) === String(cycleId))
         : submissions;
-      console.debug(`[shim] downtime_submissions → ${result.length} results (cycle_id=${cycleId})`);
+      console.debug(`[shim] downtime_submissions → ${result.length} results (chapter_id=${cycleId})`);
       return ok(result);
     }
 

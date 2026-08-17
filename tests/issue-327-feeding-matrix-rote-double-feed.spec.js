@@ -53,7 +53,7 @@ const TERR_NS = {
 function makeIvanaSub() {
   return {
     _id: 'sub-ivana-327',
-    cycle_id: 'cycle-327',
+    chapter_id: 'cycle-327',
     character_name: 'Ivana Horvat',
     character_id: 'char-ivana-327',
     player_name: 'Ivana Player',
@@ -77,7 +77,7 @@ function makeIvanaSub() {
 function makeKeeperSub() {
   return {
     _id: 'sub-keeper-327',
-    cycle_id: 'cycle-327',
+    chapter_id: 'cycle-327',
     character_name: 'Ivana Horvat',  // reuse char for simplicity
     character_id: 'char-ivana-327',
     player_name: 'Ivana Player',
@@ -100,7 +100,7 @@ function makeKeeperSub() {
 function makeOverrideOnlySub() {
   return {
     _id: 'sub-ovr-only-327',
-    cycle_id: 'cycle-327',
+    chapter_id: 'cycle-327',
     character_name: 'Ivana Horvat',
     character_id: 'char-ivana-327',
     player_name: 'Ivana Player',
@@ -121,7 +121,7 @@ function makeOverrideOnlySub() {
 function makeFeedingRoteOvrSub() {
   return {
     _id: 'sub-roteovr-327',
-    cycle_id: 'cycle-327',
+    chapter_id: 'cycle-327',
     character_name: 'Ivana Horvat',
     character_id: 'char-ivana-327',
     player_name: 'Ivana Player',
@@ -158,7 +158,7 @@ async function setup(page, submission, territories = [TERR_NS]) {
 
     if (method === 'PUT' || method === 'PATCH' || method === 'POST') return ok({ ok: true });
     if (url.includes('/api/downtime_submissions')) return ok([submission]);
-    if (url.includes('/api/downtime_cycles'))      return ok([TEST_CYCLE]);
+    if (url.includes('/api/chapters'))      return ok([TEST_CYCLE]);
     if (url.includes('/api/characters/names'))     return ok([{ _id: CHAR_IVANA._id, name: CHAR_IVANA.name, moniker: null, honorific: null }]);
     if (url.includes('/api/characters'))           return ok([CHAR_IVANA]);
     if (url.includes('/api/territories'))          return ok(territories);

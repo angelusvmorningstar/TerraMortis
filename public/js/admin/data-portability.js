@@ -20,7 +20,10 @@ const COLLECTION_LABELS = {
   territories:          'Territories',
   game_sessions:        'Game Sessions',
   attendance:           'Attendance',
-  downtime_cycles:      'Downtime Cycles',
+  // cm-2b: the KEY is the collection identifier and follows the rename; the
+  // VALUE is ST-facing copy and is left as it was, so this dropdown reads
+  // identically to before.
+  chapters:             'Downtime Cycles',
   downtime_submissions: 'Downtime Submissions',
   npcs:                 'NPCs',
   ordeal_rubrics:       'Ordeal Rubrics',
@@ -117,7 +120,7 @@ function buildShell() {
     { id: 'territories',          label: 'Territories',          desc: 'Territory ambience, regents, feeding rights',                                                         verify: true  },
     { id: 'game_sessions',        label: 'Game Sessions',        desc: 'Session dates and game numbers',                                                                       verify: true  },
     { id: 'attendance',           label: 'Attendance',           desc: 'Per-character attendance per session (expanded rows)',                                                  verify: true  },
-    { id: 'downtime_cycles',      label: 'Downtime Cycles',      desc: 'Downtime cycle definitions and status',                                                                verify: false },
+    { id: 'chapters',             label: 'Downtime Cycles',      desc: 'Downtime cycle definitions and status',                                                                verify: false },
     { id: 'downtime_submissions', label: 'Downtime Submissions', desc: 'Player downtime submissions. CSV imports player CSV (character matching). JSON imports backup.',        csvImportLabel: 'Import Player CSV', verify: false },
     { id: 'npcs',                 label: 'NPCs',                 desc: 'NPC register entries',                                                                                 verify: true  },
     { id: 'ordeal_rubrics',       label: 'Ordeal Rubrics',       desc: 'Ordeal definitions and rubric templates',                                                              verify: false },
@@ -224,7 +227,7 @@ async function handleExport(collection) {
       case 'territories':          await exportCollection('territories',             territoriesToRows,          territoryHeaders()); break;
       case 'game_sessions':        await exportCollection('game_sessions',           gameSessionsToRows,         gameSessionHeaders()); break;
       case 'attendance':           await exportCollection('game_sessions',           attendanceToRows,           attendanceHeaders()); break;
-      case 'downtime_cycles':      await exportCollection('downtime_cycles',         downtimeCyclesToRows,       downtimeCycleHeaders()); break;
+      case 'chapters':             await exportCollection('chapters',                downtimeCyclesToRows,       downtimeCycleHeaders()); break;
       case 'downtime_submissions': await exportCollection('downtime_submissions',    downtimeSubsToRows,         downtimeSubHeaders()); break;
       case 'npcs':                 await exportCollection('npcs',                    npcsToRows,                 npcHeaders()); break;
       case 'ordeal_rubrics':       await exportCollection('ordeal_rubrics',          ordealRubricsToRows,        ordealRubricHeaders()); break;
@@ -301,7 +304,7 @@ function collectionApiPath(collection) {
     territories:          'territories',
     game_sessions:        'game_sessions',
     attendance:           'game_sessions',
-    downtime_cycles:      'downtime_cycles',
+    chapters:             'chapters',
     downtime_submissions: 'downtime_submissions',
     npcs:                 'npcs',
     ordeal_rubrics:       'ordeal_rubrics',
@@ -317,8 +320,19 @@ async function handleImport(collection, file) {
   const resultEl = document.getElementById('dp-result');
   resultEl.innerHTML = '<p class="dp-result-loading">Parsing\u2026</p>';
   try {
-    const rows = parseCSV(await file.text());
-    if (!rows.length) { resultEl.innerHTML = '<p class="dp-result-err">No data rows found.</p>'; return; }
+    const rawRows = parseCSV(await file.text());
+    if (!rawRows.length) { resultEl.innerHTML = '<p class="dp-result-err">No data rows found.</p>'; return; }
+    // cm-2b: a CSV exported before the rename carries a `cycle_id` COLUMN.
+    // Shaped here, at the writer's own entry point, for the same reason the
+    // JSON path shapes it — `npcs`' `linked_cycle_id` is a different key and is
+    // untouched by this. (The two collections that could carry the column,
+    // `chapters` and `downtime_submissions`, have no `writeRow` case of their
+    // own: chapters CSV import is rejected as an unknown collection, and the
+    // downtime submissions CSV is the PLAYER form export, handled by
+    // `handleDowntimeCSVImport` -> `upsertCycle`, which builds `chapter_id`
+    // itself from the live Chapter. This is defence at the boundary, not a
+    // live path today.)
+    const rows = rawRows.map(shapeLegacyChapterFk);
     let written = 0, rejected = 0;
     const errors = [];
     for (let i = 0; i < rows.length; i++) {
@@ -501,6 +515,31 @@ async function handleJsonImport(collection, file) {
   }
 }
 
+/**
+ * cm-2b: shape a restored document's legacy Chapter FK.
+ *
+ * A backup taken before cm-2b carries `cycle_id`. Restoring it verbatim would
+ * either 400 (the submissions routes now reject the legacy key outright — see
+ * `server/helpers/chapter-fk.js`) or, before that guard existed, silently
+ * re-create `cycle_id`-only documents in bulk: invisible to every list,
+ * hold-flag, publish and delete-orphan guard.
+ *
+ * Fixed at the WRITER, following `case 'territories'` in the same file, which
+ * exists specifically to demonstrate this project's own Lesson #105 — drop the
+ * legacy keys at the writer rather than gate them on the schema. `chapter_id`
+ * already present wins; the legacy key is dropped either way.
+ *
+ * Exported for direct test drive (the oxp.5 convention).
+ */
+export function shapeLegacyChapterFk(body) {
+  if (!body || typeof body !== 'object') return body;
+  if (!Object.prototype.hasOwnProperty.call(body, 'cycle_id')) return body;
+  const out = { ...body };
+  if (out.chapter_id === undefined || out.chapter_id === null) out.chapter_id = out.cycle_id;
+  delete out.cycle_id;
+  return out;
+}
+
 // Exported for direct test drive (the oxp.5 convention: functions whose logic
 // matters are exported and driven, rather than pinned by a source regex).
 export async function writeJsonDoc(collection, doc) {
@@ -535,9 +574,9 @@ export async function writeJsonDoc(collection, doc) {
     case 'attendance':
       throw new Error('Attendance is nested in game_sessions — import via Game Sessions JSON instead.');
 
-    case 'downtime_cycles': {
+    case 'chapters': {
       // CM-4a review finding P1 (2026-08-16). Since CM-4a, PUT
-      // /api/downtime_cycles/:id fires the tracker slate-wipe whenever the body
+      // /api/chapters/:id fires the tracker slate-wipe whenever the body
       // carries an own `phase` key and the transition resets. A restore is not
       // a phase transition: it is identity, label and deadline data being put
       // back. Re-importing a backup of a cycle that is currently in GAME phase
@@ -549,13 +588,21 @@ export async function writeJsonDoc(collection, doc) {
       // POST is left alone deliberately: creating a cycle is not a transition,
       // so it reaches no wipe, and stripping there would drop the status a new
       // document legitimately needs.
-      if (id) return apiPut(`/api/downtime_cycles/${id}`, withoutPhaseFields(body));
-      return apiPost('/api/downtime_cycles', body);
+      // cm-2b: a pre-rename Chapter backup has no `cycle_id` of its own (the FK
+      // lives on the submission, not the container), but a hand-edited or
+      // hand-merged backup can pick one up, and it means nothing on a Chapter.
+      // Shaped for the same reason the submissions case below is.
+      const chapterBody = shapeLegacyChapterFk(body);
+      if (id) return apiPut(`/api/chapters/${id}`, withoutPhaseFields(chapterBody));
+      return apiPost('/api/chapters', chapterBody);
     }
 
-    case 'downtime_submissions':
-      if (id) return apiPut(`/api/downtime_submissions/${id}`, body);
-      return apiPost('/api/downtime_submissions', body);
+    case 'downtime_submissions': {
+      // cm-2b: `cycle_id` -> `chapter_id` on restore. See shapeLegacyChapterFk.
+      const subBody = shapeLegacyChapterFk(body);
+      if (id) return apiPut(`/api/downtime_submissions/${id}`, subBody);
+      return apiPost('/api/downtime_submissions', subBody);
+    }
 
     case 'npcs':
       if (id) return apiPut(`/api/npcs/${id}`, body);
@@ -737,11 +784,11 @@ function downtimeCyclesToRows(docs) {
 // ── Downtime Submissions ──────────────────────────────────────────────────────
 
 function downtimeSubHeaders() {
-  return ['_id', 'cycle_id', 'character_id', 'character_name', 'status', 'submitted_at', 'approval_status'];
+  return ['_id', 'chapter_id', 'character_id', 'character_name', 'status', 'submitted_at', 'approval_status'];
 }
 function downtimeSubsToRows(docs) {
   return docs.map(d => [String(d._id),
-    d.cycle_id != null ? String(d.cycle_id) : '',
+    d.chapter_id != null ? String(d.chapter_id) : '',
     d.character_id != null ? String(d.character_id) : '',
     d.character_name || '',
     d.status || '',

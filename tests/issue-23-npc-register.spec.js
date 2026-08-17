@@ -25,7 +25,7 @@ async function loginAsAdmin(page) {
   await page.route('**/api/game_sessions*', route =>
     route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([]) })
   );
-  await page.route('**/api/downtime_cycles*', route =>
+  await page.route('**/api/chapters*', route =>
     route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([]) })
   );
   await page.route('**/api/downtime_submissions*', route =>
