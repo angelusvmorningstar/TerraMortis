@@ -1,10 +1,16 @@
 ---
 id: fin.6
 epic: fin
-status: ready-for-dev
+status: done
 priority: medium
 depends_on: []
 ---
+
+> ## Dev Agent Record (verification pass, 2026-08-18)
+> Already implemented and merged to `main` — same mistracking `epic-dtil`/`epic-dtux`/`epic-dtfp`/
+> `epic-dtsr` had (2026-08-16 stale-status reconciliation `134045a16` misclassified it as
+> never-started). Implementing commit `d51c2756` ("feat(fin-6): drop did_not_attend from
+> payment-method enum"), merged via `5a3d0f93`, 2026-04-27. No new code written this pass.
 
 # Story FIN-6: Drop "Did Not Attend" from the payment-method dropdown
 

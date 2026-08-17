@@ -1,10 +1,17 @@
 ---
 id: fin.7
 epic: fin
-status: ready-for-dev
+status: done
 priority: medium
 depends_on: []
 ---
+
+> ## Dev Agent Record (verification pass, 2026-08-18)
+> Already implemented and merged to `main` — same mistracking `epic-dtil`/`epic-dtux`/`epic-dtfp`/
+> `epic-dtsr` had (2026-08-16 stale-status reconciliation `134045a16` misclassified it as
+> never-started). Implementing commit `07c9ee22` ("feat(fin-7): single per-session rate replaces
+> per-row amount"), merged via `0f936ea6`, 2026-04-27; follow-up fix `bb3f4f41`. No new code written
+> this pass.
 
 # Story FIN-7: Session-rate model — single rate per session, not per row
 

@@ -515,7 +515,13 @@ development_status:
   # Epic file: specs/epic-finance-coordinator.md
   # Shipped to main 2026-04-23; FIN-5/6/7 hardening on dev (review)
 
-  epic-fin: in-progress
+  # 2026-08-18: verified against live code, not tracker text (same audit that
+  # caught epic-dtil/dtux/dtfp/dtsr — same 2026-08-16 stale-status
+  # reconciliation 134045a16 misclassification). fin-5/6/7 all have real
+  # feat/fix commits merged via "merge: Morningstar → dev" (cfc9714f,
+  # 5a3d0f93, 0f936ea6), all on main, 2026-04-27 — same batch as
+  # dtil/dtux/dtfp/dtsr.
+  epic-fin: done
 
   fin-1-coordinator-role: done
   fin-2-finance-schema: done
@@ -524,9 +530,9 @@ development_status:
 
   # Check-In tab follow-on hardening (scoped 2026-04-27 from live coordinator
   # use): real player names, drop redundant DNA option, single session rate.
-  fin-5-checkin-player-name-resolution: ready-for-dev
-  fin-6-drop-did-not-attend-payment-method: ready-for-dev
-  fin-7-session-rate-model: ready-for-dev
+  fin-5-checkin-player-name-resolution: done
+  fin-6-drop-did-not-attend-payment-method: done
+  fin-7-session-rate-model: done
 
   epic-fin-retrospective: optional
 
@@ -583,8 +589,15 @@ development_status:
   # All product calls resolved during 2026-04-27 party-mode session
 
   # ---- Epic NPCP — NPC Privacy Hardening (urgent, ships first) ----
-  epic-npcp: in-progress
-  npcp-1-server-side-scope-api-npcs: ready-for-dev
+  # 2026-08-18: verified against live code, not tracker text (same audit that
+  # caught epic-dtil/dtux/dtfp/dtsr/fin — same 2026-08-16 stale-status
+  # reconciliation 134045a16 misclassification). npcp-1 has a real commit
+  # (487035dc, "feat(npcp-1): server-side scope on /api/npcs for player
+  # role"), merged via dd9d9482, on main, 2026-04-27. Spot-checked
+  # server/routes/npcs.js directly — the scoping and its own "NPCP-1" comment
+  # marker are still live. npcp-2 is separately superseded (unaffected).
+  epic-npcp: done
+  npcp-1-server-side-scope-api-npcs: done
   npcp-2-player-picker-removal-free-text: superseded  # superseded by NPCR.12+13 — DT form picker already shows only the player's own relationship edges with kind-driven prompts
   epic-npcp-retrospective: optional
 

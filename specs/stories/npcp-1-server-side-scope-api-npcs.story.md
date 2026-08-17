@@ -1,10 +1,17 @@
 ---
 id: npcp.1
 epic: npcp
-status: ready-for-dev
+status: done
 priority: high
 depends_on: []
 ---
+
+> ## Dev Agent Record (verification pass, 2026-08-18)
+> Already implemented and merged to `main` — same mistracking `epic-dtil`/`epic-dtux`/`epic-dtfp`/
+> `epic-dtsr`/`epic-fin` had (2026-08-16 stale-status reconciliation `134045a16` misclassified it as
+> never-started). Implementing commit `487035dc` ("feat(npcp-1): server-side scope on /api/npcs for
+> player role"), merged via `dd9d9482`, 2026-04-27. Spot-checked `server/routes/npcs.js` directly —
+> the scoping and its own "NPCP-1" comment marker are still live. No new code written this pass.
 
 # Story NPCP-1: Server-side scope on /api/npcs for player role
 
