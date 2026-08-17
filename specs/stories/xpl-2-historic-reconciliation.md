@@ -9,6 +9,46 @@ I want the historic XP purchases from past downtime cycles that can be confirmed
 character's current sheet to appear in that character's XP History alongside new entries,
 so that the ledger xpl.1 introduced is not an empty record that only starts mattering from today.
 
+## STALE — corrected 2026-08-17 against the now-live epic-cm rename, re-verified against real data
+
+This story predates `cm-2b` (`downtime_cycles`→`chapters`, `cycle_id`→`chapter_id`) and `cm-4` (the
+historical renumber), both now merged to `main` and live in production. This is not just a
+terminology change — `cm-4` shifted which `game_number` each cycle's real downtime content is
+attached to, and this story's own investigation numbers were captured under the OLD numbering.
+**Verified directly against live `tm_suite`, 2026-08-17, not assumed:**
+
+- Every downtime cycle's content moved forward by one `game_number`. What this story's investigation
+  recorded as "Game 2" is now attached to the chapter with `game_number: 3`, and so on through
+  "Game 6" → `game_number: 7`. Confirmed both in aggregate and by the two specific example rows this
+  story cites: Yusuf Kalusicj's `True Worm`/`Safe Place`/`Closed Book` row and Anichka's
+  `Mandragora Garden` row are now both under `game_number: 4` (this story recorded them as "Game 3").
+- **Re-verified counts (2026-08-17, `chapters`/`chapter_id`, matches the shifted numbering):**
+  `game_number:3`=22 of 29, `game_number:4`=19 of 29, `game_number:5`=20 of 29, `game_number:6`=20 of
+  27, `game_number:7`=23 of **33** (was "32" under the old numbering — the extra one is the known
+  stray post-Game-7 submission by Aleksei Romanov, already flagged elsewhere in `sprint-status.yaml`;
+  it is native Game-7 content, not part of the DT2-DT6 historic set this story backfills, and should
+  be excluded from the plan the same way any non-historic row would be). **Total xp_spend-bearing
+  count is unchanged at 104** — the underlying data didn't move or lose anything, only its
+  `game_number` label shifted. This story's own **scope is therefore `game_number: 3` through `7`**,
+  not `2` through `6` — the "DT2"/"DT6" identities are unchanged, only which live chapter each one
+  now feeds.
+- **A separate, unresolved question this correction surfaced (not something to silently decide):**
+  this story's original investigation found "DT1 (Game 1)" already had 25 submissions in MongoDB,
+  all with empty `responses` and no `xp_spend`, and treated that as confirmation DT1 has no
+  structured XP data to backfill. Direct re-verification just now found those same 25 submissions
+  now sit under `game_number: 2` — and they are full, rich, already-published in-app downtime
+  entries (real feeding/projects/touchstone/letter/territory-report narrative), not the static
+  pre-app DT1 content described in story `di-1` (which, per `di-1`'s own corrected Context section,
+  has never been imported into MongoDB at all — the Chapter-1 placeholder currently has
+  `submission_count: 0`). **This story and `di-1` may be using "DT1"/"Game 1" to mean two different
+  things**, or `di-1`'s premise is wrong. Whoever dev-storys `xpl-2` should re-verify what these 25
+  `game_number:2` submissions actually are (an early in-app cycle that simply predates the xp_spend
+  field?) before relying on this story's DT1-exclusion reasoning at face value — do not just
+  relabel `game_number` and proceed unchanged.
+
+Re-derive counts fresh at dev-time rather than trusting the numbers above if this story sits much
+longer — the same live-state-drift risk that made this correction necessary once could happen again.
+
 ## Why this story exists
 
 Epic XPL's own sequencing named this as the natural follow-up to xpl.1 (the write hook): the ledger
@@ -23,10 +63,15 @@ full findings and Angelus's resulting ruling on scope.
 
 - NOT a change to `xpl.1`'s live write hook (`diffXpLedgerRows`, the `PUT /api/characters/:id` ledger
   insert) — this story is a separate, one-off backfill script, not a modification to the live path.
-- NOT a backfill of DT1 (Game 1) — confirmed by direct query that ZERO of DT1's 25 submissions carry
-  any `responses.xp_spend`/`project_N_xp_rows` data at all; the XP-request mechanism did not exist
-  on the form that cycle. There is nothing structural to backfill FROM for DT1. A free-text mining
-  pass over `st_review.outcome_text` narrative could theoretically recover SOME of it, but that is a
+- NOT a backfill of `game_number: 1` (the Chapter-1 placeholder — no submissions exist there at all
+  as of this correction) or `game_number: 2` — confirmed by direct query that ZERO of `game_number:
+  2`'s 25 submissions carry any `responses.xp_spend`/`project_N_xp_rows` data at all; the XP-request
+  mechanism did not exist on the form that cycle. There is nothing structural to backfill FROM for
+  either. **See the STALE correction note above** — whether `game_number: 2`'s content is actually
+  "DT1" in the sense story `di-1` uses that term is now an open question, not a settled fact; the
+  exclusion holds either way (no `xp_spend` data present regardless of what the cycle should be
+  called), but don't repeat the identity claim without re-checking it. A free-text mining pass over
+  `st_review.outcome_text` narrative could theoretically recover SOME of it, but that is a
   fundamentally different (NLP-adjacent, unreliable) undertaking explicitly out of scope here.
 - NOT a guess. Per Angelus's ruling (2026-08-15, this story's own scoping): **confirmed-only** — a
   ledger row is written ONLY when the character's current live state demonstrably corroborates the
@@ -50,9 +95,10 @@ full findings and Angelus's resulting ruling on scope.
    shebang line (this script will be imported by its own test suite — the shebang-breaks-vitest
    landmine is already documented at length in `CLAUDE.md` and in every sibling migration script's
    own header comment; do not reintroduce it).
-2. `planReconciliation` walks every `downtime_submissions` document across the five cycles Game 2
-   through Game 6 ONLY (Game 1 explicitly excluded per "What this story is NOT" — the plan function
-   itself refuses to process a Game-1 `cycle_id`, it does not merely happen not to find data there),
+2. `planReconciliation` walks every `downtime_submissions` document across the five chapters with
+   `game_number: 3` through `7` ONLY (`game_number: 1` and `2` explicitly excluded per "What this
+   story is NOT" — the plan function itself refuses to process a `chapter_id` resolving to either,
+   it does not merely happen not to find data there),
    parses each non-empty `responses.xp_spend` row (`{category, item, dotsBuying, xpCost?}`), and
    classifies each row with a non-zero `dotsBuying` into exactly one of:
    - **`confirmed`** — category is `merit`, the `item` string is the graduated form
@@ -110,12 +156,14 @@ full findings and Angelus's resulting ruling on scope.
         rating}`). Write this as its own small pure function with direct unit coverage — this parser
         is the single most likely place for a subtle real-data shape this story's investigation
         didn't sample to break silently.
-  - [ ] `planReconciliation`: query `downtime_cycles` for game_number 2-6's `_id`s fresh (do not
-        hardcode the ObjectIds this story's own investigation found — cycle IDs are stable but
-        re-deriving by `game_number` is one query and removes any risk of a stale hardcoded id),
-        query `downtime_submissions` for those cycle_ids with `responses.xp_spend` present, parse
-        each row via the parsers above, classify per AC2, cross-reference confirmed candidates
-        against a fresh live fetch of the character's CURRENT `merits[]`.
+  - [ ] `planReconciliation`: query `chapters` for `game_number: 3` through `7`'s `_id`s fresh (do
+        not hardcode the ObjectIds this story's own investigation found — chapter IDs are stable but
+        re-deriving by `game_number` is one query and removes any risk of a stale hardcoded id —
+        this project has already been burned once by a hardcoded-vs-re-derived assumption going
+        stale, see the STALE correction note above), query `downtime_submissions` for those
+        `chapter_id`s with `responses.xp_spend` present, parse each row via the parsers above,
+        classify per AC2, cross-reference confirmed candidates against a fresh live fetch of the
+        character's CURRENT `merits[]`.
 - [ ] Task 2 — Cost reconstruction (AC: 4)
   - [ ] When a row carries its own `xpCost`, use it directly.
   - [ ] When absent (real data shows this happens — see Dev Notes), reconstruct from this project's
@@ -147,31 +195,44 @@ full findings and Angelus's resulting ruling on scope.
 
 ## Dev Notes
 
-### Investigation findings (2026-08-15, live read-only queries against `tm_suite` — do not re-derive, these are real and current as of tonight)
+### Investigation findings (2026-08-15, live read-only queries against `tm_suite`)
+
+**Game-number labels below are AS RECORDED 2026-08-15, BEFORE `cm-4`'s renumber shifted every
+cycle's content forward by one `game_number`.** See the STALE correction note at the top of this
+file for the re-verified 2026-08-17 mapping and numbers — use those for the actual `game_number`
+range to query (`3` through `7`), not the labels in this historical section. Kept as-written below
+because the underlying counts/row shapes/character examples are still accurate, only their
+game-number labels moved.
 
 **Cycle count re-verified**: still 6 `downtime_cycles` documents (Game 1 through Game 6) as of
 tonight (Game 7's own session) — Game 6 is `status: 'active'` (not yet closed), Games 1-5 are
 `'closed'`. No Game 7 cycle document exists yet. This story's scope is Game 2 through Game 6
-inclusive; Game 6 being still-active means its own downtime processing may still be incomplete —
-the plan function should process whatever real submissions exist for it today without treating
-"still active" as a reason to skip the cycle, since a partial-but-real backfill is still more
+inclusive (**re-verified 2026-08-17: now `game_number: 3` through `7`** — see correction note);
+Game 6 being still-active at investigation time means its own downtime processing may still have
+been incomplete then — the plan function should process whatever real submissions exist without
+treating "still active" as a reason to skip a cycle, since a partial-but-real backfill is still more
 useful than none, and re-running the plan later naturally picks up anything new.
 
-**DT1 has NO structured XP data — confirmed by direct query, not inference.**
+**"DT1" has NO structured XP data — confirmed by direct query, not inference. Re-verify what "DT1"
+actually refers to before trusting this section — see the STALE correction note's open question.**
 `db.downtime_submissions.countDocuments({cycle_id: <Game1_id>, "responses.xp_spend": {$exists:
-true}})` returns **0** (of 25 total DT1 submissions). A direct fetch of a sampled DT1 document's
-full `responses` object showed `{}` — completely empty, despite that same document carrying a full,
-substantial `st_review.outcome_text` narrative (feeding rolls, project outcomes, in-character prose).
-This is not a data-quality accident; it means the XP-purchase-request section of the downtime form
-did not exist yet when DT1 was processed. AC/task text above locks this in as a hard exclusion, not
-an assumption to re-verify at dev time.
+true}})` returns **0** (of 25 total submissions, now living under `game_number: 2`). A direct fetch
+of a sampled document's full `responses` object showed `{}` — completely empty, despite that same
+document carrying a full, substantial `st_review.outcome_text` narrative (feeding rolls, project
+outcomes, in-character prose). This is not a data-quality accident; it means the XP-purchase-request
+section of the downtime form did not exist yet when this cycle was processed. The exclusion itself
+(no `xp_spend` data present) is solid and re-confirmed 2026-08-17; whether this cycle is correctly
+called "DT1" is not.
 
-**Real data volume, DT2-DT6**: `responses.xp_spend` exists on **104 of ~162** submissions across the
-five cycles (Game2=22 of 29, Game3=19 of 29, Game4=20 of 29, Game5=20 of 27, Game6=23 of 32) — but
-most of those are placeholder/empty rows. Only **34 total submissions** (across all five cycles)
-contain at least one row with a real non-zero `dotsBuying`. That is the entire real universe of
-"actual purchase requests" this story processes — small enough for the plan report's
-`unconfirmable` list to be a genuinely useful, human-reviewable size, not a wall of noise.
+**Real data volume, five historic cycles (originally labelled DT2-DT6, now `game_number: 3-7`)**:
+`responses.xp_spend` exists on **104 of ~162** submissions across the five cycles (as originally
+recorded: Game2=22 of 29, Game3=19 of 29, Game4=20 of 29, Game5=20 of 27, Game6=23 of 32 — **re-
+verified 2026-08-17 under the current `game_number` labels: `3`=22 of 29, `4`=19 of 29, `5`=20 of
+29, `6`=20 of 27, `7`=23 of 33, the one extra being the known stray post-Game-7 submission, see
+correction note**) — but most of those are placeholder/empty rows. Only **34 total submissions**
+(across all five cycles) contain at least one row with a real non-zero `dotsBuying`. That is the
+entire real universe of "actual purchase requests" this story processes — small enough for the plan
+report's `unconfirmable` list to be a genuinely useful, human-reviewable size, not a wall of noise.
 
 **No approval signal exists anywhere — confirmed, not assumed.** The schema declares a submission-
 level `approval_status` enum (`'pending' | 'approved' | 'modified' | 'rejected'`,
@@ -183,15 +244,18 @@ actually granted exists anywhere in this data. This is the finding that drove An
 confirmed-only ruling: there is no field to trust, only the character's own current state to
 cross-check against.
 
-**Real row shape, sampled directly (six real documents, Game 3/DT3 cycle):**
+**Real row shape, sampled directly (six real documents, originally recorded as Game 3/DT3 cycle —
+re-verified 2026-08-17: Yusuf's and Anichka's rows below are now under `game_number: 4`, confirmed
+by direct query; Macheath's is presumed to have moved the same way, same original sample batch, not
+individually re-checked):**
 ```json
-// Yusuf Kalusicj, Game 3
+// Yusuf Kalusicj, game_number: 4 (recorded as "Game 3" pre-renumber)
 "[{\"category\":\"merit\",\"item\":\"True Worm|flat|2|0\",\"dotsBuying\":0,\"xpCost\":2},
   {\"category\":\"merit\",\"item\":\"Safe Place|grad|2|3\",\"dotsBuying\":1,\"xpCost\":1},
   {\"category\":\"merit\",\"item\":\"Closed Book|grad|0|3\",\"dotsBuying\":1,\"xpCost\":1}]"
-// Anichka, Game 3
+// Anichka, game_number: 4 (recorded as "Game 3" pre-renumber)
 "[{\"category\":\"merit\",\"item\":\"Mandragora Garden|grad|0|3\",\"dotsBuying\":1}]"  // NO xpCost key
-// Macheath, Game 3
+// Macheath, game_number: 4 presumed (recorded as "Game 3" pre-renumber, not individually re-checked)
 "[{\"category\":\"merit\",\"item\":\"Allies|grad|2|3\",\"dotsBuying\":1},
   {\"category\":\"merit\",\"item\":\"Contacts|grad|4|5\",\"dotsBuying\":1},
   {\"category\":\"skill\",\"item\":\"Investigation\",\"dotsBuying\":0}]"

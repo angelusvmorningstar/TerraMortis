@@ -47,7 +47,7 @@ At publish time, `compilePushOutcome` is extended to inject the relevant territo
 - `public/js/admin/city-views.js` — DT City view (note: `renderCityOverview` is in `downtime-views.js` at line 8757; the city sub-view code is in `city-views.js` per the import at line 8 of `downtime-story.js`. Verify at implementation; the panel goes in whichever DT City surface is appropriate).
 - `public/js/admin/downtime-views.js` — `compilePushOutcome` (line 2913): inject relevant territory pulse(s) into each feeder's Feeding section at publish time.
 - `public/js/admin/downtime-story.js` — same `compilePushOutcome` if that's where the canonical implementation lives; verify which file owns the publish blob.
-- `server/routes/downtime.js` — no new route (existing `PUT /api/downtime_cycles/:id` accepts the new field).
+- `server/routes/chapters.js` — no new route (existing `PUT /api/chapters/:id` accepts the new field; this route moved out of `downtime.js` into its own `chapters.js` as part of `cm-2b`).
 
 ### Out of scope
 
@@ -105,7 +105,7 @@ At publish time, `compilePushOutcome` is extended to inject the relevant territo
 
 **Given** I paste the LLM's output into the textarea and click Save
 **Then** `cycle.territory_pulse[territory_id]` is updated with `{ prompt_snapshot: <prompt at this save>, draft: <pasted text>, last_edited_at: <iso> }`.
-**And** the persistence happens via PUT `/api/downtime_cycles/:id`.
+**And** the persistence happens via PUT `/api/chapters/:id`.
 
 **Given** I reload the page
 **Then** the saved pulse text is pre-filled.
@@ -223,7 +223,7 @@ if (key === 'feeding_validation') {
   // ... existing feeding narrative inclusion (DTSR-7) ...
 
   // Territory pulses
-  const cycle = lookupCycle(sub.cycle_id);
+  const cycle = lookupCycle(sub.chapter_id);
   const territories = feedTerritoriesForSub(sub);
   for (const terrId of territories) {
     const pulse = cycle?.territory_pulse?.[terrId]?.draft;

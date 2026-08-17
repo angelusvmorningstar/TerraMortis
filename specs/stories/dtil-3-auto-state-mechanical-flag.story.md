@@ -58,7 +58,7 @@ The "write on first read" rule is important: if the default were computed live e
 ### Persistence on first read
 
 **Given** the derivation has assigned state to N items that previously had no entry
-**Then** all N derivation results are batched and written to `cycle.action_queue_state` via a single PUT `/api/downtime_cycles/:id` call (one round trip, not N).
+**Then** all N derivation results are batched and written to `cycle.action_queue_state` via a single PUT `/api/chapters/:id` call (one round trip, not N).
 **And** after the write succeeds, `cycle.action_queue_state` in memory matches the persisted state.
 
 **Given** all items already have entries in `cycle.action_queue_state`

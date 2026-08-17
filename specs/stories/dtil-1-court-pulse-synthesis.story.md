@@ -93,7 +93,7 @@ The scratchpad is a textarea bound to `downtime_cycle.st_court_synthesis_draft` 
 **And** the textarea has a Save button (or auto-saves on blur / debounced typing).
 
 **Given** I edit the textarea and save
-**Then** `cycle.st_court_synthesis_draft` is updated via PUT `/api/downtime_cycles/:id`.
+**Then** `cycle.st_court_synthesis_draft` is updated via PUT `/api/chapters/:id`.
 
 **Given** I reload the page
 **Then** the saved synthesis text is re-pre-filled.
@@ -274,7 +274,7 @@ UI panel + cycle write. Manual smoke test:
 - `public/admin.html` — slot for the panel if needed (likely append dynamically to an existing container).
 - `public/css/admin-layout.css` — styles for `.dt-court-pulse-*` classes.
 
-No server route changes (existing `PUT /api/downtime_cycles/:id` accepts the new field).
+No server route changes (existing `PUT /api/chapters/:id` accepts the new field — route moved from `downtime.js` into `server/routes/chapters.js` as part of `cm-2b`, path unaffected by this story).
 
 ---
 

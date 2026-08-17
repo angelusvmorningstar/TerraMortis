@@ -251,7 +251,7 @@ These hints are **informational only**; they do not gate the sign-off button.
 - **`public/js/admin.js`** lines 196 + 233-236 — remove the `dt-sub-tab-btn` click handler (and its initial state setter at line 196). Replace with a wiring that listens on the new ribbon's tab clicks and toggles panel visibility.
 - **`public/css/admin-layout.css`** lines 1230-1359 (existing ribbon CSS) and 6340-6360 (sub-tab strip CSS) — collapse into a single set of styles for the new ribbon. The existing `.pr-step` styles can mostly be reused with the addition of `cursor: pointer` and a hover state. The `.pr-connector` arrow styling is optional — can keep or drop.
 - **`server/schemas/downtime_cycle.schema.js`** (or wherever the cycle schema is defined) — add `phase_signoff` as an optional object. Verify by `Glob` for schema file location before editing.
-- **`server/routes/downtime_cycles.js`** (or wherever the PATCH handler is) — verify `phase_signoff` is accepted in update payloads. Likely no change if `additionalProperties: true` or if explicit fields are listed.
+- **`server/routes/chapters.js`** — verify `phase_signoff` is accepted in update payloads. Likely no change if `additionalProperties: true` or if explicit fields are listed. (Corrected 2026-08-17: this route was renamed/moved out of `server/routes/downtime.js`, never `downtime_cycles.js`, into its own `chapters.js` as part of `cm-2b`.)
 
 ### Key code shapes
 
@@ -350,7 +350,7 @@ Verify all new strings: "signed-off" (hyphenated, British), "Cycle published", n
 - `public/js/admin.js` — remove `dt-sub-tab-btn` handler block; wire ribbon click delegation if not handled inside downtime-views.js.
 - `public/css/admin-layout.css` — collapse ribbon CSS at lines 1230-1359 and sub-tab CSS at 6340-6360 into a single new ribbon style block. Add `.pr-tab`, `.pr-tab-active`, `.pr-tab-signed`, `.pr-tab-badge` styles.
 - `server/schemas/downtime_cycle.schema.js` (verify exact filename via `Glob server/schemas/downtime*`) — add optional `phase_signoff` field shape.
-- `server/routes/downtime_cycles.js` (verify) — confirm PATCH accepts `phase_signoff`.
+- `server/routes/chapters.js` (verify) — confirm PATCH accepts `phase_signoff`.
 
 ---
 

@@ -114,7 +114,7 @@ The panel sits alongside Court Pulse in DT Processing. State filter is a pill ro
 ### Persistence
 
 **Given** I make any state or note change
-**Then** the change persists to `cycle.action_queue_state` via PUT `/api/downtime_cycles/:id`.
+**Then** the change persists to `cycle.action_queue_state` via PUT `/api/chapters/:id`.
 
 **Given** I reload the page
 **Then** all state and note values persist.
@@ -294,7 +294,7 @@ UI + cycle write. Manual smoke test:
 - `public/admin.html` — slot if needed (likely dynamic).
 - `public/css/admin-layout.css` — styles for `.dt-action-queue-*`.
 
-No server changes (existing `PUT /api/downtime_cycles/:id` accepts the new field).
+No server changes (existing `PUT /api/chapters/:id` accepts the new field — route moved from `downtime.js` into `server/routes/chapters.js` as part of `cm-2b`, path unaffected by this story).
 
 ---
 

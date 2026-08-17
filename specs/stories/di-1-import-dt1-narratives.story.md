@@ -16,29 +16,28 @@ So that my full story history is accessible in one place rather than living in s
 
 ## Context
 
+### STALE — corrected 2026-08-17 against the now-live epic-cm rename
+
+This story predates `cm-2b`/`cm-4` (the `downtime_cycles`→`chapters` rename, `downtime_submissions.cycle_id`→`chapter_id`, and the historical chapter renumber), all now merged to `main` and live in production. Two things changed underneath this story, not just terminology:
+
+1. **The script this story pointed at no longer exists at that path.** `server/migrate-dt1.js` and `server/migrate-dt1-submissions.js` were moved to `server/scripts/archive/` during `cm-2b`'s own review (2026-08-17), specifically *because* they still read `downtime_cycles`/wrote `cycle_id` — re-running either unmodified post-migration would write invisible orphans (matching on a collection nothing reads any more) or, post-`--drop-source`, crash on a null cycle lookup with no guard. They were archived rather than rewritten in place, because a spent one-off migration is correctly archival, not maintenance — this story's own script is a **new** script, written fresh against `chapters`/`chapter_id`, not a resurrection of the archived one (though the archived file's mapping/parsing logic is still a valid reference for the shape of the transform).
+2. **The target Chapter document already exists.** `cm-4`'s historical renumber created a Chapter-1 placeholder (`chapters._id: 69f2dc48a77e2f00eb39a43c`, `game_number: 1`, `label: "Game 1"`, `status: "closed"`, `placeholder: true`, `placeholder_note: "This downtime was represented by character creation, January–February 2026."`) precisely because nothing in `downtime_submissions` currently carries `chapter_id` pointing at it (`submission_count: 0` as of the renumber). **DI-1's job is to attach the 26 DT1 submissions to this EXISTING chapter, not create a new one.** The placeholder's note is a factual claim made at renumber time by someone who did not know DT1 existed as importable data — once this story lands, that note is no longer accurate and should be cleared (or replaced with something like "Represented by the imported DT1 narratives, see di-1") as part of this story's own write, not left for a future session to notice the contradiction.
+
+Confirm both facts directly against MongoDB before writing the script (`db.chapters.findOne({game_number: 1})`, `db.downtime_cycles.findOne({game_number: 1})` — same `_id`, since `cm-2b` copied it across) rather than trusting this note if picking this story up much later; live state can move.
+
 ### What already exists
 
-The migration script is **already merged to main**: `server/migrate-dt1.js` (and an earlier sibling `server/migrate-dt1-submissions.js`). Both:
-
-- Create or upsert a `downtime_cycles` document for DT1 (`label: 'Downtime 1'`, `game_number: 1`, `status: 'closed'`, `loaded_at: 2026-02-28`, `closed_at: 2026-03-13`).
-- Map 26 raw records from `TM_downtime1_submissions.json` into `downtime_submissions` documents.
-- Build `published_outcome` markdown from `st_narrative` sections (Feeding, Projects, Touchstone, Letter, Territory Reports, Merit Actions).
-- Set `st_review.outcome_visibility: 'published'` so the Chronicle reader picks them up.
-- Apply a `CHAR_ID_FIXES` lookup for the five characters whose source records had blank `character_id` (Charles Mercer-Willows, Eve Lockridge, Ivana Horvat, Kirk Grimm, Tegan Groves).
-- Are idempotent: `--force` overwrites; default skips existing.
+Nothing runnable. The prior script generation is archived and dead (see above). The source data (`st-working/downtime/dt1/TM_downtime1_submissions.json`, 26 records) and the transform logic it needs (building `published_outcome` markdown from `st_narrative` sections — Feeding, Projects, Touchstone, Letter, Territory Reports, Merit Actions — plus the `CHAR_ID_FIXES` lookup for five characters with blank source `character_id`: Charles Mercer-Willows, Eve Lockridge, Ivana Horvat, Kirk Grimm, Tegan Groves) are still valid reference material inside the archived script.
 
 ### What hasn't happened
 
-Per the DI epic file (`specs/epic-data-imports.md` line 31): "**Status: Script written — awaiting run**". DT1 narratives are not in production MongoDB. The Chronicle tab on player.html shows DT2 and DT3 entries only.
+DT1 narratives are not in production MongoDB — confirmed directly (`downtime_submissions` has no DT1-sourced content; the Chapter-1 placeholder has `submission_count: 0`). The Chronicle tab on player.html shows DT2 and DT3 entries only.
 
 ### What this story finishes
 
-Two pieces:
-
-1. **Run the script against production** and verify the writes landed cleanly.
-2. **Verify Chronicle rendering** — confirm `public/js/tabs/story-tab.js`'s `renderChronicle` (line 124) sorts DT1 entries to the correct chronological position relative to DT2/DT3, and that the rendered markdown reads cleanly inside the existing `renderOutcomeWithCards` pipeline.
-
-There is also a small **discoverable bug**: the script at line 146 reads from `join(__dirname, '../TM_downtime1_submissions.json')` (i.e. project root), but the actual source file lives at `st-working/downtime/dt1/TM_downtime1_submissions.json`. The dev needs to either copy the source file or correct the path before running.
+1. **Write a new script** (`server/scripts/di-1-import-dt1-narratives.mjs`, following this project's plan/apply/main convention, no shebang) that maps the 26 source records into `downtime_submissions` documents with `chapter_id: ObjectId("69f2dc48a77e2f00eb39a43c")` (re-derive by querying `chapters` for `game_number: 1` rather than hardcoding — same discipline this project's other migration scripts already follow), and updates that chapter document to clear the placeholder flag/note once the real submissions land.
+2. **Run the script against production** and verify the writes landed cleanly.
+3. **Verify Chronicle rendering.** This is now a verification step, not an implementation step — `public/js/tabs/story-tab.js`'s `renderChronicle` and `renderLatestReport` were already updated by `cm-2b`/`cm-4` to sort by `cycleMap[String(sub.chapter_id)]?.game_number` (descending), which is exactly the fix this story used to propose writing. Confirm it already does the right thing with real DT1 data present; do not re-implement it.
 
 ### Why DI-1 ships first in the DI epic
 
@@ -46,9 +45,9 @@ DI-1 is the only DI story with finished tooling. DI-2 is unscoped (source data l
 
 ### Files in scope
 
-- **`server/migrate-dt1.js`** — fix source path (line 146), confirm idempotent skip behaviour, run dry-run + apply.
-- **`public/js/tabs/story-tab.js`** — verify `renderChronicle` sort order (line 131-133) handles DT1 entries correctly. Sort is currently `String(b._id) > String(a._id) ? 1 : -1` (descending by `_id`); DT1 docs inserted today will have *newer* ObjectIds than DT2/DT3, which would put them at the **top** of the chronicle — incorrect. Fix: sort by `cycle.game_number` (or by `cycle.closed_at`) instead of by submission `_id`.
-- **`public/js/tabs/story-tab.js`** — confirm `parseOutcomeSections` and `renderOutcomeWithCards` (used at line 144) render DT1's six markdown sections (Feeding / Projects / Touchstone / Letter / Territory Reports / Merit Actions) without breakage.
+- **`server/scripts/di-1-import-dt1-narratives.mjs`** (new) — write the transform, re-deriving the target chapter's `_id` by `game_number: 1` query, run dry-run + apply.
+- **`public/js/tabs/story-tab.js`** — verify only, do not edit unless real DT1 data reveals a gap: `renderChronicle`/`renderLatestReport` already sort by `chapter_id`→`game_number` (shipped in `cm-2b`/`cm-4`).
+- **`public/js/tabs/story-tab.js`** — confirm `parseOutcomeSections` and `renderOutcomeWithCards` render DT1's six markdown sections (Feeding / Projects / Touchstone / Letter / Territory Reports / Merit Actions) without breakage.
 
 ### Out of scope
 
@@ -56,7 +55,8 @@ DI-1 is the only DI story with finished tooling. DI-2 is unscoped (source data l
 - Reformatting DT1 to match the v2 six-section player report (`memory/project_dt_report_v2.md`). DT1 was authored before v2 existed; it stays in its original markdown shape.
 - Building ST-side editing of imported DT1 entries. DTSR-4 (Inline edit on player Story view, historical cycles only) covers historical-cycle edits more broadly when it ships; until then DT1 entries are read-only.
 - Resolving any data quality issues in the source JSON itself. If a character's DT1 narrative is malformed in source, surface the issue and decide per-record; do not add cleanup logic to the script.
-- Choosing between `migrate-dt1.js` and `migrate-dt1-submissions.js`. The newer `migrate-dt1.js` is the canonical script per the epic file. The older one can be deleted after this story confirms the new one works (separate cleanup task).
+- Reworking the Chronicle sort fix. It already shipped as part of `cm-2b`/`cm-4` — this story verifies it, does not implement it.
+- Deleting the archived `server/scripts/archive/migrate-dt1*.js` files. They're already correctly parked as dead/historical; leave them alone.
 
 ---
 
@@ -64,17 +64,15 @@ DI-1 is the only DI story with finished tooling. DI-2 is unscoped (source data l
 
 ### Source file path
 
-**Given** the dev attempts to run `node server/migrate-dt1.js`
-**When** the script reads the source path at line 146
-**Then** the path resolves to a real file. Either:
-- `server/TM_downtime1_submissions.json` exists (e.g. copied from `st-working/downtime/dt1/`), or
-- The script's path is updated to point at `../st-working/downtime/dt1/TM_downtime1_submissions.json` directly.
+**Given** the dev writes the new script
+**When** it resolves the source path
+**Then** it reads from `st-working/downtime/dt1/TM_downtime1_submissions.json` directly (relative to the script's own location) — no copy-to-project-root step, and no repeat of the archived script's wrong-relative-path bug.
 
 ### Dry run
 
-**Given** the script runs in dry-run mode (`node server/migrate-dt1.js`)
+**Given** the script runs in dry-run mode (no `--apply`)
 **Then** the output reports:
-- The DT1 cycle: either "WOULD INSERT" or "Cycle already exists" (skip).
+- The target chapter: `chapters` document for `game_number: 1`, confirmed found by query (not hardcoded), current `placeholder`/`submission_count` state shown.
 - Each of 26 character records: "WOULD INSERT" or "SKIP (exists)".
 - A summary of inserted / updated / skipped counts.
 
@@ -83,16 +81,18 @@ DI-1 is the only DI story with finished tooling. DI-2 is unscoped (source data l
 ### Apply
 
 **Given** the script runs with `--apply` against production
-**When** the cycle does not yet exist
-**Then** the `Downtime 1` cycle document is inserted into `downtime_cycles` with `game_number: 1`, `status: 'closed'`.
-**And** 26 submission documents are inserted into `downtime_submissions`, each with:
+**When** the target chapter is found by `game_number: 1` query
+**Then** 26 submission documents are inserted into `downtime_submissions`, each with:
 - `character_id` matching the live character (real ObjectId, not blank).
-- `cycle_id` pointing at the new DT1 cycle.
+- `chapter_id` pointing at the existing Chapter-1 document's `_id` (`69f2dc48a77e2f00eb39a43c` as of this story's writing — re-derive, do not hardcode).
 - `published_outcome` containing the assembled markdown.
 - `st_review.outcome_visibility: 'published'`.
 
+**And** the Chapter-1 document's `placeholder`/`placeholder_note` fields are cleared (or the note replaced to reflect that DT1 content now lives there) and `submission_count` updated to reflect the 26 new submissions.
 **And** any of the 5 characters in `CHAR_ID_FIXES` resolve to a valid character ObjectId.
 **And** all 26 records are present in MongoDB after the script completes.
+
+**If the target chapter is NOT found by `game_number: 1` query** (live state has moved since this story was corrected 2026-08-17): halt and report rather than guessing or creating a new chapter — this is exactly the kind of drift the re-derive-don't-hardcode discipline above exists to catch.
 
 ### Idempotency
 
@@ -106,7 +106,7 @@ DI-1 is the only DI story with finished tooling. DI-2 is unscoped (source data l
 **Given** a character with DT1, DT2, and DT3 published submissions
 **When** the player loads the Story tab on player.html
 **Then** the Chronicle pane lists entries in **reverse chronological by cycle**: DT3 at top, DT2 in the middle, DT1 at the bottom.
-**And** the sort key is `cycle.game_number` (descending), not submission `_id`.
+**And** the sort key is `chapter.game_number` (descending), not submission `_id` — already the case in production; this AC is a regression check, not new work.
 
 ### Chronicle rendering — markdown
 
@@ -144,47 +144,12 @@ DI-1 is the only DI story with finished tooling. DI-2 is unscoped (source data l
 
 ### Sequence
 
-1. Fix source-file path in `server/migrate-dt1.js:146` (or copy the JSON to the expected location).
-2. Run `node server/migrate-dt1.js` (dry run). Inspect output: 1 cycle insert + 26 submission inserts expected.
-3. If output looks clean: `node server/migrate-dt1.js --apply`.
-4. Verify in MongoDB Atlas: `tm_suite.downtime_cycles` has a `game_number: 1` doc; `tm_suite.downtime_submissions` has 26 docs with that `cycle_id`.
+1. Write `server/scripts/di-1-import-dt1-narratives.mjs` against `chapters`/`chapter_id`, re-deriving the target chapter by `game_number: 1` query (see AC — Apply).
+2. Run it (dry run). Inspect output: chapter found, 1 chapter-update + 26 submission inserts expected.
+3. If output looks clean: run with `--apply`.
+4. Verify in MongoDB Atlas: the `game_number: 1` `chapters` doc has `placeholder` cleared; `tm_suite.downtime_submissions` has 26 new docs with that `chapter_id`.
 5. Open player.html locally (or against production), pick three test characters from §Smoke test sample size above, verify Chronicle renders correctly.
-6. If sort order is wrong (DT1 at top): fix `renderChronicle` sort key to use `cycle.game_number`.
-
-### Sort fix in `renderChronicle`
-
-Current sort at `public/js/tabs/story-tab.js:131-133`:
-
-```js
-const published = subs
-  .filter(s => String(s.character_id) === charId && s.published_outcome)
-  .sort((a, b) => (String(b._id) > String(a._id) ? 1 : -1));
-```
-
-Replace with:
-
-```js
-const published = subs
-  .filter(s => String(s.character_id) === charId && s.published_outcome)
-  .sort((a, b) => {
-    const ga = cycleMap[String(a.cycle_id)]?.game_number ?? 0;
-    const gb = cycleMap[String(b.cycle_id)]?.game_number ?? 0;
-    return gb - ga; // descending: newest game first
-  });
-```
-
-This requires `cycleMap` values to carry the cycle object (or at least `game_number`), not just the label string. Update the `cycleMap` construction at line 125-128 accordingly:
-
-```js
-const cycleMap = {};
-for (const c of cycles) {
-  cycleMap[String(c._id)] = c; // store the whole cycle, not just the label
-}
-```
-
-Then update the label read at line 141 from `cycleMap[...]` to `cycleMap[...]?.label || ...`.
-
-The same fix is needed in `renderLatestReport` at lines 40-46 if the same sort issue exists there (the game-app's "latest report" view). Worth fixing both at once.
+6. Chronicle sort order should already be correct (shipped in `cm-2b`/`cm-4`) — if DT1 renders out of order, that's a genuine regression to investigate, not an expected fix-it-here step.
 
 ### Production credentials
 
@@ -192,9 +157,9 @@ Per memory `feedback_imports`: the user runs MongoDB import scripts personally. 
 
 Per memory `feedback_live_credentials`: do not suggest resetting `MONGODB_URI` or other secrets. The user has the URI set in their local environment.
 
-### What to do if the cycle already exists in production
+### What to do if the target chapter's state doesn't match what this story expects
 
-If MongoDB already has a `game_number: 1` cycle (e.g. from an earlier partial run), the script's default behaviour is to skip and reuse that `cycle_id`. That is correct — do not pass `--force` unless the existing cycle's metadata is wrong. Inspect first.
+Re-derive by `game_number: 1` query rather than trusting the `_id`/state described above — this story was corrected once already (2026-08-17) against live-state drift, and the same could happen again by the time it's picked up. If the chapter is missing entirely, already has submissions attached, or `placeholder` is already `false`, halt and report to Angelus rather than guessing at intent.
 
 ### What to do if any character record fails
 
@@ -215,27 +180,27 @@ This is a one-shot import + render verification. Manual smoke test as described 
 
 ## Files Expected to Change
 
-- **`server/migrate-dt1.js`** — single-line fix at line 146 to correct source path.
-- **`public/js/tabs/story-tab.js`** — sort key fix in `renderChronicle` (and possibly `renderLatestReport`); cycleMap construction adjusted to carry full cycle objects.
-- **No schema changes.** The script writes into the existing `downtime_cycles` and `downtime_submissions` collections using existing field shapes.
+- **`server/scripts/di-1-import-dt1-narratives.mjs`** (new) — the import script, against `chapters`/`chapter_id`.
+- **`public/js/tabs/story-tab.js`** — verify only; no change expected (sort fix already shipped in `cm-2b`/`cm-4`).
+- **No schema changes.** The script writes into the existing `chapters` and `downtime_submissions` collections using existing field shapes.
 
 ---
 
 ## Definition of Done
 
 - All AC verified.
-- DT1 cycle present in production `tm_suite.downtime_cycles`.
-- 26 DT1 submission documents present in production `tm_suite.downtime_submissions`.
+- Chapter-1 document in production `tm_suite.chapters` (`game_number: 1`) has `placeholder` cleared and 26 submissions attached.
+- 26 DT1 submission documents present in production `tm_suite.downtime_submissions`, each with `chapter_id` pointing at that chapter.
 - Chronicle tab on player.html shows DT1 entries in correct chronological position for at least three sampled characters.
 - File list in completion notes matches actual changes.
 - `specs/stories/sprint-status.yaml` updated: `di-1-import-dt1-narratives: backlog → ready-for-dev → in-progress → review` as work proceeds.
-- The older `server/migrate-dt1-submissions.js` either flagged for deletion in completion notes or deleted (separate small commit acceptable).
+- The archived `server/scripts/archive/migrate-dt1*.js` files are left alone — not touched by this story.
 
 ---
 
 ## Dependencies and ordering
 
-- **No upstream dependencies.** The script and source data both exist.
+- **No upstream dependencies.** The source data exists; the script is new work.
 - **No downstream blockers.** DI-2 (Game 1 letters) and DI-3 (ordeal data sync) do not depend on DI-1.
 - **Pairs well with DTSR-4** (inline edit on historical cycles, ready-for-dev): once DT1 exists in MongoDB, DTSR-4's edit surface naturally applies to DT1 entries too. Land DI-1 first so DTSR-4 has DT1 data to test against.
 
@@ -243,9 +208,8 @@ This is a one-shot import + render verification. Manual smoke test as described 
 
 ## References
 
-- `specs/epic-data-imports.md` — DI epic; DI-1 acceptance criteria and dev notes.
-- `server/migrate-dt1.js` — the canonical migration script (written 2026-04-17).
-- `server/migrate-dt1-submissions.js` — earlier sibling; safe to retire after DI-1 verifies the canonical script works.
+- `specs/epic-data-imports.md` — DI epic; DI-1 acceptance criteria and dev notes (itself may still describe the pre-rename script — verify against this story's own corrected Context section, not the epic file, if the two disagree).
+- `server/scripts/archive/migrate-dt1.js` / `migrate-dt1-submissions.js` — archived, dead, but still valid reference for the transform/mapping logic (`CHAR_ID_FIXES`, the six-section markdown assembly).
 - `st-working/downtime/dt1/TM_downtime1_submissions.json` — source data (26 records).
-- `public/js/tabs/story-tab.js:124-148` — `renderChronicle` (current sort behaviour and fix point).
+- `public/js/tabs/story-tab.js` — `renderChronicle`/`renderLatestReport` (already sort correctly; verify only).
 - `memory/feedback_imports.md` — user runs all MongoDB import scripts personally; the dev delivers ready-to-run tooling.
