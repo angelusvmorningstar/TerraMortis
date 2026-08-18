@@ -584,7 +584,10 @@ development_status:
   # character-history archive pipeline, and dossier restructure.
   # Epic file: specs/epic-ord-ordeals-tracking.md
 
-  epic-ord: in-progress
+  # 2026-08-18: all ord-N stories now resolved (done or superseded) —
+  # ord-10/ord-11 closed this session ("ordeals are now owned by Story",
+  # Angelus's own ruling), everything else already done. Flipped to done.
+  epic-ord: done
 
   # Tier 1 — Questionnaire cleanup (shipped 2026-04-24 in commit 21cba81)
   ord-1-questionnaire-strip-redundant-fields: done
@@ -612,17 +615,11 @@ development_status:
   ord-10-ordeal-rubric-content-authoring: superseded  # moved to a future TM Cockpit skill per the 2026-08-12 ruling — see story file
 
   # Tier 5 — History pipeline (depends on ORD-3 + ORD-4)
-  # FLAGGED 2026-08-18, not closed — found while scoping TM Wiki for
-  # redundancies, genuinely ambiguous rather than clearly superseded like
-  # ord-10 was. This story targets public/js/admin/ordeals-admin.js (the
-  # same admin surface ../TM Story/specs/ordeals-tab-port-scoping.md's
-  # 2026-08-12 ruling says is being "fully cut over" away from TM Suite)
-  # and writes to archive_documents (already separately flagged for Wiki
-  # handover — dbo-7, joint with Wiki 31-4/31-5). Three-repo interaction
-  # (TM Suite / TM Wiki / TM Cockpit); TM Cockpit isn't present in this
-  # session's environment to check its own side. Needs Angelus's read, not
-  # guessed at — left as backlog.
-  ord-11-character-history-to-archive-pipeline: backlog
+  # 2026-08-18: CLOSED, Angelus's own ruling — "ordeals are now owned by
+  # Story." Same disposition as ord-10: this story's ST admin action
+  # (public/js/admin/ordeals-admin.js, POST /api/archive_documents) belongs
+  # to the domain that just moved to TM Story/TM Wiki, not TM Suite.
+  ord-11-character-history-to-archive-pipeline: superseded  # ordeals domain now owned by TM Story — Angelus's own ruling 2026-08-18
 
   # Follow-up — Dossier live-section restructure
   ord-12-dossier-restructure-live-sections: done # NOTE (2026-08-16 reconciliation): real file is ord.12.dossier-restructure-live-sections.story.md (dot notation, not dash) - same flag as ord-4.

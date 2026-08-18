@@ -1,10 +1,20 @@
 ---
 id: ord.11
 epic: ord
-status: draft
+status: superseded
 priority: medium
 depends_on: [ord.3, ord.4, ord.9]
 ---
+
+> ## ✅ SUPERSEDED — 2026-08-18, Angelus's own ruling: "ordeals are now owned by Story"
+>
+> Same disposition as `ord-10` (rubric authoring, already superseded per the 2026-08-12 ruling in
+> `../TM Story/specs/ordeals-tab-port-scoping.md`). This story's ST admin action — a button on
+> `public/js/admin/ordeals-admin.js` that `POST`s a new `archive_documents` doc — belongs to a
+> domain that has now moved to TM Story (TM Wiki) entirely, confirmed directly by Angelus rather
+> than inferred from the dated scoping doc alone. Not built here. If this bridge (raw Ordeal
+> submission → polished archive document) still needs doing, it belongs wherever TM Story ends up
+> owning Ordeals authoring/marking — not this repo.
 
 # Story ORD-11: Refine character_history submission into archive_documents
 
