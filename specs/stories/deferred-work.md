@@ -508,3 +508,57 @@ The 8 patched findings are in the story's Senior Developer Review.
   namespace (`D--Terra-Mortis-TM-Suite`, the pre-rename project name), not a file this repo's diff
   touches. Worth a manual purge/update in a future session so it doesn't get cited as ground truth.
   Angelus's operational act, not a coding task.
+
+## Deferred from: code review of fix.779.contacts-pt-merit-free-sum (2026-08-18, internal 3-layer)
+
+Branch `ms/issue-779-contacts-pt-merit-free-sum` sat stranded from 2026-06-16 to 2026-08-18;
+reconciled onto `dev` after passing internal review. All four items below were independently
+verified against real code before deferral, not taken on a reviewer's word.
+
+- **`meritFreeSum`/`freeOf` map-fallback staleness for evaluator-owned legacy slugs** —
+  `public/js/data/rules-helpers.js` (`meritFreeSum`, `freeOf`). Six legacy slugs (`ohm`, `pt`,
+  `mdb`, `bloodline`, `pet`, `sw`) have a live evaluator that unconditionally clears and
+  rewrites their flat `free_<slug>` field on every render (confirmed by direct read of
+  `ohm-evaluator.js`, `pt-evaluator.js`, `mdb-evaluator.js`, `bloodline-evaluator.js`,
+  `style-retainer-evaluator.js`, `safe-word-evaluator.js`). Once the N-2 backfill script
+  (`server/scripts/backfill-free-grants.js`) migrates one of these slugs into
+  `m.free_grants[slug]`, `freeOf`'s map-wins precedence means that map value is frozen forever
+  — the evaluator keeps recomputing the legacy field, but nothing ever reads it again for that
+  slug on that merit. This is NOT specific to fix-779: the same map-fallback shape is already
+  used identically in `mdb-evaluator.js`'s internal Mentor-rating calc and
+  `safe-word-evaluator.js`'s `_effectivePartnerRating`, both predating this story. Two concrete
+  consequences to design around: `pruneContactsSpheres` (`public/js/editor/domain.js:334-351`)
+  could truncate a live sphere selection using a stale, too-low total (its truncate-only guard
+  exists specifically to prevent data loss, so this would be exactly the failure it was built to
+  avoid); `syncMeritRating` (`domain.js:319-321`) persists the stale total into `m.rating` on
+  every save, so the error compounds instead of self-correcting. Real fix options: per-slug
+  precedence (legacy-wins-on-conflict for evaluator-owned slugs, at the cost of `meritFreeSum`
+  disagreeing with `freeOf`/the evaluator-internal reads unless those are updated too), or moving
+  the six evaluators to write `free_grants` directly instead of the legacy flat field. Either is
+  a real architectural story, not a one-line patch — recommend checking whether any live
+  character currently has a map/legacy *mismatch* (not just both-set-equal) for one of these six
+  slugs before scoping, to know if this is theoretical or already live.
+
+- **AC-1's "displays 5 dots in the sheet editor" has no automated test exercising the actual
+  render path** — `server/tests/fix-779-merit-free-sum.test.js` imports the raw `meritFreeSum`
+  from `rules-helpers.js` directly; it never touches `domain.js`'s own `meritFreeSum` wrapper
+  (the one every real caller — `syncMeritRating`, `pruneContactsSpheres`, `meritEffectiveRating`,
+  `canAllocateCarthianPull` — actually goes through) or any sheet-editor rendering path. The
+  arithmetic is covered; the acceptance criterion's actual display claim is not. Add an
+  integration-level test through `domain.js`'s wrapper (or a render-path test) next time this
+  area is touched.
+
+- **AC-5's DB audit (20/20 characters correct) is stale and unauditable** — run 2026-06-16
+  against then-live data, no script or output log retained in the repo, and not re-run at
+  2026-08-18 merge time (live-DB verification is the user's own call per project convention).
+  If PT/OHM/MDB/Bloodline/Pet-target merits have changed for any of the 20 originally-affected
+  characters in the intervening two months, this claim should be treated as unverified until
+  re-run.
+
+- **Legacy-slug inclusion in `meritFreeSum` uses raw truthiness, not type-checking** —
+  `public/js/data/rules-helpers.js` (`LEGACY_FREE_SLUGS.filter(s => m['free_' + s])`). A stray
+  truthy-but-non-numeric legacy field (e.g. the string `"0"`, or a negative number from a
+  data-entry error) would be included in the slug union and passed to `freeOf`, risking string
+  coercion or an unbounded negative in the total instead of a clean numeric sum. Identical
+  exposure existed in the pre-fix summing code — not introduced by this diff, just not
+  addressed by it either.
