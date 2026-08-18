@@ -1,0 +1,1912 @@
+diff --git a/public/js/editor/edit.js b/public/js/editor/edit.js
+index bdf62c0a..287fd8a1 100644
+--- a/public/js/editor/edit.js
++++ b/public/js/editor/edit.js
+@@ -3,11 +3,12 @@
+ import state from '../data/state.js';
+ import { apiGet, apiPost, apiPut, apiDelete } from '../data/api.js';
+ import { isInClanDisc, bloodlineUnresolved } from '../data/accessors.js';
+-// BL-3a (#1008): the clan-change validity check reads the collection. NOTE:
+-// BL-5 deletes this whole branch (clan is write-once, so it is unreachable);
+-// rewired rather than left behind only because BL-3b cannot delete the
+-// constant while any live path still reads it.
+-import { bloodlinesByClan, bloodlinesResolvable } from '../data/bloodlines-cache.js';
++// BL-5 (#1008): clan and bloodline are write-once, and the refusal is shared
++// with the Identity tab's `updField` so the rule has one implementation across
++// both editing surfaces. This import replaces BL-3a's `bloodlinesByClan` /
++// `bloodlinesResolvable` pair, which existed only to feed the clan-change
++// bloodline auto-clear that BL-5 deleted below.
++import { refuseLineageWrite } from '../data/write-once.js';
+ import {
+   CLAN_BANES, CLAN_DISCS,
+   SKILL_CATS, SKILL_PRI_BUDGETS, ALL_SKILLS, ATTR_CATS, PRI_BUDGETS,
+@@ -87,6 +88,10 @@ export function editFromSheet() {
+ 
+ export function shEdit(field, val) {
+   if (state.editIdx < 0) return;
++  // BL-5 (#1008): this guard MUST stay above the assignment on the next line,
++  // which is where the field is written. Enforced at the handler, not only in
++  // the markup, per data-map.md's own instruction on `characters.clan`.
++  if (refuseLineageWrite(state.chars[state.editIdx], field, val)) return;
+   state.chars[state.editIdx][field] = val || null;
+   _markDirty();
+   // Re-render for fields that affect derived display (title bonus, clan bane)
+@@ -104,25 +109,13 @@ export function shEdit(field, val) {
+       if (ci >= 0) c.banes[ci] = { ...newCurse };
+       else c.banes.unshift({ ...newCurse });
+     }
+-    // Clear bloodline if not valid for the new clan.
+-    //
+-    // BL-3a review: this is the ONLY destructive write in the rewiring, and
+-    // moving it to an async source made it dangerous in a way the static
+-    // constant never was. `bloodlinesByClan()` returns {} whenever the cache is
+-    // unloaded, failed, OR the collection is empty — and empty is the live
+-    // state until the seed is applied. An empty map means `validBLs` is [], so
+-    // EVERY bloodline reads as invalid and the branch nulls a perfectly good
+-    // one with no warning. The old constant was always populated, so the clear
+-    // only ever fired on a genuine mismatch.
+-    //
+-    // Refuse to judge when the cache cannot answer. Comparison is on the same
+-    // trimmed/case-folded key `bloodlineDiscs` uses, so a value that costs
+-    // correctly is never deleted for a spelling difference.
+-    if (c.bloodline && bloodlinesResolvable()) {
+-      const key = s => String(s).trim().toLowerCase();
+-      const validBLs = (bloodlinesByClan()[val] || []).map(key);
+-      if (!validBLs.includes(key(c.bloodline))) c.bloodline = null;
+-    }
++    // BL-5 (#1008): the "clear the bloodline if it is not valid for the new
++    // clan" block that used to sit here is DELETED, not guarded. Clan is
++    // write-once and now enforced both here and at the API, so a clan can never
++    // change after its first set and the branch could never fire. A guard is a
++    // thing that can be got subtly wrong later; a deletion is not. The bane
++    // assignment above stays, because it is still needed the first time a clan
++    // is set on a new character.
+     _renderSheet(c);
+   }
+ }
+diff --git a/public/js/editor/identity.js b/public/js/editor/identity.js
+index 116abf00..bd63d287 100644
+--- a/public/js/editor/identity.js
++++ b/public/js/editor/identity.js
+@@ -5,6 +5,10 @@ import { MASKS_DIRGES, CLANS, COVENANTS, COURT_TITLES } from '../data/constants.
+ // BL-3a (#1008): the approved list is DERIVED from the bloodlines collection,
+ // so a bloodline added without a deploy appears here.
+ import { approvedBloodlines } from '../data/bloodlines-cache.js';
++// BL-5 (#1008): clan and bloodline are write-once. The refusal is shared with
++// the sheet's own clan/bloodline pair (`editor/edit.js`'s `shEdit`) so the rule
++// has exactly one implementation across the two editing surfaces.
++import { refuseLineageWrite, lineageLockAttr, lineageLockNoteHtml, isLineageLocked } from '../data/write-once.js';
+ import { esc, displayName, cardName, isRedactMode, redactCharName, redactPlayer } from '../data/helpers.js';
+ // #837: XP totals are derived at render time; identity.js displays them
+ // directly via xp.js rather than persisting them as character fields.
+@@ -31,7 +35,13 @@ export function renderIdentityTab(c) {
+     .map(b => `<option${c.bloodline && _blKey(c.bloodline) === _blKey(b) ? ' selected' : ''}>${esc(b)}</option>`).join('');
+   const maskOpts = MASKS_DIRGES.map(m => `<option${c.mask === m ? ' selected' : ''}>${m}</option>`).join('');
+   const dirgeOpts = MASKS_DIRGES.map(m => `<option${c.dirge === m ? ' selected' : ''}>${m}</option>`).join('');
+-  const clanOpts = CLANS.map(cl => `<option${c.clan === cl ? ' selected' : ''}>${cl}</option>`).join('');
++  // BL-5 (#1008): the clan select had no "not set" option, so a character with
++  // no clan rendered with `Daeva` visibly selected and one touch committed it.
++  // Latent while every live character carries a clan, and closed by the lock
++  // for all of them, but the acquisition path is the one place it still
++  // matters.
++  const clanPlaceholder = isLineageLocked(c, 'clan') ? '' : `<option value=""${!c.clan ? ' selected' : ''}>(not set)</option>`;
++  const clanOpts = clanPlaceholder + CLANS.map(cl => `<option${c.clan === cl ? ' selected' : ''}>${cl}</option>`).join('');
+   const covOpts = COVENANTS.map(cv => `<option${c.covenant === cv ? ' selected' : ''}>${cv}</option>`).join('');
+   const categoryOpts = COURT_TITLES.map(t => `<option value="${esc(t)}"${c.court_category === t ? ' selected' : ''}>${t || '(none)'}</option>`).join('');
+ 
+@@ -78,14 +88,16 @@ export function renderIdentityTab(c) {
+       <div class="form-grid">
+         <div class="form-row">
+           <label class="form-label">Clan</label>
+-          <select class="form-select" onchange="updField('clan',this.value)">${clanOpts}</select>
++          <select class="form-select" onchange="updField('clan',this.value)"${lineageLockAttr(c, 'clan')}>${clanOpts}</select>
++          ${lineageLockNoteHtml(c, 'clan')}
+         </div>
+         <div class="form-row">
+           <label class="form-label">Bloodline</label>
+-          <select class="form-select" onchange="updField('bloodline',this.value||null)">
++          <select class="form-select" onchange="updField('bloodline',this.value||null)"${lineageLockAttr(c, 'bloodline')}>
+             <option value=""${!c.bloodline ? ' selected' : ''}>(none)</option>
+             ${bloodlineOpts}
+           </select>
++          ${lineageLockNoteHtml(c, 'bloodline')}
+         </div>
+         <div class="form-row">
+           <label class="form-label">Covenant</label>
+@@ -181,6 +193,9 @@ export function renderIdentityTab(c) {
+ /* ── Field update handlers ── */
+ export function updField(key, val) {
+   if (state.editIdx < 0) return;
++  // BL-5 (#1008): enforce at the HANDLER, not only in the markup. The disabled
++  // select above is defence in depth; this is the defence.
++  if (refuseLineageWrite(state.chars[state.editIdx], key, val)) return;
+   state.chars[state.editIdx][key] = val;
+   _markDirty();
+   // Update header name
+diff --git a/public/js/editor/sheet.js b/public/js/editor/sheet.js
+index eae84246..a5016395 100644
+--- a/public/js/editor/sheet.js
++++ b/public/js/editor/sheet.js
+@@ -29,6 +29,10 @@ import { getRulesCache } from './rule_engine/load-rules.js';
+ import { getStoredTerritories } from '../data/accessors.js';
+ // BL-3a (#1008): clan-filtered bloodline options come from the collection.
+ import { bloodlinesByClan } from '../data/bloodlines-cache.js';
++// BL-5 (#1008): the sheet header carries the SECOND clan/bloodline dropdown
++// pair. It locks from the same shared module the Identity tab does, keyed off
++// the character's own stored value and never off the cache.
++import { isLineageLocked, lineageLockAttr, lineageLockNoteHtml } from '../data/write-once.js';
+ 
+ // BL-3a review: names are DB-sourced (BL-4 lets an ST write them), so they are
+ // escaped; and the character's OWN value is always present and matched
+@@ -2713,8 +2717,15 @@ export function renderSheet(c, target = null) {
+   const _covBase = st.covenant?.[c.covenant] || 0;
+   covRow(covIconHtml, '<select class="sh-edit-select" onchange="shEdit(\'covenant\',this.value);renderSheet(chars[editIdx])">' + COVENANTS.map(cv => '<option' + (c.covenant === cv ? ' selected' : '') + '>' + cv + '</option>').join('') + '</select>', '<div class="sh-faction-label">' + esc(c.covenant || '\u2014') + '</div>', 'Covenant', OTHER_SVG, _covBase, 'Cov.', 'covenant', _covBase, 0);
+   if (editMode) {
+-    const cOpts = CLANS.map(cl => '<option' + (c.clan === cl ? ' selected' : '') + '>' + cl + '</option>').join(''), bls = _blOptionNames(c), blO = bls.map(b => '<option' + (c.bloodline && _blKey(c.bloodline) === _blKey(b) ? ' selected' : '') + '>' + esc(b) + '</option>').join('');
+-    covRow(clanIconHtml, '<select class="sh-edit-select" onchange="shEdit(\'clan\',this.value)">' + cOpts + '</select><select class="sh-edit-select sh-edit-select-sub" onchange="shEdit(\'bloodline\',this.value||null);renderSheet(chars[editIdx])"><option value="">(no bloodline)</option>' + blO + '</select>', '', 'Clan / Bloodline', OTHER_SVG, st.clan || 0, 'Clan', 'clan', st.clan || 0, 0);
++    // BL-5 (#1008): both selects are locked once the character holds a value,
++    // and the clan select gains the "not set" placeholder it never had on the
++    // one path where it still matters. Two selects are built on the line below;
++    // locking one and missing the other is the exact failure this epic exists
++    // to stop, so both lock attributes are applied there and the reasons are
++    // rendered under them.
++    const _clanPlaceholder = isLineageLocked(c, 'clan') ? '' : '<option value=""' + (c.clan ? '' : ' selected') + '>(not set)</option>';
++    const cOpts = _clanPlaceholder + CLANS.map(cl => '<option' + (c.clan === cl ? ' selected' : '') + '>' + cl + '</option>').join(''), bls = _blOptionNames(c), blO = bls.map(b => '<option' + (c.bloodline && _blKey(c.bloodline) === _blKey(b) ? ' selected' : '') + '>' + esc(b) + '</option>').join('');
++    covRow(clanIconHtml, '<select class="sh-edit-select" onchange="shEdit(\'clan\',this.value)"' + lineageLockAttr(c, 'clan') + '>' + cOpts + '</select><select class="sh-edit-select sh-edit-select-sub" onchange="shEdit(\'bloodline\',this.value||null);renderSheet(chars[editIdx])"' + lineageLockAttr(c, 'bloodline') + '><option value="">(no bloodline)</option>' + blO + '</select>' + lineageLockNoteHtml(c, 'clan') + lineageLockNoteHtml(c, 'bloodline'), '', 'Clan / Bloodline', OTHER_SVG, st.clan || 0, 'Clan', 'clan', st.clan || 0, 0);
+   }
+   else covRow(clanIconHtml, '', '<div class="sh-faction-label">' + esc(c.clan || '\u2014') + '</div>' + (bl ? '<div class="sh-faction-bloodline">' + esc(bl) + '</div>' : ''), 'Clan', OTHER_SVG, st.clan || 0, 'Clan', 'clan', st.clan || 0, 0);
+   h += '</div></div></div>'; // end right, body, hdr
+diff --git a/server/routes/characters.js b/server/routes/characters.js
+index 8bea5116..9f05e191 100644
+--- a/server/routes/characters.js
++++ b/server/routes/characters.js
+@@ -10,6 +10,11 @@ import { normalizeMeritsMiddleware, normalizeCharacterMerits, validateWhiteAntsT
+ // SUBSET ITSELF (mci + bloodline + retainer) is preserved verbatim per
+ // Concern #1 Rev 2 — divergence with the client's mci-only subset stays.
+ import { freeOf, resolveSharingScope } from '../../public/js/data/rules-helpers.js';
++// BL-5 (#1008): clan and bloodline are write-once. The decision is pure and
++// lives in its own module (the bloodline-delete-guard.js precedent); only the
++// wiring is here.
++import { WRITE_ONCE_FIELDS, checkWriteOnce, writeOnceRaceMessage } from '../lib/character-write-once.js';
++import { bloodlineKey } from '../lib/bloodline-key.js';
+ // ECM-7 (#874): the EQUIPMENT_CATALOGUE static-module import + the dead
+ // _CATALOGUE_IDS slug set were removed alongside the static module deletion.
+ // POST /api/characters/:id/equipment validates catalogue existence via the
+@@ -33,6 +38,44 @@ function stripEphemeral(req, res, next) {
+   next();
+ }
+ 
++/**
++ * BL-5 (#1008) — does an ACQUIRED bloodline name resolve against the
++ * collection? Returns a message when it demonstrably does not, and `null`
++ * whenever the collection cannot answer.
++ *
++ * Three deliberate refusals to judge, each of which would otherwise reject a
++ * legitimate first-set:
++ *   - the collection is EMPTY. Production holds zero bloodline documents right
++ *     now, so a check that fired here would reject every acquisition in the
++ *     app. This is BL-3a's `bloodlinesResolvable()` reasoning applied server
++ *     side, and the same lesson its review paid for.
++ *   - the read THREW. An unreadable collection is a system state, not evidence
++ *     about the value.
++ *   - the value is not a usable string. Schema validation owns that.
++ *
++ * Matching is on the shared trim + case-fold key, the same one the client
++ * resolves costing through, so a value that costs correctly is never refused
++ * for a spelling difference. The collection is read whole and filtered in
++ * memory, which is BL-4's own precedent for exactly this comparison (it is a
++ * couple of dozen documents).
++ */
++async function bloodlineDoesNotResolve(name) {
++  const key = bloodlineKey(name);
++  if (!key) return null;
++  let docs;
++  try {
++    docs = await getCollection('bloodlines').find({}, { projection: { name: 1 } }).toArray();
++  } catch (err) {
++    console.error('[characters] bloodline referential check could not read the collection:', err.message);
++    return null;
++  }
++  if (!docs.length) return null;
++  if (docs.some(d => bloodlineKey(d && d.name) === key)) return null;
++  return `Bloodline "${String(name)}" is not in the bloodlines collection. `
++    + 'A bloodline is permanent once acquired, so it is checked at the moment it is set. '
++    + 'Add it under Reference Data first, or correct the spelling.';
++}
++
+ function parseId(id) {
+   try {
+     return new ObjectId(id);
+@@ -479,22 +522,90 @@ router.put('/:id', requireRole('st'), stripEphemeral, validateCharacterPartial,
+     updates.equipment = hydrated;
+   }
+ 
++  // BL-5 (#1008): clan and bloodline are write-once, and until this story
++  // nothing knew it. The check needs the STORED value, which is why it is not a
++  // middleware (every middleware in the chain above is body-only) and why the
++  // read the touchstones branch already performed is HOISTED here and widened
++  // rather than duplicated: one document, one read, two questions.
++  //
++  // Nothing is read at all unless the body actually carries one of the three
++  // fields that need it.
++  const has = k => Object.prototype.hasOwnProperty.call(updates, k);
++  const guardedInBody = WRITE_ONCE_FIELDS.filter(has);
++  let existingChar = null;
++  if (guardedInBody.length || has('touchstones')) {
++    existingChar = await col().findOne({ _id: oid }, { projection: { clan: 1, bloodline: 1 } });
++  }
++
++  // `acquisitions` is field -> the value stored at the moment of the read. It
++  // is what turns the update into a compare-and-set below. Only an ACQUISITION
++  // goes in: a no-op save must not gain a filter condition, or an unrelated
++  // concurrent write would fail somebody's merit save.
++  const acquisitions = {};
++  if (existingChar) {
++    for (const field of guardedInBody) {
++      const v = checkWriteOnce(field, existingChar[field], updates[field]);
++      if (!v.allowed) {
++        // 409, not 400: the body is well-formed and schema-valid. What
++        // conflicts is the stored state. Same code BL-4 returns for the name
++        // collision and the guarded delete.
++        return res.status(409).json({ error: 'WRITE_ONCE_VIOLATION', message: v.reason });
++      }
++      if (!v.changed) continue;
++      acquisitions[field] = existingChar[field];
++
++      // The referential check (BL-5 AC 8), on ACQUISITION ONLY. Running it on a
++      // no-op would fail every existing holder's next full-document save, and
++      // running it against an empty or unreadable collection would reject every
++      // first-set in the app — production holds zero bloodline documents right
++      // now. A lookup that cannot answer must not be allowed to answer "no".
++      if (field === 'bloodline') {
++        const err = await bloodlineDoesNotResolve(updates.bloodline);
++        if (err) return res.status(400).json({ error: 'VALIDATION_ERROR', message: err });
++      }
++    }
++  }
++
+   // NPCR.4: if the save includes touchstones[], validate cap, humanity-in-range,
+   // and each embedded edge_id points to a valid touchstone relationship for this char.
+-  if (Object.prototype.hasOwnProperty.call(updates, 'touchstones')) {
+-    const existingChar = await col().findOne({ _id: oid }, { projection: { clan: 1 } });
+-    const effectiveChar = { ...existingChar, ...updates }; // updates may also change clan
++  if (has('touchstones')) {
++    const effectiveChar = { ...existingChar, ...updates }; // updates may also set clan
+     const err = await validateTouchstones(updates.touchstones, oid, effectiveChar);
+     if (err) return res.status(400).json({ error: 'VALIDATION_ERROR', message: err });
+   }
+ 
++  // Compare-and-set. Between the read above and this write nothing holds a
++  // lock, so two concurrent acquisitions could both see "no value", both pass,
++  // and the second silently overwrite the first — the read-then-write class
++  // BL-4's review found three of. Putting the prior value in the FILTER makes
++  // the whole thing one atomic operation, which is what a MongoDB transaction
++  // would not have given us (transactions conflict on writes; there is no
++  // predicate locking). What stays deliberately open: a concurrent write
++  // setting the SAME value is indistinguishable from a no-op, and is harmless.
++  const filter = { _id: oid };
++  for (const [field, prior] of Object.entries(acquisitions)) {
++    // `undefined` means the field was absent from the document. `null` is the
++    // right filter for that: in MongoDB it matches both null and missing.
++    filter[field] = prior === undefined ? null : prior;
++  }
++
+   const result = await col().findOneAndUpdate(
+-    { _id: oid },
++    filter,
+     { $set: updates },
+     { returnDocument: 'after' }
+   );
+ 
+-  if (!result) return res.status(404).json({ error: 'NOT_FOUND', message: 'Character not found' });
++  if (!result) {
++    const raced = Object.keys(acquisitions);
++    if (raced.length) {
++      // Zero matches on a document that still exists is the race, not a 404.
++      const stillThere = await col().findOne({ _id: oid }, { projection: { _id: 1 } });
++      if (stillThere) {
++        return res.status(409).json({ error: 'WRITE_ONCE_VIOLATION', message: writeOnceRaceMessage(raced) });
++      }
++    }
++    return res.status(404).json({ error: 'NOT_FOUND', message: 'Character not found' });
++  }
+   res.json(result);
+ });
+ 
+diff --git a/server/tests/bl3a-one-inclan-implementation.test.js b/server/tests/bl3a-one-inclan-implementation.test.js
+index 0612d40a..d2d2f85c 100644
+--- a/server/tests/bl3a-one-inclan-implementation.test.js
++++ b/server/tests/bl3a-one-inclan-implementation.test.js
+@@ -176,10 +176,18 @@ describe('BL-3a — AC 4: both bloodline dropdowns read the cache', () => {
+     expect(src).not.toMatch(/BLOODLINE_CLANS/);
+   });
+ 
+-  it('edit.js validates the clan-change against the cache, not the constant', () => {
++  it('edit.js no longer validates the clan-change at all — BL-5 deleted the branch', () => {
++    // BL-3a rewired this off the constant and onto the cache, explicitly on the
++    // reasoning that DELETING it was BL-5's job and BL-3b must not have to wait
++    // on BL-5. BL-5 collected that debt: clan is write-once and now enforced on
++    // both editing surfaces and at the API, so a clan can never change after
++    // its first set and "clear the bloodline when the clan changes" can never
++    // fire. The assertion inverts rather than being dropped, so the deletion
++    // stays proved from this side too.
+     const src = code('public/js/editor/edit.js');
+-    expect(src).toMatch(/bloodlinesByClan\(\)/);
+     expect(src).not.toMatch(/BLOODLINE_CLANS/);
++    expect(src).not.toMatch(/bloodlinesByClan\(\)/);
++    expect(src).toMatch(/refuseLineageWrite\(/);
+   });
+ 
+   it('sheet.js no longer carries an inline style on the bloodline select', () => {
+@@ -298,13 +306,22 @@ describe('BL-3a review — the clan-change clear never fires on a cache it canno
+     expect(state.chars[0].bloodline).toBe('Malkovians');
+   });
+ 
+-  it('DOES null a genuinely mismatched bloodline when the cache can answer', async () => {
+-    // The behaviour must survive the guard, or the guard is just a disable.
++  it('BL-5: no longer nulls a mismatched bloodline either, because the clan write is refused', async () => {
++    // This assertion USED to be "DOES null a genuinely mismatched bloodline
++    // when the cache can answer", and it was right for BL-3a: the clear was
++    // live, and the guard around it had to not become a blanket disable.
++    //
++    // BL-5 made clan write-once. The clan change is now refused before
++    // anything downstream of it runs, the clear is deleted, and a character's
++    // bloodline is never destroyed as a side effect of a clan edit by any path
++    // at all. That is a stronger guarantee than the old one, so the test
++    // asserts the stronger thing rather than being deleted.
+     const { state, edit } = await editorWith(seeded());
+     state.chars = [{ name: 'Cazz', clan: 'Ventrue', bloodline: 'Malkovians' }];
+     state.editIdx = 0;
+     edit.shEdit('clan', 'Mekhet');
+-    expect(state.chars[0].bloodline).toBeNull();
++    expect(state.chars[0].clan).toBe('Ventrue');
++    expect(state.chars[0].bloodline).toBe('Malkovians');
+   });
+ 
+   it('keeps a bloodline that IS valid for the new clan', async () => {
+diff --git a/public/js/data/write-once.js b/public/js/data/write-once.js
+new file mode 100644
+index 00000000..45c1e97d
+--- /dev/null
++++ b/public/js/data/write-once.js
+@@ -0,0 +1,132 @@
++/**
++ * Clan and bloodline are write-once, client side (Epic BL, BL-5 / #1008).
++ *
++ * ──────────────────────────────────────────────────────────────────────────
++ *   Why this exists as its own module
++ * ──────────────────────────────────────────────────────────────────────────
++ *
++ *   Both fields have TWO independent editing surfaces: the Identity tab
++ *   (`editor/identity.js`, via `updField`) and the character sheet header
++ *   (`editor/sheet.js`, via `shEdit`). Locking one and not the other leaves the
++ *   rule true on one screen and false on the other, which is the same "one
++ *   rule, two implementations" shape that cost this epic a whole extra story
++ *   when the downtime form turned out to carry its own private in-clan check.
++ *
++ *   So the refusal is written once, here, and both handlers call it. The
++ *   dropdowns are also rendered `disabled`, but that is defence in depth, not
++ *   the defence: `data-map.md`'s own instruction on `characters.clan` is to
++ *   "enforce at the handler, not only in the markup".
++ *
++ * ──────────────────────────────────────────────────────────────────────────
++ *   The lock reads the character, never the cache
++ * ──────────────────────────────────────────────────────────────────────────
++ *
++ *   A field is locked when the character already holds a value for it. Full
++ *   stop. This must NOT consult `bloodlinesResolvable()`, `bloodlinesByClan()`
++ *   or any other cache state. BL-3a's clear-guard needed the cache because it
++ *   was deciding whether a value was VALID; this decides whether a value
++ *   EXISTS, and the character document is the only authority on that. With
++ *   production holding zero bloodline documents, a lock keyed off the cache
++ *   would unlock every field in the app.
++ *
++ * This is the mirror of `server/lib/character-write-once.js`. The rule is
++ * necessarily implemented twice, because `public/js` deploys to Netlify and
++ * `server/` to Render and neither tree can import the other's copy at runtime.
++ * What stops them drifting is the parity block in
++ * `server/tests/bl5-write-once.test.js`, which runs the same table through
++ * both.
++ */
++
++/** The fields this rule governs. */
++export const WRITE_ONCE_FIELDS = ['clan', 'bloodline'];
++
++/**
++ * True when a value means "this character does not have one".
++ * null, undefined, absent, '', whitespace-only and any non-string all count.
++ */
++export function hasNoValue(v) {
++  return typeof v !== 'string' || v.trim() === '';
++}
++
++/** True when the field is already set on this character, and so is locked. */
++export function isLineageLocked(c, field) {
++  return WRITE_ONCE_FIELDS.includes(field) && !hasNoValue(c && c[field]);
++}
++
++/**
++ * The same transition table the server enforces.
++ * `changed` is true only for an acquisition (no value to a value).
++ */
++export function checkWriteOnce(field, current, incoming) {
++  const had = !hasNoValue(current);
++  const wants = !hasNoValue(incoming);
++  if (!had) return { allowed: true, changed: wants, field, current, incoming, reason: null };
++  if (!wants) return { allowed: false, changed: false, field, current, incoming, reason: refusalReason(field, current, incoming) };
++  if (current === incoming) return { allowed: true, changed: false, field, current, incoming, reason: null };
++  return { allowed: false, changed: false, field, current, incoming, reason: refusalReason(field, current, incoming) };
++}
++
++function refusalReason(field, current, incoming) {
++  if (hasNoValue(incoming)) {
++    return `Refused: ${field} is "${String(current)}" and is permanent once set, so it cannot be cleared here.`;
++  }
++  return `Refused: ${field} is "${String(current)}" and is permanent once set, so it cannot be changed to "${String(incoming)}" here.`;
++}
++
++/**
++ * The single guard both handlers call. Returns true when the write must NOT
++ * happen, having already said why in the console.
++ *
++ * Fields outside `WRITE_ONCE_FIELDS` always pass straight through, so a handler
++ * can call this unconditionally on its first line without having to know which
++ * fields are governed.
++ */
++export function refuseLineageWrite(c, field, incoming) {
++  if (!WRITE_ONCE_FIELDS.includes(field)) return false;
++  const v = checkWriteOnce(field, c && c[field], incoming);
++  if (v.allowed) return false;
++  console.warn('[write-once] ' + v.reason);
++  return true;
++}
++
++/**
++ * The locked copy, rendered in the editor. British English, no em-dashes.
++ * It states the rule; it must not imply a mistake has been made or that
++ * anything is broken, because nothing is: this is the rule working.
++ *
++ * No apostrophes, so the same string is safe inside a single-quoted HTML
++ * attribute built by string concatenation in sheet.js.
++ */
++export const LINEAGE_LOCK_NOTE = {
++  clan: 'Clan is set at the Embrace and is permanent, so it cannot be changed here.',
++  bloodline: 'A bloodline is permanent once acquired, so it cannot be changed here.',
++};
++
++/**
++ * The locked control's attributes, or the empty string when the field is still
++ * open. `disabled` plus an explanatory `title` is the treatment the sheet
++ * already uses at `sheet.js`'s `_discLockAttr` and the Identity tab already
++ * uses for the derived XP fields, so nothing new is introduced.
++ *
++ * Both editing surfaces call this rather than each building their own string:
++ * four dropdowns, two files, one rule.
++ */
++export function lineageLockAttr(c, field) {
++  return isLineageLocked(c, field) ? ' disabled title="' + LINEAGE_LOCK_NOTE[field] + '"' : '';
++}
++
++/**
++ * The visible reason under a locked control. Reuses the existing
++ * `.derived-note` class (`components.css`, loaded by BOTH apps), which is
++ * already the sheet's "here is why this value is what it is" treatment.
++ *
++ * Deliberately NOT `.bl-disc-locked`: that is error-coloured, and this is not
++ * an error, it is the rule working. Deliberately NOT BL-4's `.ec-form-readonly`
++ * / `.ec-form-hint`: those live in `admin-layout.css` and belong to the
++ * reference-data admin surface, not the character editor.
++ */
++export function lineageLockNoteHtml(c, field) {
++  return isLineageLocked(c, field)
++    ? '<div class="derived-note">' + LINEAGE_LOCK_NOTE[field] + '</div>'
++    : '';
++}
+diff --git a/server/lib/bloodline-key.js b/server/lib/bloodline-key.js
+new file mode 100644
+index 00000000..c1b9e81b
+--- /dev/null
++++ b/server/lib/bloodline-key.js
+@@ -0,0 +1,25 @@
++/**
++ * The one normalised bloodline-name key, server side (Epic BL, BL-5 / #1008).
++ *
++ * `public/js/data/bloodlines-cache.js:86-88` resolves every costing lookup
++ * through `name.trim().toLowerCase()`. BL-5's referential check has to match on
++ * exactly that key rather than on exact string equality, or a bloodline that
++ * costs correctly could still be refused at acquisition over a stray space
++ * from a CSV import, and the two answers would disagree about the same value.
++ *
++ * The server had no shared copy of that helper. It now has this one. It is a
++ * separate module from `character-write-once.js` on purpose: that module is a
++ * pure transition rule with no imports at all, and this is a fact about how
++ * bloodline NAMES compare, which is a different concern with a different set of
++ * future callers.
++ *
++ * `server/lib/bloodline-name-index.js` keeps its own private `normKey` with the
++ * same body. Deliberately left alone: BL-5's scope explicitly excludes changing
++ * BL-4's shared modules, and collapsing them is a one-line follow-up rather
++ * than something to smuggle in here. Flagged in the story record.
++ */
++
++/** Trim + case-fold. Matches `bloodlines-cache.js`'s `_key` exactly. */
++export function bloodlineKey(name) {
++  return typeof name === 'string' ? name.trim().toLowerCase() : '';
++}
+diff --git a/server/lib/character-write-once.js b/server/lib/character-write-once.js
+new file mode 100644
+index 00000000..7f74d642
+--- /dev/null
++++ b/server/lib/character-write-once.js
+@@ -0,0 +1,150 @@
++/**
++ * Clan and bloodline are write-once (Epic BL, BL-5 / #1008).
++ *
++ * ──────────────────────────────────────────────────────────────────────────
++ *   What this module is, and why it is not a middleware
++ * ──────────────────────────────────────────────────────────────────────────
++ *
++ *   Angelus ruled on 2026-08-10 that a character's `clan` is set at the
++ *   Embrace and permanent, and that `bloodline` is permanent once acquired
++ *   (null to a name is allowed; name to a different name and name to null are
++ *   not). Nothing in the code knew that until this story.
++ *
++ *   The obvious reach was a sibling middleware next to
++ *   `validateCharacterPartial`. Rejected, for one structural reason: every
++ *   middleware in that chain is BODY-ONLY, and a transition rule needs the
++ *   STORED value. A middleware would have to open its own `findOne` of the
++ *   very document the PUT handler already reads for the touchstones branch,
++ *   and two reads of one document to answer two questions about it is the
++ *   shape that invites them to drift apart.
++ *
++ *   So this is pure: no database, no Express, no imports at all. It takes the
++ *   current stored value and the incoming value for one field and returns a
++ *   verdict. That is the `bloodline-delete-guard.js` precedent, and it exists
++ *   for the same reason: the decision can be tested exhaustively, and the
++ *   wiring stays thin enough to test behaviourally through the route.
++ *
++ * ──────────────────────────────────────────────────────────────────────────
++ *   Why '' is "no value"
++ * ──────────────────────────────────────────────────────────────────────────
++ *
++ *   `character.schema.js:70` gives `clan` an enum that explicitly includes
++ *   `''`, and `:74` declares `bloodline` as `{ type: ['string', 'null'] }`,
++ *   which permits `''` too. A `=== null` check at each call site would let
++ *   'Malkovians' -> '' through as an allowed "no change" and quietly erase a
++ *   permanent fact. One predicate, `hasNoValue`, covers null, undefined,
++ *   absent, '' and whitespace-only, because they all mean the same thing.
++ *
++ *   Live data carries no '' on either field (measured 2026-08-11 across all 41
++ *   characters), so this is a guard against the API, not a fix for existing
++ *   rows.
++ *
++ * ──────────────────────────────────────────────────────────────────────────
++ *   Why a no-op must be allowed, loudly
++ * ──────────────────────────────────────────────────────────────────────────
++ *
++ *   The ST editor saves the WHOLE document: `admin.js:1015`/`:1240` PUT
++ *   `buildSaveBody(c)`, which carries `clan` and `bloodline` unchanged on every
++ *   single save. A guard that refused "the field is present in the body" rather
++ *   than "the field's value changed" would break every character save in the
++ *   app on its first day. `checkWriteOnce` therefore compares VALUES, and the
++ *   route only tightens its update filter when `changed` is true.
++ *
++ * The mirror of this rule lives at `public/js/data/write-once.js`, because
++ * `public/js` deploys to Netlify and `server/` to Render, so neither tree can
++ * import the other's copy at runtime. The two are pinned against each other by
++ * the parity block in `server/tests/bl5-write-once.test.js`.
++ */
++
++/** The fields this rule governs. Order is the order the route checks them in. */
++export const WRITE_ONCE_FIELDS = ['clan', 'bloodline'];
++
++/**
++ * True when a value means "this character does not have one".
++ * null, undefined, absent, '', whitespace-only, and anything that is not a
++ * string all count. A non-string is treated as absent rather than thrown on:
++ * schema validation runs upstream, and this module refusing to have an opinion
++ * about a shape it cannot see is safer than it inventing one.
++ */
++export function hasNoValue(v) {
++  return typeof v !== 'string' || v.trim() === '';
++}
++
++/**
++ * Decide one field's transition.
++ *
++ * @param {string} field        'clan' or 'bloodline'
++ * @param {*} current           the value stored on the character today
++ * @param {*} incoming          the value the request wants to write
++ * @returns {{ allowed: boolean, changed: boolean, field: string, current: *, incoming: *, reason: string|null }}
++ *   `changed` is true ONLY for an acquisition (no value to a value). It is what
++ *   tells the route to make the write a compare-and-set; a no-op must not gain
++ *   a filter condition, or an unrelated concurrent clan write would fail
++ *   somebody's merit save.
++ */
++export function checkWriteOnce(field, current, incoming) {
++  const had = !hasNoValue(current);
++  const wants = !hasNoValue(incoming);
++
++  // Nothing stored: acquisition, or nothing at all. Both allowed.
++  if (!had) {
++    return verdict(field, current, incoming, true, wants, null);
++  }
++
++  // Stored, and the request would clear it.
++  if (!wants) {
++    return verdict(field, current, incoming, false, false, writeOnceMessage(field, current, incoming));
++  }
++
++  // Stored, and byte-identical. The ordinary full-document save.
++  if (current === incoming) {
++    return verdict(field, current, incoming, true, false, null);
++  }
++
++  // Stored, and different. Case- and whitespace-only differences are
++  // deliberately refusals rather than tolerated no-ops: the stored string is
++  // the value other things key off (BL-4's name index, the cache's `_byName`),
++  // and silently rewriting it is precisely the class of change this rule
++  // exists to stop.
++  return verdict(field, current, incoming, false, false, writeOnceMessage(field, current, incoming));
++}
++
++function verdict(field, current, incoming, allowed, changed, reason) {
++  return { allowed, changed, field, current, incoming, reason };
++}
++
++/**
++ * The human half of a refusal. Names the field, the stored value, the attempted
++ * value, and the remedy.
++ *
++ * The remedy sentence is deliberate and was ruled on: there is intentionally NO
++ * in-app override. A mis-entered clan or bloodline is a data correction, not an
++ * edit, and the message has to say so, because after this story the ST has no
++ * dropdown to reach for and would otherwise be left guessing.
++ */
++export function writeOnceMessage(field, current, incoming) {
++  const stored = String(current);
++  if (hasNoValue(incoming)) {
++    return `Refusing to clear ${field}. This character's ${field} is "${stored}", `
++      + `and a ${field} is permanent once set, so it cannot be removed here. `
++      + 'Correcting a mis-entered value is a deliberate data correction rather than an edit, '
++      + 'and is made directly against the database.';
++  }
++  return `Refusing to change ${field} from "${stored}" to "${String(incoming)}". `
++    + `A character's ${field} is permanent once set, so it cannot be changed here. `
++    + 'Correcting a mis-entered value is a deliberate data correction rather than an edit, '
++    + 'and is made directly against the database.';
++}
++
++/**
++ * The compare-and-set miss. Distinct wording because the cause is different:
++ * the stored value changed between this request's read and its write, so the
++ * ST's own attempt was fine when they made it and is stale by the time it
++ * lands. Same 409, because the stored state is still what conflicts.
++ */
++export function writeOnceRaceMessage(fields) {
++  const list = fields.join(' and ');
++  return `Another save set this character's ${list} while this one was in flight, `
++    + `and ${fields.length > 1 ? 'those fields are' : 'that field is'} permanent once set. `
++    + 'Nothing was written. Reload the character to see the value that landed.';
++}
+diff --git a/server/tests/bl5-write-once.test.js b/server/tests/bl5-write-once.test.js
+new file mode 100644
+index 00000000..c82e6a96
+--- /dev/null
++++ b/server/tests/bl5-write-once.test.js
+@@ -0,0 +1,669 @@
++/**
++ * BL-5 (issue #1008) — clan and bloodline are write-once, server side.
++ *
++ * Three layers, deliberately in one file because they are one rule:
++ *
++ *   1. The pure decision function (`server/lib/character-write-once.js`),
++ *      exhaustively, table-driven. No database, no Express — the
++ *      `bloodline-delete-guard.js` precedent.
++ *   2. The route, behaviourally, against `tm_suite_test`. The load-bearing one
++ *      is the full-document NO-OP save returning 200: the ST editor PUTs
++ *      `buildSaveBody(c)` (admin.js:976) on every single save, carrying `clan`
++ *      and `bloodline` unchanged, so a guard that refuses "the field is present
++ *      in the body" rather than "the field's value changed" breaks every
++ *      character save in the app on its first day.
++ *   3. The referential check on acquisition, including the case that protects
++ *      production today: an EMPTY `bloodlines` collection must not be allowed
++ *      to answer "no". Production holds zero bloodline documents right now.
++ *
++ * The client half lives in `bl5-lineage-lock-client.test.js`; the two
++ * implementations of the transition table are pinned against each other by the
++ * parity block at the bottom of this file.
++ */
++
++import { describe, it, expect, beforeAll, beforeEach, afterAll, afterEach } from 'vitest';
++import request from 'supertest';
++import 'dotenv/config';
++import { Collection, ObjectId } from 'mongodb';
++import { createTestApp, stUser, playerUser } from './helpers/test-app.js';
++import { setupDb, teardownDb } from './helpers/db-setup.js';
++import { getCollection } from '../db.js';
++import {
++  WRITE_ONCE_FIELDS,
++  hasNoValue,
++  checkWriteOnce,
++  writeOnceMessage,
++} from '../lib/character-write-once.js';
++import { bloodlineKey } from '../lib/bloodline-key.js';
++
++let app;
++const seededIds = [];
++/** Whatever the shared test DB already held in `bloodlines`, restored in afterAll. */
++let bloodlineBackup = [];
++
++async function seedChar(overrides = {}) {
++  const col = getCollection('characters');
++  const doc = {
++    name: 'BL5 Subject',
++    retired: false,
++    pending_approval: false,
++    attributes: {}, skills: {}, disciplines: {}, merits: [], powers: [], ordeals: [],
++    ...overrides,
++  };
++  const result = await col.insertOne(doc);
++  seededIds.push(result.insertedId);
++  return { ...doc, _id: result.insertedId };
++}
++
++/**
++ * A body that passes FULL schema validation, which both creation routes use
++ * (the PUT uses the partial schema and needs none of this). All nine
++ * attributes are required by `character.schema.js`.
++ */
++function creationBody(overrides = {}) {
++  const ATTRS = ['Intelligence', 'Wits', 'Resolve', 'Strength', 'Dexterity', 'Stamina', 'Presence', 'Manipulation', 'Composure'];
++  const attributes = {};
++  for (const a of ATTRS) attributes[a] = { dots: 1, bonus: 0 };
++  return {
++    name: 'BL5 Created',
++    attributes,
++    skills: {}, disciplines: {}, merits: [], powers: [], ordeals: [],
++    ...overrides,
++  };
++}
++
++async function setBloodlines(docs) {
++  const col = getCollection('bloodlines');
++  await col.deleteMany({});
++  if (docs.length) await col.insertMany(docs.map(d => ({ ...d })));
++}
++
++beforeAll(async () => {
++  await setupDb();
++  app = createTestApp();
++  // Take the collection to a known state for this file and put it back after.
++  // Every referential assertion below depends on knowing exactly what the
++  // collection can and cannot answer.
++  bloodlineBackup = await getCollection('bloodlines').find({}).toArray();
++  await getCollection('bloodlines').deleteMany({});
++});
++
++afterAll(async () => {
++  const col = getCollection('characters');
++  for (const id of seededIds) await col.deleteOne({ _id: id });
++  await getCollection('bloodlines').deleteMany({});
++  if (bloodlineBackup.length) await getCollection('bloodlines').insertMany(bloodlineBackup);
++  await teardownDb();
++});
++
++// ═════════════════════════════════════════════════════════════════════════════
++//  1. The pure function (AC 1, AC 2)
++// ═════════════════════════════════════════════════════════════════════════════
++
++describe('BL-5 AC 2 — "no value" is one predicate and it covers the empty string', () => {
++  // Not tidiness. character.schema.js:70 puts '' IN the clan enum and :74
++  // leaves bloodline an unconstrained ['string','null'], so a naive === null
++  // check would let 'Malkovians' -> '' through as an allowed no-change, which
++  // is exactly the bypass the rule forbids.
++  it.each([null, undefined, '', ' ', '   ', '\t', '\n  '])('treats %j as no value', v => {
++    expect(hasNoValue(v)).toBe(true);
++  });
++
++  it.each(['Malkovians', ' Malkovians ', 'Daeva', '0'])('treats %j as a value', v => {
++    expect(hasNoValue(v)).toBe(false);
++  });
++
++  it('treats a non-string as no value rather than throwing', () => {
++    expect(hasNoValue(0)).toBe(true);
++    expect(hasNoValue(false)).toBe(true);
++    expect(hasNoValue({})).toBe(true);
++  });
++});
++
++describe('BL-5 AC 1 — the transition table, every row, both fields', () => {
++  const CASES = [
++    // [label, current, incoming, allowed, changed]
++    ['no value -> a name is an acquisition',        null,          'Malkovians', true,  true],
++    ['absent -> a name is an acquisition',          undefined,     'Malkovians', true,  true],
++    ["'' -> a name is an acquisition",              '',            'Malkovians', true,  true],
++    ['whitespace -> a name is an acquisition',      '  ',          'Malkovians', true,  true],
++    ['the byte-identical same value is a no-op',    'Malkovians',  'Malkovians', true,  false],
++    ['a different value is refused',                'Malkovians',  'Gorgons',    false, false],
++    ['a case-differing value is refused',           'Malkovians',  'malkovians', false, false],
++    ['a whitespace-differing value is refused',     'Malkovians',  ' Malkovians', false, false],
++    ['a value -> null is refused',                  'Malkovians',  null,         false, false],
++    ["a value -> '' is refused",                    'Malkovians',  '',           false, false],
++    ['a value -> whitespace is refused',            'Malkovians',  '   ',        false, false],
++    ['no value -> no value is a no-op',             null,          null,         true,  false],
++    ["no value -> '' is a no-op",                   null,          '',           true,  false],
++    ["'' -> null is a no-op",                       '',            null,         true,  false],
++  ];
++
++  for (const field of WRITE_ONCE_FIELDS) {
++    describe(field, () => {
++      for (const [label, current, incoming, allowed, changed] of CASES) {
++        it(label, () => {
++          const v = checkWriteOnce(field, current, incoming);
++          expect(v.allowed).toBe(allowed);
++          expect(v.changed).toBe(changed);
++        });
++      }
++    });
++  }
++
++  it('covers both guarded fields and nothing else', () => {
++    expect(WRITE_ONCE_FIELDS).toEqual(['clan', 'bloodline']);
++  });
++
++  it('a refusal always carries a reason', () => {
++    const v = checkWriteOnce('bloodline', 'Malkovians', 'Gorgons');
++    expect(v.allowed).toBe(false);
++    expect(typeof v.reason).toBe('string');
++    expect(v.reason.length).toBeGreaterThan(0);
++  });
++
++  it('an allowed verdict carries no reason', () => {
++    expect(checkWriteOnce('clan', null, 'Daeva').reason).toBe(null);
++  });
++
++  it('is pure — it does not mutate or capture its arguments', () => {
++    const before = checkWriteOnce('clan', 'Daeva', 'Ventrue');
++    const after = checkWriteOnce('clan', 'Daeva', 'Ventrue');
++    expect(after).toEqual(before);
++  });
++});
++
++describe('BL-5 AC 5 — the refusal message names the field, both values and the remedy', () => {
++  const msg = writeOnceMessage('bloodline', 'Malkovians', 'Gorgons');
++
++  it('names the field', () => expect(msg).toContain('bloodline'));
++  it('names the stored value', () => expect(msg).toContain('Malkovians'));
++  it('names the attempted value', () => expect(msg).toContain('Gorgons'));
++  it('says the value is permanent', () => expect(msg).toMatch(/permanent/i));
++  it('names the remedy as a deliberate data correction outside the app', () => {
++    expect(msg).toMatch(/data correction/i);
++  });
++  it('is British English with no em-dashes', () => {
++    expect(msg).not.toContain('—');
++  });
++  it('describes a clearing attempt in words rather than printing "null"', () => {
++    expect(writeOnceMessage('clan', 'Daeva', null)).toMatch(/cleared|removed|clearing/i);
++  });
++});
++
++describe('BL-5 — the shared bloodline key (AC 8)', () => {
++  it('trims and case-folds, matching bloodlines-cache.js _key', () => {
++    expect(bloodlineKey('  Khaibit ')).toBe('khaibit');
++    expect(bloodlineKey('KHAIBIT')).toBe('khaibit');
++  });
++
++  it('returns the empty string for anything that is not a string', () => {
++    expect(bloodlineKey(null)).toBe('');
++    expect(bloodlineKey(undefined)).toBe('');
++    expect(bloodlineKey(7)).toBe('');
++  });
++});
++
++// ═════════════════════════════════════════════════════════════════════════════
++//  2. The route (AC 3, 4, 5, 6)
++// ═════════════════════════════════════════════════════════════════════════════
++
++describe('BL-5 AC 3 — the no-op full-document save is load-bearing', () => {
++  it('saving a bloodline-carrying character unchanged returns 200', async () => {
++    const char = await seedChar({ name: 'BL5 NoOp Save', clan: 'Mekhet', bloodline: 'Malkovians' });
++    const stored = await getCollection('characters').findOne({ _id: char._id });
++    const { _id, ...body } = stored;
++
++    const res = await request(app)
++      .put(`/api/characters/${char._id}`)
++      .set('X-Test-User', stUser())
++      .send({ ...body, humanity: 6 });
++
++    expect(res.status).toBe(200);
++    expect(res.body.bloodline).toBe('Malkovians');
++    expect(res.body.clan).toBe('Mekhet');
++    expect(res.body.humanity).toBe(6);
++  });
++
++  it('a body touching neither field still saves', async () => {
++    const char = await seedChar({ name: 'BL5 Unrelated Save', clan: 'Ventrue', bloodline: 'Malkovians' });
++    const res = await request(app)
++      .put(`/api/characters/${char._id}`)
++      .set('X-Test-User', stUser())
++      .send({ concept: 'Unchanged lineage' });
++    expect(res.status).toBe(200);
++    expect(res.body.concept).toBe('Unchanged lineage');
++    expect(res.body.bloodline).toBe('Malkovians');
++  });
++});
++
++describe('BL-5 AC 5 — forbidden bloodline transitions return 409', () => {
++  async function attempt(seed, body) {
++    const char = await seedChar({ name: 'BL5 BL Transition', clan: 'Mekhet', ...seed });
++    const res = await request(app)
++      .put(`/api/characters/${char._id}`)
++      .set('X-Test-User', stUser())
++      .send(body);
++    const after = await getCollection('characters').findOne({ _id: char._id });
++    return { res, after };
++  }
++
++  it('null -> a name is allowed (acquisition)', async () => {
++    const { res, after } = await attempt({ bloodline: null }, { bloodline: 'Malkovians' });
++    expect(res.status).toBe(200);
++    expect(after.bloodline).toBe('Malkovians');
++  });
++
++  it('a name -> a different name is 409 and the stored value is untouched', async () => {
++    const { res, after } = await attempt({ bloodline: 'Malkovians' }, { bloodline: 'Gorgons' });
++    expect(res.status).toBe(409);
++    expect(res.body.error).toBe('WRITE_ONCE_VIOLATION');
++    expect(after.bloodline).toBe('Malkovians');
++  });
++
++  it('a name -> null is 409', async () => {
++    const { res, after } = await attempt({ bloodline: 'Malkovians' }, { bloodline: null });
++    expect(res.status).toBe(409);
++    expect(after.bloodline).toBe('Malkovians');
++  });
++
++  it("a name -> '' is 409 — the bypass the '' predicate closes", async () => {
++    const { res, after } = await attempt({ bloodline: 'Malkovians' }, { bloodline: '' });
++    expect(res.status).toBe(409);
++    expect(after.bloodline).toBe('Malkovians');
++  });
++
++  it('a case-differing name is 409, not a silent rewrite', async () => {
++    const { res, after } = await attempt({ bloodline: 'Malkovians' }, { bloodline: 'malkovians' });
++    expect(res.status).toBe(409);
++    expect(after.bloodline).toBe('Malkovians');
++  });
++
++  it('the 409 body carries a usable message', async () => {
++    const { res } = await attempt({ bloodline: 'Malkovians' }, { bloodline: 'Gorgons' });
++    expect(res.body.message).toContain('Malkovians');
++    expect(res.body.message).toContain('Gorgons');
++    expect(res.body.message).toMatch(/data correction/i);
++  });
++
++  it('nothing else in the refused body is written either', async () => {
++    const char = await seedChar({ name: 'BL5 Atomic Refusal', clan: 'Mekhet', bloodline: 'Malkovians' });
++    const res = await request(app)
++      .put(`/api/characters/${char._id}`)
++      .set('X-Test-User', stUser())
++      .send({ bloodline: 'Gorgons', concept: 'Should not land' });
++    expect(res.status).toBe(409);
++    const after = await getCollection('characters').findOne({ _id: char._id });
++    expect(after.concept).toBeUndefined();
++  });
++});
++
++describe('BL-5 AC 5 — forbidden clan transitions return 409', () => {
++  async function attempt(seed, body) {
++    const char = await seedChar({ name: 'BL5 Clan Transition', ...seed });
++    const res = await request(app)
++      .put(`/api/characters/${char._id}`)
++      .set('X-Test-User', stUser())
++      .send(body);
++    const after = await getCollection('characters').findOne({ _id: char._id });
++    return { res, after };
++  }
++
++  it('no clan -> a clan is allowed (acquisition)', async () => {
++    const { res, after } = await attempt({ clan: null }, { clan: 'Daeva' });
++    expect(res.status).toBe(200);
++    expect(after.clan).toBe('Daeva');
++  });
++
++  it('a clan -> a different clan is 409', async () => {
++    const { res, after } = await attempt({ clan: 'Daeva' }, { clan: 'Ventrue' });
++    expect(res.status).toBe(409);
++    expect(res.body.error).toBe('WRITE_ONCE_VIOLATION');
++    expect(after.clan).toBe('Daeva');
++  });
++
++  it('a clan -> null is 409', async () => {
++    const { res, after } = await attempt({ clan: 'Daeva' }, { clan: null });
++    expect(res.status).toBe(409);
++    expect(after.clan).toBe('Daeva');
++  });
++
++  it("a clan -> '' is 409 — '' is in the schema enum, so this is reachable", async () => {
++    const { res, after } = await attempt({ clan: 'Daeva' }, { clan: '' });
++    expect(res.status).toBe(409);
++    expect(after.clan).toBe('Daeva');
++  });
++
++  it('the same clan resent is a no-op and returns 200', async () => {
++    const { res } = await attempt({ clan: 'Daeva' }, { clan: 'Daeva', concept: 'Same clan' });
++    expect(res.status).toBe(200);
++  });
++});
++
++describe('BL-5 AC 4 — the guard does not disturb the existing behaviour of PUT', () => {
++  it('a non-existent character still returns 404, not 409', async () => {
++    const res = await request(app)
++      .put(`/api/characters/${new ObjectId().toHexString()}`)
++      .set('X-Test-User', stUser())
++      .send({ clan: 'Gangrel' });
++    expect(res.status).toBe(404);
++    expect(res.body.error).toBe('NOT_FOUND');
++  });
++
++  it('a malformed id still returns 400', async () => {
++    const res = await request(app)
++      .put('/api/characters/bad-id')
++      .set('X-Test-User', stUser())
++      .send({ clan: 'Gangrel' });
++    expect(res.status).toBe(400);
++  });
++
++  it('a player is still refused before the guard is reached', async () => {
++    const char = await seedChar({ name: 'BL5 Player Blocked', clan: 'Daeva' });
++    const res = await request(app)
++      .put(`/api/characters/${char._id}`)
++      .set('X-Test-User', playerUser([char._id.toString()]))
++      .send({ clan: 'Ventrue' });
++    expect(res.status).toBe(403);
++  });
++});
++
++describe('BL-5 AC 6 — the update filter carries the prior value on acquisitions only', () => {
++  // AC 15 asks for the filter SHAPE, not a behavioural race. `getCollection`
++  // hands back a fresh Collection instance per call, so the interception has to
++  // be on the prototype; it is restored in afterEach.
++  let calls = [];
++  let original;
++
++  beforeEach(() => {
++    calls = [];
++    original = Collection.prototype.findOneAndUpdate;
++    Collection.prototype.findOneAndUpdate = function (filter, update, opts) {
++      if (this.collectionName === 'characters') calls.push(filter);
++      return original.call(this, filter, update, opts);
++    };
++  });
++
++  afterEach(() => { Collection.prototype.findOneAndUpdate = original; });
++
++  it('an acquisition from null filters on the prior null', async () => {
++    const char = await seedChar({ name: 'BL5 CAS Acquire', clan: 'Mekhet', bloodline: null });
++    const res = await request(app)
++      .put(`/api/characters/${char._id}`)
++      .set('X-Test-User', stUser())
++      .send({ bloodline: 'Malkovians' });
++    expect(res.status).toBe(200);
++    expect(calls).toHaveLength(1);
++    expect(calls[0].bloodline).toBe(null);
++    expect(String(calls[0]._id)).toBe(String(char._id));
++  });
++
++  it('an acquisition on an ABSENT field filters on null, which matches missing in MongoDB', async () => {
++    const char = await seedChar({ name: 'BL5 CAS Absent', clan: 'Mekhet' });
++    await getCollection('characters').updateOne({ _id: char._id }, { $unset: { bloodline: '' } });
++    const res = await request(app)
++      .put(`/api/characters/${char._id}`)
++      .set('X-Test-User', stUser())
++      .send({ bloodline: 'Malkovians' });
++    expect(res.status).toBe(200);
++    expect(calls[0].bloodline).toBe(null);
++  });
++
++  it("an acquisition from '' filters on '' exactly, not on null", async () => {
++    const char = await seedChar({ name: 'BL5 CAS Empty', clan: 'Mekhet', bloodline: '' });
++    const res = await request(app)
++      .put(`/api/characters/${char._id}`)
++      .set('X-Test-User', stUser())
++      .send({ bloodline: 'Malkovians' });
++    expect(res.status).toBe(200);
++    expect(calls[0].bloodline).toBe('');
++  });
++
++  it('a no-op save filters on _id ALONE — no extra condition to fail on', async () => {
++    const char = await seedChar({ name: 'BL5 CAS NoOp', clan: 'Ventrue', bloodline: 'Malkovians' });
++    const res = await request(app)
++      .put(`/api/characters/${char._id}`)
++      .set('X-Test-User', stUser())
++      .send({ clan: 'Ventrue', bloodline: 'Malkovians', concept: 'Merit save' });
++    expect(res.status).toBe(200);
++    expect(Object.keys(calls[0])).toEqual(['_id']);
++  });
++
++  it('a save touching neither field filters on _id alone', async () => {
++    const char = await seedChar({ name: 'BL5 CAS Unrelated', clan: 'Ventrue', bloodline: 'Malkovians' });
++    const res = await request(app)
++      .put(`/api/characters/${char._id}`)
++      .set('X-Test-User', stUser())
++      .send({ concept: 'Nothing to do with lineage' });
++    expect(res.status).toBe(200);
++    expect(Object.keys(calls[0])).toEqual(['_id']);
++  });
++
++  it('a clan acquisition alongside a bloodline acquisition puts BOTH priors in the filter', async () => {
++    const char = await seedChar({ name: 'BL5 CAS Both', clan: null, bloodline: null });
++    const res = await request(app)
++      .put(`/api/characters/${char._id}`)
++      .set('X-Test-User', stUser())
++      .send({ clan: 'Mekhet', bloodline: 'Malkovians' });
++    expect(res.status).toBe(200);
++    expect(calls[0]).toMatchObject({ clan: null, bloodline: null });
++  });
++});
++
++describe('BL-5 AC 6 — losing the compare-and-set is a 409, not a silent overwrite and not a 404', () => {
++  let original;
++  afterEach(() => { if (original) { Collection.prototype.findOne = original; original = null; } });
++
++  it('a stale read that passes the guard is caught by the filter', async () => {
++    const char = await seedChar({ name: 'BL5 CAS Race', clan: 'Mekhet', bloodline: null });
++    // The winning concurrent acquisition lands first.
++    await getCollection('characters').updateOne({ _id: char._id }, { $set: { bloodline: 'Gorgons' } });
++
++    // Force the guard's read to see the pre-race state, which is exactly what a
++    // real interleaving would give it. The guard then allows the acquisition,
++    // and only the filter can stop the overwrite.
++    original = Collection.prototype.findOne;
++    let served = false;
++    Collection.prototype.findOne = function (filter, opts) {
++      if (this.collectionName === 'characters' && !served && opts?.projection?.bloodline) {
++        served = true;
++        return Promise.resolve({ _id: char._id, clan: 'Mekhet', bloodline: null });
++      }
++      return original.call(this, filter, opts);
++    };
++
++    const res = await request(app)
++      .put(`/api/characters/${char._id}`)
++      .set('X-Test-User', stUser())
++      .send({ bloodline: 'Malkovians' });
++
++    expect(res.status).toBe(409);
++    expect(res.body.error).toBe('WRITE_ONCE_VIOLATION');
++    expect(res.body.message).toMatch(/in flight|another save/i);
++    const after = await getCollection('characters').findOne({ _id: char._id });
++    expect(after.bloodline).toBe('Gorgons');
++  });
++});
++
++describe('BL-5 AC 6 — the acquisition is a compare-and-set, not a read-then-write', () => {
++  // A behavioural race is not required by AC 15; the filter shape is. These
++  // assert the shape through observable behaviour rather than by spying on the
++  // driver, so a refactor of HOW the filter is built cannot make them pass
++  // vacuously.
++  it('an acquisition that loses the race returns 409 rather than overwriting', async () => {
++    const char = await seedChar({ name: 'BL5 Race Loser', clan: 'Mekhet', bloodline: null });
++    // Simulate the winning concurrent write landing between the guard's read
++    // and the update: the guard has already seen `null`, and by the time the
++    // update runs the stored value is a name. The compare-and-set filter must
++    // fail to match, and a document that still exists means the race, not a
++    // 404.
++    const col = getCollection('characters');
++    const before = await col.findOne({ _id: char._id });
++    expect(before.bloodline).toBe(null);
++
++    // The filter is `{ _id, bloodline: <prior> }`. Proving it exists: change
++    // the stored value out from under a request that was built against null.
++    await col.updateOne({ _id: char._id }, { $set: { bloodline: 'Gorgons' } });
++    const res = await request(app)
++      .put(`/api/characters/${char._id}`)
++      .set('X-Test-User', stUser())
++      .send({ bloodline: 'Malkovians' });
++    // The guard's own read now sees 'Gorgons', so this is refused as a
++    // name-to-name transition. Either way the answer is 409 and the stored
++    // value survives.
++    expect(res.status).toBe(409);
++    const after = await col.findOne({ _id: char._id });
++    expect(after.bloodline).toBe('Gorgons');
++  });
++
++  it('a no-op save gains no filter condition — an unrelated concurrent state does not fail it', async () => {
++    const char = await seedChar({ name: 'BL5 No Filter On NoOp', clan: 'Ventrue', bloodline: 'Malkovians' });
++    const res = await request(app)
++      .put(`/api/characters/${char._id}`)
++      .set('X-Test-User', stUser())
++      .send({ clan: 'Ventrue', bloodline: 'Malkovians', concept: 'Merit save' });
++    expect(res.status).toBe(200);
++    expect(res.body.concept).toBe('Merit save');
++  });
++});
++
++// ═════════════════════════════════════════════════════════════════════════════
++//  3. The referential check (AC 8) and the creation paths (AC 7)
++// ═════════════════════════════════════════════════════════════════════════════
++
++describe('BL-5 AC 8 — the acquired bloodline must resolve, but only when the collection can answer', () => {
++  afterEach(async () => { await setBloodlines([]); });
++
++  it('an empty collection returns 200 — this is the case protecting production today', async () => {
++    await setBloodlines([]);
++    const char = await seedChar({ name: 'BL5 Empty Collection', clan: 'Mekhet', bloodline: null });
++    const res = await request(app)
++      .put(`/api/characters/${char._id}`)
++      .set('X-Test-User', stUser())
++      .send({ bloodline: 'Malkovians' });
++    expect(res.status).toBe(200);
++    expect(res.body.bloodline).toBe('Malkovians');
++  });
++
++  it('a resolving acquisition returns 200', async () => {
++    await setBloodlines([{ name: 'Malkovians', slug: 'malkovians', clan: 'Mekhet', disciplines: ['Auspex', 'Celerity', 'Obfuscate', 'Dominate'] }]);
++    const char = await seedChar({ name: 'BL5 Resolves', clan: 'Mekhet', bloodline: null });
++    const res = await request(app)
++      .put(`/api/characters/${char._id}`)
++      .set('X-Test-User', stUser())
++      .send({ bloodline: 'Malkovians' });
++    expect(res.status).toBe(200);
++  });
++
++  it('matches on the trimmed, case-folded key, not exact string equality', async () => {
++    await setBloodlines([{ name: 'Malkovians', slug: 'malkovians', clan: 'Mekhet', disciplines: ['Auspex', 'Celerity', 'Obfuscate', 'Dominate'] }]);
++    const char = await seedChar({ name: 'BL5 Key Match', clan: 'Mekhet', bloodline: null });
++    const res = await request(app)
++      .put(`/api/characters/${char._id}`)
++      .set('X-Test-User', stUser())
++      .send({ bloodline: '  malkovians ' });
++    expect(res.status).toBe(200);
++  });
++
++  it('a non-resolving acquisition returns 400 VALIDATION_ERROR, distinguishable from the 409', async () => {
++    await setBloodlines([{ name: 'Malkovians', slug: 'malkovians', clan: 'Mekhet', disciplines: ['Auspex', 'Celerity', 'Obfuscate', 'Dominate'] }]);
++    const char = await seedChar({ name: 'BL5 Does Not Resolve', clan: 'Mekhet', bloodline: null });
++    const res = await request(app)
++      .put(`/api/characters/${char._id}`)
++      .set('X-Test-User', stUser())
++      .send({ bloodline: 'Not A Bloodline' });
++    expect(res.status).toBe(400);
++    expect(res.body.error).toBe('VALIDATION_ERROR');
++    const after = await getCollection('characters').findOne({ _id: char._id });
++    expect(after.bloodline).toBe(null);
++  });
++
++  it('never runs on a no-op — an existing holder saves fine against a collection that lacks their bloodline', async () => {
++    // The 13 live holders would otherwise all fail their next full-document
++    // save the moment the collection was seeded with anything at all.
++    await setBloodlines([{ name: 'Gorgons', slug: 'gorgons', clan: 'Gangrel', disciplines: ['Animalism', 'Protean', 'Resilience', 'Vigour'] }]);
++    const char = await seedChar({ name: 'BL5 Holder NoOp', clan: 'Mekhet', bloodline: 'Malkovians' });
++    const res = await request(app)
++      .put(`/api/characters/${char._id}`)
++      .set('X-Test-User', stUser())
++      .send({ clan: 'Mekhet', bloodline: 'Malkovians', concept: 'Still saves' });
++    expect(res.status).toBe(200);
++  });
++
++  it('no referential check is added for clan — the schema enum is stronger', async () => {
++    await setBloodlines([]);
++    const char = await seedChar({ name: 'BL5 Clan Acquisition', clan: null });
++    const res = await request(app)
++      .put(`/api/characters/${char._id}`)
++      .set('X-Test-User', stUser())
++      .send({ clan: 'Nosferatu' });
++    expect(res.status).toBe(200);
++  });
++});
++
++describe('BL-5 AC 7 — the creation paths are NOT guarded', () => {
++  it('the player wizard creates a character carrying clan and bloodline, 201', async () => {
++    await setBloodlines([]);
++    const players = getCollection('players');
++    const player = await players.insertOne({ name: 'BL5 Wizard Player', character_ids: [] });
++    const res = await request(app)
++      .post('/api/characters/wizard')
++      .set('X-Test-User', playerUser([], { player_id: player.insertedId }))
++      .send(creationBody({ name: 'BL5 Wizard Child', clan: 'Mekhet', bloodline: 'Malkovians' }));
++
++    if (res.status === 201) seededIds.push(new ObjectId(res.body._id));
++    await players.deleteOne({ _id: player.insertedId });
++
++    expect(res.status).toBe(201);
++    expect(res.body.clan).toBe('Mekhet');
++    expect(res.body.bloodline).toBe('Malkovians');
++  });
++
++  it('the ST create route also carries both fields through, 201', async () => {
++    await setBloodlines([]);
++    const res = await request(app)
++      .post('/api/characters')
++      .set('X-Test-User', stUser())
++      .send(creationBody({ name: 'BL5 ST Created', clan: 'Gangrel', bloodline: 'Not In The Collection' }));
++    if (res.status === 201) seededIds.push(new ObjectId(res.body._id));
++    expect(res.status).toBe(201);
++    expect(res.body.bloodline).toBe('Not In The Collection');
++  });
++});
++
++// ═════════════════════════════════════════════════════════════════════════════
++//  4. Parity — the server module and the client module implement one table
++// ═════════════════════════════════════════════════════════════════════════════
++
++describe('BL-5 — the server and client rules cannot drift apart', () => {
++  // The rule is necessarily implemented twice: `public/js` deploys to Netlify
++  // and `server/` to Render, so neither tree can import the other's copy at
++  // runtime. AC 1 names the server path and AC 9 requires the client copy be
++  // shared by both handlers. What binds them is this: the same table, run
++  // through both.
++  const VALUES = [null, undefined, '', '  ', 'Malkovians', 'malkovians', ' Malkovians ', 'Gorgons'];
++
++  it('agrees on every current/incoming pair, for both fields', async () => {
++    const client = await import('../../public/js/data/write-once.js');
++    for (const field of WRITE_ONCE_FIELDS) {
++      for (const current of VALUES) {
++        for (const incoming of VALUES) {
++          const s = checkWriteOnce(field, current, incoming);
++          const c = client.checkWriteOnce(field, current, incoming);
++          expect({ field, current, incoming, allowed: c.allowed, changed: c.changed })
++            .toEqual({ field, current, incoming, allowed: s.allowed, changed: s.changed });
++        }
++      }
++    }
++  });
++
++  it('agrees on the "no value" predicate', async () => {
++    const client = await import('../../public/js/data/write-once.js');
++    for (const v of VALUES) expect(client.hasNoValue(v)).toBe(hasNoValue(v));
++  });
++
++  it('guards the same two fields', async () => {
++    const client = await import('../../public/js/data/write-once.js');
++    expect(client.WRITE_ONCE_FIELDS).toEqual(WRITE_ONCE_FIELDS);
++  });
++});
+diff --git a/server/tests/bl5-lineage-lock-client.test.js b/server/tests/bl5-lineage-lock-client.test.js
+new file mode 100644
+index 00000000..1813c25e
+--- /dev/null
++++ b/server/tests/bl5-lineage-lock-client.test.js
+@@ -0,0 +1,540 @@
++/**
++ * BL-5 (issue #1008) — the client half: clan and bloodline are locked on BOTH
++ * editing surfaces, at the handler first and in the markup second.
++ *
++ * AC 9, 10, 11, 12, 13, 14.
++ *
++ * Two halves, for the reason BL-2's and BL-4's suites give: there is no DOM in
++ * this runner (no jsdom, and adding it is a dependency this story did not
++ * budget for either).
++ *
++ *   1. The handlers and the shared guard are exercised for real. `updField`
++ *      and `shEdit` are called and the resulting `state.chars` inspected, and
++ *      the Identity tab is rendered against a two-line `document` stub, which
++ *      is enough because `renderIdentityTab` only ever assigns `innerHTML`.
++ *   2. The sheet's clan/bloodline pair is asserted by static analysis, in the
++ *      style BL-2's own review established for exactly this line. It is built
++ *      inside a `covRow` call in the middle of a 2700-line render, and the two
++ *      selects sit on ONE source line, which is precisely how you lock one and
++ *      miss the other.
++ *
++ * The deletion proof (AC 14) is a CALL-SITE grep, not a declaration grep, using
++ * BL-3b's shared quote-aware comment stripper. BL-3a's review shipped a
++ * `ReferenceError` from exactly this class: a deletion with surviving call
++ * sites, passing a test that checked the declaration instead of the calls.
++ */
++
++import { describe, it, expect, beforeEach, vi } from 'vitest';
++import fs from 'node:fs';
++import path from 'node:path';
++import { fileURLToPath } from 'node:url';
++import { stripComments } from './helpers/strip-comments.js';
++
++vi.mock('../../public/js/data/api.js', () => ({
++  apiGet: async () => [],
++  apiPost: async () => ({}),
++  apiPut: async () => ({}),
++  apiPatch: async () => ({}),
++  apiDelete: async () => ({}),
++  apiRaw: async () => ({ status: 200, ok: true, body: null }),
++}));
++
++globalThis.location ??= { hostname: 'localhost', pathname: '/admin.html' };
++globalThis.localStorage ??= { getItem: () => null, setItem() {}, removeItem() {} };
++globalThis.sessionStorage ??= { getItem: () => null, setItem() {}, removeItem() {} };
++
++const __dirname = path.dirname(fileURLToPath(import.meta.url));
++const REPO_ROOT = path.resolve(__dirname, '..', '..');
++const read = rel => fs.readFileSync(path.join(REPO_ROOT, rel), 'utf8');
++const code = rel => stripComments(read(rel));
++
++import {
++  WRITE_ONCE_FIELDS, hasNoValue, isLineageLocked, refuseLineageWrite,
++  lineageLockAttr, lineageLockNoteHtml, LINEAGE_LOCK_NOTE,
++} from '../../public/js/data/write-once.js';
++
++// ═════════════════════════════════════════════════════════════════════════════
++//  The shared guard (AC 9, 10)
++// ═════════════════════════════════════════════════════════════════════════════
++
++describe('BL-5 AC 10 — the lock reads the character, never the cache', () => {
++  it('is locked when the character holds a value', () => {
++    expect(isLineageLocked({ clan: 'Daeva' }, 'clan')).toBe(true);
++    expect(isLineageLocked({ bloodline: 'Malkovians' }, 'bloodline')).toBe(true);
++  });
++
++  it('is unlocked when the character holds no value', () => {
++    expect(isLineageLocked({ clan: null }, 'clan')).toBe(false);
++    expect(isLineageLocked({}, 'bloodline')).toBe(false);
++    expect(isLineageLocked({ bloodline: '' }, 'bloodline')).toBe(false);
++    expect(isLineageLocked({ bloodline: '  ' }, 'bloodline')).toBe(false);
++  });
++
++  it('survives a null character rather than throwing mid-render', () => {
++    expect(isLineageLocked(null, 'clan')).toBe(false);
++  });
++
++  it('never locks a field outside the rule', () => {
++    expect(isLineageLocked({ covenant: 'Invictus' }, 'covenant')).toBe(false);
++  });
++
++  it('the module does not import the bloodlines cache at all', () => {
++    // With production holding zero bloodline documents, a lock keyed off the
++    // cache would unlock every field in the app.
++    const src = code('public/js/data/write-once.js');
++    expect(src).not.toMatch(/from\s+['"].*bloodlines-cache/);
++    expect(src).not.toMatch(/bloodlinesResolvable|bloodlinesByClan|approvedBloodlines/);
++  });
++});
++
++describe('BL-5 AC 9 — refuseLineageWrite', () => {
++  it('lets an unguarded field straight through', () => {
++    expect(refuseLineageWrite({ covenant: 'Invictus' }, 'covenant', 'Carthian Movement')).toBe(false);
++  });
++
++  it('allows an acquisition', () => {
++    expect(refuseLineageWrite({ bloodline: null }, 'bloodline', 'Malkovians')).toBe(false);
++  });
++
++  it('allows a no-op', () => {
++    expect(refuseLineageWrite({ clan: 'Daeva' }, 'clan', 'Daeva')).toBe(false);
++  });
++
++  it('refuses a change, a clear and a case-difference', () => {
++    expect(refuseLineageWrite({ clan: 'Daeva' }, 'clan', 'Ventrue')).toBe(true);
++    expect(refuseLineageWrite({ bloodline: 'Malkovians' }, 'bloodline', null)).toBe(true);
++    expect(refuseLineageWrite({ bloodline: 'Malkovians' }, 'bloodline', '')).toBe(true);
++    expect(refuseLineageWrite({ bloodline: 'Malkovians' }, 'bloodline', 'malkovians')).toBe(true);
++  });
++
++  it('says why, in the console, rather than failing silently', () => {
++    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
++    warn.mockClear();
++    refuseLineageWrite({ clan: 'Daeva' }, 'clan', 'Ventrue');
++    expect(warn).toHaveBeenCalledTimes(1);
++    expect(String(warn.mock.calls[0][0])).toMatch(/Daeva/);
++    warn.mockClear();
++    refuseLineageWrite({ clan: 'Daeva' }, 'clan', 'Daeva');
++    expect(warn).not.toHaveBeenCalled();
++    warn.mockRestore();
++  });
++});
++
++describe('BL-5 AC 12 — the locked copy reads like a rule, not an error', () => {
++  for (const field of WRITE_ONCE_FIELDS) {
++    it(`${field}: is one sentence, British English, no em-dash`, () => {
++      const s = LINEAGE_LOCK_NOTE[field];
++      expect(typeof s).toBe('string');
++      expect(s).not.toContain('—');
++      expect(s).toMatch(/permanent/i);
++      expect(s.match(/\./g)).toHaveLength(1);
++    });
++
++    it(`${field}: does not imply a mistake or a fault`, () => {
++      expect(LINEAGE_LOCK_NOTE[field]).not.toMatch(/error|invalid|problem|wrong|broken|cannot be resolved/i);
++    });
++
++    it(`${field}: carries no quote or apostrophe, so it is safe in a built attribute`, () => {
++      expect(LINEAGE_LOCK_NOTE[field]).not.toMatch(/['"<>&]/);
++    });
++  }
++});
++
++describe('BL-5 AC 11 — the lock markup helpers', () => {
++  it('renders disabled plus an explanatory title when locked', () => {
++    const attr = lineageLockAttr({ clan: 'Daeva' }, 'clan');
++    expect(attr).toContain('disabled');
++    expect(attr).toContain('title="');
++    expect(attr).toContain(LINEAGE_LOCK_NOTE.clan);
++  });
++
++  it('renders nothing at all when unlocked', () => {
++    expect(lineageLockAttr({ clan: null }, 'clan')).toBe('');
++    expect(lineageLockNoteHtml({ bloodline: null }, 'bloodline')).toBe('');
++  });
++
++  it('the visible reason reuses the existing .derived-note class', () => {
++    const html = lineageLockNoteHtml({ bloodline: 'Malkovians' }, 'bloodline');
++    expect(html).toContain('class="derived-note"');
++    expect(html).toContain(LINEAGE_LOCK_NOTE.bloodline);
++  });
++
++  it('does NOT reach for BL-4 admin chrome or the error-coloured discipline lock', () => {
++    const src = code('public/js/data/write-once.js');
++    expect(src).not.toMatch(/ec-form-readonly|ec-form-hint|bl-disc-locked/);
++  });
++
++  it('.derived-note exists in the stylesheet both apps load', () => {
++    expect(read('public/css/components.css')).toMatch(/\.derived-note\s*\{/);
++  });
++});
++
++// ═════════════════════════════════════════════════════════════════════════════
++//  The two handlers, exercised for real (AC 9)
++// ═════════════════════════════════════════════════════════════════════════════
++
++async function freshEditor() {
++  vi.resetModules();
++  const state = (await import('../../public/js/data/state.js')).default;
++  const identity = await import('../../public/js/editor/identity.js');
++  const edit = await import('../../public/js/editor/edit.js');
++  const marks = { updField: 0, shEdit: 0 };
++  identity.registerCallbacks(() => { marks.updField += 1; });
++  edit.registerCallbacks(() => { marks.shEdit += 1; }, () => {});
++  return { state, identity, edit, marks };
++}
++
++function holder(extra = {}) {
++  return { name: 'Subject', clan: 'Mekhet', bloodline: 'Malkovians', ...extra };
++}
++
++let warnSpy;
++beforeEach(() => { warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {}); });
++
++describe('BL-5 AC 9 — updField (Identity tab) refuses the write', () => {
++  it('refuses a clan change and leaves state.chars and _markDirty untouched', async () => {
++    const { state, identity, marks } = await freshEditor();
++    state.chars = [holder()];
++    state.editIdx = 0;
++    identity.updField('clan', 'Ventrue');
++    expect(state.chars[0].clan).toBe('Mekhet');
++    expect(marks.updField).toBe(0);
++  });
++
++  it('refuses a bloodline change', async () => {
++    const { state, identity, marks } = await freshEditor();
++    state.chars = [holder()];
++    state.editIdx = 0;
++    identity.updField('bloodline', 'Gorgons');
++    expect(state.chars[0].bloodline).toBe('Malkovians');
++    expect(marks.updField).toBe(0);
++  });
++
++  it('refuses a bloodline clear, which is what the select would send as null', async () => {
++    const { state, identity, marks } = await freshEditor();
++    state.chars = [holder()];
++    state.editIdx = 0;
++    identity.updField('bloodline', null);
++    expect(state.chars[0].bloodline).toBe('Malkovians');
++    expect(marks.updField).toBe(0);
++  });
++
++  it('allows the acquisition of a bloodline and marks dirty', async () => {
++    const { state, identity, marks } = await freshEditor();
++    state.chars = [holder({ bloodline: null })];
++    state.editIdx = 0;
++    identity.updField('bloodline', 'Malkovians');
++    expect(state.chars[0].bloodline).toBe('Malkovians');
++    expect(marks.updField).toBe(1);
++  });
++
++  it('allows the first set of a clan', async () => {
++    const { state, identity, marks } = await freshEditor();
++    state.chars = [holder({ clan: null })];
++    state.editIdx = 0;
++    identity.updField('clan', 'Daeva');
++    expect(state.chars[0].clan).toBe('Daeva');
++    expect(marks.updField).toBe(1);
++  });
++
++  it('leaves every other field alone', async () => {
++    const { state, identity, marks } = await freshEditor();
++    state.chars = [holder()];
++    state.editIdx = 0;
++    identity.updField('covenant', 'Invictus');
++    expect(state.chars[0].covenant).toBe('Invictus');
++    expect(marks.updField).toBe(1);
++  });
++});
++
++describe('BL-5 AC 9 — shEdit (sheet header) refuses the write', () => {
++  it('refuses a clan change — the guard sits ABOVE shEdit\'s first-line assignment', async () => {
++    // `shEdit` writes the field on its very first line
++    // (`state.chars[state.editIdx][field] = val || null;`). A guard placed
++    // after it would refuse nothing.
++    const { state, edit, marks } = await freshEditor();
++    state.chars = [holder()];
++    state.editIdx = 0;
++    edit.shEdit('clan', 'Ventrue');
++    expect(state.chars[0].clan).toBe('Mekhet');
++    expect(marks.shEdit).toBe(0);
++  });
++
++  it('refuses a bloodline change', async () => {
++    const { state, edit, marks } = await freshEditor();
++    state.chars = [holder()];
++    state.editIdx = 0;
++    edit.shEdit('bloodline', 'Gorgons');
++    expect(state.chars[0].bloodline).toBe('Malkovians');
++    expect(marks.shEdit).toBe(0);
++  });
++
++  it("refuses a bloodline clear, including the '' the select sends", async () => {
++    const { state, edit, marks } = await freshEditor();
++    state.chars = [holder()];
++    state.editIdx = 0;
++    edit.shEdit('bloodline', '');
++    expect(state.chars[0].bloodline).toBe('Malkovians');
++    expect(marks.shEdit).toBe(0);
++  });
++
++  it('does not clear the bloodline as a side effect of a refused clan write', async () => {
++    // This is the defect the deleted block used to cause, arriving by a
++    // different route: a clan write that got through would have nulled a
++    // perfectly good bloodline.
++    const { state, edit } = await freshEditor();
++    state.chars = [holder()];
++    state.editIdx = 0;
++    edit.shEdit('clan', 'Gangrel');
++    expect(state.chars[0].bloodline).toBe('Malkovians');
++  });
++
++  it('allows the first set of a clan and still assigns the clan bane', async () => {
++    const { state, edit, marks } = await freshEditor();
++    state.chars = [holder({ clan: null, bloodline: null })];
++    state.editIdx = 0;
++    edit.shEdit('clan', 'Nosferatu');
++    expect(state.chars[0].clan).toBe('Nosferatu');
++    expect(Array.isArray(state.chars[0].banes)).toBe(true);
++    expect(state.chars[0].banes.length).toBeGreaterThan(0);
++    expect(marks.shEdit).toBe(1);
++  });
++
++  it('allows the acquisition of a bloodline', async () => {
++    const { state, edit, marks } = await freshEditor();
++    state.chars = [holder({ bloodline: null })];
++    state.editIdx = 0;
++    edit.shEdit('bloodline', 'Malkovians');
++    expect(state.chars[0].bloodline).toBe('Malkovians');
++    expect(marks.shEdit).toBe(1);
++  });
++
++  it('leaves every other field alone', async () => {
++    const { state, edit, marks } = await freshEditor();
++    state.chars = [holder()];
++    state.editIdx = 0;
++    edit.shEdit('concept', 'Something else');
++    expect(state.chars[0].concept).toBe('Something else');
++    expect(marks.shEdit).toBe(1);
++  });
++});
++
++describe('BL-5 AC 9 — one implementation, called from both handlers', () => {
++  it('both files import the shared guard rather than rolling their own', () => {
++    for (const f of ['public/js/editor/identity.js', 'public/js/editor/edit.js']) {
++      expect(code(f)).toMatch(/from\s+['"]\.\.\/data\/write-once\.js['"]/);
++      expect(code(f)).toMatch(/refuseLineageWrite\(/);
++    }
++  });
++
++  it('neither handler re-derives the rule inline', () => {
++    for (const f of ['public/js/editor/identity.js', 'public/js/editor/edit.js', 'public/js/editor/sheet.js']) {
++      const src = code(f);
++      expect(src).not.toMatch(/field\s*===\s*'clan'\s*&&\s*c\.clan/);
++    }
++  });
++
++  it("edit.js's two importers both still load it", () => {
++    // `edit.js` has two consumers, admin.js and app.js. A change to a handler
++    // it exports lands on both apps at once.
++    for (const f of ['public/js/admin.js', 'public/js/app.js']) {
++      expect(code(f)).toMatch(/from\s+['"][^'"]*editor\/edit\.js['"]/);
++    }
++  });
++});
++
++// ═════════════════════════════════════════════════════════════════════════════
++//  The four dropdowns (AC 11, 13)
++// ═════════════════════════════════════════════════════════════════════════════
++
++async function renderIdentity(c) {
++  vi.resetModules();
++  let html = '';
++  globalThis.document = {
++    getElementById: () => ({ set innerHTML(v) { html = v; }, get innerHTML() { return html; }, textContent: '' }),
++  };
++  const identity = await import('../../public/js/editor/identity.js');
++  identity.renderIdentityTab(c);
++  delete globalThis.document;
++  return html;
++}
++
++/** The `<select>` whose onchange writes `field`. */
++function selectFor(html, field) {
++  const m = html.match(new RegExp(`<select[^>]*updField\\('${field}'[^>]*>`));
++  return m ? m[0] : null;
++}
++
++const BASE_CHAR = {
++  name: 'Subject', attributes: {}, skills: {}, disciplines: {}, merits: [], powers: [], ordeals: [], status: {},
++};
++
++describe('BL-5 AC 11 — the Identity tab locks both selects when the field is set', () => {
++  it('the clan select is disabled and explains itself', async () => {
++    const html = await renderIdentity({ ...BASE_CHAR, clan: 'Mekhet', bloodline: null });
++    const sel = selectFor(html, 'clan');
++    expect(sel).toBeTruthy();
++    expect(sel).toContain('disabled');
++    expect(sel).toContain(LINEAGE_LOCK_NOTE.clan);
++    expect(html).toContain('<div class="derived-note">' + LINEAGE_LOCK_NOTE.clan + '</div>');
++  });
++
++  it('the bloodline select is disabled and explains itself', async () => {
++    const html = await renderIdentity({ ...BASE_CHAR, clan: 'Mekhet', bloodline: 'Malkovians' });
++    const sel = selectFor(html, 'bloodline');
++    expect(sel).toBeTruthy();
++    expect(sel).toContain('disabled');
++    expect(sel).toContain(LINEAGE_LOCK_NOTE.bloodline);
++    expect(html).toContain('<div class="derived-note">' + LINEAGE_LOCK_NOTE.bloodline + '</div>');
++  });
++
++  it('a locked bloodline still SHOWS its own stored value (BL-3a fix 4 survives)', async () => {
++    // The cache is empty in this runner, which is production's state today.
++    // The stored value must still be unioned into the option list, or the
++    // locked control would read "(none)".
++    const html = await renderIdentity({ ...BASE_CHAR, clan: 'Mekhet', bloodline: 'Malkovians' });
++    expect(html).toMatch(/<option selected>Malkovians<\/option>/);
++  });
++
++  it('an unset bloodline leaves the select live and unexplained', async () => {
++    const html = await renderIdentity({ ...BASE_CHAR, clan: 'Mekhet', bloodline: null });
++    const sel = selectFor(html, 'bloodline');
++    expect(sel).not.toContain('disabled');
++    expect(html).not.toContain(LINEAGE_LOCK_NOTE.bloodline);
++  });
++
++  it('an unset clan leaves the select live', async () => {
++    const html = await renderIdentity({ ...BASE_CHAR, clan: null, bloodline: null });
++    expect(selectFor(html, 'clan')).not.toContain('disabled');
++  });
++});
++
++describe('BL-5 AC 13 — the unlocked clan select carries a "not set" placeholder', () => {
++  it('an unset clan does not present Daeva as a fait accompli', async () => {
++    const html = await renderIdentity({ ...BASE_CHAR, clan: null, bloodline: null });
++    const sel = selectFor(html, 'clan');
++    const after = html.slice(html.indexOf(sel) + sel.length);
++    const firstOption = after.slice(0, after.indexOf('</select>'));
++    expect(firstOption).toMatch(/^\s*<option value=""[^>]*>\(not set\)<\/option>/);
++    expect(firstOption).not.toMatch(/^\s*<option( selected)?>Daeva/);
++  });
++
++  it('the placeholder is selected while no clan is set', async () => {
++    const html = await renderIdentity({ ...BASE_CHAR, clan: null });
++    expect(html).toContain('<option value="" selected>(not set)</option>');
++  });
++});
++
++describe('BL-5 AC 11, 13 — the sheet locks BOTH selects on the one line that builds them', () => {
++  const src = read('public/js/editor/sheet.js');
++  const line = src.split('\n').find(l => l.includes("shEdit('clan'") || l.includes("shEdit(\\'clan\\'"));
++
++  it('the clan/bloodline edit line exists and is a single line, as before', () => {
++    expect(line).toBeTruthy();
++    expect(line).toMatch(/bloodline/);
++  });
++
++  it('the lock attribute is applied TWICE on that line, not once', () => {
++    // Two selects are built there. Locking one and missing the other is the
++    // specific failure this assertion exists for.
++    expect((line.match(/lineageLockAttr\(/g) || [])).toHaveLength(2);
++  });
++
++  it('the visible reason is rendered for both fields', () => {
++    expect((src.match(/lineageLockNoteHtml\(/g) || []).length).toBeGreaterThanOrEqual(2);
++  });
++
++  it('the sheet imports the shared helpers rather than duplicating the copy', () => {
++    expect(code('public/js/editor/sheet.js')).toMatch(/from\s+['"]\.\.\/data\/write-once\.js['"]/);
++  });
++
++  it('the clan select carries the "not set" placeholder for the acquisition path', () => {
++    // Built one line above the covRow call, alongside the option list it
++    // prefixes, and suppressed once the field is locked.
++    const optsLine = src.split('\n').find(l => l.includes('_clanPlaceholder ='));
++    expect(optsLine).toBeTruthy();
++    expect(optsLine).toMatch(/\(not set\)/);
++    expect(optsLine).toMatch(/isLineageLocked\(c, 'clan'\)/);
++    expect(src.split('\n').find(l => l.includes('const cOpts'))).toMatch(/_clanPlaceholder \+/);
++  });
++
++  it('the lock is keyed off the character, never off the cache', () => {
++    expect(line).not.toMatch(/bloodlinesResolvable|bloodlinesByClan\(\)\s*\?/);
++  });
++});
++
++// ═════════════════════════════════════════════════════════════════════════════
++//  The deletion (AC 14)
++// ═════════════════════════════════════════════════════════════════════════════
++
++describe('BL-5 AC 14 — the bloodline auto-clear is gone, proved at the call sites', () => {
++  const src = code('public/js/editor/edit.js');
++
++  it('no call to bloodlinesByClan survives', () => {
++    expect(src).not.toMatch(/\bbloodlinesByClan\s*\(/);
++  });
++
++  it('no call to bloodlinesResolvable survives', () => {
++    expect(src).not.toMatch(/\bbloodlinesResolvable\s*\(/);
++  });
++
++  it('the now-dead import of the bloodlines cache is gone too', () => {
++    expect(src).not.toMatch(/from\s+['"][^'"]*bloodlines-cache\.js['"]/);
++  });
++
++  it('the destructive assignment itself is gone', () => {
++    expect(src).not.toMatch(/c\.bloodline\s*=\s*null/);
++  });
++
++  it('the imports edit.js still USES are untouched', () => {
++    // `isInClanDisc` and `bloodlineUnresolved` are read elsewhere in the file.
++    expect(src).toMatch(/isInClanDisc/);
++    expect(src).toMatch(/bloodlineUnresolved/);
++  });
++
++  it('the clan bane assignment STAYS — it is still needed on a first set', () => {
++    expect(src).toMatch(/CLAN_BANES\[/);
++    expect(src).toMatch(/banes\.unshift/);
++  });
++});
++
++// ═════════════════════════════════════════════════════════════════════════════
++//  CSS hygiene (AC 15)
++// ═════════════════════════════════════════════════════════════════════════════
++
++describe('BL-5 — no inline style, bare hex or rgba entered anything this story wrote', () => {
++  const OFFENDERS = [
++    [/style\s*=\s*["']/, 'an inline style attribute'],
++    [/#[0-9a-fA-F]{3,8}\b/, 'a bare hex colour'],
++    [/rgba?\s*\(/, 'an rgba()/rgb() literal'],
++  ];
++
++  function assertClean(text, label) {
++    for (const [re, what] of OFFENDERS) {
++      expect(re.test(text), `${label} must not contain ${what}`).toBe(false);
++    }
++  }
++
++  it('the shared write-once module is clean', () => {
++    assertClean(code('public/js/data/write-once.js'), 'write-once.js');
++  });
++
++  it('identity.js is clean end to end', () => {
++    assertClean(code('public/js/editor/identity.js'), 'identity.js');
++  });
++
++  it('the sheet lines this story touched are clean', () => {
++    // sheet.js as a whole carries a pre-existing inline style at the Regent
++    // row, which this story does not touch and must not be blamed for. The
++    // assertion is scoped to the lines BL-5 wrote.
++    const src = read('public/js/editor/sheet.js');
++    const touched = src.split('\n').filter(l => l.includes('lineageLock') || l.includes('write-once'));
++    expect(touched.length).toBeGreaterThan(0);
++    assertClean(touched.join('\n'), 'the BL-5 lines in sheet.js');
++  });
++
++  it('no new CSS class was invented for the lock', () => {
++    const css = read('public/css/components.css');
++    expect(css).not.toMatch(/\.lineage-lock|\.write-once/);
++  });
++});

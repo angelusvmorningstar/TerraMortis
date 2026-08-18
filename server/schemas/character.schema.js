@@ -33,6 +33,16 @@ function derivePartialSchema(schema) {
   return clone;
 }
 
+/**
+ * The five clans, exported so sibling schemas reuse the exact list instead of
+ * copying it (BL-1, issue #1008 — `bloodline.schema.js` imports this).
+ *
+ * `characters.clan` additionally tolerates '' and null, because a character
+ * can exist before their clan is set. A bloodline always belongs to a real
+ * clan, so bloodline.schema.js uses this array unmodified.
+ */
+export const CLAN_NAMES = ['Daeva', 'Gangrel', 'Mekhet', 'Nosferatu', 'Ventrue'];
+
 export const characterSchema = {
   $schema: 'http://json-schema.org/draft-07/schema#',
   title: 'TM Character v3',
@@ -59,7 +69,7 @@ export const characterSchema = {
 
     clan: {
       type: ['string', 'null'],
-      enum: ['Daeva', 'Gangrel', 'Mekhet', 'Nosferatu', 'Ventrue', '', null]
+      enum: [...CLAN_NAMES, '', null]
     },
     bloodline:   { type: ['string', 'null'] },
     clan_attribute: { type: ['string', 'null'] },

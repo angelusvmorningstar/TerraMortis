@@ -10,6 +10,11 @@ import { normalizeMeritsMiddleware, normalizeCharacterMerits, validateWhiteAntsT
 // SUBSET ITSELF (mci + bloodline + retainer) is preserved verbatim per
 // Concern #1 Rev 2 — divergence with the client's mci-only subset stays.
 import { freeOf, resolveSharingScope } from '../../public/js/data/rules-helpers.js';
+// BL-5 (#1008): clan and bloodline are write-once. The decision is pure and
+// lives in its own module (the bloodline-delete-guard.js precedent); only the
+// wiring is here.
+import { WRITE_ONCE_FIELDS, checkWriteOnce, writeOnceRaceMessage } from '../lib/character-write-once.js';
+import { bloodlineKey } from '../lib/bloodline-key.js';
 // ECM-7 (#874): the EQUIPMENT_CATALOGUE static-module import + the dead
 // _CATALOGUE_IDS slug set were removed alongside the static module deletion.
 // POST /api/characters/:id/equipment validates catalogue existence via the
@@ -31,6 +36,44 @@ function stripEphemeral(req, res, next) {
     }
   }
   next();
+}
+
+/**
+ * BL-5 (#1008) — does an ACQUIRED bloodline name resolve against the
+ * collection? Returns a message when it demonstrably does not, and `null`
+ * whenever the collection cannot answer.
+ *
+ * Three deliberate refusals to judge, each of which would otherwise reject a
+ * legitimate first-set:
+ *   - the collection is EMPTY. Production holds zero bloodline documents right
+ *     now, so a check that fired here would reject every acquisition in the
+ *     app. This is BL-3a's `bloodlinesResolvable()` reasoning applied server
+ *     side, and the same lesson its review paid for.
+ *   - the read THREW. An unreadable collection is a system state, not evidence
+ *     about the value.
+ *   - the value is not a usable string. Schema validation owns that.
+ *
+ * Matching is on the shared trim + case-fold key, the same one the client
+ * resolves costing through, so a value that costs correctly is never refused
+ * for a spelling difference. The collection is read whole and filtered in
+ * memory, which is BL-4's own precedent for exactly this comparison (it is a
+ * couple of dozen documents).
+ */
+async function bloodlineDoesNotResolve(name) {
+  const key = bloodlineKey(name);
+  if (!key) return null;
+  let docs;
+  try {
+    docs = await getCollection('bloodlines').find({}, { projection: { name: 1 } }).toArray();
+  } catch (err) {
+    console.error('[characters] bloodline referential check could not read the collection:', err.message);
+    return null;
+  }
+  if (!docs.length) return null;
+  if (docs.some(d => bloodlineKey(d && d.name) === key)) return null;
+  return `Bloodline "${String(name)}" is not in the bloodlines collection. `
+    + 'A bloodline is permanent once acquired, so it is checked at the moment it is set. '
+    + 'Add it under Reference Data first, or correct the spelling.';
 }
 
 function parseId(id) {
@@ -492,21 +535,112 @@ router.put('/:id', requireRole('st'), stripEphemeral, validateCharacterPartial, 
     }
   }
 
+  // BL-5 (#1008): clan and bloodline are write-once, and until this story
+  // nothing knew it. The check needs the STORED value, which is why it is not a
+  // middleware (every middleware in the chain above is body-only) and why the
+  // read the touchstones branch already performed is HOISTED here and widened
+  // rather than duplicated: one document, one read, two questions.
+  //
+  // Nothing is read at all unless the body actually carries one of the three
+  // fields that need it.
+  const has = k => Object.prototype.hasOwnProperty.call(updates, k);
+  const guardedInBody = WRITE_ONCE_FIELDS.filter(has);
+  let existingChar = null;
+  if (guardedInBody.length || has('touchstones')) {
+    existingChar = await col().findOne({ _id: oid }, { projection: { clan: 1, bloodline: 1 } });
+  }
+
+  // `acquisitions` is field -> the value stored at the moment of the read. It
+  // is what turns the update into a compare-and-set below. Only an ACQUISITION
+  // goes in: a no-op save must not gain a filter condition, or an unrelated
+  // concurrent write would fail somebody's merit save.
+  const acquisitions = {};
+  if (existingChar) {
+    for (const field of guardedInBody) {
+      const v = checkWriteOnce(field, existingChar[field], updates[field]);
+      if (!v.allowed) {
+        // 409, not 400: the body is well-formed and schema-valid. What
+        // conflicts is the stored state. Same code BL-4 returns for the name
+        // collision and the guarded delete.
+        return res.status(409).json({ error: 'WRITE_ONCE_VIOLATION', message: v.reason });
+      }
+      if (!v.changed) continue;
+      acquisitions[field] = existingChar[field];
+
+      // The referential check (BL-5 AC 8), on ACQUISITION ONLY. Running it on a
+      // no-op would fail every existing holder's next full-document save, and
+      // running it against an empty or unreadable collection would reject every
+      // first-set in the app — production holds zero bloodline documents right
+      // now. A lookup that cannot answer must not be allowed to answer "no".
+      if (field === 'bloodline') {
+        const err = await bloodlineDoesNotResolve(updates.bloodline);
+        if (err) return res.status(400).json({ error: 'VALIDATION_ERROR', message: err });
+      }
+    }
+  }
+
   // NPCR.4: if the save includes touchstones[], validate cap and humanity-in-range.
-  if (Object.prototype.hasOwnProperty.call(updates, 'touchstones')) {
-    const existingChar = await col().findOne({ _id: oid }, { projection: { clan: 1 } });
+  // Reuses BL-5's hoisted `existingChar` read above (already projects `clan`,
+  // which is all this check needs) instead of a second document read — this
+  // repo's own reconciliation of the two branches (2026-08-18), not part of
+  // either story's original scope. NOTE: the bl branch this was merged from
+  // carried a further-enhanced (async, edge_id-referential-checking) version
+  // of `validateTouchstones`; that enhancement's own function-definition
+  // change was NOT part of this merge (unrelated to BL-1..5's actual scope,
+  // and its origin/intent wasn't clear enough to adopt silently here) — this
+  // keeps the simpler, currently-live signature. Revisit as its own story if
+  // the edge_id check is still wanted.
+  if (has('touchstones')) {
+    if (!existingChar) existingChar = await col().findOne({ _id: oid }, { projection: { clan: 1, bloodline: 1 } });
     const effectiveChar = { ...existingChar, ...updates }; // updates may also change clan
     const err = validateTouchstones(updates.touchstones, effectiveChar);
     if (err) return res.status(400).json({ error: 'VALIDATION_ERROR', message: err });
   }
 
+  // Compare-and-set. Between the read above and this write nothing holds a
+  // lock, so two concurrent acquisitions could both see "no value", both pass,
+  // and the second silently overwrite the first — the read-then-write class
+  // BL-4's review found three of. Putting the prior value in the FILTER makes
+  // the whole thing one atomic operation, which is what a MongoDB transaction
+  // would not have given us (transactions conflict on writes; there is no
+  // predicate locking). What stays deliberately open: a concurrent write
+  // setting the SAME value is indistinguishable from a no-op, and is harmless.
+  const filter = { _id: oid };
+  for (const [field, prior] of Object.entries(acquisitions)) {
+    // `undefined` means the field was absent from the document. `null` is the
+    // right filter for that: in MongoDB it matches both null and missing.
+    filter[field] = prior === undefined ? null : prior;
+  }
+
   const result = await col().findOneAndUpdate(
-    { _id: oid },
+    filter,
     { $set: updates },
     { returnDocument: 'after' }
   );
 
-  if (!result) return res.status(404).json({ error: 'NOT_FOUND', message: 'Character not found' });
+  if (!result) {
+    const raced = Object.keys(acquisitions);
+    if (raced.length) {
+      // Zero matches on a document that still exists is the race, not a 404.
+      // The projection is widened rather than added to: the filter ANDs EVERY
+      // acquired field's prior value, so a single field moving underneath trips
+      // the whole update, and naming both would send the ST looking at a field
+      // that never changed. Same read, one more field, no extra round trip.
+      const stillThere = await col().findOne({ _id: oid }, { projection: { clan: 1, bloodline: 1 } });
+      if (stillThere) {
+        // `?? null` on both sides, because the filter itself normalises an
+        // absent prior value to null (`prior === undefined ? null : prior`).
+        const moved = raced.filter(f => (stillThere[f] ?? null) !== (acquisitions[f] ?? null));
+        // If nothing reads as moved the value went and came back, or moved
+        // again after this read. Name every acquired field rather than none.
+        return res.status(409).json({
+          error: 'WRITE_ONCE_VIOLATION',
+          message: writeOnceRaceMessage(moved.length ? moved : raced),
+        });
+      }
+    }
+    return res.status(404).json({ error: 'NOT_FOUND', message: 'Character not found' });
+  }
   res.json(result);
 });
 

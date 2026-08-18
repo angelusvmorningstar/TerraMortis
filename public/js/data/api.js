@@ -2,9 +2,17 @@
 // All fetch calls to the server go through this module.
 // No other module should use raw fetch('/api/...') calls.
 
-const API_BASE = location.hostname === 'localhost'
-  ? 'http://localhost:3000'
-  : '';
+// Resolved per request rather than at module load. BL-2 (#1008) made
+// `data/accessors.js` depend on this module transitively, and a module-scope
+// `location` read makes the whole client data layer un-importable outside a
+// browser - which broke two existing vitest suites that import accessors.
+// Lazy resolution is behaviour-identical in the browser (`location` never
+// changes between load and first request) and costs one property read.
+function apiBase() {
+  return (typeof location !== 'undefined' && location.hostname === 'localhost')
+    ? 'http://localhost:3000'
+    : '';
+}
 
 function headers() {
   const h = { 'Content-Type': 'application/json' };
@@ -17,7 +25,7 @@ async function request(method, path, body) {
   const opts = { method, headers: headers() };
   if (body !== undefined) opts.body = JSON.stringify(body);
 
-  const res = await fetch(`${API_BASE}${path}`, opts);
+  const res = await fetch(`${apiBase()}${path}`, opts);
 
   if (res.status === 204) return null;
   const data = await res.json();
@@ -41,7 +49,7 @@ export function apiDelete(path) { return request('DELETE', path); }
 export async function apiRaw(method, path, body) {
   const opts = { method, headers: headers() };
   if (body !== undefined) opts.body = JSON.stringify(body);
-  const res = await fetch(`${API_BASE}${path}`, opts);
+  const res = await fetch(`${apiBase()}${path}`, opts);
   let data = null;
   if (res.status !== 204) {
     try { data = await res.json(); } catch { data = null; }

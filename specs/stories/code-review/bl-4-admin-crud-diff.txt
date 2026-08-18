@@ -1,0 +1,2398 @@
+diff --git a/public/admin.html b/public/admin.html
+index ae474922..632a57b7 100644
+--- a/public/admin.html
++++ b/public/admin.html
+@@ -72,6 +72,7 @@
+       <button class="sidebar-btn" data-domain="rules">Rule Data</button>
+       <button class="sidebar-btn" data-domain="rde">Rules Engine</button>
+       <button class="sidebar-btn" data-domain="equipment-catalogue">Equipment Catalogue</button>
++      <button class="sidebar-btn" data-domain="bloodlines">Bloodlines</button>
+       <button class="sidebar-btn" data-domain="st-mods">ST Mods</button>
+       <button class="sidebar-btn" data-domain="st-mods-audit">ST Mods Audit</button>
+       <button class="sidebar-btn" data-domain="devlog">Devlog</button>
+@@ -213,6 +214,11 @@
+       <div id="equipment-catalogue-content"></div>
+     </section>
+ 
++    <section id="d-bloodlines" class="domain">
++      <div class="domain-header"><h2>Bloodlines</h2></div>
++      <div id="bloodlines-content"></div>
++    </section>
++
+     <section id="d-st-mods" class="domain">
+       <div id="st-mods-panel-content"></div>
+     </section>
+diff --git a/public/css/admin-layout.css b/public/css/admin-layout.css
+index 5c519cf8..b5459752 100644
+--- a/public/css/admin-layout.css
++++ b/public/css/admin-layout.css
+@@ -10051,7 +10051,14 @@ html:not([data-theme="dark"]) .rules-tbl tbody tr:hover            { background:
+ .or-prefs-null { opacity: 0.35; }
+ .or-prefs-date { font-size: 0.75em; color: var(--txt3); }
+ 
+-/* ── Equipment Catalogue admin (ECM-6, issue #873) ─────────────────────────── */
++/* ── Reference-data admin chrome ─────────────────────────────────────────────
++   Introduced for the Equipment Catalogue admin (ECM-6, issue #873) and shared
++   unchanged by the Bloodlines admin (BL-4, issue #1008). The two screens are
++   the same problem — a Mongo-backed reference collection with a list, a
++   toolbar, an inline form panel and a guarded delete — so they share these
++   selectors rather than restating them under a second prefix. The handful of
++   genuinely bloodline-shaped rules are at the end of the block, and the
++   discipline chip joins the existing tag selector rather than copying it. */
+ 
+ .ec-admin { padding: 12px; }
+ .ec-empty { color: var(--txt3); text-align: center; padding: 24px 12px; }
+@@ -10120,7 +10127,8 @@ html:not([data-theme="dark"]) .rules-tbl tbody tr:hover            { background:
+ .ec-table tbody tr:hover { background: var(--surf1); }
+ .ec-row-actions { display: flex; gap: 6px; }
+ 
+-.ec-bucket-tag {
++.ec-bucket-tag,
++.bl-disc-tag {
+   display: inline-block;
+   padding: 1px 8px;
+   border-radius: 10px;
+@@ -10203,6 +10211,14 @@ html:not([data-theme="dark"]) .rules-tbl tbody tr:hover            { background:
+ .ec-form-msg--error { color: var(--crim); }
+ .ec-form-msg--info  { color: var(--txt3); }
+ 
++/* ── Bloodlines-specific additions (BL-4, issue #1008) ───────────────────────
++   Everything else on that screen is the shared chrome above. These two exist
++   because a bloodline row carries four discipline chips rather than one bucket
++   tag, and its form asks for exactly four pickers side by side. Tokens only. */
++
++.bl-disc-cell { display: flex; flex-wrap: wrap; gap: 4px; }
++.bl-disc-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 14px; }
++
+ /* ── Cycle tab (issue #918) ──────────────────────────────────────────────────
+    Engine → Cycle: status ribbon, chapters/cycles panels, inline edit,
+    toggleable phases, add/delete. All tokens from theme.css; no inline styles. */
+diff --git a/public/js/admin.js b/public/js/admin.js
+index 519d9d67..595bb711 100644
+--- a/public/js/admin.js
++++ b/public/js/admin.js
+@@ -20,7 +20,7 @@ import { initWS } from './data/ws.js';
+ import { loadCatalogue as loadEquipmentCatalogue, refetchCatalogue as refetchEquipmentCatalogue } from './data/equipment-catalogue-cache.js';
+ // BL-2 (#1008): see the matching block in app.js. Primed before characters are
+ // fetched so nothing renders, or is edited, against an unloaded cache.
+-import { loadBloodlines, loadFailed as bloodlinesLoadFailed } from './data/bloodlines-cache.js';
++import { loadBloodlines, loadFailed as bloodlinesLoadFailed, refetchBloodlines } from './data/bloodlines-cache.js';
+ import { mountBloodlineWarnBanner } from './components/bloodline-warn-banner.js';
+ import { xpLeft, xpEarned } from './editor/xp.js';
+ import { applyDerivedMerits, getPoolUsed, getMCIPoolUsed } from './editor/mci.js';
+@@ -47,6 +47,8 @@ import { initTicketsView } from './admin/tickets-views.js';
+ import { initRulesView } from './admin/rules-view.js';
+ import { initRulesDataView } from './admin/rules-data-view.js';
+ import { initEquipmentCatalogueAdmin } from './admin/equipment-catalogue-admin.js';
++// BL-4 (#1008): ST admin CRUD over the bloodlines collection.
++import { initBloodlinesAdmin } from './admin/bloodlines-admin.js';
+ import { initStModsAudit } from './admin/st-mods-audit.js';
+ import { initDevlogAdmin } from './admin/devlog-admin.js';
+ import { initStModsPanel } from './admin/st-mods-panel.js';
+@@ -244,6 +246,13 @@ async function boot() {
+         // read. Op is advisory per the server-side comment; we refetch
+         // regardless rather than per-op state-machine.
+         onCatalogueUpdate: () => { refetchEquipmentCatalogue(); },
++        // BL-4 (issue #1008): on remote bloodlines create/update/delete
++        // (broadcast by the bloodlines admin screen via server/ws.js's
++        // broadcastBloodlineUpdate), refetch the cache. Unlike the catalogue
++        // refetch this one must never wipe on failure — see
++        // refetchBloodlines' own header. A successful refetch also clears any
++        // banner row the new data has just resolved.
++        onBloodlineUpdate: () => { refetchBloodlines(); },
+       });
+ 
+       // Epic STM (issue #385): install delegated click handler for the
+@@ -330,6 +339,7 @@ function switchDomain(domain) {
+   if (domain === 'rules') initRulesView(document.getElementById('rules-content'), chars);
+   if (domain === 'rde') initRulesDataView(document.getElementById('rde-content'));
+   if (domain === 'equipment-catalogue') initEquipmentCatalogueAdmin(document.getElementById('equipment-catalogue-content'), chars);
++  if (domain === 'bloodlines') initBloodlinesAdmin(document.getElementById('bloodlines-content'), chars);
+   if (domain === 'st-mods-audit') initStModsAudit(document.getElementById('st-mods-audit-content'), chars);
+   if (domain === 'devlog') initDevlogAdmin(document.getElementById('devlog-admin-content'));
+   if (domain === 'st-mods') {
+diff --git a/public/js/admin/bloodlines-admin.js b/public/js/admin/bloodlines-admin.js
+new file mode 100644
+index 00000000..29eac5dd
+--- /dev/null
++++ b/public/js/admin/bloodlines-admin.js
+@@ -0,0 +1,441 @@
++/**
++ * Bloodlines admin view (BL-4, issue #1008).
++ *
++ * Epic BL. Browser-side CRUD over the Mongo-backed `bloodlines` collection
++ * established by BL-1, read by BL-2's cache and consumed by every costing
++ * surface since BL-3a. This screen is where issue #1008's actual promise
++ * lands: adding a bloodline stops being a code edit, a PR, a Netlify deploy
++ * and a re-run of the seed script.
++ *
++ * Harvested wholesale from `equipment-catalogue-admin.js` (ECM-6, #873) —
++ * the list/toolbar/inline-form shape, `showFormMsg` for inline status,
++ * `apiRaw` for the DELETE so the 409 body can be read, and `esc()` on every
++ * interpolated value. The `.ec-*` stylesheet is shared rather than copied
++ * under a `bl-` prefix; the selectors were generalised in `admin-layout.css`.
++ *
++ * Three things this screen does that the ECM one does not, all of them
++ * consequences of bloodlines carrying rules where the catalogue carries text:
++ *
++ *   - **No partial save.** Four disciplines is a rule of the game, so a
++ *     three-discipline bloodline is invalid, not a draft (ruled 2026-08-10).
++ *     Save is refused until four distinct disciplines are chosen, and the
++ *     refusal says why. The server enforces the same rule on POST and on the
++ *     MERGED document for PATCH; this is the UI mirroring the gate.
++ *   - **`name` is read-only in edit mode.** Three separate things key off the
++ *     bloodline name as a plain string with no foreign key, so a rename
++ *     orphans every holder at once. Correct a typo with delete + recreate,
++ *     which stays possible precisely because a fresh typo has no holders. The
++ *     reason is rendered on the field, reusing ECM's own immutable-`bucket`
++ *     treatment.
++ *   - **No grant editing.** Free specialities and merits granted by a
++ *     bloodline live in `rule_grant` documents and are edited in the Rules
++ *     Engine admin. Creating a bloodline here gives it disciplines and nothing
++ *     else, and the screen must not imply otherwise.
++ *
++ * Reads go through `GET /api/bloodlines/admin` rather than the public list,
++ * because `notes` is projected out of the public reads and this screen is
++ * allowed to edit it. Holder counts are derived client-side from the
++ * character set `switchDomain` passes, as ECM does; the server's
++ * `/:id/impact` endpoint is the SSOT for the delete gate and its message is
++ * surfaced verbatim if the 409 fires anyway.
++ */
++
++import { apiGet, apiPost, apiPatch, apiRaw } from '../data/api.js';
++import { esc } from '../data/helpers.js';
++import { CLANS, CORE_DISCS, RITUAL_DISCS } from '../data/constants.js';
++import { refetchBloodlines } from '../data/bloodlines-cache.js';
++
++/**
++ * Every discipline a bloodline may grant. Same set the route checks against,
++ * and the same reason the schema carries no enum for it: an enum would put the
++ * discipline list back behind a deploy.
++ */
++const PICKABLE_DISCS = [...CORE_DISCS, ...RITUAL_DISCS];
++
++/** Four is a rule of the game, not a form-design choice. */
++export const REQUIRED_DISCIPLINES = 4;
++
++// Module-level state, re-rendered on every mutation. Single-view module (the
++// admin sidebar is mutually exclusive), so a singleton is fine.
++let _container = null;
++let _allChars = [];
++let _items = [];
++let _searchName = '';
++let _sortKey = 'name';        // 'name' | 'clan'
++let _sortDir = 'asc';
++let _editingId = null;        // ObjectId-string, or null in create mode
++
++/** Trim + case-fold. The same normalisation the cache resolves costing
++ *  through, and the same one the server's delete guard uses, so the holder
++ *  count on screen agrees with the gate that refuses the delete. */
++function normKey(name) {
++  return typeof name === 'string' ? name.trim().toLowerCase() : '';
++}
++
++/**
++ * Holders per bloodline, keyed on the normalised name. Client-side join, as
++ * ECM does: `characters.bloodline` is a plain name string, deliberately not an
++ * ObjectId foreign key.
++ *
++ * Exported so it can be tested without a DOM. There is no jsdom in this
++ * repo's runner, so the pure decisions this screen makes are the ones a test
++ * can reach, and this is one of the two that matter: a count that disagreed
++ * with the server's delete guard would show an enabled Delete button on a
++ * bloodline the API is going to refuse to delete.
++ */
++export function buildHoldersIndex(chars) {
++  const idx = new Map();
++  for (const c of chars || []) {
++    const key = normKey(c && c.bloodline);
++    if (!key) continue;
++    idx.set(key, (idx.get(key) || 0) + 1);
++  }
++  return idx;
++}
++
++export async function initBloodlinesAdmin(container, chars) {
++  _container = container;
++  _allChars = Array.isArray(chars) ? chars : [];
++  _editingId = null;
++  _container.innerHTML = '<div class="ec-admin"><div class="ec-empty">Loading bloodlines…</div></div>';
++  await loadItems();
++  render();
++}
++
++async function loadItems() {
++  try {
++    // The ST-gated read, not the public one: `notes` is projected out of the
++    // public list and this screen round-trips it.
++    _items = await apiGet('/api/bloodlines/admin');
++  } catch (err) {
++    console.error('[bloodlines-admin] load failed:', err);
++    _items = [];
++  }
++}
++
++function filteredSorted() {
++  const search = (_searchName || '').toLowerCase();
++  const rows = _items.filter(b => !search || (b.name || '').toLowerCase().includes(search));
++  const dir = _sortDir === 'desc' ? -1 : 1;
++  rows.sort((a, b) => {
++    const av = _sortKey === 'clan' ? (a.clan || '') : (a.name || '').toLowerCase();
++    const bv = _sortKey === 'clan' ? (b.clan || '') : (b.name || '').toLowerCase();
++    if (av < bv) return -1 * dir;
++    if (av > bv) return 1 * dir;
++    return 0;
++  });
++  return rows;
++}
++
++function render() {
++  if (!_container) return;
++  const holders = buildHoldersIndex(_allChars);
++  const rows = filteredSorted();
++
++  _container.innerHTML = `
++    <div class="ec-admin">
++      <div class="ec-toolbar">
++        <label class="ec-toolbar-field">
++          <span>Name search</span>
++          <input id="bl-filter-search" type="text" value="${esc(_searchName)}" placeholder="filter…">
++        </label>
++        <label class="ec-toolbar-field">
++          <span>Sort by</span>
++          <select id="bl-sort-key">
++            <option value="name"${_sortKey === 'name' ? ' selected' : ''}>Name</option>
++            <option value="clan"${_sortKey === 'clan' ? ' selected' : ''}>Clan</option>
++          </select>
++          <button id="bl-sort-dir" class="ec-btn-sm" title="Toggle direction">${_sortDir === 'asc' ? '↑' : '↓'}</button>
++        </label>
++        <button id="bl-new" class="ec-btn-primary">+ New bloodline</button>
++      </div>
++
++      <div class="ec-count">${rows.length} of ${_items.length} bloodline${_items.length === 1 ? '' : 's'}</div>
++
++      ${_items.length === 0
++        ? `<div class="ec-empty">No bloodlines in the collection. Create one, or run the seed script to import the chronicle's existing set.</div>`
++        : `<table class="ec-table">
++             <thead>
++               <tr>
++                 <th>Name</th>
++                 <th>Clan</th>
++                 <th>Disciplines</th>
++                 <th>Holders</th>
++                 <th>Actions</th>
++               </tr>
++             </thead>
++             <tbody>
++               ${rows.map(b => renderRow(b, holders.get(normKey(b.name)) || 0)).join('')}
++             </tbody>
++           </table>`}
++
++      <div id="bl-form-host"></div>
++    </div>
++  `;
++  wireListEvents();
++}
++
++function renderRow(b, holdersCount) {
++  const discs = Array.isArray(b.disciplines) ? b.disciplines : [];
++  // The UI mirrors the gate; the API is the gate. A grant rule can also block
++  // the delete, and this client-side join cannot see those, so the disabled
++  // state is a courtesy and the 409 is the truth.
++  const deleteAttrs = holdersCount > 0
++    ? `disabled title="Held by ${holdersCount} character${holdersCount === 1 ? '' : 's'}. A bloodline with holders cannot be deleted; edit its clan or disciplines instead."`
++    : '';
++  return `
++    <tr data-id="${esc(String(b._id))}">
++      <td>${esc(b.name || '')}</td>
++      <td>${esc(b.clan || '')}</td>
++      <td class="bl-disc-cell">${discs.map(d => `<span class="bl-disc-tag">${esc(d)}</span>`).join(' ')}</td>
++      <td>${holdersCount > 0 ? `<strong>${holdersCount}</strong>` : '0'}</td>
++      <td class="ec-row-actions">
++        <button class="ec-btn-sm" data-action="edit">Edit</button>
++        <button class="ec-btn-sm ec-btn-danger" data-action="delete" ${deleteAttrs}>Delete</button>
++      </td>
++    </tr>
++  `;
++}
++
++function wireListEvents() {
++  const $ = id => document.getElementById(id);
++  $('bl-filter-search')?.addEventListener('input', e => { _searchName = e.target.value; render(); });
++  $('bl-sort-key')?.addEventListener('change', e => { _sortKey = e.target.value; render(); });
++  $('bl-sort-dir')?.addEventListener('click', () => { _sortDir = _sortDir === 'asc' ? 'desc' : 'asc'; render(); });
++  $('bl-new')?.addEventListener('click', () => openCreateForm());
++
++  _container.querySelectorAll('.ec-table tbody tr').forEach(row => {
++    const id = row.dataset.id;
++    row.querySelector('[data-action="edit"]')?.addEventListener('click', () => openEditForm(id));
++    const delBtn = row.querySelector('[data-action="delete"]');
++    if (delBtn && !delBtn.disabled) delBtn.addEventListener('click', () => onDelete(id));
++  });
++}
++
++// ── Forms ──────────────────────────────────────────────────────────────────
++
++function openCreateForm() {
++  _editingId = null;
++  renderForm({ clan: CLANS[0], disciplines: [] });
++}
++
++async function openEditForm(id) {
++  _editingId = id;
++  const item = _items.find(b => String(b._id) === String(id));
++  if (!item) return;
++  // The list-view holder count is a client-side join and cannot see grant
++  // rules at all; the impact endpoint is the SSOT for both.
++  let impact = { holders: 0, character_names: [], grant_rules: 0, grant_rule_labels: [] };
++  try {
++    impact = await apiGet(`/api/bloodlines/${id}/impact`);
++  } catch (err) {
++    console.warn('[bloodlines-admin] impact fetch failed:', err);
++  }
++  renderForm(item, impact);
++}
++
++function discSelect(index, selected) {
++  const opts = ['<option value="">— choose —</option>']
++    .concat(PICKABLE_DISCS.map(d => `<option value="${esc(d)}"${d === selected ? ' selected' : ''}>${esc(d)}</option>`))
++    .join('');
++  return `
++    <div class="ec-form-field">
++      <label>Discipline ${index + 1} *</label>
++      <select class="bl-f-disc" data-disc-index="${index}">${opts}</select>
++    </div>
++  `;
++}
++
++function renderForm(initial, impact = null) {
++  const host = document.getElementById('bl-form-host');
++  if (!host) return;
++  const isEdit = !!_editingId;
++  const discs = Array.isArray(initial.disciplines) ? initial.disciplines : [];
++  const clanOpts = CLANS.map(c =>
++    `<option value="${esc(c)}"${(initial.clan || '') === c ? ' selected' : ''}>${esc(c)}</option>`
++  ).join('');
++
++  const banner = isEdit && impact && (impact.holders > 0 || impact.grant_rules > 0)
++    ? `<div class="ec-impact-banner">
++         <strong>${impact.holders > 0
++           ? `Held by ${impact.holders} character${impact.holders === 1 ? '' : 's'}.`
++           : 'Referenced by the rules engine.'}</strong>
++         Edits to clan or disciplines apply to all current holders, and change what their disciplines cost.
++         ${impact.character_names?.length
++           ? `<span class="ec-impact-list">(${impact.character_names.map(esc).join(', ')})</span>`
++           : ''}
++         ${impact.grant_rules > 0
++           ? `<span class="ec-impact-list">${impact.grant_rules} bloodline grant rule${impact.grant_rules === 1 ? '' : 's'} reference${impact.grant_rules === 1 ? 's' : ''} this name. Grants are edited in the Rules Engine, not here.</span>`
++           : ''}
++       </div>`
++    : '';
++
++  host.innerHTML = `
++    <div class="ec-form-panel">
++      <div class="ec-form-header">
++        <h3>${isEdit ? 'Edit bloodline' : 'New bloodline'}</h3>
++        <button id="bl-form-close" class="ec-btn-sm">Close</button>
++      </div>
++      ${banner}
++      <div class="ec-form-grid">
++        ${isEdit
++          ? `<div class="ec-form-field"><label>Name</label><div class="ec-form-readonly">${esc(initial.name || '')} <span class="ec-form-hint">(immutable: a character's bloodline, and the rules engine, both match this name as plain text. Correct a typo by deleting and recreating, which is possible while it has no holders.)</span></div></div>`
++          : `<div class="ec-form-field"><label>Name *</label><input id="bl-f-name" type="text" value="${esc(initial.name || '')}" required></div>`
++        }
++        <div class="ec-form-field">
++          <label>Parent clan *</label>
++          <select id="bl-f-clan">${clanOpts}</select>
++        </div>
++        <div class="ec-form-field ec-form-field--wide">
++          <fieldset class="ec-bucket-fieldset">
++            <legend>Disciplines (exactly four, all different)</legend>
++            <div class="bl-disc-grid">
++              ${Array.from({ length: REQUIRED_DISCIPLINES }, (_, i) => discSelect(i, discs[i] || '')).join('')}
++            </div>
++          </fieldset>
++        </div>
++        <div class="ec-form-field ec-form-field--wide">
++          <label>Notes <span class="ec-form-hint">(ST bookkeeping, never shown to players)</span></label>
++          <textarea id="bl-f-notes" rows="3">${esc(initial.notes || '')}</textarea>
++        </div>
++      </div>
++      <div class="ec-form-actions">
++        <span id="bl-form-msg" class="ec-form-msg"></span>
++        <button id="bl-form-save" class="ec-btn-primary">${isEdit ? 'Save changes' : 'Create bloodline'}</button>
++      </div>
++    </div>
++  `;
++  wireFormEvents();
++}
++
++function wireFormEvents() {
++  const $ = id => document.getElementById(id);
++  $('bl-form-close')?.addEventListener('click', () => {
++    const host = document.getElementById('bl-form-host');
++    if (host) host.innerHTML = '';
++    _editingId = null;
++  });
++  $('bl-form-save')?.addEventListener('click', () => onSave());
++}
++
++function collectFormValues() {
++  const $ = id => document.getElementById(id);
++  const disciplines = [...document.querySelectorAll('.bl-f-disc')].map(sel => sel.value).filter(Boolean);
++  return {
++    name: ($('bl-f-name')?.value || '').trim(),
++    clan: $('bl-f-clan')?.value || '',
++    disciplines,
++    notes: ($('bl-f-notes')?.value || '').trim() || null,
++  };
++}
++
++function showFormMsg(text, kind = 'info') {
++  const el = document.getElementById('bl-form-msg');
++  if (!el) return;
++  el.textContent = text;
++  el.className = `ec-form-msg ec-form-msg--${kind}`;
++}
++
++/**
++ * The no-partial-save gate, stated in the words a human needs. The server
++ * enforces the same rule; this exists so the refusal names what is wrong
++ * instead of returning a schema error list.
++ *
++ * Exported for the same reason as `buildHoldersIndex`: it is the other pure
++ * decision on this screen, and it is the one AC 2 turns into a rule of the
++ * game rather than a form-design choice.
++ *
++ * @returns {string|null} the refusal to show, or null when the values are fit
++ *   to send.
++ */
++export function validationRefusal(values, { requireName }) {
++  if (requireName && !values.name) return 'A name is required.';
++  if (!values.clan) return 'A parent clan is required.';
++  if (values.disciplines.length !== REQUIRED_DISCIPLINES) {
++    return `Choose exactly ${REQUIRED_DISCIPLINES} disciplines. `
++      + `${values.disciplines.length} chosen so far. A bloodline with fewer than four is not a draft, it is invalid, so there is no partial save.`;
++  }
++  if (new Set(values.disciplines).size !== values.disciplines.length) {
++    return 'The four disciplines must all be different.';
++  }
++  return null;
++}
++
++async function onSave() {
++  const values = collectFormValues();
++  const refusal = validationRefusal(values, { requireName: !_editingId });
++  if (refusal) { showFormMsg(refusal, 'error'); return; }
++
++  if (!_editingId) {
++    // Case-insensitive duplicate check, mirroring the server's own. Blocking
++    // rather than ECM's soft warning: two names that differ only by case both
++    // satisfy the unique index and then collapse to one cache entry, leaving
++    // one document permanently unreachable for costing.
++    const dup = _items.find(b => normKey(b.name) === normKey(values.name));
++    if (dup) {
++      showFormMsg(`"${dup.name}" already exists. Names must be distinct ignoring case.`, 'error');
++      return;
++    }
++  }
++
++  showFormMsg('Saving…', 'info');
++  try {
++    if (_editingId) {
++      // Only the updatable fields are sent. The server allowlist strips the
++      // rest anyway; pruning here keeps the payload honest about intent.
++      await apiPatch(`/api/bloodlines/${_editingId}`, {
++        clan: values.clan,
++        disciplines: values.disciplines,
++        notes: values.notes,
++      });
++      showFormMsg('Saved.', 'ok');
++    } else {
++      await apiPost('/api/bloodlines', values);
++      showFormMsg('Created.', 'ok');
++    }
++    // Refresh the costing cache directly rather than waiting for this client's
++    // own WS echo: the write is what changes costing, and the screen should
++    // not depend on the socket being up to make that true locally.
++    await refetchBloodlines();
++    await loadItems();
++    _editingId = null;
++    render();
++  } catch (err) {
++    showFormMsg(err.message || 'Save failed.', 'error');
++  }
++}
++
++async function onDelete(id) {
++  const item = _items.find(b => String(b._id) === String(id));
++  if (!item) return;
++  if (!confirm(
++    `Delete "${item.name}" from the collection?\n\n`
++    + 'Delete removes a mistake, it does not retire a bloodline. It is refused if any character holds this name or any rules-engine grant references it.'
++  )) return;
++  try {
++    const res = await apiRaw('DELETE', `/api/bloodlines/${id}`);
++    if (res.status === 204) {
++      await refetchBloodlines();
++      await loadItems();
++      render();
++      return;
++    }
++    if (res.status === 409 && res.body) {
++      // Server hard-block. Surfaced verbatim so the ST is told where to clean
++      // up rather than just refused.
++      const names = (res.body.character_names || []).join(', ');
++      const rules = (res.body.grant_rule_labels || []).join(', ');
++      alert(
++        `${res.body.message}\n`
++        + (names ? `\nHolders: ${names}` : '')
++        + (rules ? `\nGrant rules: ${rules}` : '')
++      );
++      await loadItems();
++      render();
++      return;
++    }
++    alert((res.body && (res.body.message || res.body.error)) || 'Delete failed.');
++  } catch (err) {
++    alert(err.message || 'Delete failed.');
++  }
++}
+diff --git a/public/js/app.js b/public/js/app.js
+index 9c82af8d..09bbb0a0 100644
+--- a/public/js/app.js
++++ b/public/js/app.js
+@@ -67,7 +67,7 @@ import { loadCatalogue as loadEquipmentCatalogue, refetchCatalogue as refetchEqu
+ // constants. Primed in the boot Promise.allSettled below so nothing is costed
+ // against an unloaded cache; the banner surfaces any bloodline that does not
+ // resolve, because an unresolved one silently mis-costs XP.
+-import { loadBloodlines, loadFailed as bloodlinesLoadFailed } from './data/bloodlines-cache.js';
++import { loadBloodlines, loadFailed as bloodlinesLoadFailed, refetchBloodlines } from './data/bloodlines-cache.js';
+ import { mountBloodlineWarnBanner } from './components/bloodline-warn-banner.js';
+ import { initSignIn } from './game/signin-tab.js';
+ import { initFinanceTab } from './game/finance-tab.js';
+@@ -1592,6 +1592,14 @@ async function boot() {
+           // broadcastCatalogueUpdate), refetch the cache. Next render of
+           // the DT form's equipment dropdown picks up the fresh items.
+           onCatalogueUpdate: () => { refetchEquipmentCatalogue(); },
++          // BL-4 (issue #1008): on remote bloodlines create/update/delete,
++          // refetch the cache. The player app matters as much as the admin
++          // one here: the DT form free-rides on this boot path's priming
++          // (documented at downtime-form.js:36), so without this an ST adding
++          // a bloodline mid-session would not reach an open DT form until the
++          // player reloads, and there is no second chance. refetchBloodlines
++          // preserves the last good index on failure by design.
++          onBloodlineUpdate: () => { refetchBloodlines(); },
+         });
+ 
+         // Issue #425: install the STM popover delegated click handler for
+diff --git a/public/js/data/bloodlines-cache.js b/public/js/data/bloodlines-cache.js
+index a656d0d9..4cd4a5c8 100644
+--- a/public/js/data/bloodlines-cache.js
++++ b/public/js/data/bloodlines-cache.js
+@@ -35,8 +35,8 @@
+  *                      state. One character, and it persists until someone
+  *                      fixes the data.
+  *
+- * No WS refetch: there is no write path until BL-4, and an unused listener is
+- * a claim the code makes and cannot keep.
++ * BL-4 added the write path, and with it `refetchBloodlines()` — see its own
++ * header for why it is not the two-line ECM refetch.
+  */
+ 
+ import { apiGet } from './api.js';
+@@ -115,6 +115,49 @@ export async function loadBloodlines() {
+   return _inFlight;
+ }
+ 
++/**
++ * Re-fetch the collection after an ST write, driven by the `bloodline` WS
++ * frame (BL-4, #1008). Returns true when the index was replaced, false when
++ * the fetch failed and the previous index was kept.
++ *
++ * ──────────────────────────────────────────────────────────────────────────
++ *   Why this is not `refetchCatalogue()`
++ * ──────────────────────────────────────────────────────────────────────────
++ *
++ *   The equipment catalogue's refetch is two lines: null the in-flight
++ *   promise, call the loader again. Copying that here would be a live defect,
++ *   because `loadBloodlines()`'s failure path wipes `_items`, sets
++ *   `_loaded = false` and `_loadFailed = true`. ECM can afford that; it
++ *   degrades to an empty dropdown, which a human can see. This degrades to
++ *   every bloodline character hard-locked in the editor and costed at 4
++ *   XP/dot, from one transient network blip, behind a banner blaming the
++ *   system rather than the blip.
++ *
++ *   So the failure path here keeps the last good index and logs. Only the boot
++ *   load, which has nothing to lose, may empty the cache.
++ *
++ *   It also deliberately does NOT share `_inFlight`. Boot priming is awaited
++ *   before `initWS` is called in both apps, so the two cannot overlap in
++ *   practice; joining them would mean a boot load that fails AFTER a
++ *   successful refetch could still wipe what the refetch had just repaired.
++ *
++ * An EMPTY array is a legitimate answer, not a failure: the last bloodline
++ * having been deleted is a real state the cache must reflect. Only a genuine
++ * fetch error or a malformed (non-array) payload preserves the old index.
++ */
++export async function refetchBloodlines() {
++  try {
++    const items = await apiGet('/api/bloodlines');
++    if (!Array.isArray(items)) throw new Error('malformed payload: expected an array');
++    _index(items);
++    _clearResolvedMisses();
++    return true;
++  } catch (err) {
++    console.error('[bloodlines-cache] refetch failed; keeping the last good index:', err);
++    return false;
++  }
++}
++
+ export function isLoaded() { return _loaded; }
+ export function loadFailed() { return _loadFailed; }
+ /**
+@@ -181,6 +224,35 @@ function _clearMisses(reason) {
+   if (changed) _notify();
+ }
+ 
++/**
++ * Drop every miss the CURRENT index now answers. Called from
++ * `refetchBloodlines` on the success path only (BL-4 AC 10).
++ *
++ * `MISS_UNKNOWN` entries deliberately survive a load — the data cause outlives
++ * the load that proved it real — and `clearBloodlineMissesFor` only fires from
++ * `clanDiscList`'s success path, i.e. when the affected character next
++ * renders. Between the two, an ST who creates the very bloodline the banner is
++ * complaining about would keep seeing the row until something happened to
++ * re-render that character. A banner that keeps asserting a fixed problem is
++ * how a warning stops being read, which is the same argument
++ * `clearBloodlineMissesFor` was written from.
++ *
++ * Keyed on the bloodline value rather than the character, because here it is
++ * the collection that changed, not the character.
++ */
++function _clearResolvedMisses() {
++  let changed = false;
++  for (const [key, miss] of _misses) {
++    let resolved;
++    if (miss.reason === MISS_UNKNOWN) resolved = _byName.has(_key(miss.bloodline));
++    else if (miss.reason === MISS_EMPTY_COLLECTION) resolved = _items.length > 0;
++    else if (miss.reason === MISS_NOT_LOADED) resolved = _loaded && !_loadFailed;
++    else resolved = false;
++    if (resolved) { _misses.delete(key); changed = true; }
++  }
++  if (changed) _notify();
++}
++
+ /**
+  * Register that a character's bloodline could not be resolved. Called from
+  * `clanDiscList`, which runs on every render, so this must stay cheap and must
+diff --git a/public/js/data/ws.js b/public/js/data/ws.js
+index 0b3fcbc2..c7f43043 100644
+--- a/public/js/data/ws.js
++++ b/public/js/data/ws.js
+@@ -24,6 +24,10 @@ let _onStModUpdate = null;
+ // (itemId, op) for remote equipment_catalogue create/update/delete events.
+ // Consumers (the catalogue cache module) refetch on receipt.
+ let _onCatalogueUpdate = null;
++// BL-4 (issue #1008): callback for bloodline-update frames. Called with
++// (bloodlineId, op) for remote bloodlines create/update/delete events.
++// Consumers (the bloodlines cache module) refetch on receipt.
++let _onBloodlineUpdate = null;
+ 
+ // Recent local writes — { charId+field → timestamp }. Used to suppress
+ // WS echo of our own saves (avoids double-render on the originating client).
+@@ -53,11 +57,13 @@ export function markLocalWrite(charId, fields) {
+  * @param {function} [opts.onTrackerUpdate] — called with (characterId, fields) for remote tracker changes
+  * @param {function} [opts.onStModUpdate]   — called with (characterId, op, stModId) for remote st_mod changes (STM-9 / issue #416)
+  * @param {function} [opts.onCatalogueUpdate] — called with (itemId, op) for remote equipment_catalogue events (ECM-5 / issue #872)
++ * @param {function} [opts.onBloodlineUpdate] — called with (bloodlineId, op) for remote bloodlines events (BL-4 / issue #1008)
+  */
+ export function initWS(opts = {}) {
+   _onTrackerUpdate = opts.onTrackerUpdate || null;
+   _onStModUpdate = opts.onStModUpdate || null;
+   _onCatalogueUpdate = opts.onCatalogueUpdate || null;
++  _onBloodlineUpdate = opts.onBloodlineUpdate || null;
+   _token = localStorage.getItem('tm_auth_token');
+   _closed = false;
+   if (!_token) return; // not logged in
+@@ -100,6 +106,7 @@ function _connect() {
+       if (msg.type === 'tracker') _handleTrackerMsg(msg);
+       else if (msg.type === 'st_mod') _handleStModMsg(msg);
+       else if (msg.type === 'catalogue') _handleCatalogueMsg(msg);
++      else if (msg.type === 'bloodline') _handleBloodlineMsg(msg);
+     } catch { /* ignore non-JSON */ }
+   };
+ 
+@@ -193,3 +200,16 @@ function _handleCatalogueMsg(msg) {
+   const { item_id, op } = msg;
+   if (_onCatalogueUpdate) _onCatalogueUpdate(item_id, op);
+ }
++
++/** BL-4 (issue #1008): handle bloodline create/update/delete frames. Same
++ *  advisory-op contract as the catalogue frame — the cache refetches
++ *  regardless of `op`, so an unknown op degrades to "refetch". No echo
++ *  suppression, for the catalogue's reason (the refetch is ~23 documents and
++ *  per-op deduping would duplicate the server-side state machine) and one of
++ *  its own: the admin screen that fires the write is also the screen most
++ *  likely to be showing a stale holder count, so refetching on its own echo is
++ *  a feature. */
++function _handleBloodlineMsg(msg) {
++  const { bloodline_id, op } = msg;
++  if (_onBloodlineUpdate) _onBloodlineUpdate(bloodline_id, op);
++}
+diff --git a/server/lib/bloodline-slug.js b/server/lib/bloodline-slug.js
+new file mode 100644
+index 00000000..98e9d7f1
+--- /dev/null
++++ b/server/lib/bloodline-slug.js
+@@ -0,0 +1,34 @@
++/**
++ * Bloodline slug derivation (BL-4, issue #1008).
++ *
++ * Lifted out of `server/scripts/seed-bloodlines.js:78-85` so the seed and the
++ * write route share ONE implementation. BL-3b retires the seed to
++ * `scripts/archive/`; leaving `deriveSlug` in there would either take the
++ * route's slug logic with it or, worse, invite a second copy. A slug that two
++ * writers derive differently is drift pattern #2 wearing a different hat.
++ *
++ * The slug is always derived server-side from `name` and is never accepted
++ * from a client.
++ */
++
++/**
++ * Stable kebab id from a display name. Diacritics are stripped rather than
++ * hyphenated through, so "Lidérc" gives "liderc" and not "lid-rc".
++ *
++ * Returns '' when the name carries no letters or digits at all. Callers must
++ * treat that as a rejection: the schema's `slug` pattern requires a leading
++ * alphanumeric, so an empty slug would otherwise surface as an opaque
++ * pattern-mismatch error rather than "that name has nothing to make an id
++ * from".
++ *
++ * @param {string} name
++ * @returns {string}
++ */
++export function deriveSlug(name) {
++  return String(name)
++    .normalize('NFD')
++    .replace(/\p{Mn}/gu, '')
++    .toLowerCase()
++    .replace(/[^a-z0-9]+/g, '-')
++    .replace(/^-+|-+$/g, '');
++}
+diff --git a/server/routes/bloodlines.js b/server/routes/bloodlines.js
+index a52763a2..f5f7ced5 100644
+--- a/server/routes/bloodlines.js
++++ b/server/routes/bloodlines.js
+@@ -1,5 +1,5 @@
+ /**
+- * Bloodlines routes (BL-1, issue #1008).
++ * Bloodlines routes (BL-1 read, BL-4 write; issue #1008).
+  *
+  * Epic BL — Mongo-backed replacement for the static BLOODLINE_DISCS /
+  * BLOODLINE_CLANS / APPROVED_BLOODLINES constants, so a bloodline can be added
+@@ -7,25 +7,74 @@
+  * this collection and both the player app and the DT form need it without a
+  * token, exactly as the equipment catalogue does.
+  *
+- * BL-1 is READ-ONLY and inert. Nothing in the client reads it yet; the
+- * constants remain the live source until BL-2. Writes (POST/PATCH/DELETE),
+- * the ST admin CRUD, and any WS broadcast are BL-4 — deliberately absent
+- * here, because an unused broadcast is a claim the code makes and cannot keep.
++ * BL-4 added the writes. `server/routes/equipment-catalogue.js` is the
++ * precedent for the mixed public-read / ST-write shape, and this file follows
++ * it closely, with three deliberate departures each recorded at its site:
++ *
++ *   1. PATCH validates the MERGED document, not the patch body (ECM validates
++ *      nothing on PATCH). Bloodlines carry a four-discipline count rule that a
++ *      partial update can break, and breaking it re-costs every holder.
++ *   2. The impact endpoint is ST-gated (ECM's is public). It joins character
++ *      names to a data problem, and this epic has kept its public surface
++ *      minimal since BL-1 (`notes` is the same ruling).
++ *   3. DELETE guards on `rule_grant` references as well as holders, and
++ *      matches holders on the cache's normalised key rather than exactly.
+  *
+  * Endpoints:
+  *
+- *   GET /api/bloodlines        public   list, name ascending
+- *   GET /api/bloodlines/:id    public   single by ObjectId
++ *   GET    /api/bloodlines             public   list, name ascending
++ *   GET    /api/bloodlines/admin       ST       full documents, incl. `notes`
++ *   GET    /api/bloodlines/:id/impact  ST       who references this bloodline
++ *   GET    /api/bloodlines/:id         public   single by ObjectId
++ *   POST   /api/bloodlines             ST       create
++ *   PATCH  /api/bloodlines/:id         ST       partial update, allowlisted
++ *   DELETE /api/bloodlines/:id         ST       409 when referenced, else 204
+  *
+- * Built as a factory taking the auth middleware even though nothing is gated
+- * yet, so BL-4 adds its write handlers in place rather than converting the
+- * mount. `server/routes/equipment-catalogue.js` is the precedent for the
+- * mixed public-read / ST-write shape this grows into.
++ * Built as a factory taking the auth middleware, so BL-4's write handlers
++ * slotted in without touching the mounts at `server/index.js` and
++ * `server/tests/helpers/test-app.js`.
+  */
+ 
+ import { Router } from 'express';
+ import { ObjectId } from 'mongodb';
++import Ajv from 'ajv';
+ import { getCollection } from '../db.js';
++import { requireRole } from '../middleware/auth.js';
++import { bloodlineSchema, BLOODLINE_UPDATABLE_FIELDS } from '../schemas/bloodline.schema.js';
++import { deriveSlug } from '../lib/bloodline-slug.js';
++import { broadcastBloodlineUpdate } from '../ws.js';
++// The same cross-boundary import the seed script already makes. BL-3b deletes
++// only the three BLOODLINE_* exports; CORE_DISCS / RITUAL_DISCS stay.
++import { CORE_DISCS, RITUAL_DISCS } from '../../public/js/data/constants.js';
++
++/**
++ * Every discipline a bloodline could legitimately grant. The schema
++ * deliberately carries no enum for this (see `bloodline.schema.js:51-54`): an
++ * enum would put the discipline list back behind a deploy, which is the exact
++ * thing this epic exists to delete. So the check lives here, mirroring the
++ * seed script's integrity gate.
++ */
++const KNOWN_DISCIPLINES = [...CORE_DISCS, ...RITUAL_DISCS];
++
++const ajv = new Ajv({ allErrors: true, coerceTypes: false });
++const validateBloodline = ajv.compile(bloodlineSchema);
++
++/**
++ * Trim + case-fold. Deliberately identical to `bloodlines-cache.js:66`'s
++ * `_key`, because that is the normalisation costing actually resolves through:
++ * a character carrying " khaibit" is being costed off the Khaibit document,
++ * so the collision check and the delete guard must both see it that way.
++ *
++ * Note this is NOT what the `bloodline_name_unique` index sees — that index is
++ * case-SENSITIVE and has no collation, so "Khaibit" and "khaibit" both satisfy
++ * it and then collapse to one entry in the cache, leaving one document
++ * permanently unreachable for costing while both still appear in the dropdown.
++ * The pre-insert check below is what actually prevents that; the index is the
++ * backstop, and its E11000 is mapped to a 409 rather than a raw 500.
++ */
++function normKey(name) {
++  return typeof name === 'string' ? name.trim().toLowerCase() : '';
++}
+ 
+ /**
+  * Validate :id as a 24-char ObjectId hex. On failure short-circuit with 404 —
+@@ -47,35 +96,278 @@ function withObjectId(req, res, next) {
+   next();
+ }
+ 
++function badRequest(res, message, errors) {
++  return res.status(400).json({
++    error: 'VALIDATION_ERROR',
++    message,
++    ...(errors ? { errors } : {}),
++  });
++}
++
++/**
++ * Check every discipline name against the known set. A typo like "Vigor" is
++ * drift pattern #15 arriving through the discipline field: the bloodline name
++ * resolves, the discipline never matches the character's own list, and the
++ * holder is charged out-of-clan for it forever. Returns a message naming the
++ * offending value, or null when the list is clean.
++ */
++function unknownDisciplineMessage(disciplines) {
++  if (!Array.isArray(disciplines)) return null; // shape is the schema's job
++  const unknown = disciplines.filter(d => typeof d === 'string' && d.trim() && !KNOWN_DISCIPLINES.includes(d));
++  if (!unknown.length) return null;
++  return `Unknown discipline${unknown.length === 1 ? '' : 's'}: ${unknown.map(d => `"${d}"`).join(', ')}. `
++    + `Known disciplines are: ${KNOWN_DISCIPLINES.join(', ')}.`;
++}
++
++/** Ajv error list flattened into the shape `middleware/validate.js` returns. */
++function schemaErrors() {
++  return (validateBloodline.errors || []).map(e => ({
++    path: e.instancePath || '(root)',
++    message: e.message,
++    ...(e.params?.additionalProperty ? { property: e.params.additionalProperty } : {}),
++  }));
++}
++
+ /**
+- * @param {import('express').RequestHandler} [authMiddleware] - unused in BL-1
+- *   (every endpoint here is a public read). Accepted now so BL-4's ST-gated
+- *   writes slot in without changing the mount in index.js and test-app.js.
++ * @param {import('express').RequestHandler} authMiddleware - runs before
++ *   `requireRole('st')` on every write. In prod that is `requireAuth`, in
++ *   tests `mockAuth`.
+  */
+-// eslint-disable-next-line no-unused-vars
+ export default function buildBloodlinesRouter(authMiddleware) {
+   const router = Router();
+   const col = () => getCollection('bloodlines');
++  const chars = () => getCollection('characters');
++  const grants = () => getCollection('rule_grant');
+ 
+   // `notes` is ST bookkeeping, not player-facing flavour (ruled by Angelus
+   // 2026-08-10). These reads are unauthenticated, so it is projected out at
+   // the query rather than stripped after fetch — the same shape as the
+   // `st_hidden` filtering on relationships. Every other reference collection
+   // carrying a free-text note (the eight `rule_*` collections) sits behind
+-  // requireAuth; this keeps bloodlines consistent with that. BL-4 adds an
+-  // ST-gated read that includes it.
++  // requireAuth; this keeps bloodlines consistent with that. BL-4's
++  // GET /admin below is the ST-gated read that includes it.
+   const PUBLIC_PROJECTION = { projection: { notes: 0 } };
+ 
++  /**
++   * Everything that references this bloodline by NAME. There is no foreign key
++   * anywhere in this epic, on purpose (drift pattern #2), so both joins are
++   * string matches on the normalised key.
++   *
++   * Both collections are read whole and filtered in memory rather than queried
++   * with a case-insensitive regex. That is deliberate: the sets are tiny (13
++   * bloodline-carrying characters and 3 bloodline grant rules live), and doing
++   * it this way means the guard uses literally the same `normKey` the cache
++   * resolves costing through, instead of a regex that agrees with it by
++   * inspection.
++   */
++  async function referencesFor(name) {
++    const key = normKey(name);
++    const holderRows = await chars()
++      .find({ bloodline: { $nin: [null, ''] } }, { projection: { name: 1, moniker: 1, bloodline: 1 } })
++      .toArray();
++    const holders = holderRows.filter(c => normKey(c.bloodline) === key);
++    const grantRows = await grants()
++      .find({ condition: 'bloodline' }, { projection: { source: 1, grant_type: 1, target: 1, target_qualifier: 1, bloodline_name: 1 } })
++      .toArray();
++    const grantRefs = grantRows.filter(g => normKey(g.bloodline_name) === key);
++    return {
++      holders: holders.length,
++      character_names: holders.map(c => c.moniker || c.name).filter(Boolean).sort((a, b) => a.localeCompare(b)),
++      grant_rules: grantRefs.length,
++      grant_rule_labels: grantRefs
++        .map(g => [g.grant_type, g.target, g.target_qualifier].filter(Boolean).join(': '))
++        .filter(Boolean)
++        .sort((a, b) => a.localeCompare(b)),
++    };
++  }
++
++  // ─────────────────────────────────────────────────────────────────────────
++  //  Public reads (BL-1; shape unchanged by BL-4)
++  // ─────────────────────────────────────────────────────────────────────────
++
+   router.get('/', async (req, res) => {
+     const docs = await col().find({}, PUBLIC_PROJECTION).sort({ name: 1 }).toArray();
+     res.json(docs);
+   });
+ 
++  // ─────────────────────────────────────────────────────────────────────────
++  //  ST-gated reads
++  //
++  //  Both MUST stay above `router.get('/:id')`: Express matches in
++  //  registration order, so a later `/admin` would be swallowed by `/:id` and
++  //  404'd by withObjectId as a malformed ObjectId.
++  // ─────────────────────────────────────────────────────────────────────────
++
++  router.get('/admin',
++    authMiddleware, requireRole('st'),
++    async (req, res) => {
++      const docs = await col().find({}).sort({ name: 1 }).toArray();
++      res.json(docs);
++    }
++  );
++
++  router.get('/:id/impact',
++    authMiddleware, requireRole('st'),
++    withObjectId,
++    async (req, res) => {
++      const doc = await col().findOne({ _id: req._oid });
++      if (!doc) return res.status(404).json({ error: 'NOT_FOUND', message: 'Bloodline not found' });
++      res.json(await referencesFor(doc.name));
++    }
++  );
++
+   router.get('/:id', withObjectId, async (req, res) => {
+     const doc = await col().findOne({ _id: req._oid }, PUBLIC_PROJECTION);
+     if (!doc) return res.status(404).json({ error: 'NOT_FOUND', message: 'Bloodline not found' });
+     res.json(doc);
+   });
+ 
++  // ─────────────────────────────────────────────────────────────────────────
++  //  ST-only writes
++  // ─────────────────────────────────────────────────────────────────────────
++
++  router.post('/',
++    authMiddleware, requireRole('st'),
++    async (req, res) => {
++      const src = req.body || {};
++
++      // `name` is the canonical key every other referent matches on, so it is
++      // trimmed here and never again. The schema's `minLength: 1` passes a
++      // string of spaces, which is why this check is not left to it.
++      const name = typeof src.name === 'string' ? src.name.trim() : '';
++      if (!name) return badRequest(res, 'Name is required.');
++
++      // Derived server-side, never accepted from the client.
++      const slug = deriveSlug(name);
++      if (!slug) {
++        return badRequest(res, 'Name must contain at least one letter or digit, so an id can be derived from it.');
++      }
++
++      const doc = {
++        name,
++        slug,
++        clan: src.clan,
++        disciplines: src.disciplines,
++        notes: src.notes === undefined ? null : src.notes,
++        created_at: new Date().toISOString(),
++        updated_at: new Date().toISOString(),
++      };
++      doc.updated_at = doc.created_at;
++
++      if (!validateBloodline(doc)) {
++        return badRequest(res, 'Bloodline failed schema validation. Exactly four distinct, named disciplines and one of the five clans are required.', schemaErrors());
++      }
++      const discMsg = unknownDisciplineMessage(doc.disciplines);
++      if (discMsg) return badRequest(res, discMsg);
++
++      // Collision on the NORMALISED key, checked before the insert. The unique
++      // index cannot do this: it is case-sensitive, so it would accept both
++      // "Khaibit" and "khaibit" and leave one of them unreachable for costing.
++      const existing = await col().find({}, { projection: { name: 1 } }).toArray();
++      const clash = existing.find(b => normKey(b.name) === normKey(name));
++      if (clash) {
++        return res.status(409).json({
++          error: 'CONFLICT',
++          message: `A bloodline named "${clash.name}" already exists. Names must be distinct ignoring case and surrounding spaces, because that is how a character's bloodline is matched.`,
++          existing_name: clash.name,
++        });
++      }
++
++      let insertedId;
++      try {
++        const result = await col().insertOne(doc);
++        insertedId = result.insertedId;
++      } catch (err) {
++        // Backstop for the race the pre-check cannot close. Without this the
++        // raw driver error reaches the client as a 500.
++        if (err && err.code === 11000) {
++          return res.status(409).json({
++            error: 'CONFLICT',
++            message: `A bloodline named "${name}" already exists.`,
++          });
++        }
++        throw err;
++      }
++
++      const created = await col().findOne({ _id: insertedId });
++      broadcastBloodlineUpdate(insertedId, 'create');
++      res.status(201).json(created);
++    }
++  );
++
++  router.patch('/:id',
++    authMiddleware, requireRole('st'),
++    withObjectId,
++    async (req, res) => {
++      const filtered = {};
++      for (const [field, value] of Object.entries(req.body || {})) {
++        if (BLOODLINE_UPDATABLE_FIELDS.has(field)) filtered[field] = value;
++      }
++      if (!Object.keys(filtered).length) {
++        return badRequest(res, 'No updatable fields provided. Name and slug are immutable: correct a mis-typed name by deleting and recreating, which is possible while it has no holders.');
++      }
++
++      const current = await col().findOne({ _id: req._oid });
++      if (!current) return res.status(404).json({ error: 'NOT_FOUND', message: 'Bloodline not found' });
++
++      // THE departure from the ECM precedent (AC 2). ECM runs an allowlist and
++      // no schema validation at all, which is tolerable for a free-text
++      // catalogue. Here, validating the patch BODY would let
++      // `{ disciplines: ['Auspex','Celerity','Vigour'] }` write a
++      // three-discipline bloodline straight past the count rule, and every
++      // holder's costing would quietly change. Fetch, merge, validate, write.
++      const merged = { ...current, ...filtered };
++      if (!validateBloodline(merged)) {
++        return badRequest(res, 'The resulting bloodline would fail schema validation. Exactly four distinct, named disciplines and one of the five clans are required.', schemaErrors());
++      }
++      const discMsg = unknownDisciplineMessage(merged.disciplines);
++      if (discMsg) return badRequest(res, discMsg);
++
++      filtered.updated_at = new Date().toISOString();
++      const result = await col().findOneAndUpdate(
++        { _id: req._oid },
++        { $set: filtered },
++        { returnDocument: 'after' }
++      );
++      if (!result) return res.status(404).json({ error: 'NOT_FOUND', message: 'Bloodline not found' });
++      broadcastBloodlineUpdate(req._oid, 'update');
++      res.json(result);
++    }
++  );
++
++  router.delete('/:id',
++    authMiddleware, requireRole('st'),
++    withObjectId,
++    async (req, res) => {
++      const doc = await col().findOne({ _id: req._oid });
++      if (!doc) return res.status(404).json({ error: 'NOT_FOUND', message: 'Bloodline not found' });
++
++      // DELETE here means "remove a mistake", never "retire a bloodline".
++      // Bloodlines are permanent (ruled 2026-08-10, commit 07945307, which
++      // removed the `active` field); the permanence is expressed as this
++      // guard rather than as a missing feature, because create-only plus an
++      // immutable name plus no delete would make a single typo permanent and
++      // visible in every ST's dropdown forever, with no correction path.
++      const refs = await referencesFor(doc.name);
++      if (refs.holders > 0 || refs.grant_rules > 0) {
++        const parts = [];
++        if (refs.holders > 0) parts.push(`held by ${refs.holders} character${refs.holders === 1 ? '' : 's'}`);
++        if (refs.grant_rules > 0) parts.push(`referenced by ${refs.grant_rules} bloodline grant rule${refs.grant_rules === 1 ? '' : 's'}`);
++        return res.status(409).json({
++          error: 'CONFLICT',
++          message: `Cannot delete "${doc.name}": ${parts.join(' and ')}.`,
++          ...refs,
++        });
++      }
++
++      const result = await col().deleteOne({ _id: req._oid });
++      if (result.deletedCount === 0) {
++        return res.status(404).json({ error: 'NOT_FOUND', message: 'Bloodline not found' });
++      }
++      broadcastBloodlineUpdate(req._oid, 'delete');
++      res.status(204).end();
++    }
++  );
++
+   return router;
+ }
+diff --git a/server/schemas/bloodline.schema.js b/server/schemas/bloodline.schema.js
+index 40add5c6..c71ae141 100644
+--- a/server/schemas/bloodline.schema.js
++++ b/server/schemas/bloodline.schema.js
+@@ -79,3 +79,35 @@ export const bloodlineSchema = {
+     updated_at: { type: 'string' },
+   },
+ };
++
++/**
++ * Allowlisted fields for PATCH (BL-4, #1008). Mirrors
++ * `EQUIPMENT_CATALOGUE_UPDATABLE_FIELDS`, which excludes `bucket` for the same
++ * class of reason.
++ *
++ * `_id`, `slug` and `created_at` are immutable for the ordinary reasons.
++ * `name` is immutable for a specific one, recorded here because the field
++ * looks editable and is not: THREE separate things key off the bloodline name
++ * as a plain string, none of them by foreign key, and none of them warns when
++ * it stops resolving.
++ *
++ *   1. `characters.bloodline` — a name string, deliberately not an ObjectId FK
++ *      (data-map.md drift pattern #2). 13 live holders as of 2026-08-11.
++ *   2. `rule_grant` documents with `condition: 'bloodline'` carry
++ *      `bloodline_name`, matched case-insensitively by the bloodline
++ *      evaluator and edited as free text in the Rules Engine admin.
++ *   3. The client cache's own `_byName` index.
++ *
++ * A rename therefore orphans every holder at once (BL-2's loud miss fires, the
++ * editor locks their disciplines, every discipline costs 4 XP/dot) and
++ * silently drops any bloodline grants. A cascade would be worse: it performs
++ * the exact name-to-a-different-name transition ruled forbidden for
++ * `characters.bloodline` on 2026-08-10, on every holder at once, from a
++ * reference-data screen, with no record. A mis-typed name is corrected by
++ * delete + recreate, which the guarded DELETE keeps available precisely
++ * because a freshly created typo has no holders.
++ *
++ * `clan` and `disciplines` ARE editable: editing them is how an ST corrects a
++ * wrong entry, and that correction SHOULD reach holders.
++ */
++export const BLOODLINE_UPDATABLE_FIELDS = new Set(['clan', 'disciplines', 'notes']);
+diff --git a/server/scripts/seed-bloodlines.js b/server/scripts/seed-bloodlines.js
+index db299297..4aa5034e 100644
+--- a/server/scripts/seed-bloodlines.js
++++ b/server/scripts/seed-bloodlines.js
+@@ -54,6 +54,7 @@ import Ajv from 'ajv';
+ import { connectDb, getCollection, closeDb } from '../db.js';
+ import { bloodlineSchema } from '../schemas/bloodline.schema.js';
+ import { CLAN_NAMES } from '../schemas/character.schema.js';
++import { deriveSlug } from '../lib/bloodline-slug.js';
+ import { BLOODLINE_DISCS, BLOODLINE_CLANS, CORE_DISCS, RITUAL_DISCS } from '../../public/js/data/constants.js';
+ 
+ const COLLECTION = 'bloodlines';
+@@ -69,20 +70,13 @@ const REQUIRED_DISCIPLINES = 4;
+ const KNOWN_DISCIPLINES = [...CORE_DISCS, ...RITUAL_DISCS];
+ 
+ /**
+- * Stable kebab id from a display name. Diacritics are stripped rather than
+- * hyphenated through, so "Lidérc" gives "liderc" and not "lid-rc".
+- *
+- * Nothing reads `slug` yet — it exists so a later internal join has a stable
+- * key that is not the display name.
++ * Re-exported so this script's existing callers and its own suite keep their
++ * import site. The implementation moved to `server/lib/bloodline-slug.js` in
++ * BL-4 (#1008), because the write route needs the identical derivation and
++ * BL-3b retires this file to `scripts/archive/`. One implementation, two
++ * importers, no copy left behind when the archive move happens.
+  */
+-export function deriveSlug(name) {
+-  return String(name)
+-    .normalize('NFD')
+-    .replace(/\p{Mn}/gu, '')
+-    .toLowerCase()
+-    .replace(/[^a-z0-9]+/g, '-')
+-    .replace(/^-+|-+$/g, '');
+-}
++export { deriveSlug };
+ 
+ /**
+  * Verify the two source structures agree with each other and with the clan
+diff --git a/server/tests/bl1-bloodlines-api.test.js b/server/tests/bl1-bloodlines-api.test.js
+index 04c12355..4199d696 100644
+--- a/server/tests/bl1-bloodlines-api.test.js
++++ b/server/tests/bl1-bloodlines-api.test.js
+@@ -1,17 +1,21 @@
+ /**
+  * BL-1 (issue #1008) — read-only /api/bloodlines.
+  *
+- * AC 7, 8, 9. Reads are public in the ECM manner: BL-2 will need them in the
+- * player app without a token. Writes are BL-4 and must NOT exist yet — the
+- * last describe block is the guard on that, because an endpoint quietly
+- * arriving early is how scope leaks between stories.
++ * AC 7, 8, 9. Reads are public in the ECM manner: BL-2 needs them in the
++ * player app without a token.
++ *
++ * BL-4 (2026-08-11) converted the last describe block. It used to assert that
++ * POST / PATCH / DELETE all 404, guarding against writes arriving early; BL-4
++ * is when they arrive, so it now asserts the auth boundary those same three
++ * endpoints sit behind. Their behaviour is covered in
++ * `bl4-bloodlines-write-api.test.js`.
+  */
+ 
+ import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+ import request from 'supertest';
+ import 'dotenv/config';
+ import { ObjectId } from 'mongodb';
+-import { createTestApp, stUser } from './helpers/test-app.js';
++import { createTestApp, stUser, playerUser } from './helpers/test-app.js';
+ import { setupDb, teardownDb } from './helpers/db-setup.js';
+ import { getCollection } from '../db.js';
+ 
+@@ -143,34 +147,55 @@ describe('GET /api/bloodlines/:id', () => {
+   });
+ });
+ 
+-describe('BL-1 is read-only — writes belong to BL-4', () => {
+-  it('has no POST handler', async () => {
+-    const res = await request(app)
+-      .post('/api/bloodlines')
+-      .set('X-Test-User', stUser())
+-      .send({ name: 'Nope', slug: 'nope', clan: 'Mekhet', disciplines: ['a', 'b', 'c', 'd'] });
+-    expect(res.status).toBe(404);
++/**
++ * CONVERTED by BL-4, not deleted. This block was titled "BL-1 is read-only —
++ * writes belong to BL-4" and asserted that POST, PATCH and DELETE all 404. BL-4
++ * is now here and those three endpoints exist, so the assertions flip; the
++ * block stays because it is the only regression cover on the auth BOUNDARY
++ * living alongside the public reads. Deleting it would leave the two public
++ * GETs and the three ST-gated writes described in separate files, which is
++ * exactly how a route quietly loses its gate.
++ *
++ * The behaviour of the writes themselves lives in
++ * `bl4-bloodlines-write-api.test.js`. This is the boundary only.
++ */
++describe('BL-4 — writes exist and are ST-gated (was: BL-1 is read-only)', () => {
++  it('POST requires auth and the ST role, and creates for an ST', async () => {
++    const payload = { name: 'Zzz Fixture Hotel', clan: 'Mekhet', disciplines: ['Auspex', 'Celerity', 'Obfuscate', 'Vigour'] };
++
++    expect((await request(app).post('/api/bloodlines').send(payload)).status).toBe(401);
++    expect((await request(app).post('/api/bloodlines').set('X-Test-User', playerUser()).send(payload)).status).toBe(403);
++
++    const ok = await request(app).post('/api/bloodlines').set('X-Test-User', stUser()).send(payload);
++    expect(ok.status).toBe(201);
++    seeded.push(new ObjectId(ok.body._id));
++    expect(ok.body.slug).toBe('zzz-fixture-hotel');
+   });
+ 
+-  it('has no PATCH handler', async () => {
++  it('PATCH requires auth and the ST role, and edits for an ST', async () => {
+     const made = await seedBloodline({ name: 'Zzz Fixture Delta', slug: 'zzz-fixture-delta', clan: 'Ventrue' });
+-    const res = await request(app)
++
++    expect((await request(app).patch(`/api/bloodlines/${made._id}`).send({ notes: 'edited' })).status).toBe(401);
++    expect((await request(app).patch(`/api/bloodlines/${made._id}`).set('X-Test-User', playerUser()).send({ notes: 'edited' })).status).toBe(403);
++    expect((await getCollection('bloodlines').findOne({ _id: made._id })).notes).toBeNull();
++
++    const ok = await request(app)
+       .patch(`/api/bloodlines/${made._id}`)
+       .set('X-Test-User', stUser())
+       .send({ notes: 'edited' });
+-    expect(res.status).toBe(404);
+-
+-    const after = await getCollection('bloodlines').findOne({ _id: made._id });
+-    expect(after.notes).toBeNull();
++    expect(ok.status).toBe(200);
++    expect((await getCollection('bloodlines').findOne({ _id: made._id })).notes).toBe('edited');
+   });
+ 
+-  it('has no DELETE handler', async () => {
++  it('DELETE requires auth and the ST role, and removes an unreferenced bloodline for an ST', async () => {
+     const made = await seedBloodline({ name: 'Zzz Fixture Echo', slug: 'zzz-fixture-echo', clan: 'Ventrue' });
+-    const res = await request(app)
+-      .delete(`/api/bloodlines/${made._id}`)
+-      .set('X-Test-User', stUser());
+-    expect(res.status).toBe(404);
+ 
++    expect((await request(app).delete(`/api/bloodlines/${made._id}`)).status).toBe(401);
++    expect((await request(app).delete(`/api/bloodlines/${made._id}`).set('X-Test-User', playerUser())).status).toBe(403);
+     expect(await getCollection('bloodlines').countDocuments({ _id: made._id })).toBe(1);
++
++    const ok = await request(app).delete(`/api/bloodlines/${made._id}`).set('X-Test-User', stUser());
++    expect(ok.status).toBe(204);
++    expect(await getCollection('bloodlines').countDocuments({ _id: made._id })).toBe(0);
+   });
+ });
+diff --git a/server/tests/bl2-bloodlines-cache.test.js b/server/tests/bl2-bloodlines-cache.test.js
+index b570c91f..448f0ae6 100644
+--- a/server/tests/bl2-bloodlines-cache.test.js
++++ b/server/tests/bl2-bloodlines-cache.test.js
+@@ -206,13 +206,17 @@ describe('BL-2 — the miss registry', () => {
+ });
+ 
+ // ─────────────────────────────────────────────────────────────────────────────
+-// No WS refetch (AC 1)
++// WS refetch (BL-2 AC 1, converted by BL-4)
+ // ─────────────────────────────────────────────────────────────────────────────
+ 
+-describe('BL-2 — scope guard', () => {
+-  it('exposes no WS refetch — there is no write path until BL-4', async () => {
++describe('BL-2 scope guard, converted by BL-4', () => {
++  it('now exposes refetchBloodlines — BL-4 is the write path it was deferred to', async () => {
++    // BL-2 asserted this was undefined, on the principle that an unused
++    // listener is a claim the code makes and cannot keep. BL-4 made the claim
++    // good. Its semantics (last-good-index preservation on failure, resolved
++    // misses cleared on success) are covered in bl4-bloodlines-refetch.test.js.
+     const m = await freshCache();
+-    expect(m.refetchBloodlines).toBeUndefined();
++    expect(typeof m.refetchBloodlines).toBe('function');
+   });
+ });
+ 
+diff --git a/server/tests/bl4-bloodlines-admin-view.test.js b/server/tests/bl4-bloodlines-admin-view.test.js
+new file mode 100644
+index 00000000..2ea01c88
+--- /dev/null
++++ b/server/tests/bl4-bloodlines-admin-view.test.js
+@@ -0,0 +1,285 @@
++/**
++ * BL-4 (issue #1008) — the bloodlines admin screen and its wiring.
++ *
++ * AC 11, 12, 13, 14. Two halves, for the reason BL-2's banner suite gives:
++ * there is no DOM in this runner (no jsdom, and adding it is a dependency this
++ * story did not budget for either).
++ *
++ *   1. The pure decisions the screen makes are exported and tested directly:
++ *      the holder join, and the no-partial-save refusal.
++ *   2. Static analysis for the things drift pattern #16 says get missed: does
++ *      the sidebar button exist, does the section it targets exist, does
++ *      `switchDomain` actually call the init, and is the WS frame wired in
++ *      BOTH apps rather than only the admin one. BL-2's banner found two
++ *      mount/CSS failures that had gone unnoticed for three months by asking
++ *      exactly these questions.
++ */
++
++import { describe, it, expect, vi } from 'vitest';
++import fs from 'node:fs';
++import path from 'node:path';
++import { fileURLToPath } from 'node:url';
++
++// api.js reads `location` at module scope, which does not exist in this
++// runner. Nothing under test fetches; stub the module out entirely, as the
++// BL-2 banner suite and the ECM-1 tests do.
++vi.mock('../../public/js/data/api.js', () => ({
++  apiGet: async () => [],
++  apiPost: async () => ({}),
++  apiPatch: async () => ({}),
++  apiRaw: async () => ({ status: 204, ok: true, body: null }),
++}));
++
++import { buildHoldersIndex, validationRefusal, REQUIRED_DISCIPLINES } from '../../public/js/admin/bloodlines-admin.js';
++
++const __dirname = path.dirname(fileURLToPath(import.meta.url));
++const REPO_ROOT = path.resolve(__dirname, '..', '..');
++const read = rel => fs.readFileSync(path.join(REPO_ROOT, rel), 'utf8');
++
++const FOUR = ['Auspex', 'Celerity', 'Obfuscate', 'Vigour'];
++
++// ─────────────────────────────────────────────────────────────────────────────
++//  The holder join (AC 12)
++// ─────────────────────────────────────────────────────────────────────────────
++
++describe('BL-4 AC 12 — the client-side holder count', () => {
++  it('counts holders per bloodline', () => {
++    const idx = buildHoldersIndex([
++      { bloodline: 'Khaibit' },
++      { bloodline: 'Khaibit' },
++      { bloodline: 'Zelani' },
++    ]);
++    expect(idx.get('khaibit')).toBe(2);
++    expect(idx.get('zelani')).toBe(1);
++  });
++
++  it('matches on the normalised key, so the count agrees with the delete gate', () => {
++    // The server refuses the delete on the trim + case-folded key. A count
++    // that disagreed would show an enabled Delete button on a bloodline the
++    // API will refuse to delete.
++    const idx = buildHoldersIndex([
++      { bloodline: 'Khaibit' },
++      { bloodline: '  khaibit ' },
++      { bloodline: 'KHAIBIT' },
++    ]);
++    expect(idx.get('khaibit')).toBe(3);
++  });
++
++  it('ignores characters with no bloodline, and a missing character array', () => {
++    expect(buildHoldersIndex([{ bloodline: null }, { bloodline: '' }, {}]).size).toBe(0);
++    expect(buildHoldersIndex(null).size).toBe(0);
++  });
++});
++
++// ─────────────────────────────────────────────────────────────────────────────
++//  No partial save (AC 12, and AC 2's client mirror)
++// ─────────────────────────────────────────────────────────────────────────────
++
++describe('BL-4 — save is refused until the bloodline is valid, and the refusal says why', () => {
++  it('four is the required count', () => {
++    expect(REQUIRED_DISCIPLINES).toBe(4);
++  });
++
++  it('refuses a missing name on create, and does not ask for one on edit', () => {
++    const values = { name: '', clan: 'Mekhet', disciplines: FOUR };
++    expect(validationRefusal(values, { requireName: true })).toMatch(/name is required/i);
++    expect(validationRefusal(values, { requireName: false })).toBeNull();
++  });
++
++  it('refuses fewer than four disciplines and says how many are chosen', () => {
++    const msg = validationRefusal(
++      { name: 'X', clan: 'Mekhet', disciplines: ['Auspex', 'Celerity', 'Vigour'] },
++      { requireName: true },
++    );
++    expect(msg).toMatch(/exactly 4/i);
++    expect(msg).toMatch(/3 chosen/i);
++    // The count is a rule of the game, so the refusal must not read like a
++    // form nag about an unfinished draft.
++    expect(msg).toMatch(/not a draft/i);
++  });
++
++  it('refuses more than four, and refuses a repeat', () => {
++    expect(validationRefusal({ name: 'X', clan: 'Mekhet', disciplines: [...FOUR, 'Dominate'] }, { requireName: true })).toBeTruthy();
++    expect(validationRefusal({ name: 'X', clan: 'Mekhet', disciplines: ['Auspex', 'Auspex', 'Celerity', 'Vigour'] }, { requireName: true }))
++      .toMatch(/all be different/i);
++  });
++
++  it('refuses a missing clan', () => {
++    expect(validationRefusal({ name: 'X', clan: '', disciplines: FOUR }, { requireName: true })).toMatch(/clan is required/i);
++  });
++
++  it('accepts a complete bloodline', () => {
++    expect(validationRefusal({ name: 'X', clan: 'Mekhet', disciplines: FOUR }, { requireName: true })).toBeNull();
++  });
++});
++
++// ─────────────────────────────────────────────────────────────────────────────
++//  Mount points (AC 12) — drift pattern #16
++// ─────────────────────────────────────────────────────────────────────────────
++
++describe('BL-4 AC 12 — the screen is actually reachable', () => {
++  const adminHtml = read('public/admin.html');
++  const adminJs = read('public/js/admin.js');
++
++  it('has a sidebar button for the domain', () => {
++    expect(adminHtml).toContain('data-domain="bloodlines"');
++  });
++
++  it('has the section the button targets, and the container the init writes into', () => {
++    expect(adminHtml).toContain('id="d-bloodlines"');
++    expect(adminHtml).toContain('id="bloodlines-content"');
++  });
++
++  it('switchDomain calls the init with the character set', () => {
++    expect(adminJs).toMatch(/domain === 'bloodlines'\)\s*initBloodlinesAdmin\(document\.getElementById\('bloodlines-content'\), chars\)/);
++  });
++
++  it('imports the module', () => {
++    expect(adminJs).toContain("from './admin/bloodlines-admin.js'");
++  });
++});
++
++// ─────────────────────────────────────────────────────────────────────────────
++//  The WS frame, in BOTH apps (AC 11)
++// ─────────────────────────────────────────────────────────────────────────────
++
++describe('BL-4 AC 11 — writes broadcast and both apps listen', () => {
++  it('the server exports a bloodline broadcaster with the agreed frame shape', () => {
++    const serverWs = read('server/ws.js');
++    expect(serverWs).toContain('export function broadcastBloodlineUpdate');
++    expect(serverWs).toContain("type: 'bloodline'");
++    expect(serverWs).toContain('bloodline_id');
++  });
++
++  it('all three write handlers fire it', () => {
++    const route = read('server/routes/bloodlines.js');
++    for (const op of ['create', 'update', 'delete']) {
++      expect(route, `expected a ${op} broadcast`).toContain(`broadcastBloodlineUpdate(`);
++      expect(route).toContain(`'${op}')`);
++    }
++    expect(route.match(/broadcastBloodlineUpdate\(/g)).toHaveLength(3);
++  });
++
++  it('the client handles the frame and exposes the callback through initWS', () => {
++    const clientWs = read('public/js/data/ws.js');
++    expect(clientWs).toContain("msg.type === 'bloodline'");
++    expect(clientWs).toContain('onBloodlineUpdate');
++  });
++
++  it('is wired in the ADMIN app', () => {
++    expect(read('public/js/admin.js')).toMatch(/onBloodlineUpdate:\s*\(\)\s*=>\s*\{\s*refetchBloodlines\(\)/);
++  });
++
++  it('is wired in the PLAYER app too, because the DT form free-rides on its priming', () => {
++    // Missing this one would mean an ST adding a bloodline mid-session does not
++    // reach an open DT form until the player reloads, and there is no second
++    // chance: the form has no priming of its own.
++    expect(read('public/js/app.js')).toMatch(/onBloodlineUpdate:\s*\(\)\s*=>\s*\{\s*refetchBloodlines\(\)/);
++  });
++});
++
++// ─────────────────────────────────────────────────────────────────────────────
++//  Normalised CSS + escaping (AC 12, 13)
++// ─────────────────────────────────────────────────────────────────────────────
++
++describe('BL-4 AC 13 — normalised CSS, reused not re-invented', () => {
++  const view = read('public/js/admin/bloodlines-admin.js');
++  const css = read('public/css/admin-layout.css');
++
++  it('writes no inline styles, bare hex or rgba() in the rendered markup', () => {
++    // Comments are stripped first: this module's own header cites issue #1008
++    // and ECM's #873, which a naive hex-colour regex reads as colours.
++    const code = view.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
++    expect(code).not.toMatch(/style="/);
++    expect(code).not.toMatch(/#[0-9a-fA-F]{3,8}\b/);
++    expect(code).not.toMatch(/rgba?\(/);
++  });
++
++  it('reuses the shared reference-data admin chrome rather than a bl- copy', () => {
++    for (const cls of ['ec-admin', 'ec-toolbar', 'ec-table', 'ec-form-panel', 'ec-form-grid',
++      'ec-form-field', 'ec-form-readonly', 'ec-form-hint', 'ec-impact-banner',
++      'ec-btn-primary', 'ec-btn-sm', 'ec-btn-danger', 'ec-form-msg']) {
++      expect(view, `expected the screen to reuse .${cls}`).toContain(cls);
++    }
++    // No duplicated chrome under a second prefix.
++    expect(css).not.toContain('.bl-toolbar');
++    expect(css).not.toContain('.bl-form-panel');
++    expect(css).not.toContain('.bl-table');
++  });
++
++  it('defines the two genuinely new classes it uses', () => {
++    for (const cls of ['bl-disc-cell', 'bl-disc-grid', 'bl-disc-tag']) {
++      expect(view, `expected the view to use .${cls}`).toContain(cls);
++      expect(css, `expected .${cls} to exist in admin-layout.css`).toContain(`.${cls}`);
++    }
++  });
++
++  it('escapes every document-sourced value it interpolates into markup', () => {
++    // BL-3a's review found unescaped bloodline names in the two dropdowns.
++    // This screen is where those names are now typed in, so it is the last
++    // place to be casual about it. Any interpolation reading a field off a
++    // bloodline document, a character list or the impact payload must go
++    // through esc().
++    // Scoped to the markup-producing region. `showFormMsg`, `alert` and
++    // `confirm` further down are text sinks (textContent / native dialogs),
++    // where escaping would show the entities to the ST rather than protect
++    // them.
++    const markupStart = view.indexOf('function render(');
++    const markupEnd = view.indexOf('function wireFormEvents(');
++    expect(markupStart).toBeGreaterThan(0);
++    expect(markupEnd).toBeGreaterThan(markupStart);
++    const markup = view.slice(markupStart, markupEnd);
++
++    const interpolations = [...markup.matchAll(/\$\{([^{}]*(?:\{[^{}]*\}[^{}]*)*)\}/g)].map(m => m[1].trim());
++    expect(interpolations.length).toBeGreaterThan(10);   // the regex is finding them at all
++
++    const DOCUMENT_SOURCED = /\b(?:b|it|item|initial|impact|c|d|values|dup|clash)\.(?:name|clan|slug|notes|disciplines|bloodline|character_names|grant_rule_labels|message)\b/;
++    for (const expr of interpolations) {
++      if (!DOCUMENT_SOURCED.test(expr)) continue;
++      // Allowed without esc(): the value is escaped, counted, or used only as
++      // a comparison whose branches are both string literals in this file
++      // (the `selected` attribute pattern), so nothing document-sourced is
++      // emitted.
++      expect(expr, `unescaped document value interpolated: \${${expr}}`)
++        .toMatch(/esc\(|\.map\(esc\)|\.length|\.join\(|\?\s*'[^']*'\s*:\s*'[^']*'/);
++    }
++  });
++});
++
++// ─────────────────────────────────────────────────────────────────────────────
++//  Scope (the story's "What this story is NOT")
++// ─────────────────────────────────────────────────────────────────────────────
++
++describe('BL-4 — scope held', () => {
++  const view = read('public/js/admin/bloodlines-admin.js');
++
++  it('offers no rename affordance', () => {
++    // `name` is immutable. The edit form renders it read-only with the reason;
++    // it must not appear as an input, and the PATCH body must not carry it.
++    expect(view).not.toMatch(/id="bl-f-name"[^>]*>\s*`\s*\}\s*:/);
++    expect(view).toContain('ec-form-readonly');
++    const patchCall = view.slice(view.indexOf('apiPatch('), view.indexOf('apiPatch(') + 260);
++    expect(patchCall).not.toContain('name:');
++    expect(patchCall).not.toContain('slug:');
++  });
++
++  it('offers no active / retire control, and no grant editing', () => {
++    const code = view.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
++    // No `active` field, and no reintroduction of one by another name. Ruled
++    // 2026-08-10: bloodlines are permanent; the guarded delete is the answer.
++    expect(code).not.toMatch(/\bactive\b/);
++    expect(code).not.toMatch(/\bretired\b/);
++    // Grants are edited in the Rules Engine admin. The screen may SAY so in
++    // its impact banner; it must not write to those collections.
++    expect(code).not.toMatch(/api\/rules/);
++    expect(code).not.toMatch(/rule_grant/);
++  });
++
++  it('has no player-facing description field', () => {
++    expect(view).not.toContain('bl-f-description');
++  });
++
++  it('still reads the ST-gated list, so notes round-trip', () => {
++    expect(view).toContain('/api/bloodlines/admin');
++  });
++});
+diff --git a/server/tests/bl4-bloodlines-refetch.test.js b/server/tests/bl4-bloodlines-refetch.test.js
+new file mode 100644
+index 00000000..4f42767a
+--- /dev/null
++++ b/server/tests/bl4-bloodlines-refetch.test.js
+@@ -0,0 +1,221 @@
++/**
++ * BL-4 (issue #1008) — `refetchBloodlines()` in the bloodlines cache.
++ *
++ * AC 9, 10, 14. BL-2 left `bloodlines-cache.js:38-40` saying in terms "No WS
++ * refetch: there is no write path until BL-4". This is BL-4.
++ *
++ * The whole reason this has its own suite is that the OBVIOUS implementation
++ * is a live defect. `refetchCatalogue()` in `equipment-catalogue-cache.js` is
++ * two lines (null the in-flight promise, call the loader again) and copying it
++ * here would be wrong, because `loadBloodlines()`'s failure path wipes
++ * `_items`, sets `_loaded = false` and `_loadFailed = true`. The equipment
++ * catalogue can afford that: it degrades to an empty dropdown. This degrades
++ * to every bloodline character hard-locked in the editor and costed at 4
++ * XP/dot, from one transient network blip, with a banner blaming the system.
++ *
++ * Module-level state is the thing under test, so each case re-imports the
++ * module through `vi.resetModules()` rather than calling a test-only reset.
++ */
++
++import { describe, it, expect, beforeEach, vi } from 'vitest';
++
++const api = vi.hoisted(() => ({ get: null, calls: 0 }));
++vi.mock('../../public/js/data/api.js', () => ({
++  apiGet: async (...args) => { api.calls += 1; return api.get(...args); },
++}));
++
++const DOCS = [
++  { _id: '1', name: 'Khaibit', slug: 'khaibit', clan: 'Mekhet', disciplines: ['Auspex', 'Celerity', 'Obfuscate', 'Vigour'] },
++  { _id: '2', name: 'Zelani', slug: 'zelani', clan: 'Daeva', disciplines: ['Celerity', 'Majesty', 'Auspex', 'Vigour'] },
++];
++
++const DOCS_PLUS = [
++  ...DOCS,
++  { _id: '3', name: 'Hounds of Actaeon', slug: 'hounds-of-actaeon', clan: 'Gangrel', disciplines: ['Animalism', 'Auspex', 'Protean', 'Resilience'] },
++];
++
++async function freshCache(impl = async () => DOCS) {
++  vi.resetModules();
++  api.get = impl;
++  api.calls = 0;
++  return import('../../public/js/data/bloodlines-cache.js');
++}
++
++beforeEach(() => { api.calls = 0; });
++
++describe('BL-4 AC 9 — refetchBloodlines re-indexes on success', () => {
++  it('exists, because BL-4 is the write path BL-2 deferred it to', async () => {
++    const m = await freshCache();
++    expect(typeof m.refetchBloodlines).toBe('function');
++  });
++
++  it('picks up a newly created bloodline without a reload', async () => {
++    const m = await freshCache();
++    await m.loadBloodlines();
++    expect(m.bloodlineDiscs('Hounds of Actaeon')).toBeNull();
++
++    api.get = async () => DOCS_PLUS;
++    await m.refetchBloodlines();
++    expect(m.bloodlineDiscs('Hounds of Actaeon')).toEqual(['Animalism', 'Auspex', 'Protean', 'Resilience']);
++    expect(m.approvedBloodlines()).toContain('Hounds of Actaeon');
++    expect(m.bloodlinesByClan().Gangrel).toEqual(['Hounds of Actaeon']);
++  });
++
++  it('drops a deleted bloodline from the index', async () => {
++    const m = await freshCache(async () => DOCS_PLUS);
++    await m.loadBloodlines();
++    api.get = async () => DOCS;
++    await m.refetchBloodlines();
++    expect(m.bloodlineDiscs('Hounds of Actaeon')).toBeNull();
++  });
++
++  it('reports success and does not share the boot load in-flight promise', async () => {
++    const m = await freshCache();
++    await m.loadBloodlines();
++    expect(api.calls).toBe(1);
++    await expect(m.refetchBloodlines()).resolves.toBe(true);
++    expect(api.calls).toBe(2);
++  });
++
++  it('repairs a cache whose boot load failed', async () => {
++    const m = await freshCache(async () => { throw new Error('boot blip'); });
++    await m.loadBloodlines();
++    expect(m.loadFailed()).toBe(true);
++    expect(m.bloodlinesResolvable()).toBe(false);
++
++    api.get = async () => DOCS;
++    await m.refetchBloodlines();
++    expect(m.loadFailed()).toBe(false);
++    expect(m.isLoaded()).toBe(true);
++    expect(m.bloodlinesResolvable()).toBe(true);
++  });
++});
++
++describe('BL-4 AC 9 — a failed refetch must NOT destroy a working cache', () => {
++  it('keeps the last good index when the fetch throws', async () => {
++    const m = await freshCache();
++    await m.loadBloodlines();
++    api.get = async () => { throw new Error('network blip'); };
++
++    await expect(m.refetchBloodlines()).resolves.toBe(false);
++
++    // The whole point: one transient blip must not hard-lock every bloodline
++    // character at 4 XP/dot behind a banner blaming the system.
++    expect(m.isLoaded()).toBe(true);
++    expect(m.loadFailed()).toBe(false);
++    expect(m.bloodlinesResolvable()).toBe(true);
++    expect(m.bloodlineDiscs('Khaibit')).toEqual(['Auspex', 'Celerity', 'Obfuscate', 'Vigour']);
++    expect(m.approvedBloodlines()).toEqual(['Khaibit', 'Zelani']);
++  });
++
++  it('keeps the last good index when the payload is malformed', async () => {
++    const m = await freshCache();
++    await m.loadBloodlines();
++    for (const bad of [null, { error: 'boom' }, 'nope']) {
++      api.get = async () => bad;
++      await expect(m.refetchBloodlines()).resolves.toBe(false);
++      expect(m.bloodlineDiscs('Khaibit')).toHaveLength(4);
++      expect(m.loadFailed()).toBe(false);
++    }
++  });
++
++  it('logs the failure rather than swallowing it', async () => {
++    const m = await freshCache();
++    await m.loadBloodlines();
++    const spy = vi.spyOn(console, 'error').mockImplementation(() => {});
++    api.get = async () => { throw new Error('network blip'); };
++    await m.refetchBloodlines();
++    expect(spy).toHaveBeenCalled();
++    spy.mockRestore();
++  });
++
++  it('an empty collection IS a legitimate answer and does replace the index', async () => {
++    // Distinct from a failure: the seed being un-run, or the last bloodline
++    // being deleted, is a real answer the cache must reflect. Only a FAILED
++    // fetch preserves the old index.
++    const m = await freshCache();
++    await m.loadBloodlines();
++    api.get = async () => [];
++    await expect(m.refetchBloodlines()).resolves.toBe(true);
++    expect(m.isEmpty()).toBe(true);
++    expect(m.bloodlineDiscs('Khaibit')).toBeNull();
++  });
++});
++
++describe('BL-4 AC 10 — a miss the refetch resolves stops being reported', () => {
++  it('clears an unknown-bloodline miss once the bloodline exists', async () => {
++    // MISS_UNKNOWN survives a load by design, and clearBloodlineMissesFor only
++    // fires from clanDiscList's success path — so without this, the banner
++    // keeps naming a bloodline the ST has just created until that character
++    // happens to re-render. A banner that keeps asserting a fixed problem is
++    // how a warning stops being read.
++    const m = await freshCache();
++    await m.loadBloodlines();
++    m.recordBloodlineMiss(m.MISS_UNKNOWN, 'Hounds of Actaeon', 'Ocka Keats');
++    expect(m.getBloodlineMisses()).toHaveLength(1);
++
++    api.get = async () => DOCS_PLUS;
++    await m.refetchBloodlines();
++    expect(m.getBloodlineMisses()).toEqual([]);
++  });
++
++  it('keeps an unknown-bloodline miss the refetch did NOT resolve', async () => {
++    const m = await freshCache();
++    await m.loadBloodlines();
++    m.recordBloodlineMiss(m.MISS_UNKNOWN, 'Hounds of Actaeon', 'Ocka Keats');
++    m.recordBloodlineMiss(m.MISS_UNKNOWN, 'Still Wrong', 'Cazz');
++
++    api.get = async () => DOCS_PLUS;
++    await m.refetchBloodlines();
++    const rows = m.getBloodlineMisses();
++    expect(rows).toHaveLength(1);
++    expect(rows[0].bloodline).toBe('Still Wrong');
++  });
++
++  it('resolves a miss recorded under a case- or whitespace-differing name', async () => {
++    const m = await freshCache();
++    await m.loadBloodlines();
++    m.recordBloodlineMiss(m.MISS_UNKNOWN, '  hounds of actaeon ', 'Ocka Keats');
++    api.get = async () => DOCS_PLUS;
++    await m.refetchBloodlines();
++    expect(m.getBloodlineMisses()).toEqual([]);
++  });
++
++  it('clears the not-loaded and empty-collection rows once the refetch succeeds', async () => {
++    const m = await freshCache(async () => []);
++    await m.loadBloodlines();
++    m.recordBloodlineMiss(m.MISS_NOT_LOADED, 'Khaibit', 'Doc');
++    m.recordBloodlineMiss(m.MISS_EMPTY_COLLECTION, 'Khaibit', 'Doc');
++    expect(m.getBloodlineMisses()).toHaveLength(2);
++
++    api.get = async () => DOCS;
++    await m.refetchBloodlines();
++    expect(m.getBloodlineMisses()).toEqual([]);
++  });
++
++  it('notifies banner listeners when the refetch changes the registry', async () => {
++    const m = await freshCache();
++    await m.loadBloodlines();
++    m.recordBloodlineMiss(m.MISS_UNKNOWN, 'Hounds of Actaeon', 'Ocka Keats');
++    let fired = 0;
++    m.onBloodlineMiss(() => { fired += 1; });
++
++    api.get = async () => DOCS_PLUS;
++    await m.refetchBloodlines();
++    expect(fired).toBe(1);
++
++    // A refetch that resolves nothing new must not fire the listener again,
++    // or a WS storm would re-render the banner on every frame.
++    await m.refetchBloodlines();
++    expect(fired).toBe(1);
++  });
++
++  it('a failed refetch leaves the miss registry alone', async () => {
++    const m = await freshCache();
++    await m.loadBloodlines();
++    m.recordBloodlineMiss(m.MISS_UNKNOWN, 'Hounds of Actaeon', 'Ocka Keats');
++    api.get = async () => { throw new Error('blip'); };
++    await m.refetchBloodlines();
++    expect(m.getBloodlineMisses()).toHaveLength(1);
++  });
++});
+diff --git a/server/tests/bl4-bloodlines-write-api.test.js b/server/tests/bl4-bloodlines-write-api.test.js
+new file mode 100644
+index 00000000..9a738d15
+--- /dev/null
++++ b/server/tests/bl4-bloodlines-write-api.test.js
+@@ -0,0 +1,456 @@
++/**
++ * BL-4 (issue #1008) — ST-gated write endpoints on /api/bloodlines.
++ *
++ * AC 1-8, 14. BL-1 built the collection read-only and BL-2/BL-3a made every
++ * costing surface read it; this suite covers the epic's first WRITE surface.
++ *
++ * The three things this suite exists to hold down, because each of them
++ * silently produces a wrong XP cost rather than an error:
++ *
++ *   1. PATCH validates the MERGED document, not the patch body. A partial
++ *      update that leaves three disciplines behind must 400 (AC 2).
++ *   2. `name` collision is checked on the normalised (trim + case-fold) key,
++ *      not the case-SENSITIVE unique index, because the cache keys on the
++ *      normalised form and the second document would become unreachable (AC 4).
++ *   3. DELETE is guarded on the same normalised key plus any referencing
++ *      `rule_grant`, so a bloodline resolving perfectly well for a character
++ *      carrying " Khaibit" cannot be deleted out from under them (AC 8).
++ *
++ * Fixture names are deliberately not real bloodlines: the seed suite creates a
++ * unique index on `name` and inserts the real 23.
++ */
++
++import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
++import request from 'supertest';
++import 'dotenv/config';
++import { ObjectId } from 'mongodb';
++import { createTestApp, stUser, playerUser } from './helpers/test-app.js';
++import { setupDb, teardownDb } from './helpers/db-setup.js';
++import { getCollection } from '../db.js';
++
++let app;
++
++const seededBloodlines = [];
++const seededChars = [];
++const seededGrants = [];
++
++const VALID_DISCS = ['Auspex', 'Celerity', 'Obfuscate', 'Vigour'];
++
++function body(overrides = {}) {
++  return {
++    name: 'Zzz Bl4 Fixture',
++    clan: 'Mekhet',
++    disciplines: [...VALID_DISCS],
++    notes: null,
++    ...overrides,
++  };
++}
++
++async function post(payload, user = stUser()) {
++  const req = request(app).post('/api/bloodlines');
++  if (user) req.set('X-Test-User', user);
++  const res = await req.send(payload);
++  if (res.status === 201 && res.body && res.body._id) seededBloodlines.push(new ObjectId(res.body._id));
++  return res;
++}
++
++async function seedBloodline(overrides = {}) {
++  const now = new Date().toISOString();
++  const doc = {
++    name: 'Zzz Bl4 Seeded',
++    slug: 'zzz-bl4-seeded',
++    clan: 'Mekhet',
++    disciplines: [...VALID_DISCS],
++    notes: null,
++    created_at: now,
++    updated_at: now,
++    ...overrides,
++  };
++  const result = await getCollection('bloodlines').insertOne(doc);
++  seededBloodlines.push(result.insertedId);
++  return { _id: result.insertedId, ...doc };
++}
++
++async function seedCharacter(bloodline, name = 'Zzz Bl4 Holder') {
++  const result = await getCollection('characters').insertOne({ name, bloodline, _test_seeded: true });
++  seededChars.push(result.insertedId);
++  return result.insertedId;
++}
++
++async function seedGrant(bloodlineName) {
++  const result = await getCollection('rule_grant').insertOne({
++    source: 'Bloodline',
++    condition: 'bloodline',
++    bloodline_name: bloodlineName,
++    grant_type: 'merit',
++    target: 'Area of Expertise',
++    amount: 1,
++    amount_basis: 'flat',
++  });
++  seededGrants.push(result.insertedId);
++  return result.insertedId;
++}
++
++async function clearSeeded() {
++  if (seededBloodlines.length) {
++    await getCollection('bloodlines').deleteMany({ _id: { $in: seededBloodlines } });
++    seededBloodlines.length = 0;
++  }
++  if (seededChars.length) {
++    await getCollection('characters').deleteMany({ _id: { $in: seededChars } });
++    seededChars.length = 0;
++  }
++  if (seededGrants.length) {
++    await getCollection('rule_grant').deleteMany({ _id: { $in: seededGrants } });
++    seededGrants.length = 0;
++  }
++}
++
++beforeAll(async () => {
++  await setupDb();
++  app = createTestApp();
++});
++
++beforeEach(clearSeeded);
++
++afterAll(async () => {
++  await clearSeeded();
++  await teardownDb();
++});
++
++// ─────────────────────────────────────────────────────────────────────────────
++//  AC 1 — the auth matrix
++// ─────────────────────────────────────────────────────────────────────────────
++
++describe('BL-4 AC 1 — every write is ST-gated', () => {
++  it('401s each write with no auth at all', async () => {
++    const made = await seedBloodline({ name: 'Zzz Bl4 Auth', slug: 'zzz-bl4-auth' });
++    const noAuth = [
++      request(app).post('/api/bloodlines').send(body()),
++      request(app).patch(`/api/bloodlines/${made._id}`).send({ notes: 'x' }),
++      request(app).delete(`/api/bloodlines/${made._id}`),
++      request(app).get('/api/bloodlines/admin'),
++      request(app).get(`/api/bloodlines/${made._id}/impact`),
++    ];
++    for (const res of await Promise.all(noAuth)) {
++      expect(res.status).toBe(401);
++    }
++  });
++
++  it('403s each write for a player role', async () => {
++    const made = await seedBloodline({ name: 'Zzz Bl4 Player', slug: 'zzz-bl4-player' });
++    const asPlayer = [
++      request(app).post('/api/bloodlines').set('X-Test-User', playerUser()).send(body()),
++      request(app).patch(`/api/bloodlines/${made._id}`).set('X-Test-User', playerUser()).send({ notes: 'x' }),
++      request(app).delete(`/api/bloodlines/${made._id}`).set('X-Test-User', playerUser()),
++      request(app).get('/api/bloodlines/admin').set('X-Test-User', playerUser()),
++      request(app).get(`/api/bloodlines/${made._id}/impact`).set('X-Test-User', playerUser()),
++    ];
++    for (const res of await Promise.all(asPlayer)) {
++      expect(res.status).toBe(403);
++    }
++  });
++
++  it('leaves the two public reads unauthenticated and unchanged in shape', async () => {
++    const made = await seedBloodline({ name: 'Zzz Bl4 Public', slug: 'zzz-bl4-public', notes: 'ST ONLY' });
++    const list = await request(app).get('/api/bloodlines');
++    expect(list.status).toBe(200);
++    const found = list.body.find(b => b.name === 'Zzz Bl4 Public');
++    expect(found).toBeTruthy();
++    expect(found).not.toHaveProperty('notes');
++
++    const single = await request(app).get(`/api/bloodlines/${made._id}`);
++    expect(single.status).toBe(200);
++    expect(single.body).not.toHaveProperty('notes');
++  });
++});
++
++// ─────────────────────────────────────────────────────────────────────────────
++//  AC 2, 3, 4, 7 — POST
++// ─────────────────────────────────────────────────────────────────────────────
++
++describe('BL-4 AC 2/3/4/7 — POST /api/bloodlines', () => {
++  it('creates, derives the slug server-side, and stamps the timestamps', async () => {
++    const res = await post(body({ name: '  Zzz Bl4 Lidérc  ' }));
++    expect(res.status).toBe(201);
++    expect(res.body.name).toBe('Zzz Bl4 Lidérc');       // trimmed
++    expect(res.body.slug).toBe('zzz-bl4-liderc');       // diacritic stripped, not hyphenated through
++    expect(res.body.clan).toBe('Mekhet');
++    expect(res.body.disciplines).toEqual(VALID_DISCS);
++    expect(typeof res.body.created_at).toBe('string');
++    expect(res.body.created_at).toBe(res.body.updated_at);
++  });
++
++  it('ignores a client-supplied _id and a client-supplied slug', async () => {
++    const rogue = new ObjectId();
++    const res = await post({ ...body({ name: 'Zzz Bl4 Rogue Id' }), _id: String(rogue), slug: 'not-this-slug' });
++    expect(res.status).toBe(201);
++    expect(String(res.body._id)).not.toBe(String(rogue));
++    expect(res.body.slug).toBe('zzz-bl4-rogue-id');
++  });
++
++  it('rejects three disciplines and five disciplines, both 400', async () => {
++    const three = await post(body({ name: 'Zzz Bl4 Three', disciplines: ['Auspex', 'Celerity', 'Vigour'] }));
++    expect(three.status).toBe(400);
++    const five = await post(body({ name: 'Zzz Bl4 Five', disciplines: [...VALID_DISCS, 'Dominate'] }));
++    expect(five.status).toBe(400);
++  });
++
++  it('rejects a repeated discipline and an empty-string discipline', async () => {
++    const dupe = await post(body({ name: 'Zzz Bl4 Dupe', disciplines: ['Auspex', 'Auspex', 'Celerity', 'Vigour'] }));
++    expect(dupe.status).toBe(400);
++    const blank = await post(body({ name: 'Zzz Bl4 Blank Disc', disciplines: ['Auspex', '', 'Celerity', 'Vigour'] }));
++    expect(blank.status).toBe(400);
++  });
++
++  it('rejects an unknown discipline name, and says which one', async () => {
++    // "Vigor" is drift pattern #15 arriving through the discipline field: the
++    // name resolves, the discipline never matches, and the character is charged
++    // out-of-clan for it forever.
++    const res = await post(body({ name: 'Zzz Bl4 Vigor', disciplines: ['Auspex', 'Celerity', 'Obfuscate', 'Vigor'] }));
++    expect(res.status).toBe(400);
++    expect(res.body.message).toContain('Vigor');
++  });
++
++  it('accepts the ritual disciplines — the known set is CORE_DISCS + RITUAL_DISCS', async () => {
++    const res = await post(body({ name: 'Zzz Bl4 Ritual', disciplines: ['Cruac', 'Theban', 'Auspex', 'Vigour'] }));
++    expect(res.status).toBe(201);
++  });
++
++  it('rejects a blank or whitespace-only name', async () => {
++    for (const name of ['', '   ']) {
++      const res = await post(body({ name }));
++      expect(res.status, `expected 400 for name ${JSON.stringify(name)}`).toBe(400);
++    }
++  });
++
++  it('rejects a name that derives an empty slug, with a readable message', async () => {
++    const res = await post(body({ name: '???' }));
++    expect(res.status).toBe(400);
++    expect(res.body.message).toMatch(/letter|digit/i);
++  });
++
++  it('rejects a clan outside the five', async () => {
++    const res = await post(body({ name: 'Zzz Bl4 Bad Clan', clan: 'Tremere' }));
++    expect(res.status).toBe(400);
++  });
++
++  it('409s a case-differing duplicate name, never 500', async () => {
++    const first = await post(body({ name: 'Zzz Bl4 Collide' }));
++    expect(first.status).toBe(201);
++    for (const variant of ['Zzz Bl4 Collide', 'zzz bl4 collide', 'ZZZ BL4 COLLIDE', '  Zzz Bl4 Collide  ']) {
++      const res = await post(body({ name: variant }));
++      expect(res.status, `expected 409 for ${JSON.stringify(variant)}`).toBe(409);
++      expect(res.body.error).toBe('CONFLICT');
++    }
++  });
++});
++
++// ─────────────────────────────────────────────────────────────────────────────
++//  AC 2, 6 — PATCH
++// ─────────────────────────────────────────────────────────────────────────────
++
++describe('BL-4 AC 2/6 — PATCH /api/bloodlines/:id', () => {
++  it('writes clan, disciplines and notes, and bumps updated_at', async () => {
++    const made = await seedBloodline({ name: 'Zzz Bl4 Patch', slug: 'zzz-bl4-patch', created_at: '2020-01-01T00:00:00.000Z', updated_at: '2020-01-01T00:00:00.000Z' });
++    const res = await request(app)
++      .patch(`/api/bloodlines/${made._id}`)
++      .set('X-Test-User', stUser())
++      .send({ clan: 'Daeva', disciplines: ['Majesty', 'Celerity', 'Vigour', 'Auspex'], notes: 'ST note' });
++    expect(res.status).toBe(200);
++    expect(res.body.clan).toBe('Daeva');
++    expect(res.body.disciplines).toEqual(['Majesty', 'Celerity', 'Vigour', 'Auspex']);
++    expect(res.body.notes).toBe('ST note');
++    expect(res.body.updated_at).not.toBe('2020-01-01T00:00:00.000Z');
++    expect(res.body.created_at).toBe('2020-01-01T00:00:00.000Z');
++  });
++
++  it('ignores name, slug and created_at — they are not in the allowlist', async () => {
++    const made = await seedBloodline({ name: 'Zzz Bl4 Immutable', slug: 'zzz-bl4-immutable', created_at: '2020-01-01T00:00:00.000Z' });
++    const res = await request(app)
++      .patch(`/api/bloodlines/${made._id}`)
++      .set('X-Test-User', stUser())
++      .send({ name: 'Zzz Bl4 Renamed', slug: 'renamed', created_at: '1999-01-01T00:00:00.000Z', notes: 'kept' });
++    expect(res.status).toBe(200);
++    expect(res.body.name).toBe('Zzz Bl4 Immutable');
++    expect(res.body.slug).toBe('zzz-bl4-immutable');
++    expect(res.body.created_at).toBe('2020-01-01T00:00:00.000Z');
++    expect(res.body.notes).toBe('kept');
++  });
++
++  it('400s when only immutable fields are named', async () => {
++    const made = await seedBloodline({ name: 'Zzz Bl4 OnlyImmutable', slug: 'zzz-bl4-onlyimmutable' });
++    const res = await request(app)
++      .patch(`/api/bloodlines/${made._id}`)
++      .set('X-Test-User', stUser())
++      .send({ name: 'Nope', slug: 'nope' });
++    expect(res.status).toBe(400);
++    expect(res.body.message).toMatch(/No updatable fields/i);
++  });
++
++  it('400s on a MERGED document that breaks the four-discipline rule', async () => {
++    // The ECM precedent runs an allowlist and no schema validation at all. Here
++    // that would write a three-discipline bloodline straight past the count
++    // rule and quietly re-cost every holder.
++    const made = await seedBloodline({ name: 'Zzz Bl4 Merged', slug: 'zzz-bl4-merged' });
++    const res = await request(app)
++      .patch(`/api/bloodlines/${made._id}`)
++      .set('X-Test-User', stUser())
++      .send({ disciplines: ['Auspex', 'Celerity', 'Vigour'] });
++    expect(res.status).toBe(400);
++    const after = await getCollection('bloodlines').findOne({ _id: made._id });
++    expect(after.disciplines).toEqual(VALID_DISCS);
++  });
++
++  it('400s on an unknown discipline name in a patch', async () => {
++    const made = await seedBloodline({ name: 'Zzz Bl4 PatchDisc', slug: 'zzz-bl4-patchdisc' });
++    const res = await request(app)
++      .patch(`/api/bloodlines/${made._id}`)
++      .set('X-Test-User', stUser())
++      .send({ disciplines: ['Auspex', 'Celerity', 'Obfuscate', 'Vigor'] });
++    expect(res.status).toBe(400);
++    expect(res.body.message).toContain('Vigor');
++  });
++
++  it('400s on a clan outside the five', async () => {
++    const made = await seedBloodline({ name: 'Zzz Bl4 PatchClan', slug: 'zzz-bl4-patchclan' });
++    const res = await request(app)
++      .patch(`/api/bloodlines/${made._id}`)
++      .set('X-Test-User', stUser())
++      .send({ clan: 'Tremere' });
++    expect(res.status).toBe(400);
++  });
++
++  it('404s on a well-formed id that does not exist', async () => {
++    const res = await request(app)
++      .patch(`/api/bloodlines/${new ObjectId()}`)
++      .set('X-Test-User', stUser())
++      .send({ notes: 'x' });
++    expect(res.status).toBe(404);
++  });
++});
++
++// ─────────────────────────────────────────────────────────────────────────────
++//  AC 5 — the ST-gated read
++// ─────────────────────────────────────────────────────────────────────────────
++
++describe('BL-4 AC 5 — GET /api/bloodlines/admin', () => {
++  it('returns notes, which the public reads project out', async () => {
++    await seedBloodline({ name: 'Zzz Bl4 Notes', slug: 'zzz-bl4-notes', notes: 'ST ONLY: extinct in Sydney since 1998.' });
++    const res = await request(app).get('/api/bloodlines/admin').set('X-Test-User', stUser());
++    expect(res.status).toBe(200);
++    const found = res.body.find(b => b.name === 'Zzz Bl4 Notes');
++    expect(found.notes).toBe('ST ONLY: extinct in Sydney since 1998.');
++  });
++
++  it('is registered above /:id — "admin" is not read as a malformed ObjectId', async () => {
++    const res = await request(app).get('/api/bloodlines/admin').set('X-Test-User', stUser());
++    expect(res.status).not.toBe(404);
++    expect(Array.isArray(res.body)).toBe(true);
++  });
++
++  it('sorts by name, as the public list does', async () => {
++    await seedBloodline({ name: 'Zzz Bl4 Sort Bravo', slug: 'zzz-bl4-sort-bravo' });
++    await seedBloodline({ name: 'Zzz Bl4 Sort Alpha', slug: 'zzz-bl4-sort-alpha' });
++    const res = await request(app).get('/api/bloodlines/admin').set('X-Test-User', stUser());
++    const names = res.body.map(b => b.name).filter(n => n.startsWith('Zzz Bl4 Sort'));
++    expect(names).toEqual(['Zzz Bl4 Sort Alpha', 'Zzz Bl4 Sort Bravo']);
++  });
++});
++
++// ─────────────────────────────────────────────────────────────────────────────
++//  AC 8 — impact + the guarded delete
++// ─────────────────────────────────────────────────────────────────────────────
++
++describe('BL-4 AC 8 — GET /api/bloodlines/:id/impact', () => {
++  it('reports zero references for a fresh bloodline', async () => {
++    const made = await seedBloodline({ name: 'Zzz Bl4 Impact Clean', slug: 'zzz-bl4-impact-clean' });
++    const res = await request(app).get(`/api/bloodlines/${made._id}/impact`).set('X-Test-User', stUser());
++    expect(res.status).toBe(200);
++    expect(res.body.holders).toBe(0);
++    expect(res.body.character_names).toEqual([]);
++    expect(res.body.grant_rules).toBe(0);
++  });
++
++  it('joins holders on the normalised key and lists the referencing grant rules', async () => {
++    const made = await seedBloodline({ name: 'Zzz Bl4 Impact Held', slug: 'zzz-bl4-impact-held' });
++    await seedCharacter('Zzz Bl4 Impact Held', 'Zzz Bl4 Exact');
++    await seedCharacter('  zzz bl4 impact held  ', 'Zzz Bl4 Sloppy');
++    await seedGrant('ZZZ BL4 IMPACT HELD');
++
++    const res = await request(app).get(`/api/bloodlines/${made._id}/impact`).set('X-Test-User', stUser());
++    expect(res.status).toBe(200);
++    expect(res.body.holders).toBe(2);
++    expect(res.body.character_names.sort()).toEqual(['Zzz Bl4 Exact', 'Zzz Bl4 Sloppy']);
++    expect(res.body.grant_rules).toBe(1);
++  });
++
++  it('404s for a bloodline that does not exist', async () => {
++    const res = await request(app).get(`/api/bloodlines/${new ObjectId()}/impact`).set('X-Test-User', stUser());
++    expect(res.status).toBe(404);
++  });
++});
++
++describe('BL-4 AC 8 — DELETE /api/bloodlines/:id', () => {
++  it('204s and removes the document when nothing references it', async () => {
++    const made = await seedBloodline({ name: 'Zzz Bl4 Del Clean', slug: 'zzz-bl4-del-clean' });
++    const res = await request(app).delete(`/api/bloodlines/${made._id}`).set('X-Test-User', stUser());
++    expect(res.status).toBe(204);
++    expect(await getCollection('bloodlines').countDocuments({ _id: made._id })).toBe(0);
++  });
++
++  it('409s when a character holds the name exactly, and names the holder', async () => {
++    const made = await seedBloodline({ name: 'Zzz Bl4 Del Held', slug: 'zzz-bl4-del-held' });
++    await seedCharacter('Zzz Bl4 Del Held', 'Zzz Bl4 Holder One');
++    const res = await request(app).delete(`/api/bloodlines/${made._id}`).set('X-Test-User', stUser());
++    expect(res.status).toBe(409);
++    expect(res.body.error).toBe('CONFLICT');
++    expect(res.body.holders).toBe(1);
++    expect(res.body.character_names).toContain('Zzz Bl4 Holder One');
++    expect(await getCollection('bloodlines').countDocuments({ _id: made._id })).toBe(1);
++  });
++
++  it('409s when the holder carries a case- or whitespace-differing variant', async () => {
++    // An exact-match-only guard would delete a bloodline that is resolving
++    // perfectly well through the cache's trim + case-fold key.
++    const made = await seedBloodline({ name: 'Zzz Bl4 Del Sloppy', slug: 'zzz-bl4-del-sloppy' });
++    await seedCharacter('  zzz bl4 del sloppy ', 'Zzz Bl4 Holder Two');
++    const res = await request(app).delete(`/api/bloodlines/${made._id}`).set('X-Test-User', stUser());
++    expect(res.status).toBe(409);
++    expect(res.body.holders).toBe(1);
++  });
++
++  it('409s when a rule_grant references the name, even with no holders', async () => {
++    const made = await seedBloodline({ name: 'Zzz Bl4 Del Granted', slug: 'zzz-bl4-del-granted' });
++    await seedGrant('zzz bl4 del granted');
++    const res = await request(app).delete(`/api/bloodlines/${made._id}`).set('X-Test-User', stUser());
++    expect(res.status).toBe(409);
++    expect(res.body.holders).toBe(0);
++    expect(res.body.grant_rules).toBe(1);
++    expect(await getCollection('bloodlines').countDocuments({ _id: made._id })).toBe(1);
++  });
++
++  it('404s on a well-formed id that does not exist', async () => {
++    const res = await request(app).delete(`/api/bloodlines/${new ObjectId()}`).set('X-Test-User', stUser());
++    expect(res.status).toBe(404);
++  });
++});
++
++// ─────────────────────────────────────────────────────────────────────────────
++//  AC 7 — one deriveSlug, shared
++// ─────────────────────────────────────────────────────────────────────────────
++
++describe('BL-4 AC 7 — deriveSlug has exactly one implementation', () => {
++  it('the shared module and the seed script export the same function', async () => {
++    const shared = await import('../lib/bloodline-slug.js');
++    const seed = await import('../scripts/seed-bloodlines.js');
++    expect(seed.deriveSlug).toBe(shared.deriveSlug);
++  });
++
++  it('the route derives the same slug the seed would', async () => {
++    const { deriveSlug } = await import('../lib/bloodline-slug.js');
++    const res = await post(body({ name: 'Zzz Bl4 Scions of the First City' }));
++    expect(res.status).toBe(201);
++    expect(res.body.slug).toBe(deriveSlug('Zzz Bl4 Scions of the First City'));
++  });
++});
+diff --git a/server/ws.js b/server/ws.js
+index b51a0ffd..e497ccf2 100644
+--- a/server/ws.js
++++ b/server/ws.js
+@@ -134,6 +134,39 @@ export function broadcastCatalogueUpdate(itemId, op) {
+   }
+ }
+ 
++/**
++ * Broadcast a bloodline create/update/delete event to all connected clients
++ * (Epic BL, BL-4 / issue #1008).
++ *
++ * Frame shape: { type: 'bloodline', bloodline_id, op }. Same advisory-op
++ * contract as broadcastCatalogueUpdate: clients refetch regardless, so an
++ * unknown op degrades gracefully to "refetch".
++ *
++ * BL-1 deliberately shipped no broadcaster because there was no write path and
++ * an unused broadcast is a claim the code cannot keep. BL-4 is the write path,
++ * so the claim is now good. Both boot paths listen (`public/js/admin.js` and
++ * `public/js/app.js`): the player app matters as much as the admin one,
++ * because the downtime form free-rides on app.js's cache priming, so an ST
++ * adding a bloodline mid-session would otherwise not reach an open DT form
++ * until the player reloads.
++ *
++ * @param {string|ObjectId} bloodlineId — the affected bloodline doc _id
++ * @param {'create' | 'update' | 'delete'} op
++ */
++export function broadcastBloodlineUpdate(bloodlineId, op) {
++  if (!_wss) return;
++  const msg = JSON.stringify({
++    type: 'bloodline',
++    bloodline_id: String(bloodlineId),
++    op,
++  });
++  for (const ws of _wss.clients) {
++    if (ws.readyState === 1) { // OPEN
++      ws.send(msg);
++    }
++  }
++}
++
+ // ── Token resolution (mirrors middleware/auth.js logic) ──
+ 
+ const _tokenCache = new Map();

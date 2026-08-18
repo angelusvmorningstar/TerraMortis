@@ -29,6 +29,10 @@ let _onCatalogueUpdate = null;
 // cache module) refetch the whole doc on receipt, same shape as
 // onCatalogueUpdate.
 let _onSettingsUpdate = null;
+// BL-4 (issue #1008): callback for bloodline-update frames. Called with
+// (bloodlineId, op) for remote bloodlines create/update/delete events.
+// Consumers (the bloodlines cache module) refetch on receipt.
+let _onBloodlineUpdate = null;
 
 // Recent local writes — { charId+field → timestamp }. Used to suppress
 // WS echo of our own saves (avoids double-render on the originating client).
@@ -59,12 +63,14 @@ export function markLocalWrite(charId, fields) {
  * @param {function} [opts.onStModUpdate]   — called with (characterId, op, stModId) for remote st_mod changes (STM-9 / issue #416)
  * @param {function} [opts.onCatalogueUpdate] — called with (itemId, op) for remote equipment_catalogue events (ECM-5 / issue #872)
  * @param {function} [opts.onSettingsUpdate] — called with no args for remote app_settings PATCH events (gdx.5 / #986)
+ * @param {function} [opts.onBloodlineUpdate] — called with (bloodlineId, op) for remote bloodlines events (BL-4 / issue #1008)
  */
 export function initWS(opts = {}) {
   _onTrackerUpdate = opts.onTrackerUpdate || null;
   _onStModUpdate = opts.onStModUpdate || null;
   _onCatalogueUpdate = opts.onCatalogueUpdate || null;
   _onSettingsUpdate = opts.onSettingsUpdate || null;
+  _onBloodlineUpdate = opts.onBloodlineUpdate || null;
   _token = localStorage.getItem('tm_auth_token');
   _closed = false;
   if (!_token) return; // not logged in
@@ -108,6 +114,7 @@ function _connect() {
       else if (msg.type === 'st_mod') _handleStModMsg(msg);
       else if (msg.type === 'catalogue') _handleCatalogueMsg(msg);
       else if (msg.type === 'settings') _handleSettingsMsg();
+      else if (msg.type === 'bloodline') _handleBloodlineMsg(msg);
     } catch { /* ignore non-JSON */ }
   };
 
@@ -207,4 +214,17 @@ function _handleCatalogueMsg(msg) {
  *  settings refetch is cheap and idempotent unlike per-field tracker state. */
 function _handleSettingsMsg() {
   if (_onSettingsUpdate) _onSettingsUpdate();
+}
+
+/** BL-4 (issue #1008): handle bloodline create/update/delete frames. Same
+ *  advisory-op contract as the catalogue frame — the cache refetches
+ *  regardless of `op`, so an unknown op degrades to "refetch". No echo
+ *  suppression, for the catalogue's reason (the refetch is ~23 documents and
+ *  per-op deduping would duplicate the server-side state machine) and one of
+ *  its own: the admin screen that fires the write is also the screen most
+ *  likely to be showing a stale holder count, so refetching on its own echo is
+ *  a feature. */
+function _handleBloodlineMsg(msg) {
+  const { bloodline_id, op } = msg;
+  if (_onBloodlineUpdate) _onBloodlineUpdate(bloodline_id, op);
 }

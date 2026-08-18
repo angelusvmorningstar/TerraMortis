@@ -1,18 +1,102 @@
 /* v2 schema accessor functions — shared between Editor and Suite */
 
-import { CLAN_DISCS, BLOODLINE_DISCS } from './constants.js';
+import { CLAN_DISCS } from './constants.js';
 import { getRulesCache } from '../editor/rule_engine/load-rules.js';
-import { hasAoE, findRegentTerritory } from './helpers.js';
+import { hasAoE, findRegentTerritory, displayName } from './helpers.js';
+import {
+  MISS_NOT_LOADED, MISS_UNKNOWN, MISS_EMPTY_COLLECTION,
+  isLoaded as bloodlinesLoaded,
+  isEmpty as bloodlinesEmpty,
+  bloodlineDiscs,
+  recordBloodlineMiss,
+  clearBloodlineMissesFor,
+} from './bloodlines-cache.js';
 export { meritEffectiveRating } from '../editor/domain.js';
 
 // ── Clan/bloodline/covenant discipline helpers ──
 
 /**
- * Return the list of in-clan disciplines for a character, preferring the
- * bloodline list when present, else the clan list.
+ * Return the list of in-clan disciplines for a character: the bloodline list
+ * when the character has a bloodline, else the clan list.
+ *
+ * BL-2 (#1008) moved the bloodline half from the static `BLOODLINE_DISCS`
+ * constant to the `bloodlines` collection via `bloodlines-cache.js`.
+ *
+ * ──────────────────────────────────────────────────────────────────────────
+ *   The miss path is the point of this function
+ * ──────────────────────────────────────────────────────────────────────────
+ *
+ *   This feeds the XP cost multiplier at `editor/edit.js:654` (in-clan 3 per
+ *   dot, out-of-clan 4). The previous implementation was
+ *
+ *       BLOODLINE_DISCS[c?.bloodline] || CLAN_DISCS[c?.clan] || []
+ *
+ *   whose miss returned the character's CLAN list. That is well-formed,
+ *   plausible and wrong, and it survives eyeballing - Ocka Keats' disciplines
+ *   cost 4 instead of 3 for two weeks because of it (drift pattern #15). It is
+ *   worse than "stale by one discipline": 7 of the 23 bloodlines DROP a clan
+ *   discipline, so for those the clan fallback is wrong in both directions at
+ *   once, granting in-clan cost to a discipline the bloodline does not have
+ *   and charging out-of-clan for one it does.
+ *
+ *   Ruled by Angelus 2026-08-10: an unresolved bloodline returns an EMPTY
+ *   list, never the clan list. Everything then costs 4 per dot - wrong HIGH,
+ *   which somebody notices and complains about, rather than wrong LOW, which
+ *   nobody ever does. The miss is registered so the banner can name it and the
+ *   editor can refuse to commit a cost against it.
+ *
+ *   A character with NO bloodline is not a miss. That is the normal case for
+ *   most of the roster and still returns the clan list unchanged.
  */
 export function clanDiscList(c) {
-  return BLOODLINE_DISCS[c?.bloodline] || CLAN_DISCS[c?.clan] || [];
+  const bl = c?.bloodline;
+  if (!bl) return CLAN_DISCS[c?.clan] || [];
+
+  // Three causes, kept apart because each has a different remedy: the cache is
+  // absent (transient, everyone, reload); the collection is empty (operational,
+  // everyone, seed it); the name is unknown (persistent, one character, fix the
+  // data). Collapsing them would point the reader at the wrong problem.
+  if (!bloodlinesLoaded()) {
+    recordBloodlineMiss(MISS_NOT_LOADED, bl, _missLabel(c));
+    return [];
+  }
+  if (bloodlinesEmpty()) {
+    recordBloodlineMiss(MISS_EMPTY_COLLECTION, bl, _missLabel(c));
+    return [];
+  }
+  const discs = bloodlineDiscs(bl);
+  if (!discs) {
+    recordBloodlineMiss(MISS_UNKNOWN, bl, _missLabel(c));
+    return [];
+  }
+  // Success clears any miss standing against this character, so the banner
+  // self-corrects the moment an ST fixes a typo and the sheet re-renders.
+  clearBloodlineMissesFor(_missLabel(c));
+  return discs;
+}
+
+/** Best available human label for the banner. Never throws on a partial doc. */
+function _missLabel(c) {
+  try { return displayName(c) || c?.name || '(unnamed)'; }
+  catch { return c?.name || '(unnamed)'; }
+}
+
+/**
+ * True when this character HAS a bloodline that could not be resolved - either
+ * because the cache is unavailable or because the name is unknown.
+ *
+ * The editor uses this to refuse discipline-cost writes: while it is true, the
+ * in-clan/out-of-clan answer on screen is not trustworthy, and committing a
+ * dot bought against it would bake a wrong cost into the document. A character
+ * with no bloodline is never locked - that is most of the roster.
+ *
+ * Deliberately expressed in terms of `clanDiscList`, so the lock and the
+ * costing can never disagree about what "unresolved" means, and so a call here
+ * registers the miss for the banner exactly as a render would.
+ */
+export function bloodlineUnresolved(c) {
+  if (!c?.bloodline) return false;
+  return clanDiscList(c).length === 0;
 }
 
 /**

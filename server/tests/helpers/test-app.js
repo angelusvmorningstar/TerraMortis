@@ -31,6 +31,7 @@ import appSettingsRouter from '../../routes/app-settings.js';
 import devlogRouter from '../../routes/devlog.js';
 import buildEquipmentCatalogueRouter from '../../routes/equipment-catalogue.js';
 import { storyCyclesRouter } from '../../routes/story-cycles.js';
+import buildBloodlinesRouter from '../../routes/bloodlines.js';
 import cyoaRouter from '../../routes/cyoa.js';
 import officeActionsRouter from '../../routes/office-actions.js';
 import officeMeritDotsRouter from '../../routes/office-merit-dots.js';
@@ -70,6 +71,10 @@ export function createTestApp() {
   // header followed by requireRole('st'). The legacy /api/equipment alias
   // mount was removed in ECM-7 (#874).
   app.use('/api/equipment_catalogue', buildEquipmentCatalogueRouter(mockAuth));
+
+  // Epic BL (#1008) bloodlines — read-only in BL-1, public like ECM's reads.
+  // Same factory shape so BL-4's ST-gated writes need no mount change.
+  app.use('/api/bloodlines', buildBloodlinesRouter(mockAuth));
 
   // Protected routes with mock auth.
   // Issue #255: mirror prod Cache-Control discipline so tests can assert

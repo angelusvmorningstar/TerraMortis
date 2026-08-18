@@ -29,6 +29,9 @@
 </head>
 <body>
 
+<!-- BL-2 (#1008): mount for the unresolved-bloodline warning. Must exist; a missing mount is drift pattern #16. -->
+<div id="bloodline-warn-banner"></div>
+
 <!-- Login screen (hidden during OAuth callback to prevent flash) -->
 <div id="login-screen" style="display:none">
   <div class="login-box">
@@ -66,6 +69,7 @@
       <button class="sidebar-btn" data-domain="rules">Rule Data</button>
       <button class="sidebar-btn" data-domain="rde">Rules Engine</button>
       <button class="sidebar-btn" data-domain="equipment-catalogue">Equipment Catalogue</button>
+      <button class="sidebar-btn" data-domain="bloodlines">Bloodlines</button>
       <button class="sidebar-btn" data-domain="st-mods">ST Mods</button>
       <button class="sidebar-btn" data-domain="st-mods-audit">ST Mods Audit</button>
       <button class="sidebar-btn" data-domain="devlog">Devlog</button>
@@ -195,6 +199,11 @@
     <section id="d-equipment-catalogue" class="domain">
       <div class="domain-header"><h2>Equipment Catalogue</h2></div>
       <div id="equipment-catalogue-content"></div>
+    </section>
+
+    <section id="d-bloodlines" class="domain">
+      <div class="domain-header"><h2>Bloodlines</h2></div>
+      <div id="bloodlines-content"></div>
     </section>
 
     <section id="d-st-mods" class="domain">

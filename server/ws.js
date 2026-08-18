@@ -56,18 +56,38 @@ export function attachWS(server) {
 }
 
 /**
+ * Send one frame to every open client.
+ *
+ * The per-client try/catch is the point. Every broadcaster is called from a
+ * route handler AFTER the Mongo mutation has committed but BEFORE the HTTP
+ * response is sent, so a `ws.send` that throws — a socket that closes between
+ * the readyState check and the send is the ordinary way that happens — would
+ * both skip every client after it in the iteration and reject the route's
+ * async handler. Express 5 forwards that rejection, so the ST would see a 500
+ * for a write that had already succeeded and might retry it. One bad socket
+ * must not be able to do either of those things. Added by the BL-4 review;
+ * all four broadcasters shared the gap, so all four share the fix.
+ */
+function _fanOut(msg) {
+  if (!_wss) return;
+  for (const ws of _wss.clients) {
+    if (ws.readyState !== 1) continue; // not OPEN
+    try {
+      ws.send(msg);
+    } catch (err) {
+      console.error('[ws] send failed for one client; continuing:', err?.message || err);
+    }
+  }
+}
+
+/**
  * Broadcast a tracker update to all connected clients.
  * @param {string} characterId
  * @param {object} fields — the changed tracker fields
  */
 export function broadcastTrackerUpdate(characterId, fields) {
   if (!_wss) return;
-  const msg = JSON.stringify({ type: 'tracker', characterId, fields });
-  for (const ws of _wss.clients) {
-    if (ws.readyState === 1) { // OPEN
-      ws.send(msg);
-    }
-  }
+  _fanOut(JSON.stringify({ type: 'tracker', characterId, fields }));
 }
 
 /**
@@ -91,17 +111,12 @@ export function broadcastTrackerUpdate(characterId, fields) {
  */
 export function broadcastStModUpdate(characterId, op, stModId) {
   if (!_wss) return;
-  const msg = JSON.stringify({
+  _fanOut(JSON.stringify({
     type: 'st_mod',
     characterId: String(characterId),
     op,
     st_mod_id: String(stModId),
-  });
-  for (const ws of _wss.clients) {
-    if (ws.readyState === 1) { // OPEN
-      ws.send(msg);
-    }
-  }
+  }));
 }
 
 /**
@@ -122,16 +137,39 @@ export function broadcastStModUpdate(characterId, op, stModId) {
  */
 export function broadcastCatalogueUpdate(itemId, op) {
   if (!_wss) return;
-  const msg = JSON.stringify({
+  _fanOut(JSON.stringify({
     type: 'catalogue',
     item_id: String(itemId),
     op,
-  });
-  for (const ws of _wss.clients) {
-    if (ws.readyState === 1) { // OPEN
-      ws.send(msg);
-    }
-  }
+  }));
+}
+
+/**
+ * Broadcast a bloodline create/update/delete event to all connected clients
+ * (Epic BL, BL-4 / issue #1008).
+ *
+ * Frame shape: { type: 'bloodline', bloodline_id, op }. Same advisory-op
+ * contract as broadcastCatalogueUpdate: clients refetch regardless, so an
+ * unknown op degrades gracefully to "refetch".
+ *
+ * BL-1 deliberately shipped no broadcaster because there was no write path and
+ * an unused broadcast is a claim the code cannot keep. BL-4 is the write path,
+ * so the claim is now good. Both boot paths listen (`public/js/admin.js` and
+ * `public/js/app.js`): the player app matters as much as the admin one,
+ * because the downtime form free-rides on app.js's cache priming, so an ST
+ * adding a bloodline mid-session would otherwise not reach an open DT form
+ * until the player reloads.
+ *
+ * @param {string|ObjectId} bloodlineId — the affected bloodline doc _id
+ * @param {'create' | 'update' | 'delete'} op
+ */
+export function broadcastBloodlineUpdate(bloodlineId, op) {
+  if (!_wss) return;
+  _fanOut(JSON.stringify({
+    type: 'bloodline',
+    bloodline_id: String(bloodlineId),
+    op,
+  }));
 }
 
 /**

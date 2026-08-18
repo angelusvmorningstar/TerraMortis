@@ -47,48 +47,26 @@ export const COURT_TITLES = ['','Head of State','Primogen','Administrator','Soci
 export const TITLE_STATUS_BONUS = {'Head of State':3,'Primogen':2,'Socialite':1,'Enforcer':1,'Administrator':1};
 
 
-export const BLOODLINE_DISCS = {
-  'Ankou':['Auspex','Celerity','Obfuscate','Vigour'],
-  'Apollinaire':['Animalism','Dominate','Resilience','Obfuscate'],
-  'Bron':['Animalism','Auspex','Dominate','Resilience'],
-  'Gorgons':['Animalism','Dominate','Protean','Resilience'],
-  'Hounds of Actaeon':['Animalism','Obfuscate','Protean','Resilience'],
-  'Icelus':['Auspex','Dominate','Obfuscate','Resilience'],
-  'Jharana':['Auspex','Celerity','Obfuscate','Vigour'],
-  'Kerberos':['Animalism','Majesty','Protean','Resilience'],
-  'Khaibit':['Auspex','Celerity','Obfuscate','Vigour'],
-  'Lasombra':['Animalism','Dominate','Nightmare','Resilience'],
-  'Lidérc':['Celerity','Majesty','Obfuscate','Vigour'],
-  'Lygos':['Auspex','Nightmare','Obfuscate','Vigour'],
-  'Malkovians':['Auspex','Dominate','Obfuscate','Resilience'],
-  'Mnemosyne':['Auspex','Celerity','Obfuscate','Dominate'],
-  'Morbus':['Animalism','Auspex','Celerity','Obfuscate'],
-  'Norvegi':['Auspex','Obfuscate','Celerity','Vigour'],
-  'Nosoi':['Dominate','Obfuscate','Protean','Resilience'],
-  'Order of Sir Martin':['Nightmare','Obfuscate','Resilience','Vigour'],
-  'Rotgrafen':['Animalism','Dominate','Protean','Resilience'],
-  'Scions of the First City':['Animalism','Auspex','Obfuscate','Resilience'],
-  'Vardyvle':['Dominate','Obfuscate','Protean','Resilience'],
-  'Vilseduire':['Majesty','Nightmare','Obfuscate','Resilience'],
-  'Zelani':['Celerity','Majesty','Auspex','Vigour']
-};
-
+/* Bloodlines are NOT here. BLOODLINE_DISCS, BLOODLINE_CLANS and
+ * APPROVED_BLOODLINES lived at this spot until BL-3b (issue #1008) deleted
+ * them on 2026-08-11. The `bloodlines` MongoDB collection is the only place a
+ * bloodline is defined; read it through `public/js/data/bloodlines-cache.js`
+ * (`approvedBloodlines()`, `bloodlinesByClan()`, `discsForBloodline()`), and
+ * add or edit one on the ST admin screen. Reintroducing a bloodline table here
+ * would recreate the two-sources-of-truth defect the epic was filed against:
+ * a name present in one structure and missing from the other silently degraded
+ * a character's discipline costs from 3 XP/dot to 4. The 23 migrated documents
+ * are frozen in `server/scripts/archive/seed-bloodlines.js`.
+ *
+ * CLAN_DISCS below is a different thing and stays: it is the five clans' own
+ * discipline lists, the no-bloodline fallback in `data/accessors.js`.
+ */
 export const CLAN_DISCS = {
   Daeva:['Celerity','Majesty','Vigour'],
   Gangrel:['Animalism','Protean','Resilience'],
   Mekhet:['Auspex','Celerity','Obfuscate'],
   Nosferatu:['Nightmare','Obfuscate','Vigour'],
   Ventrue:['Animalism','Dominate','Resilience']
-};
-
-export const APPROVED_BLOODLINES = Object.keys(BLOODLINE_DISCS).sort();
-
-export const BLOODLINE_CLANS = {
-  Daeva:['Lidérc','Zelani'],
-  Gangrel:['Hounds of Actaeon','Kerberos','Scions of the First City'],
-  Mekhet:['Ankou','Jharana','Khaibit','Lygos','Mnemosyne','Morbus','Norvegi'],
-  Nosferatu:['Nosoi','Order of Sir Martin','Vilseduire'],
-  Ventrue:['Apollinaire','Bron','Gorgons','Icelus','Lasombra','Malkovians','Rotgrafen','Vardyvle']
 };
 
 

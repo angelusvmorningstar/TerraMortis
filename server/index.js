@@ -40,6 +40,7 @@ import appSettingsRouter from './routes/app-settings.js';
 import devlogRouter from './routes/devlog.js';
 import buildEquipmentCatalogueRouter from './routes/equipment-catalogue.js';
 import storyCyclesRouter from './routes/story-cycles.js';
+import buildBloodlinesRouter from './routes/bloodlines.js';
 import cyoaRouter from './routes/cyoa.js';
 import { attachWS } from './ws.js';
 // NOTE: The old /api/pdf route was removed. Character sheet PDFs are now
@@ -86,6 +87,13 @@ app.use('/api/auth', authRouter);
 // (#874) — all clients (ECM-4 DT form, ECM-5 character editor, ECM-6
 // admin sidebar) hit /api/equipment_catalogue directly.
 app.use('/api/equipment_catalogue', buildEquipmentCatalogueRouter(requireAuth));
+
+// Bloodlines (public reads). Epic BL (#1008): the `bloodlines` collection
+// lives at /api/bloodlines. BL-1 ships reads only and nothing in the client
+// consumes them yet — BL-2 rewires `clanDiscList` onto this, and the player
+// app needs it without a token, hence the unauthed mount. Writes arrive in
+// BL-4 inside the router, following the equipment_catalogue precedent above.
+app.use('/api/bloodlines', buildBloodlinesRouter(requireAuth));
 
 // Protected routes — require valid token (role resolved from players collection)
 // Characters and downtime submissions have internal role filtering (ST vs player)

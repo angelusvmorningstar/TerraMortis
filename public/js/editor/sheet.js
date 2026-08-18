@@ -3,10 +3,10 @@
  * Extracted from tm_editor.html lines 315–1310.
  */
 import state from '../data/state.js';
-import { CLAN_DISCS, BLOODLINE_DISCS, CORE_DISCS, RITUAL_DISCS, CLAN_ATTR_OPTIONS, ATTR_CATS, PRI_LABELS, PRI_BUDGETS, SKILL_PRI_BUDGETS, SKILLS_MENTAL, SKILLS_PHYSICAL, SKILLS_SOCIAL, SKILL_CATS, CLANS, COVENANTS, MASKS_DIRGES, COURT_TITLES, BLOODLINE_CLANS, BANE_LIST, INFLUENCE_SPHERES, ALL_SKILLS, CITY_SVG, OTHER_SVG, BP_SVG, HUM_SVG, HEALTH_SVG, WP_SVG, STAT_SVG, STYLE_TAGS, DOMAIN_MERIT_TYPES, NON_COMBAT_STYLES } from '../data/constants.js';
+import { CLAN_DISCS, CORE_DISCS, RITUAL_DISCS, CLAN_ATTR_OPTIONS, ATTR_CATS, PRI_LABELS, PRI_BUDGETS, SKILL_PRI_BUDGETS, SKILLS_MENTAL, SKILLS_PHYSICAL, SKILLS_SOCIAL, SKILL_CATS, CLANS, COVENANTS, MASKS_DIRGES, COURT_TITLES, BANE_LIST, INFLUENCE_SPHERES, ALL_SKILLS, CITY_SVG, OTHER_SVG, BP_SVG, HUM_SVG, HEALTH_SVG, WP_SVG, STAT_SVG, STYLE_TAGS, DOMAIN_MERIT_TYPES, NON_COMBAT_STYLES } from '../data/constants.js';
 import { ICONS } from '../data/icons.js';
 import { CLAN_ICON_KEY, COV_ICON_KEY, clanIcon, covIcon, shDots, shDotsWithBonus, esc, formatSpecs, hasAoE, displayName, cardName, dropdownName, sortName, getWillpower, redactPlayer, redactCharName, isRedactMode, resolveSharedWithMember } from '../data/helpers.js';
-import { getAttrVal, getAttrBonus, getSkillObj, calcCityStatus, titleStatusBonus, regentAmienceBonus, getRegentTerritoryFor, isInClanDisc, riteCost } from '../data/accessors.js';
+import { getAttrVal, getAttrBonus, getSkillObj, calcCityStatus, titleStatusBonus, regentAmienceBonus, getRegentTerritoryFor, isInClanDisc, bloodlineUnresolved, riteCost } from '../data/accessors.js';
 import { calcHealth, calcWillpowerMax, calcSize, calcSpeed, calcDefence } from '../data/derived.js';
 // Issue #879 (ADR-006 D4): displayed defence reads the armour-adjusted +
 // overlay-modded value from c.derived.defence (with on-the-fly fallback for
@@ -35,6 +35,23 @@ import { normaliseAttachedTo, getNecropolisInfectedTerritories, validateTrapDoor
 import { getRulesCache } from './rule_engine/load-rules.js';
 // N-4 (MNEC, issue #696): White Ants Territory picker reads the live list.
 import { getStoredTerritories } from '../data/accessors.js';
+// BL-3a (#1008): clan-filtered bloodline options come from the collection.
+import { bloodlinesByClan } from '../data/bloodlines-cache.js';
+// BL-5 (#1008): the sheet header carries the SECOND clan/bloodline dropdown
+// pair. It locks from the same shared module the Identity tab does, keyed off
+// the character's own stored value and never off the cache.
+import { isLineageLocked, lineageLockAttr, lineageLockNoteHtml } from '../data/write-once.js';
+
+// BL-3a review: names are DB-sourced (BL-4 lets an ST write them), so they are
+// escaped; and the character's OWN value is always present and matched
+// case-insensitively, so an unloaded/empty cache or a spelling slip can never
+// render a bloodline-bearing character as "(no bloodline)" and then commit it.
+const _blKey = s => String(s).trim().toLowerCase();
+function _blOptionNames(c) {
+  const names = (bloodlinesByClan()[c.clan] || []).slice();
+  if (c.bloodline && !names.some(b => _blKey(b) === _blKey(c.bloodline))) names.push(c.bloodline);
+  return names.sort((a, b) => a.localeCompare(b));
+}
 import { getRulesByCategory, getRuleByKey } from '../data/loader.js';
 import { applyDerivedMerits, getPoolTotal, getPoolUsed, getPoolsForCategory, mciPoolTotal, getMCIPoolUsed } from './mci.js';
 import { domMeritTotal, domMeritAccess, domMeritContrib, domMeritShareable, calcTotalInfluence, influenceBreakdown, calcContactsInfluence, calcMeritInfluence, hasHoneyWithVinegar, hasViralMythology, vmUsed, ssjHerdBonus, flockHerdBonus, hasLorekeeper, lorekeeperUsed, hasOHM, ohmUsed, hasInvested, investedPool, investedUsed, effectiveInvictusStatus, attacheBonusDots, meritFreeSum, syncMeritRating, meritEffectiveRating, domKey } from './domain.js';
@@ -757,7 +774,8 @@ export function shRenderDisciplines(c, editMode) {
     let dr = ''; dp.forEach(p => { dr += '<div class="disc-power"><div class="disc-power-name">' + esc(p.name) + '</div>' + (p.stats ? '<div class="disc-power-stats">' + esc(p.stats) + '</div>' : '') + '<div class="disc-power-effect">' + esc(p.effect || '') + '</div></div>'; });
     const _eR = '<div class="trait-right">' + (r > 0 ? '<span class="trait-dots' + (nameClass ? ' ' + nameClass : '') + '">' + shDots(r) + '</span>' : '') + (dp.length ? '<span class="disc-tap-arr">\u203A</span>' : '') + '</div>';
     let h2 = '<div class="disc-tap-row disc-edit"' + (dp.length ? ' id="disc-row-' + id + '" onclick="toggleDisc(\'' + id + '\')"' : '') + '><div class="trait-row"><div class="trait-main"><span class="trait-name' + (nameClass ? ' ' + nameClass : '') + '">' + esc(d) + '</span>' + _eR + '</div>' + (isIC ? '<div class="trait-sub"><span class="disc-clan-tag">in-clan</span></div>' : '') + '</div></div>';
-    h2 += '<div class="disc-bd-panel"><div class="disc-bd-row"><div class="bd-grp"><span class="bd-lbl">CP</span> <input class="attr-bd-input" type="number" min="0" value="' + (dObj.cp || 0) + '" onchange="shEditDiscPt(\'' + dE + '\',\'cp\',+this.value)"></div><div class="bd-grp"><span class="bd-lbl">XP</span> <input class="attr-bd-input" type="number" min="0" value="' + (dObj.xp || 0) + '" onchange="shEditDiscPt(\'' + dE + '\',\'xp\',+this.value)"></div><div class="bd-eq"><span class="bd-val">' + dt + '</span></div></div></div>';
+    const _discLockAttr = bloodlineUnresolved(c) ? ' disabled title="Locked: this character&apos;s bloodline could not be resolved"' : '';
+    h2 += '<div class="disc-bd-panel"><div class="disc-bd-row"><div class="bd-grp"><span class="bd-lbl">CP</span> <input class="attr-bd-input" type="number" min="0"' + _discLockAttr + ' value="' + (dObj.cp || 0) + '" onchange="shEditDiscPt(\'' + dE + '\',\'cp\',+this.value)"></div><div class="bd-grp"><span class="bd-lbl">XP</span> <input class="attr-bd-input" type="number" min="0"' + _discLockAttr + ' value="' + (dObj.xp || 0) + '" onchange="shEditDiscPt(\'' + dE + '\',\'xp\',+this.value)"></div><div class="bd-eq"><span class="bd-val">' + dt + '</span></div></div></div>';
     if (dp.length) h2 += '<div class="disc-drawer" id="disc-drawer-' + id + '">' + dr + '</div>';
     return h2;
   }
@@ -771,7 +789,17 @@ export function shRenderDisciplines(c, editMode) {
       .filter(([d]) => _validDiscs.has(d) && !isInClanDisc(c, d))
       .reduce((s, [, v]) => s + (v.cp || 0), 0);
     const rem = 3 - iCP - oCP;
-    h += '<div class="sh-sec"><div class="sh-sec-title">Disciplines' + _alertBadge(iCP < 2 || oCP > 1 || rem !== 0 ? 'red' : null) + '</div><div class="disc-cp-counter"><span class="sh-cp-remaining' + (rem < 0 ? ' over' : rem === 0 ? ' full' : '') + '">' + rem + ' CP</span><span class="' + (iCP < 2 ? 'sh-cp-remaining over' : '') + '">In-clan: ' + iCP + ' (min 2)</span><span class="' + (oCP > 1 ? 'sh-cp-remaining over' : '') + '">Out-of-clan: ' + oCP + ' (max 1)</span></div><div class="disc-list">';
+    // BL-2 (#1008): when the bloodline does not resolve, in-clan is unknown,
+    // so every cost on this panel is untrustworthy. shEditDiscPt refuses the
+    // write regardless; this is the half that tells the ST why, rather than
+    // leaving them to wonder why their input bounced back.
+    const _blLocked = bloodlineUnresolved(c);
+    const _blLockNote = _blLocked
+      ? '<div class="bl-disc-locked">Discipline editing is locked: the bloodline "' + esc(c.bloodline)
+        + '" could not be resolved, so in-clan cost cannot be determined. Every discipline below is'
+        + ' being shown as out-of-clan.</div>'
+      : '';
+    h += '<div class="sh-sec"><div class="sh-sec-title">Disciplines' + _alertBadge(iCP < 2 || oCP > 1 || rem !== 0 || _blLocked ? 'red' : null) + '</div>' + _blLockNote + '<div class="disc-cp-counter"><span class="sh-cp-remaining' + (rem < 0 ? ' over' : rem === 0 ? ' full' : '') + '">' + rem + ' CP</span><span class="' + (iCP < 2 ? 'sh-cp-remaining over' : '') + '">In-clan: ' + iCP + ' (min 2)</span><span class="' + (oCP > 1 ? 'sh-cp-remaining over' : '') + '">Out-of-clan: ' + oCP + ' (max 1)</span></div><div class="disc-list">';
     CORE_DISCS.forEach(d => { h += renderDiscEditRow(d, (c.disciplines || {})[d]?.dots || 0, isInClanDisc(c, d), null); });
     h += '</div></div>';
     const cn = (c.covenant || '').toLowerCase(), showCr = cn.includes('crone') || (c.disciplines || {}).Cruac?.dots > 0, showTh = cn.includes('lancea') || (c.disciplines || {}).Theban?.dots > 0;
@@ -3223,8 +3251,15 @@ export function renderSheet(c, target = null) {
   const _covBase = st.covenant?.[c.covenant] || 0;
   covRow(covIconHtml, '<select class="sh-edit-select" onchange="shEdit(\'covenant\',this.value);renderSheet(chars[editIdx])">' + COVENANTS.map(cv => '<option' + (c.covenant === cv ? ' selected' : '') + '>' + cv + '</option>').join('') + '</select>', '<div class="sh-faction-label">' + esc(c.covenant || '\u2014') + '</div>', 'Covenant', OTHER_SVG, _covBase, 'Cov.', 'covenant', _covBase, 0);
   if (editMode) {
-    const cOpts = CLANS.map(cl => '<option' + (c.clan === cl ? ' selected' : '') + '>' + cl + '</option>').join(''), bls = (BLOODLINE_CLANS[c.clan] || []).slice().sort(), blO = bls.map(b => '<option' + (c.bloodline === b ? ' selected' : '') + '>' + b + '</option>').join('');
-    covRow(clanIconHtml, '<select class="sh-edit-select" onchange="shEdit(\'clan\',this.value)">' + cOpts + '</select><select class="sh-edit-select" style="margin-top:3px;font-size:10px" onchange="shEdit(\'bloodline\',this.value||null);renderSheet(chars[editIdx])"><option value="">(no bloodline)</option>' + blO + '</select>', '', 'Clan / Bloodline', OTHER_SVG, st.clan || 0, 'Clan', 'clan', st.clan || 0, 0);
+    // BL-5 (#1008): both selects are locked once the character holds a value,
+    // and the clan select gains the "not set" placeholder it never had on the
+    // one path where it still matters. Two selects are built on the line below;
+    // locking one and missing the other is the exact failure this epic exists
+    // to stop, so both lock attributes are applied there and the reasons are
+    // rendered under them.
+    const _clanPlaceholder = isLineageLocked(c, 'clan') ? '' : '<option value=""' + (c.clan ? '' : ' selected') + '>(not set)</option>';
+    const cOpts = _clanPlaceholder + CLANS.map(cl => '<option' + (c.clan === cl ? ' selected' : '') + '>' + cl + '</option>').join(''), bls = _blOptionNames(c), blO = bls.map(b => '<option' + (c.bloodline && _blKey(c.bloodline) === _blKey(b) ? ' selected' : '') + '>' + esc(b) + '</option>').join('');
+    covRow(clanIconHtml, '<select class="sh-edit-select" onchange="shEdit(\'clan\',this.value)"' + lineageLockAttr(c, 'clan') + '>' + cOpts + '</select><select class="sh-edit-select sh-edit-select-sub" onchange="shEdit(\'bloodline\',this.value||null);renderSheet(chars[editIdx])"' + lineageLockAttr(c, 'bloodline') + '><option value="">(no bloodline)</option>' + blO + '</select>' + lineageLockNoteHtml(c, 'clan') + lineageLockNoteHtml(c, 'bloodline'), '', 'Clan / Bloodline', OTHER_SVG, st.clan || 0, 'Clan', 'clan', st.clan || 0, 0);
   }
   else covRow(clanIconHtml, '', '<div class="sh-faction-label">' + esc(c.clan || '\u2014') + '</div>' + (bl ? '<div class="sh-faction-bloodline">' + esc(bl) + '</div>' : ''), 'Clan', OTHER_SVG, st.clan || 0, 'Clan', 'clan', st.clan || 0, 0);
   h += '</div></div></div>'; // end right, body, hdr

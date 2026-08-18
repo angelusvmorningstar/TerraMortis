@@ -1,7 +1,14 @@
 /* Identity tab — edit view rendering and handlers */
 
 import state from '../data/state.js';
-import { APPROVED_BLOODLINES, MASKS_DIRGES, CLANS, COVENANTS, COURT_TITLES } from '../data/constants.js';
+import { MASKS_DIRGES, CLANS, COVENANTS, COURT_TITLES } from '../data/constants.js';
+// BL-3a (#1008): the approved list is DERIVED from the bloodlines collection,
+// so a bloodline added without a deploy appears here.
+import { approvedBloodlines } from '../data/bloodlines-cache.js';
+// BL-5 (#1008): clan and bloodline are write-once. The refusal is shared with
+// the sheet's own clan/bloodline pair (`editor/edit.js`'s `shEdit`) so the rule
+// has exactly one implementation across the two editing surfaces.
+import { refuseLineageWrite, lineageLockAttr, lineageLockNoteHtml, isLineageLocked } from '../data/write-once.js';
 import { esc, displayName, cardName, isRedactMode, redactCharName, redactPlayer } from '../data/helpers.js';
 // #837: XP totals are derived at render time; identity.js displays them
 // directly via xp.js rather than persisting them as character fields.
@@ -16,10 +23,25 @@ export function registerCallbacks(markDirty) {
 export function renderIdentityTab(c) {
   const el = document.getElementById('et-identity');
 
-  const bloodlineOpts = APPROVED_BLOODLINES.map(b => `<option${c.bloodline === b ? ' selected' : ''}>${b}</option>`).join('');
+  // BL-3a review: escape (names are DB-sourced, and BL-4 lets an ST write
+  // them), and never drop the character's OWN value. If the cache is unloaded,
+  // empty, or spells the name differently, an unlisted value leaves no option
+  // selected, the browser shows '(none)', and the next change commits that lie.
+  // Union the stored value in, matched case-insensitively.
+  const _blKey = s => String(s).trim().toLowerCase();
+  const _blNames = approvedBloodlines();
+  if (c.bloodline && !_blNames.some(b => _blKey(b) === _blKey(c.bloodline))) _blNames.push(c.bloodline);
+  const bloodlineOpts = _blNames.sort((x, y) => x.localeCompare(y))
+    .map(b => `<option${c.bloodline && _blKey(c.bloodline) === _blKey(b) ? ' selected' : ''}>${esc(b)}</option>`).join('');
   const maskOpts = MASKS_DIRGES.map(m => `<option${c.mask === m ? ' selected' : ''}>${m}</option>`).join('');
   const dirgeOpts = MASKS_DIRGES.map(m => `<option${c.dirge === m ? ' selected' : ''}>${m}</option>`).join('');
-  const clanOpts = CLANS.map(cl => `<option${c.clan === cl ? ' selected' : ''}>${cl}</option>`).join('');
+  // BL-5 (#1008): the clan select had no "not set" option, so a character with
+  // no clan rendered with `Daeva` visibly selected and one touch committed it.
+  // Latent while every live character carries a clan, and closed by the lock
+  // for all of them, but the acquisition path is the one place it still
+  // matters.
+  const clanPlaceholder = isLineageLocked(c, 'clan') ? '' : `<option value=""${!c.clan ? ' selected' : ''}>(not set)</option>`;
+  const clanOpts = clanPlaceholder + CLANS.map(cl => `<option${c.clan === cl ? ' selected' : ''}>${cl}</option>`).join('');
   const covOpts = COVENANTS.map(cv => `<option${c.covenant === cv ? ' selected' : ''}>${cv}</option>`).join('');
   const categoryOpts = COURT_TITLES.map(t => `<option value="${esc(t)}"${c.court_category === t ? ' selected' : ''}>${t || '(none)'}</option>`).join('');
 
@@ -66,14 +88,16 @@ export function renderIdentityTab(c) {
       <div class="form-grid">
         <div class="form-row">
           <label class="form-label">Clan</label>
-          <select class="form-select" onchange="updField('clan',this.value)">${clanOpts}</select>
+          <select class="form-select" onchange="updField('clan',this.value)"${lineageLockAttr(c, 'clan')}>${clanOpts}</select>
+          ${lineageLockNoteHtml(c, 'clan')}
         </div>
         <div class="form-row">
           <label class="form-label">Bloodline</label>
-          <select class="form-select" onchange="updField('bloodline',this.value||null)">
+          <select class="form-select" onchange="updField('bloodline',this.value||null)"${lineageLockAttr(c, 'bloodline')}>
             <option value=""${!c.bloodline ? ' selected' : ''}>(none)</option>
             ${bloodlineOpts}
           </select>
+          ${lineageLockNoteHtml(c, 'bloodline')}
         </div>
         <div class="form-row">
           <label class="form-label">Covenant</label>
@@ -169,6 +193,9 @@ export function renderIdentityTab(c) {
 /* ── Field update handlers ── */
 export function updField(key, val) {
   if (state.editIdx < 0) return;
+  // BL-5 (#1008): enforce at the HANDLER, not only in the markup. The disabled
+  // select above is defence in depth; this is the defence.
+  if (refuseLineageWrite(state.chars[state.editIdx], key, val)) return;
   state.chars[state.editIdx][key] = val;
   _markDirty();
   // Update header name

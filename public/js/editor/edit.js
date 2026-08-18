@@ -1,10 +1,16 @@
 /* Sheet-mode edit handlers — all read state.editIdx and write to state.chars[state.editIdx] */
 
 import state from '../data/state.js';
-import { apiPost, apiPut, apiDelete } from '../data/api.js';
-import { isInClanDisc } from '../data/accessors.js';
+import { apiGet, apiPost, apiPut, apiDelete } from '../data/api.js';
+import { isInClanDisc, bloodlineUnresolved } from '../data/accessors.js';
+// BL-5 (#1008): clan and bloodline are write-once, and the refusal is shared
+// with the Identity tab's `updField` so the rule has one implementation across
+// both editing surfaces. This import replaces BL-3a's `bloodlinesByClan` /
+// `bloodlinesResolvable` pair, which existed only to feed the clan-change
+// bloodline auto-clear that BL-5 deleted below.
+import { refuseLineageWrite } from '../data/write-once.js';
 import {
-  CLAN_BANES, BLOODLINE_CLANS, BLOODLINE_DISCS, CLAN_DISCS,
+  CLAN_BANES, CLAN_DISCS,
   SKILL_CATS, SKILL_PRI_BUDGETS, ALL_SKILLS, ATTR_CATS, PRI_BUDGETS,
   CORE_DISCS, RITUAL_DISCS
 } from '../data/constants.js';
@@ -97,6 +103,10 @@ export function editFromSheet() {
 
 export function shEdit(field, val) {
   if (state.editIdx < 0) return;
+  // BL-5 (#1008): this guard MUST stay above the assignment on the next line,
+  // which is where the field is written. Enforced at the handler, not only in
+  // the markup, per data-map.md's own instruction on `characters.clan`.
+  if (refuseLineageWrite(state.chars[state.editIdx], field, val)) return;
   state.chars[state.editIdx][field] = val || null;
   _markDirty();
   // Re-render for fields that affect derived display (title bonus, clan bane)
@@ -114,9 +124,13 @@ export function shEdit(field, val) {
       if (ci >= 0) c.banes[ci] = { ...newCurse };
       else c.banes.unshift({ ...newCurse });
     }
-    // Clear bloodline if not valid for new clan
-    const validBLs = BLOODLINE_CLANS[val] || [];
-    if (c.bloodline && !validBLs.includes(c.bloodline)) c.bloodline = null;
+    // BL-5 (#1008): the "clear the bloodline if it is not valid for the new
+    // clan" block that used to sit here is DELETED, not guarded. Clan is
+    // write-once and now enforced both here and at the API, so a clan can never
+    // change after its first set and the branch could never fire. A guard is a
+    // thing that can be got subtly wrong later; a deletion is not. The bane
+    // assignment above stays, because it is still needed the first time a clan
+    // is set on a new character.
     _renderSheet(c);
   }
 }
@@ -619,6 +633,26 @@ export function shSetClanAttr(val) {
 export function shEditDiscPt(disc, field, val) {
   if (state.editIdx < 0) return;
   const c = state.chars[state.editIdx];
+
+  // BL-2 (#1008): refuse the write while this character's bloodline does not
+  // resolve. The in-clan answer feeding discCostMult below is untrustworthy
+  // until it does, and committing a dot bought against it bakes a wrong cost
+  // into the document - which is the defect this epic exists to stop. The
+  // guard lives HERE rather than only on the input's `disabled` attribute
+  // because there are two independent discipline-editing surfaces; enforcing
+  // in one template would leave the rule true on one screen and false on the
+  // other. Nothing is mutated, not even an empty disciplines map.
+  if (bloodlineUnresolved(c)) {
+    console.warn(`[edit] discipline edit refused: "${c.bloodline}" does not resolve for ${c.name || 'this character'}.`);
+    // Re-render so the input snaps back to the stored value. Without this the
+    // typed number sits in the box looking accepted, and reverts later at some
+    // unrelated re-render — which is a worse lie than the one this guards.
+    // The inputs also carry `disabled` (sheet.js), so this is the belt to that
+    // brace: the handler is reachable from a second editing surface.
+    if (_renderSheet) _renderSheet(c);
+    return;
+  }
+
   if (!c.disciplines) c.disciplines = {};
   if (!c.disciplines[disc]) c.disciplines[disc] = { dots: 0, cp: 0, free: 0, xp: 0, rule_key: null };
   val = Math.max(0, val || 0);

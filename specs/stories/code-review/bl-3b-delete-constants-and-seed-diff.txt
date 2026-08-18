@@ -1,0 +1,1507 @@
+diff --git a/CLAUDE.md b/CLAUDE.md
+index 4b4f62d5..72902e98 100644
+--- a/CLAUDE.md
++++ b/CLAUDE.md
+@@ -113,16 +113,19 @@ Small fixed enums that genuinely belong in code (changing them is a rule change,
+ - `COVENANTS` (5)
+ - `MASKS_DIRGES` (26)
+ - `CLAN_BANES` (per-clan free-text descriptions)
+-- `BLOODLINE_DISCS` (per-bloodline discipline lists)
++- `CLAN_DISCS` (per-clan discipline lists)
+ 
+ All of the above live in `public/js/data/constants.js`.
+ 
++**Bloodlines are not on this list any more.** `BLOODLINE_DISCS`, `BLOODLINE_CLANS` and `APPROVED_BLOODLINES` were deleted from `constants.js` by Epic BL (issue #1008); see below.
++
+ ### Previously-static data now MongoDB-backed
+ 
+ The "everything in JS modules" pattern was the original shape, but most reference data has since migrated to MongoDB:
+ 
+ - **Epic PP** moved `MERITS_DB`, `DEVOTIONS_DB`, `MAN_DB`, and the rules engine into MongoDB (`purchasable_powers` collection + `rule_*` per-category collections). Live reads go through `public/js/data/loader.js` (`getRuleByKey`, `getRulesByCategory`) and the rule-engine cache at `public/js/editor/rule_engine/load-rules.js`. Server-side: `server/routes/rules.js` + `server/routes/rules-engine.js`.
+ - **Epic ECM** moved the equipment catalogue from `public/js/data/equipment-data.js` + `server/data/equipment-catalogue.js` (both deleted in ECM-7 #874) into the `equipment_catalogue` MongoDB collection. Live reads go through `public/js/data/equipment-catalogue-cache.js` (the shared cache module ECM-5 introduced; refetches on the `broadcastCatalogueUpdate` WS frame). Server-side: `server/routes/equipment-catalogue.js` + `server/schemas/equipment_catalogue.schema.js`. Admin CRUD lives at `public/js/admin/equipment-catalogue-admin.js`.
++- **Epic BL** (#1008) moved bloodlines out of `public/js/data/constants.js` (`BLOODLINE_DISCS`, `BLOODLINE_CLANS`, `APPROVED_BLOODLINES`, all deleted in BL-3b) into the `bloodlines` MongoDB collection. Live reads go through `public/js/data/bloodlines-cache.js` (`approvedBloodlines`, `bloodlinesByClan`, `discsForBloodline`; refetches on the bloodline WS frame), and `clanDiscList`/`isInClanDisc` in `public/js/data/accessors.js` are the only in-clan implementation. Server-side: `server/routes/bloodlines.js` + `server/schemas/bloodline.schema.js`. Admin CRUD lives at `public/js/admin/bloodlines-admin.js`. The one-time migration is retired at `server/scripts/archive/seed-bloodlines.js`, which carries the 23 original bloodlines as frozen literals; do not edit them, add a bloodline on the admin screen.
+ 
+ ### Convention
+ 
+diff --git a/public/js/data/constants.js b/public/js/data/constants.js
+index 0fa4776c..af6d4c3e 100644
+--- a/public/js/data/constants.js
++++ b/public/js/data/constants.js
+@@ -47,32 +47,20 @@ export const COURT_TITLES = ['','Head of State','Primogen','Administrator','Soci
+ export const TITLE_STATUS_BONUS = {'Head of State':3,'Primogen':2,'Socialite':1,'Enforcer':1,'Administrator':1};
+ 
+ 
+-export const BLOODLINE_DISCS = {
+-  'Ankou':['Auspex','Celerity','Obfuscate','Vigour'],
+-  'Apollinaire':['Animalism','Dominate','Resilience','Obfuscate'],
+-  'Bron':['Animalism','Auspex','Dominate','Resilience'],
+-  'Gorgons':['Animalism','Dominate','Protean','Resilience'],
+-  'Hounds of Actaeon':['Animalism','Obfuscate','Protean','Resilience'],
+-  'Icelus':['Auspex','Dominate','Obfuscate','Resilience'],
+-  'Jharana':['Auspex','Celerity','Obfuscate','Vigour'],
+-  'Kerberos':['Animalism','Majesty','Protean','Resilience'],
+-  'Khaibit':['Auspex','Celerity','Obfuscate','Vigour'],
+-  'Lasombra':['Animalism','Dominate','Nightmare','Resilience'],
+-  'Lidérc':['Celerity','Majesty','Obfuscate','Vigour'],
+-  'Lygos':['Auspex','Nightmare','Obfuscate','Vigour'],
+-  'Malkovians':['Auspex','Dominate','Obfuscate','Resilience'],
+-  'Mnemosyne':['Auspex','Celerity','Obfuscate','Dominate'],
+-  'Morbus':['Animalism','Auspex','Celerity','Obfuscate'],
+-  'Norvegi':['Auspex','Obfuscate','Celerity','Vigour'],
+-  'Nosoi':['Dominate','Obfuscate','Protean','Resilience'],
+-  'Order of Sir Martin':['Nightmare','Obfuscate','Resilience','Vigour'],
+-  'Rotgrafen':['Animalism','Dominate','Protean','Resilience'],
+-  'Scions of the First City':['Animalism','Auspex','Obfuscate','Resilience'],
+-  'Vardyvle':['Dominate','Obfuscate','Protean','Resilience'],
+-  'Vilseduire':['Majesty','Nightmare','Obfuscate','Resilience'],
+-  'Zelani':['Celerity','Majesty','Auspex','Vigour']
+-};
+-
++/* Bloodlines are NOT here. BLOODLINE_DISCS, BLOODLINE_CLANS and
++ * APPROVED_BLOODLINES lived at this spot until BL-3b (issue #1008) deleted
++ * them on 2026-08-11. The `bloodlines` MongoDB collection is the only place a
++ * bloodline is defined; read it through `public/js/data/bloodlines-cache.js`
++ * (`approvedBloodlines()`, `bloodlinesByClan()`, `discsForBloodline()`), and
++ * add or edit one on the ST admin screen. Reintroducing a bloodline table here
++ * would recreate the two-sources-of-truth defect the epic was filed against:
++ * a name present in one structure and missing from the other silently degraded
++ * a character's discipline costs from 3 XP/dot to 4. The 23 migrated documents
++ * are frozen in `server/scripts/archive/seed-bloodlines.js`.
++ *
++ * CLAN_DISCS below is a different thing and stays: it is the five clans' own
++ * discipline lists, the no-bloodline fallback in `data/accessors.js`.
++ */
+ export const CLAN_DISCS = {
+   Daeva:['Celerity','Majesty','Vigour'],
+   Gangrel:['Animalism','Protean','Resilience'],
+@@ -81,16 +69,6 @@ export const CLAN_DISCS = {
+   Ventrue:['Animalism','Dominate','Resilience']
+ };
+ 
+-export const APPROVED_BLOODLINES = Object.keys(BLOODLINE_DISCS).sort();
+-
+-export const BLOODLINE_CLANS = {
+-  Daeva:['Lidérc','Zelani'],
+-  Gangrel:['Hounds of Actaeon','Kerberos','Scions of the First City'],
+-  Mekhet:['Ankou','Jharana','Khaibit','Lygos','Mnemosyne','Morbus','Norvegi'],
+-  Nosferatu:['Nosoi','Order of Sir Martin','Vilseduire'],
+-  Ventrue:['Apollinaire','Bron','Gorgons','Icelus','Lasombra','Malkovians','Rotgrafen','Vardyvle']
+-};
+-
+ 
+ export const CLAN_ATTR_OPTIONS = {
+   Daeva:['Dexterity','Manipulation'],
+diff --git a/public/js/dev-fixtures.js b/public/js/dev-fixtures.js
+index 9fc4e1e6..eae17ad4 100644
+--- a/public/js/dev-fixtures.js
++++ b/public/js/dev-fixtures.js
+@@ -1,4 +1,3 @@
+-import { BLOODLINE_DISCS as _BLD, BLOODLINE_CLANS as _BLC } from './data/constants.js';
+ /* dev-fixtures.js — fixture intercept for local dev (index.html).
+  * AUTO-GENERATED 2026-04-19 from live Atlas export (real player names).
+  * Dynamically imported only when tm_auth_token === local-test-token.
+@@ -15,6 +14,7 @@ var DT_SUBS=[{"_id":"69da323ccc5483a3c77027a0","cycle_id":"69d0a3c5052b57f6be774
+ var GAME_SESSIONS=[{"_id":"69e21a343205c7c7574c769e","session_date":"2026-04-18","title":"Game 3","attendance":[{"player":"Player A","character_id":"69d73ea49162ece35897a498","character_name":"Tegan Groves","character_display":"Tegan Groves","attended":false,"costuming":false,"downtime":false,"extra":0,"paid":false,"payment_method":""},{"player":"Player B","character_id":"69d73ea49162ece35897a48d","character_name":"Julia Dolancia","character_display":"Lady Julia Dolancia","attended":true,"costuming":true,"downtime":false,"extra":0,"paid":true,"payment_method":"Transfer (Lyn)"},{"player":"Player C","character_id":"69d73ea49162ece35897a47f","character_name":"Carver","character_display":"Carver","attended":true,"costuming":true,"downtime":false,"extra":0,"paid":true,"payment_method":"Waived"},{"player":"Player D","character_id":"69d73ea49162ece35897a486","character_name":"Edna Judge","character_display":"Bishop Edna Judge","attended":true,"costuming":true,"downtime":false,"extra":0,"paid":true,"payment_method":"Transfer (Lyn)"},{"player":"Player E","character_id":"69d73ea49162ece35897a483","character_name":"Conrad Sondergaard","character_display":"Conrad Sondergaard","attended":true,"costuming":true,"downtime":false,"extra":0,"paid":true,"payment_method":"Cash"},{"player":"Player F","character_id":"69d73ea49162ece35897a47e","character_name":"Brandy LaRoux","character_display":"Harpy Brandy LaRoux","attended":true,"costuming":true,"downtime":false,"extra":0,"paid":true,"payment_method":"PayID (Symon)"},{"player":"Player G","character_id":"69d73ea49162ece35897a484","character_name":"Cyrus Reynolds","character_display":"Cyrus Reynolds","attended":true,"costuming":true,"downtime":false,"extra":0,"paid":true,"payment_method":"Transfer (Lyn)"},{"player":"Player H","character_id":"69d73ea49162ece35897a480","character_name":"Casamir","character_display":"Dr Cazz","attended":true,"costuming":true,"downtime":false,"extra":0,"paid":true,"payment_method":"Cash"},{"player":"Player I","character_id":"69d73ea49162ece35897a492","character_name":"Macheath","character_display":"Mac","attended":true,"costuming":true,"downtime":false,"extra":0,"paid":true,"payment_method":"Transfer (Lyn)"},{"player":"Player J","character_id":"69d73ea49162ece35897a490","character_name":"Livia","character_display":"Livia","attended":true,"costuming":true,"downtime":false,"extra":0,"paid":true,"payment_method":"Transfer (Lyn)"},{"player":"Player K","character_id":"69d73ea49162ece35897a494","character_name":"Reed Justice","character_display":"Regent Reed Justice","attended":true,"costuming":true,"downtime":false,"extra":0,"paid":true,"payment_method":"Waived"},{"player":"Player L","character_id":"69da21a09aa8d408d64748f6","character_name":"Don Ezzelino Rocio","character_display":"Etsy","attended":true,"costuming":true,"downtime":false,"extra":0,"paid":true,"payment_method":"Transfer (Lyn)"},{"player":"Player M","character_id":"69d73ea49162ece35897a48c","character_name":"Jack Fallow","character_display":"Regent Jack Fallow","attended":true,"costuming":true,"downtime":false,"extra":0,"paid":true,"payment_method":"Transfer (Lyn)"},{"player":"Player N","character_id":"69d73ea49162ece35897a49a","character_name":"Xavier Boussade","character_display":"Xavier Boussade","attended":true,"costuming":true,"downtime":false,"extra":0,"paid":true,"payment_method":"PayID (Symon)"},{"player":"Player O","character_id":"69d73ea49162ece35897a488","character_name":"Eve Lockridge","character_display":"Premier Eve Lockridge","attended":true,"costuming":true,"downtime":false,"extra":0,"paid":true,"payment_method":"PayID (Symon)"},{"player":"Player P","character_id":"69d73ea49162ece35897a485","character_name":"MArgaret Kane","character_display":"Protector Doc","attended":true,"costuming":true,"downtime":false,"extra":0,"paid":true,"payment_method":"Transfer (Lyn)"},{"player":"Player Q","character_id":"69d73ea49162ece35897a47c","character_name":"Alice Vunder","character_display":"Regent Alice Vunder","attended":true,"costuming":false,"downtime":false,"extra":0,"paid":true,"payment_method":"PayID (Symon)"},{"player":"Player R","character_id":"69d73ea49162ece35897a47d","character_name":"Anichka","character_display":"Hierophant Anichka","attended":true,"costuming":true,"downtime":false,"extra":0,"paid":true,"payment_method":"Cash"},{"player":"Player S","character_id":"69d73ea49162ece35897a482","character_name":"Charlie Ballsack","character_display":"Sir Knight Charlie Ballsack","attended":true,"costuming":true,"downtime":false,"extra":0,"paid":true,"payment_method":"Waived"},{"player":"Player T","character_id":"69d73ea49162ece35897a481","character_name":"Charles Mercer-Willows","character_display":"Preacher Charles Mercer-Willows","attended":false,"costuming":false,"downtime":false,"extra":0,"paid":false,"payment_method":""},{"player":"Player U","character_id":"69d73ea49162ece35897a495","character_name":"René Meyer","character_display":"Regent René Meyer","attended":true,"costuming":true,"downtime":false,"extra":0,"paid":true,"payment_method":"Transfer (Lyn)"},{"player":"Player V","character_id":"69d73ea49162ece35897a48b","character_name":"Ivana Horvat","character_display":"Ivana Horvat","attended":true,"costuming":true,"downtime":false,"extra":0,"paid":true,"payment_method":"Waived"},{"player":"Player W","character_id":"69d73ea49162ece35897a48a","character_name":"Hazel","character_display":"Sister Hazel","attended":false,"costuming":false,"downtime":false,"extra":0,"paid":false,"payment_method":""},{"player":"Player X","character_id":"69d73ea49162ece35897a496","character_name":"René St. Dominique","character_display":"Primogen René St. Dominique","attended":true,"costuming":true,"downtime":false,"extra":0,"paid":true,"payment_method":"Transfer (Lyn)"},{"player":"Player Y","character_id":"69d73ea49162ece35897a499","character_name":"Wan Yelong","character_display":"Lord Wan Yelong","attended":true,"costuming":true,"downtime":false,"extra":0,"paid":true,"payment_method":"PayID (Symon)"},{"player":"Player Z","character_id":"69d73ea49162ece35897a487","character_name":"Einar Solveig","character_display":"Einar Solveig","attended":true,"costuming":true,"downtime":false,"extra":0,"paid":true,"payment_method":"Waived"},{"player":"Player AA","character_id":"69d73ea49162ece35897a497","character_name":"Ryan Ambrose","character_display":"Mister Ryan Ambrose","attended":true,"costuming":true,"downtime":false,"extra":0,"paid":true,"payment_method":"Transfer (Lyn)"},{"player":"Player BB","character_id":"69d720427fdd1b1f9498b0d4","character_name":"Yusuf Kalusicj","character_display":"Yusuf Kalusicj","attended":true,"costuming":true,"downtime":false,"extra":0,"paid":true,"payment_method":"Waived"},{"player":"Player CC","character_id":"69d73ea49162ece35897a491","character_name":"Ludica Lachramore","character_display":"Lady Ludica Lachramore","attended":true,"costuming":true,"downtime":false,"extra":0,"paid":true,"payment_method":"Transfer (Lyn)"},{"player":"Player DD","character_id":"69d73ea49162ece35897a48e","character_name":"Keeper","character_display":"Keeper","attended":true,"costuming":true,"downtime":false,"extra":0,"paid":true,"payment_method":"Waived"},{"player":"Tiana W","character_id":"69d73ea49162ece35897a493","character_name":"Magda","character_display":"Magda","attended":false,"costuming":false,"downtime":false,"extra":0,"paid":false,"payment_method":""}],"created_at":"2026-04-17T11:32:04.695Z","updated_at":"2026-04-18T09:34:29.493Z"},{"_id":"69ccd95f327efb46ce373f46","session_date":"2026-03-21","title":"Game 2","attendance":[{"character_id":"69ccb81b71570c2ae65cc66f","name":"Alice Vunder","display_name":"Alice Vunder","attended":true,"costuming":true,"downtime":true,"extra":0,"paid":true,"payment_method":"Transfer (Lyn)"},{"character_id":"69ccb81b71570c2ae65cc670","name":"Anichka","display_name":"Anichka","attended":true,"costuming":true,"downtime":true,"extra":0,"paid":true,"payment_method":"Cash"},{"character_id":"69ccb81b71570c2ae65cc671","name":"Brandy LaRoux","display_name":"Brandy LaRoux","attended":true,"costuming":true,"downtime":true,"extra":0,"paid":true,"payment_method":"Transfer (Lyn)"},{"character_id":"69ccb81b71570c2ae65cc672","name":"Carver","display_name":"Carver","attended":true,"costuming":true,"downtime":true,"extra":0,"paid":true,"payment_method":"Exiles"},{"character_id":"69ccb81b71570c2ae65cc673","name":"Casamir","display_name":"Cazz","attended":true,"costuming":true,"downtime":true,"extra":0,"paid":true,"payment_method":"Cash"},{"character_id":"69ccb81b71570c2ae65cc674","name":"Charles Mercer-Willows","display_name":"Charles Mercer-Willows","attended":false,"costuming":false,"downtime":false,"extra":0,"paid":false,"payment_method":""},{"character_id":"69ccb81b71570c2ae65cc675","name":"Charlie Ballsack","display_name":"Lord Charlie Ballsack","attended":true,"costuming":true,"downtime":true,"extra":0,"paid":true,"payment_method":"Waived"},{"character_id":"69ccb81b71570c2ae65cc676","name":"Conrad Sondergaard","display_name":"Conrad Sondergaard","attended":true,"costuming":true,"downtime":true,"extra":0,"paid":true,"payment_method":"Transfer (Lyn)"},{"character_id":"69ccb81b71570c2ae65cc677","name":"Cyrus Reynolds","display_name":"Cyrus Reynolds","attended":true,"costuming":true,"downtime":true,"extra":0,"paid":true,"payment_method":"Transfer (Lyn)"},{"character_id":"69ccb81b71570c2ae65cc678","name":"Edna Judge","display_name":"Edna Judge","attended":true,"costuming":true,"downtime":true,"extra":1,"paid":true,"payment_method":"Transfer (Lyn)"},{"character_id":"69ccb81b71570c2ae65cc679","name":"Einar Solveig","display_name":"Einar Solveig","attended":true,"costuming":true,"downtime":true,"extra":0,"paid":true,"payment_method":"Transfer (Lyn)"},{"character_id":"69ccb81b71570c2ae65cc67a","name":"Eve Lockridge","display_name":"Eve Lockridge","attended":true,"costuming":true,"downtime":true,"extra":0,"paid":true,"payment_method":"PayID (Symon)"},{"character_id":"69ccb81b71570c2ae65cc67b","name":"Ivana Horvat","display_name":"Ivana Horvat","attended":true,"costuming":true,"downtime":true,"extra":0,"paid":true,"payment_method":"Waived"},{"character_id":"69ccb81b71570c2ae65cc67c","name":"Jack Fallow","display_name":"Jack Fallow","attended":true,"costuming":true,"downtime":true,"extra":0,"paid":false,"payment_method":""},{"character_id":"69d73ea49162ece35897a489","name":"Jelle Dunneweld","display_name":"Lord Gel","attended":false,"costuming":false,"downtime":false,"extra":0,"paid":false,"payment_method":""},{"character_id":"69ccb81b71570c2ae65cc67e","name":"Keeper","display_name":"Keeper","attended":true,"costuming":true,"downtime":true,"extra":0,"paid":true,"payment_method":"Waived"},{"character_id":"69ccb81b71570c2ae65cc680","name":"Livia","display_name":"Livia","attended":true,"costuming":true,"downtime":true,"extra":0,"paid":true,"payment_method":"Transfer (Lyn)"},{"character_id":"69ccb81b71570c2ae65cc681","name":"Ludica Lachramore","display_name":"Lady Ludica Lachramore","attended":true,"costuming":true,"downtime":true,"extra":1,"paid":true,"payment_method":"Transfer (Lyn)"},{"character_id":"69ccb81b71570c2ae65cc682","name":"Macheath","display_name":"Mac","attended":true,"costuming":true,"downtime":true,"extra":0,"paid":true,"payment_method":"Transfer (Lyn)"},{"character_id":"69ccb81b71570c2ae65cc683","name":"Magda","display_name":"Magda","attended":true,"costuming":true,"downtime":false,"extra":0,"paid":true,"payment_method":"Transfer (Lyn)"},{"character_id":"69d73ea49162ece35897a485","name":"Margaret Kane","display_name":"Doc","attended":true,"costuming":true,"downtime":true,"extra":0,"paid":true,"payment_method":"Transfer (Lyn)"},{"character_id":"69ccb81b71570c2ae65cc685","name":"Reed Justice","display_name":"Lord Reed Justice","attended":true,"costuming":true,"downtime":true,"extra":0,"paid":true,"payment_method":"Exiles"},{"character_id":"69ccb81b71570c2ae65cc686","name":"René Meyer","display_name":"René Meyer","attended":true,"costuming":true,"downtime":true,"extra":0,"paid":true,"payment_method":"Transfer (Lyn)"},{"character_id":"69ccb81b71570c2ae65cc687","name":"René St. Dominique","display_name":"Lord René St. Dominique","attended":true,"costuming":true,"downtime":true,"extra":0,"paid":true,"payment_method":"Transfer (Lyn)"},{"character_id":"69ccb81b71570c2ae65cc688","name":"Ryan Ambrose","display_name":"Lord Ryan Ambrose","attended":true,"costuming":true,"downtime":true,"extra":1,"paid":true,"payment_method":"Transfer (Lyn)"},{"character_id":"69ccb81b71570c2ae65cc689","name":"Hazel","display_name":"Sister Hazel","attended":true,"costuming":true,"downtime":true,"extra":0,"paid":true,"payment_method":"Exiles"},{"character_id":"69ccb81b71570c2ae65cc68a","name":"Tegan Groves","display_name":"Tegan Groves","attended":true,"costuming":true,"downtime":true,"extra":0,"paid":true,"payment_method":"Cash"},{"character_id":"69ccb81b71570c2ae65cc68b","name":"Wan Yelong","display_name":"Lord Wan Yelong","attended":true,"costuming":false,"downtime":true,"extra":0,"paid":true,"payment_method":"Transfer (Lyn)"},{"character_id":"69ccb81b71570c2ae65cc68c","name":"Yusuf Kalusicj","display_name":"Mammon","attended":true,"costuming":true,"downtime":true,"extra":1,"paid":true,"payment_method":"Transfer (Lyn)"},{"character_id":"69ccb81b71570c2ae65cc68d","name":"Julia","display_name":"Lady Julia","attended":false,"costuming":false,"downtime":false,"extra":1,"paid":false,"payment_method":"Transfer (Lyn)"},{"character_id":"69da21a09aa8d408d64748f6","character_name":"Don Ezzelino Rocio","character_display":"Etsy","player":"Daniel Barale","attended":true,"costuming":true,"downtime":true,"extra":1,"paid":false,"payment_method":""},{"character_id":"69d73ea49162ece35897a49a","character_name":"Xavier Boussade","character_display":"Xavier Boussade","player":"Player N","attended":false,"costuming":false,"downtime":true,"extra":0,"paid":false,"payment_method":""},{"character_id":"69d73ea49162ece35897a48d","character_name":"Julia Dolancia","character_display":"Lady Julia Dolancia","player":"Player B","attended":true,"costuming":true,"downtime":true,"extra":1,"paid":true,"payment_method":"Transfer (Lyn)"}],"created_at":"2026-04-01T08:37:51.239Z","updated_at":"2026-04-17T05:39:15.608Z"},{"_id":"69ccd6e4327efb46ce373f45","session_date":"2026-02-26","title":"Game 1","attendance":[{"character_id":"69ccb81b71570c2ae65cc66f","name":"Alice Vunder","display_name":"Alice Vunder","attended":true,"costuming":true,"downtime":true,"extra":0,"paid":true,"payment_method":"Cash"},{"character_id":"69ccb81b71570c2ae65cc670","name":"Anichka","display_name":"Anichka","attended":true,"costuming":true,"downtime":true,"extra":1,"paid":true,"payment_method":"Exiles"},{"character_id":"69ccb81b71570c2ae65cc671","name":"Brandy LaRoux","display_name":"Brandy LaRoux","attended":true,"costuming":true,"downtime":true,"extra":0,"paid":true,"payment_method":"Cash"},{"character_id":"69ccb81b71570c2ae65cc672","name":"Carver","display_name":"Carver","attended":true,"costuming":true,"downtime":true,"extra":0,"paid":true,"payment_method":"PayID"},{"character_id":"69ccb81b71570c2ae65cc673","name":"Casamir","display_name":"Cazz","attended":true,"costuming":true,"downtime":true,"extra":0,"paid":true,"payment_method":"Cash"},{"character_id":"69ccb81b71570c2ae65cc674","name":"Charles Mercer-Willows","display_name":"Charles Mercer-Willows","attended":true,"costuming":true,"downtime":true,"extra":0,"paid":true,"payment_method":"Cash"},{"character_id":"69ccb81b71570c2ae65cc675","name":"Charlie Ballsack","display_name":"Lord Charlie Ballsack","attended":true,"costuming":true,"downtime":true,"extra":0,"paid":true,"payment_method":"Cash"},{"character_id":"69ccb81b71570c2ae65cc676","name":"Conrad Sondergaard","display_name":"Conrad Sondergaard","attended":true,"costuming":true,"downtime":true,"extra":0,"paid":true,"payment_method":"Cash"},{"character_id":"69ccb81b71570c2ae65cc677","name":"Cyrus Reynolds","display_name":"Cyrus Reynolds","attended":true,"costuming":true,"downtime":true,"extra":0,"paid":true,"payment_method":"PayID"},{"character_id":"69ccb81b71570c2ae65cc678","name":"Edna Judge","display_name":"Edna Judge","attended":true,"costuming":true,"downtime":true,"extra":0,"paid":true,"payment_method":"PayPal"},{"character_id":"69ccb81b71570c2ae65cc679","name":"Einar Solveig","display_name":"Einar Solveig","attended":true,"costuming":true,"downtime":true,"extra":0,"paid":true,"payment_method":"PayPal"},{"character_id":"69ccb81b71570c2ae65cc67a","name":"Eve Lockridge","display_name":"Eve Lockridge","attended":true,"costuming":true,"downtime":true,"extra":0,"paid":false,"payment_method":""},{"character_id":"69ccb81b71570c2ae65cc67b","name":"Ivana Horvat","display_name":"Ivana Horvat","attended":true,"costuming":true,"downtime":true,"extra":0,"paid":true,"payment_method":"PayPal"},{"character_id":"69ccb81b71570c2ae65cc67c","name":"Jack Fallow","display_name":"Jack Fallow","attended":true,"costuming":true,"downtime":true,"extra":0,"paid":true,"payment_method":"Cash"},{"character_id":"69d73ea49162ece35897a489","name":"Jelle Dunneweld","display_name":"Lord Gel","attended":false,"costuming":false,"downtime":false,"extra":0,"paid":false,"payment_method":""},{"character_id":"69ccb81b71570c2ae65cc67e","name":"Keeper","display_name":"Keeper","attended":true,"costuming":true,"downtime":true,"extra":0,"paid":true,"payment_method":"Cash"},{"character_id":"69ccb81b71570c2ae65cc680","name":"Livia","display_name":"Livia","attended":true,"costuming":true,"downtime":false,"extra":0,"paid":true,"payment_method":"PayPal"},{"character_id":"69ccb81b71570c2ae65cc681","name":"Ludica Lachramore","display_name":"Lady Ludica Lachramore","attended":true,"costuming":true,"downtime":true,"extra":0,"paid":true,"payment_method":"PayID"},{"character_id":"69ccb81b71570c2ae65cc682","name":"Macheath","display_name":"Mac","attended":true,"costuming":true,"downtime":true,"extra":0,"paid":true,"payment_method":"Cash"},{"character_id":"69ccb81b71570c2ae65cc683","name":"Magda","display_name":"Magda","attended":true,"costuming":true,"downtime":false,"extra":0,"paid":true,"payment_method":"PayID"},{"character_id":"69d73ea49162ece35897a485","name":"Margaret Kane","display_name":"Doc","attended":true,"costuming":true,"downtime":true,"extra":0,"paid":true,"payment_method":"Cash"},{"character_id":"69ccb81b71570c2ae65cc685","name":"Reed Justice","display_name":"Lord Reed Justice","attended":true,"costuming":true,"downtime":true,"extra":1,"paid":true,"payment_method":"Exiles"},{"character_id":"69ccb81b71570c2ae65cc686","name":"René Meyer","display_name":"René Meyer","attended":true,"costuming":true,"downtime":true,"extra":1,"paid":true,"payment_method":"PayID"},{"character_id":"69ccb81b71570c2ae65cc687","name":"René St. Dominique","display_name":"Lord René St. Dominique","attended":true,"costuming":true,"downtime":true,"extra":0,"paid":true,"payment_method":"PayID"},{"character_id":"69ccb81b71570c2ae65cc688","name":"Ryan Ambrose","display_name":"Lord Ryan Ambrose","attended":false,"costuming":false,"downtime":false,"extra":0,"paid":false,"payment_method":""},{"character_id":"69ccb81b71570c2ae65cc689","name":"Hazel","display_name":"Sister Hazel","attended":true,"costuming":true,"downtime":true,"extra":0,"paid":true,"payment_method":"PayID"},{"character_id":"69ccb81b71570c2ae65cc68a","name":"Tegan Groves","display_name":"Tegan Groves","attended":true,"costuming":true,"downtime":true,"extra":0,"paid":true,"payment_method":"PayID"},{"character_id":"69ccb81b71570c2ae65cc68b","name":"Wan Yelong","display_name":"Lord Wan Yelong","attended":true,"costuming":true,"downtime":true,"extra":0,"paid":true,"payment_method":"PayID"},{"character_id":"69ccb81b71570c2ae65cc68c","name":"Yusuf Kalusicj","display_name":"Mammon","attended":false,"costuming":false,"downtime":true,"extra":0,"paid":false,"payment_method":""},{"character_id":"69ccb81b71570c2ae65cc68d","name":"Julia","display_name":"Lady Julia","attended":false,"costuming":false,"downtime":false,"extra":0,"paid":false,"payment_method":""}],"created_at":"2026-04-01T08:27:16.942Z","updated_at":"2026-04-11T22:03:10.373Z"}];
+ var TRACKER_STATE={"69d720427fdd1b1f9498b0d4":{"vitae":7,"willpower":5,"bashing":0,"lethal":0,"aggravated":0,"influence":0},"69d73ea49162ece35897a47c":{"vitae":7,"willpower":4,"bashing":0,"lethal":0,"aggravated":0,"influence":0},"69d73ea49162ece35897a47d":{"vitae":7,"willpower":6,"bashing":0,"lethal":0,"aggravated":0,"influence":0},"69d73ea49162ece35897a47e":{"vitae":7,"willpower":6,"bashing":0,"lethal":0,"aggravated":0,"influence":0},"69d73ea49162ece35897a47f":{"vitae":7,"willpower":6,"bashing":0,"lethal":0,"aggravated":0,"influence":0},"69d73ea49162ece35897a480":{"vitae":7,"willpower":5,"bashing":0,"lethal":0,"aggravated":0,"influence":0},"69d73ea49162ece35897a481":{"vitae":7,"willpower":5,"bashing":0,"lethal":0,"aggravated":0,"influence":0},"69d73ea49162ece35897a482":{"vitae":7,"willpower":6,"bashing":0,"lethal":0,"aggravated":0,"influence":0},"69d73ea49162ece35897a483":{"vitae":7,"willpower":5,"bashing":0,"lethal":0,"aggravated":0,"influence":0},"69d73ea49162ece35897a484":{"vitae":7,"willpower":5,"bashing":0,"lethal":0,"aggravated":0,"influence":0},"69d73ea49162ece35897a485":{"vitae":7,"willpower":5,"bashing":0,"lethal":0,"aggravated":0,"influence":0},"69d73ea49162ece35897a486":{"vitae":7,"willpower":7,"bashing":0,"lethal":0,"aggravated":0,"influence":0},"69d73ea49162ece35897a487":{"vitae":7,"willpower":6,"bashing":0,"lethal":0,"aggravated":0,"influence":0},"69d73ea49162ece35897a488":{"vitae":7,"willpower":5,"bashing":0,"lethal":0,"aggravated":0,"influence":0},"69d73ea49162ece35897a48a":{"vitae":7,"willpower":6,"bashing":0,"lethal":0,"aggravated":0,"influence":0},"69d73ea49162ece35897a48b":{"vitae":7,"willpower":5,"bashing":0,"lethal":0,"aggravated":0,"influence":0},"69d73ea49162ece35897a48c":{"vitae":7,"willpower":5,"bashing":0,"lethal":0,"aggravated":0,"influence":0},"69d73ea49162ece35897a48d":{"vitae":7,"willpower":5,"bashing":0,"lethal":0,"aggravated":0,"influence":0},"69d73ea49162ece35897a48e":{"vitae":7,"willpower":5,"bashing":0,"lethal":0,"aggravated":0,"influence":0},"69d73ea49162ece35897a490":{"vitae":7,"willpower":5,"bashing":0,"lethal":0,"aggravated":0,"influence":0},"69d73ea49162ece35897a491":{"vitae":7,"willpower":5,"bashing":0,"lethal":0,"aggravated":0,"influence":0},"69d73ea49162ece35897a492":{"vitae":7,"willpower":6,"bashing":0,"lethal":0,"aggravated":0,"influence":0},"69d73ea49162ece35897a493":{"vitae":7,"willpower":5,"bashing":0,"lethal":0,"aggravated":0,"influence":0},"69d73ea49162ece35897a494":{"vitae":7,"willpower":4,"bashing":0,"lethal":0,"aggravated":0,"influence":0},"69d73ea49162ece35897a495":{"vitae":7,"willpower":6,"bashing":0,"lethal":0,"aggravated":0,"influence":0},"69d73ea49162ece35897a496":{"vitae":7,"willpower":5,"bashing":0,"lethal":0,"aggravated":0,"influence":0},"69d73ea49162ece35897a497":{"vitae":7,"willpower":6,"bashing":0,"lethal":0,"aggravated":0,"influence":0},"69d73ea49162ece35897a498":{"vitae":7,"willpower":6,"bashing":0,"lethal":0,"aggravated":0,"influence":0},"69d73ea49162ece35897a499":{"vitae":7,"willpower":4,"bashing":0,"lethal":0,"aggravated":0,"influence":0},"69d73ea49162ece35897a49a":{"vitae":7,"willpower":5,"bashing":0,"lethal":0,"aggravated":0,"influence":0},"69da21a09aa8d408d64748f6":{"vitae":7,"willpower":4,"bashing":0,"lethal":0,"aggravated":0,"influence":0}};
+ 
++var BLOODLINES=[{"_id":"bl-0","name":"Ankou","slug":"ankou","clan":"Mekhet","disciplines":["Auspex","Celerity","Obfuscate","Vigour"]},{"_id":"bl-1","name":"Apollinaire","slug":"apollinaire","clan":"Ventrue","disciplines":["Animalism","Dominate","Resilience","Obfuscate"]},{"_id":"bl-2","name":"Bron","slug":"bron","clan":"Ventrue","disciplines":["Animalism","Auspex","Dominate","Resilience"]},{"_id":"bl-3","name":"Gorgons","slug":"gorgons","clan":"Ventrue","disciplines":["Animalism","Dominate","Protean","Resilience"]},{"_id":"bl-4","name":"Hounds of Actaeon","slug":"hounds-of-actaeon","clan":"Gangrel","disciplines":["Animalism","Obfuscate","Protean","Resilience"]},{"_id":"bl-5","name":"Icelus","slug":"icelus","clan":"Ventrue","disciplines":["Auspex","Dominate","Obfuscate","Resilience"]},{"_id":"bl-6","name":"Jharana","slug":"jharana","clan":"Mekhet","disciplines":["Auspex","Celerity","Obfuscate","Vigour"]},{"_id":"bl-7","name":"Kerberos","slug":"kerberos","clan":"Gangrel","disciplines":["Animalism","Majesty","Protean","Resilience"]},{"_id":"bl-8","name":"Khaibit","slug":"khaibit","clan":"Mekhet","disciplines":["Auspex","Celerity","Obfuscate","Vigour"]},{"_id":"bl-9","name":"Lasombra","slug":"lasombra","clan":"Ventrue","disciplines":["Animalism","Dominate","Nightmare","Resilience"]},{"_id":"bl-10","name":"Lidérc","slug":"liderc","clan":"Daeva","disciplines":["Celerity","Majesty","Obfuscate","Vigour"]},{"_id":"bl-11","name":"Lygos","slug":"lygos","clan":"Mekhet","disciplines":["Auspex","Nightmare","Obfuscate","Vigour"]},{"_id":"bl-12","name":"Malkovians","slug":"malkovians","clan":"Ventrue","disciplines":["Auspex","Dominate","Obfuscate","Resilience"]},{"_id":"bl-13","name":"Mnemosyne","slug":"mnemosyne","clan":"Mekhet","disciplines":["Auspex","Celerity","Obfuscate","Dominate"]},{"_id":"bl-14","name":"Morbus","slug":"morbus","clan":"Mekhet","disciplines":["Animalism","Auspex","Celerity","Obfuscate"]},{"_id":"bl-15","name":"Norvegi","slug":"norvegi","clan":"Mekhet","disciplines":["Auspex","Obfuscate","Celerity","Vigour"]},{"_id":"bl-16","name":"Nosoi","slug":"nosoi","clan":"Nosferatu","disciplines":["Dominate","Obfuscate","Protean","Resilience"]},{"_id":"bl-17","name":"Order of Sir Martin","slug":"order-of-sir-martin","clan":"Nosferatu","disciplines":["Nightmare","Obfuscate","Resilience","Vigour"]},{"_id":"bl-18","name":"Rotgrafen","slug":"rotgrafen","clan":"Ventrue","disciplines":["Animalism","Dominate","Protean","Resilience"]},{"_id":"bl-19","name":"Scions of the First City","slug":"scions-of-the-first-city","clan":"Gangrel","disciplines":["Animalism","Auspex","Obfuscate","Resilience"]},{"_id":"bl-20","name":"Vardyvle","slug":"vardyvle","clan":"Ventrue","disciplines":["Dominate","Obfuscate","Protean","Resilience"]},{"_id":"bl-21","name":"Vilseduire","slug":"vilseduire","clan":"Nosferatu","disciplines":["Majesty","Nightmare","Obfuscate","Resilience"]},{"_id":"bl-22","name":"Zelani","slug":"zelani","clan":"Daeva","disciplines":["Celerity","Majesty","Auspex","Vigour"]}];
+ function _mock(data,status){if(status===undefined)status=200;var body=status===204?null:JSON.stringify(data);return Promise.resolve(new Response(body,{status:status,headers:{'Content-Type':'application/json'}}));}
+ var _orig=window.fetch.bind(window);
+ window.fetch=function devFix(url,opts){
+@@ -29,12 +29,9 @@ window.fetch=function devFix(url,opts){
+   // endpoint needs a fixtures branch or local dev falls through to a real
+   // fetch. Without it the bloodline cache fails to load and every fixture
+   // character with a bloodline is hard-locked and mis-costed locally.
+-  // Derived from the constants so it cannot drift from what the seed writes.
+-  if(method==='GET'&&seg[0]==='bloodlines'&&!seg[1]){
+-    var _clanOf={};Object.keys(_BLC).forEach(function(cl){(_BLC[cl]||[]).forEach(function(n){_clanOf[n]=cl;});});
+-    var _bls=Object.keys(_BLD).map(function(n,i){return{_id:'bl-'+i,name:n,slug:String(n).toLowerCase().replace(/[^a-z0-9]+/g,'-'),clan:_clanOf[n],disciplines:_BLD[n]};});
+-    return _mock(_bls);
+-  }
++  // BL-3b froze BLOODLINES above (captured from the seed builder before the
++  // constants were deleted) so this serves a blob like every other branch here.
++  if(method==='GET'&&seg[0]==='bloodlines'&&!seg[1])return _mock(BLOODLINES);
+   if(method==='GET'&&seg[0]==='characters'&&!seg[1])return _mock(CHARS);
+   if(method==='GET'&&seg[0]==='characters'&&seg[1]==='public')return _mock(CHARS);
+   if(method==='GET'&&seg[0]==='characters'&&seg[1]==='status')return _mock(CHARS.map(function(c){return{_id:c._id,name:c.name,honorific:c.honorific,moniker:c.moniker,clan:c.clan,covenant:c.covenant,status:c.status,court_category:c.court_category,court_title:c.court_title,player:c.player,powers:c.powers||[],_player_info:{discord_id:null,discord_avatar:null},_ots_covenant_bonus:0};}));
+diff --git a/public/js/tabs/wizard.js b/public/js/tabs/wizard.js
+index 081ce819..2d495118 100644
+--- a/public/js/tabs/wizard.js
++++ b/public/js/tabs/wizard.js
+@@ -8,9 +8,15 @@ import { prereqLabel } from '../data/prereq.js';
+ import {
+   CLANS, COVENANTS, MASKS_DIRGES,
+   ATTR_CATS, SKILL_CATS,
+-  CLAN_DISCS, BLOODLINE_CLANS,
++  CLAN_DISCS,
+   PRI_LABELS, PRI_BUDGETS, SKILL_PRI_BUDGETS,
+ } from '../data/constants.js';
++// BL-3b (#1008). This file has zero importers and is unreachable — #1095 owns
++// whether it lives at all — but it imported BLOODLINE_CLANS, which BL-3b
++// deleted. A dangling import of a deleted export is a landmine for whoever
++// revives it, so it is rewired to the cache exactly as `editor/edit.js` was.
++// It is NOT wired into any app and does NOT prime the cache.
++import { bloodlinesByClan } from '../data/bloodlines-cache.js';
+ import { getRulesByCategory, getRuleByKey } from '../data/loader.js';
+ 
+ // ── Constants ─────────────────────────────────────────────────────────────
+@@ -115,7 +121,7 @@ function renderStep() {
+ // ── Step 1: Identity ─────────────────────────────────────────────────────
+ 
+ function stepIdentity() {
+-  const bloodlines = wiz.clan ? (BLOODLINE_CLANS[wiz.clan] || []) : [];
++  const bloodlines = wiz.clan ? (bloodlinesByClan()[wiz.clan] || []) : [];
+ 
+   let h = '<h2 class="wiz-title">Identity</h2>';
+   h += '<div class="wiz-fields">';
+diff --git a/server/scripts/seed-bloodlines.js b/server/scripts/archive/seed-bloodlines.js
+similarity index 76%
+rename from server/scripts/seed-bloodlines.js
+rename to server/scripts/archive/seed-bloodlines.js
+index 188fa397..5708e520 100644
+--- a/server/scripts/seed-bloodlines.js
++++ b/server/scripts/archive/seed-bloodlines.js
+@@ -1,4 +1,37 @@
+ /**
++ * ARCHIVED 2026-08-11 by BL-3b (issue #1008). Retired, but deliberately still
++ * runnable.
++ *
++ * ──────────────────────────────────────────────────────────────────────────
++ *   What this script was, and why it is here rather than deleted
++ * ──────────────────────────────────────────────────────────────────────────
++ *
++ *   BL-1 wrote it to move 23 bloodlines out of `public/js/data/constants.js`
++ *   and into the `bloodlines` collection, once. The collection is now the
++ *   canonical definition of a bloodline: every costing surface reads it
++ *   through `public/js/data/bloodlines-cache.js` (BL-2, BL-3a), and BL-4's ST
++ *   admin screen is where a bloodline is added, edited or removed. That screen
++ *   is the writer. This script is not.
++ *
++ *   BL-3b then deleted `BLOODLINE_DISCS`, `BLOODLINE_CLANS` and
++ *   `APPROVED_BLOODLINES` from `constants.js`, so the two structures this
++ *   script reads are inlined below as frozen literals — captured from the
++ *   constants at the moment they were deleted, and never to be edited again.
++ *   Adding a bloodline here would recreate exactly the two-sources-of-truth
++ *   defect this epic was filed to remove: add it on the admin screen.
++ *
++ *   It stays runnable for one reason only. Production held zero bloodline
++ *   documents when this file was archived, and this remains the only bulk path
++ *   into a collection that has never been seeded. Typing 23 bloodlines into a
++ *   form is not a migration plan. Once production is seeded, this script's
++ *   remaining value is as a record of what was migrated.
++ *
++ *   Usage is unchanged apart from the path:
++ *     node scripts/archive/seed-bloodlines.js            # dry run (default)
++ *     node scripts/archive/seed-bloodlines.js --apply    # writes
++ *
++ * ──────────────────────────────────────────────────────────────────────────
++ *
+  * BL-1 (issue #1008) — seed the `bloodlines` collection from the static
+  * constants, and put a unique index on `name`.
+  *
+@@ -6,9 +39,10 @@
+  * the default, --apply is required to write, the run is idempotent, and dotenv
+  * is loaded first per [[feedback_server_scripts_dotenv_path]].
+  *
+- * Source of truth for the seed is `public/js/data/constants.js`:
++ * Source of truth for the seed WAS `public/js/data/constants.js`:
+  *   BLOODLINE_DISCS  — name -> four disciplines
+  *   BLOODLINE_CLANS  — clan -> the names that clan claims
++ * Both now live at the top of this file, frozen (see the archive note above).
+  *
+  * ──────────────────────────────────────────────────────────────────────────
+  *   Why the integrity gate comes first
+@@ -36,13 +70,13 @@
+  * none) and can point the write at an unintended database.
+  *
+  *   # preview (default — no writes):
+- *   node scripts/seed-bloodlines.js
++ *   node scripts/archive/seed-bloodlines.js
+  *
+  *   # apply:
+- *   node scripts/seed-bloodlines.js --apply
++ *   node scripts/archive/seed-bloodlines.js --apply
+  *
+  *   # target the test DB:
+- *   MONGODB_DB=tm_suite_test node scripts/seed-bloodlines.js --apply
++ *   MONGODB_DB=tm_suite_test node scripts/archive/seed-bloodlines.js --apply
+  *
+  * NEVER run --apply against live during development; the real seed is an
+  * operational act for the ST.
+@@ -51,16 +85,61 @@
+ import 'dotenv/config';
+ import { pathToFileURL } from 'url';
+ import Ajv from 'ajv';
+-import { connectDb, getCollection, closeDb } from '../db.js';
+-import { bloodlineSchema } from '../schemas/bloodline.schema.js';
+-import { CLAN_NAMES } from '../schemas/character.schema.js';
+-import { deriveSlug } from '../lib/bloodline-slug.js';
+-import { ensureBloodlineNameIndex } from '../lib/bloodline-name-index.js';
+-import { BLOODLINE_DISCS, BLOODLINE_CLANS, CORE_DISCS, RITUAL_DISCS } from '../../public/js/data/constants.js';
++import { connectDb, getCollection, closeDb } from '../../db.js';
++import { bloodlineSchema } from '../../schemas/bloodline.schema.js';
++import { CLAN_NAMES } from '../../schemas/character.schema.js';
++import { deriveSlug } from '../../lib/bloodline-slug.js';
++import { ensureBloodlineNameIndex } from '../../lib/bloodline-name-index.js';
++// `CORE_DISCS` and `RITUAL_DISCS` are NOT part of this epic's deletion — they
++// are rule-system enums with live readers, and they stay in `constants.js`.
++// Only the three bloodline exports were removed, and those are frozen below.
++import { CORE_DISCS, RITUAL_DISCS } from '../../../public/js/data/constants.js';
+ 
+ const COLLECTION = 'bloodlines';
+ const REQUIRED_DISCIPLINES = 4;
+ 
++/**
++ * FROZEN 2026-08-11. Copied verbatim out of `public/js/data/constants.js` by
++ * BL-3b, in the same change that deleted them from it. Do not edit: the
++ * `bloodlines` collection is canonical, and BL-4's admin screen is where a
++ * bloodline is added. Editing these would put a second, competing definition
++ * back into the codebase, which is the whole defect #1008 was filed against.
++ */
++const BLOODLINE_DISCS = {
++  'Ankou':['Auspex','Celerity','Obfuscate','Vigour'],
++  'Apollinaire':['Animalism','Dominate','Resilience','Obfuscate'],
++  'Bron':['Animalism','Auspex','Dominate','Resilience'],
++  'Gorgons':['Animalism','Dominate','Protean','Resilience'],
++  'Hounds of Actaeon':['Animalism','Obfuscate','Protean','Resilience'],
++  'Icelus':['Auspex','Dominate','Obfuscate','Resilience'],
++  'Jharana':['Auspex','Celerity','Obfuscate','Vigour'],
++  'Kerberos':['Animalism','Majesty','Protean','Resilience'],
++  'Khaibit':['Auspex','Celerity','Obfuscate','Vigour'],
++  'Lasombra':['Animalism','Dominate','Nightmare','Resilience'],
++  'Lidérc':['Celerity','Majesty','Obfuscate','Vigour'],
++  'Lygos':['Auspex','Nightmare','Obfuscate','Vigour'],
++  'Malkovians':['Auspex','Dominate','Obfuscate','Resilience'],
++  'Mnemosyne':['Auspex','Celerity','Obfuscate','Dominate'],
++  'Morbus':['Animalism','Auspex','Celerity','Obfuscate'],
++  'Norvegi':['Auspex','Obfuscate','Celerity','Vigour'],
++  'Nosoi':['Dominate','Obfuscate','Protean','Resilience'],
++  'Order of Sir Martin':['Nightmare','Obfuscate','Resilience','Vigour'],
++  'Rotgrafen':['Animalism','Dominate','Protean','Resilience'],
++  'Scions of the First City':['Animalism','Auspex','Obfuscate','Resilience'],
++  'Vardyvle':['Dominate','Obfuscate','Protean','Resilience'],
++  'Vilseduire':['Majesty','Nightmare','Obfuscate','Resilience'],
++  'Zelani':['Celerity','Majesty','Auspex','Vigour']
++};
++
++/** FROZEN 2026-08-11 alongside BLOODLINE_DISCS above. Same rules apply. */
++const BLOODLINE_CLANS = {
++  Daeva:['Lidérc','Zelani'],
++  Gangrel:['Hounds of Actaeon','Kerberos','Scions of the First City'],
++  Mekhet:['Ankou','Jharana','Khaibit','Lygos','Mnemosyne','Morbus','Norvegi'],
++  Nosferatu:['Nosoi','Order of Sir Martin','Vilseduire'],
++  Ventrue:['Apollinaire','Bron','Gorgons','Icelus','Lasombra','Malkovians','Rotgrafen','Vardyvle']
++};
++
+ /**
+  * Every discipline a bloodline could legitimately grant. Checked by the
+  * integrity gate, deliberately NOT baked into the JSON schema: the whole point
+@@ -70,15 +149,6 @@ const REQUIRED_DISCIPLINES = 4;
+  */
+ const KNOWN_DISCIPLINES = [...CORE_DISCS, ...RITUAL_DISCS];
+ 
+-/**
+- * Re-exported so this script's existing callers and its own suite keep their
+- * import site. The implementation moved to `server/lib/bloodline-slug.js` in
+- * BL-4 (#1008), because the write route needs the identical derivation and
+- * BL-3b retires this file to `scripts/archive/`. One implementation, two
+- * importers, no copy left behind when the archive move happens.
+- */
+-export { deriveSlug };
+-
+ /**
+  * Verify the two source structures agree with each other and with the clan
+  * enum, before a single document is built.
+diff --git a/server/tests/bl1-seed-bloodlines.test.js b/server/tests/bl1-seed-bloodlines.test.js
+deleted file mode 100644
+index c28df276..00000000
+--- a/server/tests/bl1-seed-bloodlines.test.js
++++ /dev/null
+@@ -1,454 +0,0 @@
+-/**
+- * BL-1 (issue #1008) — seed-bloodlines script.
+- *
+- * AC 3, 4, 5, 6, 9. Two halves:
+- *
+- *   1. Pure functions — slug derivation, the integrity gate, and the live
+- *      cross-check — exercised without a database.
+- *   2. The script's actual `main()` run against tm_suite_test. Per the #826
+- *      post-mortem, testing only the helpers leaves the wiring untested, and
+- *      the wiring is where that bug lived.
+- *
+- * The integrity gate is the point of the script. Two hand-maintained
+- * structures (BLOODLINE_DISCS and BLOODLINE_CLANS) can disagree, and a name
+- * present in one but not the other is the exact drift that produced this
+- * epic — a missing lookup degrading to a plausible neighbouring value
+- * (data-map.md drift pattern #15).
+- */
+-
+-import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
+-import Ajv from 'ajv';
+-import { setupDb, teardownDb } from './helpers/db-setup.js';
+-import { getCollection, getDb } from '../db.js';
+-import { bloodlineSchema } from '../schemas/bloodline.schema.js';
+-import { CLAN_NAMES } from '../schemas/character.schema.js';
+-import {
+-  deriveSlug,
+-  checkIntegrity,
+-  buildSeedDocs,
+-  crossCheckHolders,
+-  main,
+-} from '../scripts/seed-bloodlines.js';
+-import { BLOODLINE_DISCS, BLOODLINE_CLANS } from '../../public/js/data/constants.js';
+-
+-const SLUG_PATTERN = new RegExp(bloodlineSchema.properties.slug.pattern);
+-
+-/** Marker on the throwaway characters the cross-check test seeds. */
+-const CHAR_FLAG = { _bl1_test: true };
+-
+-// ─────────────────────────────────────────────────────────────────────────────
+-// Pure — deriveSlug
+-// ─────────────────────────────────────────────────────────────────────────────
+-
+-describe('BL-1 — deriveSlug', () => {
+-  it('lowercases a single word', () => {
+-    expect(deriveSlug('Khaibit')).toBe('khaibit');
+-  });
+-
+-  it('hyphenates spaces', () => {
+-    expect(deriveSlug('Order of Sir Martin')).toBe('order-of-sir-martin');
+-    expect(deriveSlug('Scions of the First City')).toBe('scions-of-the-first-city');
+-    expect(deriveSlug('Hounds of Actaeon')).toBe('hounds-of-actaeon');
+-  });
+-
+-  it('strips diacritics rather than hyphenating through them', () => {
+-    // Naive non-alphanumeric replacement would give "lid-rc", which is a legal
+-    // kebab string but a nonsense identifier.
+-    expect(deriveSlug('Lidérc')).toBe('liderc');
+-  });
+-
+-  it('collapses runs of separators and trims the ends', () => {
+-    expect(deriveSlug("  The O'Hara  Line  ")).toBe('the-o-hara-line');
+-  });
+-
+-  it('derives a schema-legal slug for every real bloodline', () => {
+-    for (const name of Object.keys(BLOODLINE_DISCS)) {
+-      const slug = deriveSlug(name);
+-      expect(SLUG_PATTERN.test(slug), `slug "${slug}" from "${name}" is not schema-legal`).toBe(true);
+-    }
+-  });
+-});
+-
+-// ─────────────────────────────────────────────────────────────────────────────
+-// Pure — checkIntegrity
+-// ─────────────────────────────────────────────────────────────────────────────
+-
+-/** Minimal well-formed pair of structures the individual cases then break. */
+-function goodPair() {
+-  return {
+-    discs: {
+-      Alpha: ['Auspex', 'Celerity', 'Obfuscate', 'Vigour'],
+-      Beta: ['Animalism', 'Dominate', 'Protean', 'Resilience'],
+-    },
+-    clans: { Mekhet: ['Alpha'], Ventrue: ['Beta'] },
+-  };
+-}
+-
+-describe('BL-1 — checkIntegrity, the real constants', () => {
+-  it('passes clean against the live constants and counts 23 bloodlines', () => {
+-    const r = checkIntegrity({ discs: BLOODLINE_DISCS, clans: BLOODLINE_CLANS, clanNames: CLAN_NAMES });
+-    expect(r.errors).toEqual([]);
+-    expect(r.count).toBe(23);
+-  });
+-
+-  it('confirms every live bloodline carries exactly four disciplines', () => {
+-    for (const [name, discs] of Object.entries(BLOODLINE_DISCS)) {
+-      expect(discs.length, `${name} has ${discs.length} disciplines`).toBe(4);
+-    }
+-  });
+-});
+-
+-describe('BL-1 — checkIntegrity, failure modes', () => {
+-  it('flags a bloodline with three disciplines', () => {
+-    const p = goodPair();
+-    p.discs.Alpha = ['Auspex', 'Celerity', 'Obfuscate'];
+-    const r = checkIntegrity({ ...p, clanNames: CLAN_NAMES });
+-    expect(r.errors.some(e => e.includes('Alpha') && e.includes('3'))).toBe(true);
+-  });
+-
+-  it('flags a bloodline with five disciplines', () => {
+-    const p = goodPair();
+-    p.discs.Alpha = ['Auspex', 'Celerity', 'Obfuscate', 'Vigour', 'Dominate'];
+-    const r = checkIntegrity({ ...p, clanNames: CLAN_NAMES });
+-    expect(r.errors.some(e => e.includes('Alpha') && e.includes('5'))).toBe(true);
+-  });
+-
+-  it('flags a name in BLOODLINE_DISCS that no clan claims', () => {
+-    const p = goodPair();
+-    p.discs.Orphan = ['Auspex', 'Celerity', 'Obfuscate', 'Vigour'];
+-    const r = checkIntegrity({ ...p, clanNames: CLAN_NAMES });
+-    expect(r.errors.some(e => e.includes('Orphan'))).toBe(true);
+-  });
+-
+-  it('flags a name in BLOODLINE_CLANS with no disciplines — the Actaeon failure', () => {
+-    // This is the shape of the defect that opened #1008: the clan list knew
+-    // the name, the discipline map did not, and clanDiscList fell through.
+-    const p = goodPair();
+-    p.clans.Gangrel = ['Hounds of Actaeon'];
+-    const r = checkIntegrity({ ...p, clanNames: CLAN_NAMES });
+-    expect(r.errors.some(e => e.includes('Hounds of Actaeon'))).toBe(true);
+-  });
+-
+-  it('flags a bloodline claimed by two clans', () => {
+-    const p = goodPair();
+-    p.clans.Ventrue = ['Beta', 'Alpha'];
+-    const r = checkIntegrity({ ...p, clanNames: CLAN_NAMES });
+-    expect(r.errors.some(e => e.includes('Alpha') && /more than one clan/i.test(e))).toBe(true);
+-  });
+-
+-  it('flags a clan key that is not one of the five', () => {
+-    const p = goodPair();
+-    p.clans.Tzimisce = ['Alpha'];
+-    delete p.clans.Mekhet;
+-    const r = checkIntegrity({ ...p, clanNames: CLAN_NAMES });
+-    expect(r.errors.some(e => e.includes('Tzimisce'))).toBe(true);
+-  });
+-
+-  it('flags a discipline name that is not a real discipline', () => {
+-    // "Vigor" instead of "Vigour" is drift pattern #15 arriving through the
+-    // discipline field: the count is right, the schema passes, and BL-2's
+-    // in-clan check silently falls through to the plain clan list.
+-    const p = goodPair();
+-    p.discs.Alpha = ['Auspex', 'Celerity', 'Obfuscate', 'Vigor'];
+-    const r = checkIntegrity({ ...p, clanNames: CLAN_NAMES });
+-    expect(r.errors.some(e => e.includes('Vigor'))).toBe(true);
+-  });
+-
+-  it('flags a repeated discipline', () => {
+-    const p = goodPair();
+-    p.discs.Alpha = ['Auspex', 'Auspex', 'Celerity', 'Vigour'];
+-    const r = checkIntegrity({ ...p, clanNames: CLAN_NAMES });
+-    expect(r.errors.some(e => /more than once/i.test(e))).toBe(true);
+-  });
+-
+-  it('flags an empty-string discipline', () => {
+-    const p = goodPair();
+-    p.discs.Alpha = ['Auspex', 'Celerity', 'Obfuscate', ''];
+-    const r = checkIntegrity({ ...p, clanNames: CLAN_NAMES });
+-    expect(r.errors.some(e => /empty or non-string/i.test(e))).toBe(true);
+-  });
+-
+-  it('flags a non-array clan list instead of iterating its characters', () => {
+-    // `Daeva: 'Zelani'` (forgotten brackets) would otherwise emit six errors,
+-    // one per letter; `Daeva: 5` would throw a raw TypeError.
+-    const p = goodPair();
+-    p.clans.Mekhet = 'Alpha';
+-    const r = checkIntegrity({ ...p, clanNames: CLAN_NAMES });
+-    expect(r.errors.some(e => /BLOODLINE_CLANS\.Mekhet is a string/.test(e))).toBe(true);
+-    expect(r.errors.some(e => /^"A"/.test(e))).toBe(false);
+-
+-    p.clans.Mekhet = 5;
+-    expect(() => checkIntegrity({ ...p, clanNames: CLAN_NAMES })).not.toThrow();
+-  });
+-
+-  it('distinguishes a name listed twice under one clan from a genuine two-clan conflict', () => {
+-    const p = goodPair();
+-    p.clans.Mekhet = ['Alpha', 'Alpha'];
+-    const r = checkIntegrity({ ...p, clanNames: CLAN_NAMES });
+-    expect(r.errors.some(e => /listed twice under Mekhet/.test(e))).toBe(true);
+-    expect(r.errors.some(e => /Mekhet and Mekhet/.test(e))).toBe(false);
+-  });
+-
+-  it('flags two names that collapse to the same slug', () => {
+-    const p = goodPair();
+-    // "Al pha" and "Al-pha" both derive "al-pha".
+-    p.discs['Al pha'] = ['Auspex', 'Celerity', 'Obfuscate', 'Vigour'];
+-    p.discs['Al-pha'] = ['Auspex', 'Celerity', 'Obfuscate', 'Vigour'];
+-    p.clans.Mekhet = ['Alpha', 'Al pha', 'Al-pha'];
+-    const r = checkIntegrity({ ...p, clanNames: CLAN_NAMES });
+-    expect(r.errors.some(e => /slug/i.test(e))).toBe(true);
+-  });
+-});
+-
+-// ─────────────────────────────────────────────────────────────────────────────
+-// Pure — buildSeedDocs
+-// ─────────────────────────────────────────────────────────────────────────────
+-
+-describe('BL-1 — buildSeedDocs', () => {
+-  it('builds one schema-valid document per bloodline', () => {
+-    const ajv = new Ajv({ allErrors: true, coerceTypes: false });
+-    const validate = ajv.compile(bloodlineSchema);
+-    const docs = buildSeedDocs({ discs: BLOODLINE_DISCS, clans: BLOODLINE_CLANS });
+-
+-    expect(docs).toHaveLength(23);
+-    for (const d of docs) {
+-      expect(validate(d), `${d.name} failed schema: ${JSON.stringify(validate.errors)}`).toBe(true);
+-      expect(d.notes).toBeNull();
+-    }
+-  });
+-
+-  it('assigns each bloodline the clan that claims it', () => {
+-    const docs = buildSeedDocs({ discs: BLOODLINE_DISCS, clans: BLOODLINE_CLANS });
+-    const byName = Object.fromEntries(docs.map(d => [d.name, d]));
+-    expect(byName['Hounds of Actaeon'].clan).toBe('Gangrel');
+-    expect(byName['Khaibit'].clan).toBe('Mekhet');
+-    expect(byName['Zelani'].clan).toBe('Daeva');
+-    expect(byName['Lidérc'].slug).toBe('liderc');
+-  });
+-
+-  it('refuses to build documents from a source that fails the integrity gate', () => {
+-    // The function is exported. A future caller must not be able to get a
+-    // silently-filtered partial set out of a bad source.
+-    const p = goodPair();
+-    p.discs.Orphan = ['Auspex', 'Celerity', 'Obfuscate', 'Vigour'];
+-    expect(() => buildSeedDocs({ discs: p.discs, clans: p.clans })).toThrow(/integrity failure/i);
+-  });
+-
+-  it('carries the discipline list through verbatim', () => {
+-    const docs = buildSeedDocs({ discs: BLOODLINE_DISCS, clans: BLOODLINE_CLANS });
+-    const actaeon = docs.find(d => d.name === 'Hounds of Actaeon');
+-    expect(actaeon.disciplines).toEqual(['Animalism', 'Obfuscate', 'Protean', 'Resilience']);
+-  });
+-});
+-
+-// ─────────────────────────────────────────────────────────────────────────────
+-// Pure — crossCheckHolders (AC 6)
+-// ─────────────────────────────────────────────────────────────────────────────
+-
+-describe('BL-1 — crossCheckHolders', () => {
+-  const seedNames = new Set(['Khaibit', 'Kerberos']);
+-
+-  it('counts holders and resolvers', () => {
+-    const r = crossCheckHolders([
+-      { name: 'A', bloodline: 'Khaibit' },
+-      { name: 'B', bloodline: 'Kerberos' },
+-    ], seedNames);
+-    expect(r.holders).toBe(2);
+-    expect(r.resolving).toBe(2);
+-    expect(r.unresolved).toEqual([]);
+-  });
+-
+-  it('names the character behind a non-resolving value, by moniker where set', () => {
+-    const r = crossCheckHolders([
+-      { name: 'Ocka Keats', bloodline: 'Hounds of Actaeon' },
+-      { name: 'Henry St. John', moniker: 'Keeper', bloodline: 'Nope' },
+-    ], seedNames);
+-    expect(r.holders).toBe(2);
+-    expect(r.resolving).toBe(0);
+-    expect(r.unresolved).toEqual([
+-      { character: 'Ocka Keats', bloodline: 'Hounds of Actaeon' },
+-      { character: 'Keeper', bloodline: 'Nope' },
+-    ]);
+-  });
+-
+-  it('reports the distinct-value count separately from the holder count', () => {
+-    const r = crossCheckHolders([
+-      { name: 'A', bloodline: 'Khaibit' },
+-      { name: 'B', bloodline: 'Khaibit' },
+-    ], seedNames);
+-    expect(r.holders).toBe(2);
+-    expect(r.distinctValues).toBe(1);
+-  });
+-});
+-
+-// ─────────────────────────────────────────────────────────────────────────────
+-// DB-driven — the script's real main() against tm_suite_test
+-// ─────────────────────────────────────────────────────────────────────────────
+-
+-describe('BL-1 — main() against tm_suite_test', () => {
+-  beforeAll(async () => {
+-    await setupDb();
+-    await getCollection('characters').deleteMany(CHAR_FLAG);
+-  });
+-
+-  afterAll(async () => {
+-    await getDb().collection('bloodlines').drop().catch(() => {});
+-    await getCollection('characters').deleteMany(CHAR_FLAG);
+-    await teardownDb();
+-  });
+-
+-  beforeEach(async () => {
+-    await getDb().collection('bloodlines').drop().catch(() => {});
+-  });
+-
+-  it('dry-run is the default and writes nothing', async () => {
+-    const r = await main(['node', 'seed-bloodlines.js'], { closeConnection: false });
+-    expect(r.dryRun).toBe(true);
+-    expect(r.wouldInsert).toBe(23);
+-    expect(r.inserted).toBe(0);
+-    expect(await getCollection('bloodlines').countDocuments()).toBe(0);
+-  });
+-
+-  it('--apply inserts all 23 and creates the unique name index', async () => {
+-    const r = await main(['node', 'seed-bloodlines.js', '--apply'], { closeConnection: false });
+-    expect(r.dryRun).toBe(false);
+-    expect(r.inserted).toBe(23);
+-    expect(await getCollection('bloodlines').countDocuments()).toBe(23);
+-
+-    const indexes = await getCollection('bloodlines').indexes();
+-    const nameIdx = indexes.find(i => i.key && i.key.name === 1);
+-    expect(nameIdx, 'expected an index on name').toBeTruthy();
+-    expect(nameIdx.unique).toBe(true);
+-  });
+-
+-  it('a second --apply run inserts nothing (idempotent)', async () => {
+-    await main(['node', 'seed-bloodlines.js', '--apply'], { closeConnection: false });
+-    const r = await main(['node', 'seed-bloodlines.js', '--apply'], { closeConnection: false });
+-    expect(r.inserted).toBe(0);
+-    expect(r.alreadyPresent).toBe(23);
+-    expect(await getCollection('bloodlines').countDocuments()).toBe(23);
+-  });
+-
+-  it('the unique index rejects a duplicate name', async () => {
+-    await main(['node', 'seed-bloodlines.js', '--apply'], { closeConnection: false });
+-    await expect(
+-      getCollection('bloodlines').insertOne({
+-        name: 'Khaibit', slug: 'khaibit-2', clan: 'Mekhet',
+-        disciplines: ['Auspex', 'Celerity', 'Obfuscate', 'Vigour'],
+-        notes: null,
+-      })
+-    ).rejects.toThrow(/duplicate key/i);
+-  });
+-
+-  it('reports the live cross-check against real characters, in both modes', async () => {
+-    // Asserting only `typeof === number` would pass against a broken query
+-    // returning nothing, which is the whole failure this test exists to catch.
+-    // Seed characters whose bloodline values are known, then assert the counts.
+-    const chars = getCollection('characters');
+-    await chars.insertMany([
+-      { ...CHAR_FLAG, name: 'BL1 Resolver One', bloodline: 'Khaibit' },
+-      { ...CHAR_FLAG, name: 'BL1 Resolver Two', bloodline: 'Khaibit' },
+-      { ...CHAR_FLAG, name: 'BL1 Stranger', moniker: 'Strange', bloodline: 'Nonexistent Line' },
+-      { ...CHAR_FLAG, name: 'BL1 Empty String', bloodline: '' },
+-      { ...CHAR_FLAG, name: 'BL1 Explicit Null', bloodline: null },
+-      { ...CHAR_FLAG, name: 'BL1 Field Absent' },
+-    ]);
+-
+-    for (const argv of [['node', 's.js'], ['node', 's.js', '--apply']]) {
+-      const r = await main(argv, { closeConnection: false });
+-      const cc = r.crossCheck;
+-      // Three holders only: '' , null and a missing field must all be excluded.
+-      expect(cc.holders, `mode ${argv[2] || 'dry-run'}`).toBe(3);
+-      expect(cc.distinctValues).toBe(2);
+-      expect(cc.resolving).toBe(2);          // two characters, one value
+-      expect(cc.distinctResolving).toBe(1);  // one distinct value resolves
+-      expect(cc.unresolved).toEqual([
+-        { character: 'Strange', bloodline: 'Nonexistent Line' },
+-      ]);
+-    }
+-  });
+-});
+-
+-// ─────────────────────────────────────────────────────────────────────────────
+-// DB-driven — reconciliation against a collection that already disagrees
+-// ─────────────────────────────────────────────────────────────────────────────
+-
+-describe('BL-1 — reconciliation with pre-existing documents', () => {
+-  beforeAll(async () => {
+-    await setupDb();
+-  });
+-
+-  afterAll(async () => {
+-    await getDb().collection('bloodlines').drop().catch(() => {});
+-    await teardownDb();
+-  });
+-
+-  beforeEach(async () => {
+-    await getDb().collection('bloodlines').drop().catch(() => {});
+-  });
+-
+-  it('reports a same-name document that disagrees with the constants, and does not overwrite it', async () => {
+-    // The #1008 defect living in Mongo instead of in the constants: a name-only
+-    // idempotency check reports a clean run over this and the operator's
+-    // "inserted 0" confirmation reads as "everything is correct".
+-    await getCollection('bloodlines').insertOne({
+-      name: 'Hounds of Actaeon',
+-      slug: 'hounds-of-actaeon',
+-      clan: 'Mekhet',                                   // wrong: should be Gangrel
+-      disciplines: ['Auspex', 'Celerity', 'Obfuscate', 'Vigour'], // wrong list
+-      notes: null,
+-    });
+-
+-    const r = await main(['node', 's.js', '--apply'], { closeConnection: false });
+-
+-    expect(r.differing).toHaveLength(1);
+-    expect(r.differing[0].name).toBe('Hounds of Actaeon');
+-    expect(r.differing[0].deltas.join(' ')).toMatch(/clan/);
+-    expect(r.differing[0].deltas.join(' ')).toMatch(/disciplines/);
+-    expect(r.inserted).toBe(22);
+-
+-    // Reported, never silently corrected — which side is right is a human call.
+-    const live = await getCollection('bloodlines').findOne({ name: 'Hounds of Actaeon' });
+-    expect(live.clan).toBe('Mekhet');
+-  });
+-
+-  it('reports an orphan document that the source no longer names', async () => {
+-    await getCollection('bloodlines').insertOne({
+-      name: 'Malkavians', slug: 'malkavians', clan: 'Ventrue',
+-      disciplines: ['Auspex', 'Dominate', 'Obfuscate', 'Resilience'],
+-      notes: null,
+-    });
+-    const r = await main(['node', 's.js'], { closeConnection: false });
+-    expect(r.orphans).toEqual(['Malkavians']);
+-  });
+-
+-  it('resumes cleanly from a partially seeded collection', async () => {
+-    const docs = buildSeedDocs({ discs: BLOODLINE_DISCS, clans: BLOODLINE_CLANS });
+-    await getCollection('bloodlines').insertMany(docs.slice(0, 10));
+-
+-    const r = await main(['node', 's.js', '--apply'], { closeConnection: false });
+-    expect(r.alreadyPresent).toBe(10);
+-    expect(r.inserted).toBe(13);
+-    expect(r.differing).toEqual([]);
+-    expect(await getCollection('bloodlines').countDocuments()).toBe(23);
+-  });
+-
+-  it('refuses to apply when the collection already holds duplicate names', async () => {
+-    // createIndex would throw a raw E11000 here. Detect it first and say which
+-    // name is at fault, in dry-run as well as apply, so the preview is honest.
+-    const dupe = {
+-      name: 'Khaibit', slug: 'khaibit', clan: 'Mekhet',
+-      disciplines: ['Auspex', 'Celerity', 'Obfuscate', 'Vigour'],
+-      notes: null,
+-    };
+-    await getCollection('bloodlines').insertMany([dupe, { ...dupe, slug: 'khaibit-2' }]);
+-
+-    const dry = await main(['node', 's.js'], { closeConnection: false });
+-    expect(dry.duplicateNames).toEqual(['Khaibit']);
+-
+-    await expect(main(['node', 's.js', '--apply'], { closeConnection: false }))
+-      .rejects.toThrow(/duplicate name/i);
+-    // Nothing written: still just the two documents that were there.
+-    expect(await getCollection('bloodlines').countDocuments()).toBe(2);
+-  });
+-});
+diff --git a/server/tests/bl2-clandisclist-miss-path.test.js b/server/tests/bl2-clandisclist-miss-path.test.js
+index 66a9d200..31f5cbc3 100644
+--- a/server/tests/bl2-clandisclist-miss-path.test.js
++++ b/server/tests/bl2-clandisclist-miss-path.test.js
+@@ -13,8 +13,25 @@
+  */
+ 
+ import { describe, it, expect, beforeEach, vi } from 'vitest';
+-import { BLOODLINE_DISCS, BLOODLINE_CLANS, CLAN_DISCS } from '../../public/js/data/constants.js';
+-import { buildSeedDocs } from '../scripts/seed-bloodlines.js';
++import { CLAN_DISCS } from '../../public/js/data/constants.js';
++import {
++  bloodlineFixtures,
++  fixtureDiscsByName,
++  fixtureNamesByClan,
++} from './helpers/bloodline-fixtures.js';
++
++/**
++ * The 23 as MIGRATED, in the two shapes the deleted constants had.
++ *
++ * BL-3b deleted `BLOODLINE_DISCS` and `BLOODLINE_CLANS` and retired the seed to
++ * `scripts/archive/`, so these assertions can no longer say "matches the
++ * constant". They never really meant that: what they hold down is that the
++ * cache serves back exactly the 23 documents the migration wrote, which is the
++ * set every equivalence claim in this epic was made against. The fixture was
++ * captured by running the real seed builder immediately before the deletion.
++ */
++const MIGRATED_DISCS = fixtureDiscsByName();
++const MIGRATED_CLANS = fixtureNamesByClan();
+ 
+ const api = vi.hoisted(() => ({ get: null }));
+ vi.mock('../../public/js/data/api.js', () => ({
+@@ -30,23 +47,22 @@ globalThis.localStorage ??= { getItem: () => null, setItem() {}, removeItem() {}
+ globalThis.sessionStorage ??= { getItem: () => null, setItem() {}, removeItem() {} };
+ 
+ /**
+- * The documents `GET /api/bloodlines` will actually serve once the seed runs.
++ * The documents `GET /api/bloodlines` actually serves.
+  *
+- * Built by the REAL seed builder rather than hand-rolled from the constants,
++ * Frozen by BL-3b from the REAL seed builder's output rather than hand-rolled,
+  * with `notes` projected out exactly as `server/routes/bloodlines.js` does. The
+  * first cut of this file constructed the documents itself, which made the
+  * all-23 equivalence test a tautology — it proved the cache round-trips its own
+  * input and would have stayed green against a seed that dropped a discipline.
+- * This way the chain under test is seed builder → route shape → cache →
++ * This way the chain under test is migrated data → route shape → cache →
+  * accessor, which is the chain that actually runs.
+  */
+-function docsFromConstants() {
+-  return buildSeedDocs({ discs: BLOODLINE_DISCS, clans: BLOODLINE_CLANS })
+-    .map(({ notes, ...served }, i) => ({ _id: String(i), ...served }));
++function servedDocs() {
++  return bloodlineFixtures();
+ }
+ 
+ /** Fresh module graph per test — the cache is module-level state. */
+-async function freshModules({ payload = docsFromConstants(), load = true } = {}) {
++async function freshModules({ payload = servedDocs(), load = true } = {}) {
+   vi.resetModules();
+   api.get = typeof payload === 'function' ? payload : async () => payload;
+   const cache = await import('../../public/js/data/bloodlines-cache.js');
+@@ -157,21 +173,21 @@ describe('BL-2 — clanDiscList, cache unavailable', () => {
+ // AC 8 — behaviour is identical for all 23 seeded bloodlines
+ // ─────────────────────────────────────────────────────────────────────────────
+ 
+-describe('BL-2 — equivalence with the constants across all 23', () => {
+-  it('clanDiscList matches BLOODLINE_DISCS for every bloodline', async () => {
++describe('BL-2 — equivalence with the 23 as migrated', () => {
++  it('clanDiscList matches the migrated discipline list for every bloodline', async () => {
+     const { accessors } = await freshModules();
+-    const names = Object.keys(BLOODLINE_DISCS);
++    const names = Object.keys(MIGRATED_DISCS);
+     expect(names).toHaveLength(23);
+     for (const name of names) {
+       expect(accessors.clanDiscList({ bloodline: name }), `mismatch for ${name}`)
+-        .toEqual(BLOODLINE_DISCS[name]);
++        .toEqual(MIGRATED_DISCS[name]);
+     }
+   });
+ 
+   it('isInClanDisc matches the old behaviour for every bloodline and every discipline', async () => {
+     const { accessors } = await freshModules();
+-    const allDiscs = [...new Set(Object.values(BLOODLINE_DISCS).flat())];
+-    for (const [name, discs] of Object.entries(BLOODLINE_DISCS)) {
++    const allDiscs = [...new Set(Object.values(MIGRATED_DISCS).flat())];
++    for (const [name, discs] of Object.entries(MIGRATED_DISCS)) {
+       for (const d of allDiscs) {
+         expect(accessors.isInClanDisc({ bloodline: name }, d), `${name} / ${d}`)
+           .toBe(discs.includes(d));
+@@ -205,10 +221,10 @@ describe('BL-2 — the two-way regression the old fallback caused', () => {
+   it('every bloodline that drops a clan discipline costs it out-of-clan', async () => {
+     const { accessors } = await freshModules();
+     const clanOf = {};
+-    for (const [clan, names] of Object.entries(BLOODLINE_CLANS)) for (const n of names) clanOf[n] = clan;
++    for (const [clan, names] of Object.entries(MIGRATED_CLANS)) for (const n of names) clanOf[n] = clan;
+ 
+     const droppers = [];
+-    for (const [name, discs] of Object.entries(BLOODLINE_DISCS)) {
++    for (const [name, discs] of Object.entries(MIGRATED_DISCS)) {
+       const dropped = (CLAN_DISCS[clanOf[name]] || []).filter(d => !discs.includes(d));
+       if (dropped.length) droppers.push([name, dropped]);
+     }
+@@ -271,7 +287,7 @@ describe('BL-2 review — case and whitespace tolerance end to end', () => {
+     // the character, so the tolerance matters more than it used to.
+     const { cache, accessors } = await freshModules();
+     expect(accessors.clanDiscList({ name: 'X', clan: 'Ventrue', bloodline: ' malkovians ' }))
+-      .toEqual(BLOODLINE_DISCS.Malkovians);
++      .toEqual(MIGRATED_DISCS.Malkovians);
+     expect(cache.getBloodlineMisses()).toEqual([]);
+   });
+ });
+diff --git a/server/tests/bl3a-one-inclan-implementation.test.js b/server/tests/bl3a-one-inclan-implementation.test.js
+index cc19b96d..cbb11c6b 100644
+--- a/server/tests/bl3a-one-inclan-implementation.test.js
++++ b/server/tests/bl3a-one-inclan-implementation.test.js
+@@ -26,8 +26,22 @@ import { describe, it, expect, vi } from 'vitest';
+ import fs from 'node:fs';
+ import path from 'node:path';
+ import { fileURLToPath } from 'node:url';
+-import { BLOODLINE_DISCS, BLOODLINE_CLANS, CLAN_DISCS } from '../../public/js/data/constants.js';
+-import { buildSeedDocs } from '../scripts/seed-bloodlines.js';
++import { CLAN_DISCS } from '../../public/js/data/constants.js';
++import {
++  bloodlineFixtures,
++  fixtureDiscsByName,
++  fixtureNamesByClan,
++} from './helpers/bloodline-fixtures.js';
++
++/**
++ * The 23 as MIGRATED, in the two shapes the deleted constants had. BL-3b
++ * deleted `BLOODLINE_DISCS`/`BLOODLINE_CLANS` and retired the seed builder to
++ * `scripts/archive/`; the fixture was captured from that builder immediately
++ * before the deletion, so these assertions still compare the cache against the
++ * data that was actually migrated.
++ */
++const MIGRATED_DISCS = fixtureDiscsByName();
++const MIGRATED_CLANS = fixtureNamesByClan();
+ 
+ const api = vi.hoisted(() => ({ get: null }));
+ vi.mock('../../public/js/data/api.js', () => ({ apiGet: async (...a) => api.get(...a) }));
+@@ -48,14 +62,25 @@ const code = rel => read(rel)
+ // AC 1 — no live reader of the constants remains
+ // ─────────────────────────────────────────────────────────────────────────────
+ 
+-/** Files allowed to mention the bloodline constants after BL-3a. */
+-const ALLOWED = new Set([
+-  'public/js/data/constants.js',        // the definition itself
+-  'public/js/data/bloodlines-cache.js', // comments only, names the thing it replaces
+-  'public/js/data/accessors.js',        // comments only, names the old implementation
+-  'public/js/dev-fixtures.js',          // BL-3b: derives the fixture from the constants
+-  'public/js/tabs/wizard.js',           // dead, zero importers, belongs to #1095
+-]);
++/**
++ * Files allowed to mention the bloodline constants IN CODE. Empty, and it must
++ * stay empty.
++ *
++ * BL-3a left five entries here — the definition itself, two comment-only
++ * mentions, `dev-fixtures.js` (which derived its fixture from the constants)
++ * and dead `wizard.js`. BL-3b deleted the definitions, froze the fixture into a
++ * `var BLOODLINES=` blob and rewired `wizard.js` to the cache, so every
++ * exception is gone. This also discharges the AC1-vs-AC7 contradiction BL-3a's
++ * review registered in `deferred-work.md`: with nothing to carve out, there is
++ * no contradiction left to inherit.
++ *
++ * Note `code()` above strips comments before matching, so the migration-history
++ * comments in `data/bloodlines-cache.js`, `data/accessors.js`,
++ * `tabs/downtime-form.js` and now `data/constants.js` itself are fine and are
++ * meant to stay: they are what tells the next reader where bloodlines went.
++ * Anything that needs to be ADDED to this set is a regression.
++ */
++const ALLOWED = new Set([]);
+ 
+ function walk(dir, out = []) {
+   for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+@@ -160,22 +185,18 @@ describe('BL-3a — AC 4: both bloodline dropdowns read the cache', () => {
+ });
+ 
+ describe('BL-3a — AC 5: a Mongo-only bloodline is selectable', () => {
+-  it('the cache surfaces a name the constants have never heard of', async () => {
++  it('the cache surfaces a name that was never migrated', async () => {
+     // The epic's actual promise, observable for the first time here.
+     vi.resetModules();
+     const invented = {
+       _id: 'x', name: 'Zzz Invented Line', slug: 'zzz-invented-line',
+       clan: 'Mekhet', disciplines: ['Auspex', 'Celerity', 'Obfuscate', 'Vigour'],
+     };
+-    api.get = async () => [
+-      ...buildSeedDocs({ discs: BLOODLINE_DISCS, clans: BLOODLINE_CLANS })
+-        .map(({ notes, ...d }, i) => ({ _id: String(i), ...d })),
+-      invented,
+-    ];
++    api.get = async () => [...bloodlineFixtures(), invented];
+     const cache = await import('../../public/js/data/bloodlines-cache.js');
+     await cache.loadBloodlines();
+ 
+-    expect(BLOODLINE_DISCS['Zzz Invented Line']).toBeUndefined();
++    expect(MIGRATED_DISCS['Zzz Invented Line']).toBeUndefined();
+     expect(cache.approvedBloodlines()).toContain('Zzz Invented Line');
+     expect(cache.bloodlinesByClan().Mekhet).toContain('Zzz Invented Line');
+ 
+@@ -185,21 +206,20 @@ describe('BL-3a — AC 5: a Mongo-only bloodline is selectable', () => {
+ });
+ 
+ // ─────────────────────────────────────────────────────────────────────────────
+-// AC 8 — unchanged for all 23 while the collection matches the constants
++// AC 8 — unchanged for all 23 as migrated
+ // ─────────────────────────────────────────────────────────────────────────────
+ 
+ describe('BL-3a — AC 8: identical behaviour for the 23 seeded bloodlines', () => {
+-  it('both derived dropdown sources match the constants exactly', async () => {
++  it('both derived dropdown sources match the migrated set exactly', async () => {
+     vi.resetModules();
+-    api.get = async () => buildSeedDocs({ discs: BLOODLINE_DISCS, clans: BLOODLINE_CLANS })
+-      .map(({ notes, ...d }, i) => ({ _id: String(i), ...d }));
++    api.get = async () => bloodlineFixtures();
+     const cache = await import('../../public/js/data/bloodlines-cache.js');
+     await cache.loadBloodlines();
+ 
+-    expect(cache.approvedBloodlines()).toEqual(Object.keys(BLOODLINE_DISCS).sort((a, b) => a.localeCompare(b)));
++    expect(cache.approvedBloodlines()).toEqual(Object.keys(MIGRATED_DISCS).sort((a, b) => a.localeCompare(b)));
+ 
+     const byClan = cache.bloodlinesByClan();
+-    for (const [clan, names] of Object.entries(BLOODLINE_CLANS)) {
++    for (const [clan, names] of Object.entries(MIGRATED_CLANS)) {
+       expect(byClan[clan], `clan ${clan}`).toEqual([...names].sort((a, b) => a.localeCompare(b)));
+     }
+   });
+@@ -208,18 +228,17 @@ describe('BL-3a — AC 8: identical behaviour for the 23 seeded bloodlines', ()
+     // Old: (bloodline && BLOODLINE_DISCS[bl]) || (clan && CLAN_DISCS[clan]) || []
+     // New: clanDiscList(c) — which is the same thing while the two agree.
+     vi.resetModules();
+-    api.get = async () => buildSeedDocs({ discs: BLOODLINE_DISCS, clans: BLOODLINE_CLANS })
+-      .map(({ notes, ...d }, i) => ({ _id: String(i), ...d }));
++    api.get = async () => bloodlineFixtures();
+     const cache = await import('../../public/js/data/bloodlines-cache.js');
+     await cache.loadBloodlines();
+     const { clanDiscList } = await import('../../public/js/data/accessors.js');
+ 
+     const clanOf = {};
+-    for (const [clan, names] of Object.entries(BLOODLINE_CLANS)) for (const n of names) clanOf[n] = clan;
++    for (const [clan, names] of Object.entries(MIGRATED_CLANS)) for (const n of names) clanOf[n] = clan;
+ 
+-    for (const name of Object.keys(BLOODLINE_DISCS)) {
++    for (const name of Object.keys(MIGRATED_DISCS)) {
+       const c = { clan: clanOf[name], bloodline: name };
+-      const old = (c.bloodline && BLOODLINE_DISCS[c.bloodline]) || (c.clan && CLAN_DISCS[c.clan]) || [];
++      const old = (c.bloodline && MIGRATED_DISCS[c.bloodline]) || (c.clan && CLAN_DISCS[c.clan]) || [];
+       expect(clanDiscList(c), `picker set for ${name}`).toEqual(old);
+     }
+ 
+@@ -245,8 +264,7 @@ describe('BL-3a review — the clan-change clear never fires on a cache it canno
+     await cache.loadBloodlines();
+     return { cache, state, edit };
+   }
+-  const seeded = () => buildSeedDocs({ discs: BLOODLINE_DISCS, clans: BLOODLINE_CLANS })
+-    .map(({ notes, ...d }, i) => ({ _id: String(i), ...d }));
++  const seeded = () => bloodlineFixtures();
+ 
+   it('does NOT null a bloodline when the collection is empty (today\'s live state)', async () => {
+     // The whole rewiring's one destructive write. An empty map made every
+diff --git a/server/tests/bl4-bloodlines-write-api.test.js b/server/tests/bl4-bloodlines-write-api.test.js
+index af0a1277..e0786db5 100644
+--- a/server/tests/bl4-bloodlines-write-api.test.js
++++ b/server/tests/bl4-bloodlines-write-api.test.js
+@@ -23,11 +23,32 @@
+ import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
+ import request from 'supertest';
+ import 'dotenv/config';
++import fs from 'node:fs';
++import path from 'node:path';
++import { fileURLToPath } from 'node:url';
+ import { ObjectId } from 'mongodb';
+ import { createTestApp, stUser, playerUser } from './helpers/test-app.js';
+ import { setupDb, teardownDb } from './helpers/db-setup.js';
++import { BLOODLINE_FIXTURES } from './helpers/bloodline-fixtures.js';
++import { bloodlineSchema } from '../schemas/bloodline.schema.js';
+ import { getCollection } from '../db.js';
+ 
++const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
++
++/** Every `.js` under `dir`, skipping `node_modules`. */
++function walkJs(dir, out = []) {
++  for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
++    if (e.isDirectory()) { if (e.name !== 'node_modules') walkJs(path.join(dir, e.name), out); }
++    else if (e.name.endsWith('.js')) out.push(path.join(dir, e.name));
++  }
++  return out;
++}
++
++/** A source grep must not pass (or fail) on prose. */
++const stripComments = src => src
++  .replace(/\/\*[\s\S]*?\*\//g, '')
++  .replace(/(^|[^:])\/\/.*$/gm, '$1');
++
+ let app;
+ 
+ const seededBloodlines = [];
+@@ -611,10 +632,92 @@ describe('BL-4 AC 12 — GET /api/bloodlines/admin reports grant references', ()
+ // ─────────────────────────────────────────────────────────────────────────────
+ 
+ describe('BL-4 AC 7 — deriveSlug has exactly one implementation', () => {
+-  it('the shared module and the seed script export the same function', async () => {
+-    const shared = await import('../lib/bloodline-slug.js');
+-    const seed = await import('../scripts/seed-bloodlines.js');
+-    expect(seed.deriveSlug).toBe(shared.deriveSlug);
++  /**
++   * BL-3b replacement for the old `seed.deriveSlug === shared.deriveSlug`
++   * identity check.
++   *
++   * That assertion imported `scripts/seed-bloodlines.js` for its re-export, and
++   * BL-3b deleted the re-export when it moved the script to `scripts/archive/`.
++   * Re-pointing it at the archived path would have asserted something weaker
++   * than it looks — that a retired file still re-exports — while the thing BL-4
++   * actually bought is that no SECOND derivation exists anywhere live. So walk
++   * `server/` and check for one, which is the assertion the identity check was
++   * standing in for.
++   */
++  it('no file under server/ outside scripts/archive defines a second slug derivation', () => {
++    const SERVER = path.join(REPO_ROOT, 'server');
++    const offenders = [];
++    for (const file of walkJs(SERVER)) {
++      const rel = path.relative(REPO_ROOT, file).replace(/\\/g, '/');
++      if (rel === 'server/lib/bloodline-slug.js') continue;       // the one implementation
++      if (rel.startsWith('server/scripts/archive/')) continue;    // retired, frozen, not live
++      const src = stripComments(fs.readFileSync(file, 'utf8'));
++      if (/(function|const|let|var)\s+deriveSlug\b/.test(src)) offenders.push(rel);
++    }
++    expect(offenders, 'deriveSlug must have exactly one live implementation').toEqual([]);
++  });
++
++  it('everything that CALLS deriveSlug imports the shared module', () => {
++    // Call sites, not mentions. BL-3a's post-mortem is the reason: a grep for
++    // the declaration passed while two live CALLS to a deleted function
++    // survived. The same discipline in the other direction here — a file that
++    // invokes `deriveSlug(...)` without importing it is either a second
++    // implementation or a ReferenceError waiting to happen.
++    const SERVER = path.join(REPO_ROOT, 'server');
++    const offenders = [];
++    for (const file of walkJs(SERVER)) {
++      const rel = path.relative(REPO_ROOT, file).replace(/\\/g, '/');
++      if (rel === 'server/lib/bloodline-slug.js') continue;
++      const src = stripComments(fs.readFileSync(file, 'utf8'));
++      if (!/(^|[^.\w])deriveSlug\s*\(/.test(src)) continue;
++      if (!/bloodline-slug\.js/.test(src)) offenders.push(rel);
++    }
++    expect(offenders, 'these call deriveSlug without importing lib/bloodline-slug.js').toEqual([]);
++  });
++
++  // ── Relocated from `bl1-seed-bloodlines.test.js` (BL-3b) ────────────────────
++  // That file retired with the script it tested, but this block never tested
++  // the script: `deriveSlug` moved to the live `server/lib/bloodline-slug.js`
++  // in BL-4, and it is what the write route derives every new bloodline's slug
++  // with. Losing the coverage with the retirement would have been a real gap,
++  // so it moves here, to the suite that owns the live module.
++
++  it('lowercases a single word', async () => {
++    const { deriveSlug } = await import('../lib/bloodline-slug.js');
++    expect(deriveSlug('Khaibit')).toBe('khaibit');
++  });
++
++  it('hyphenates spaces', async () => {
++    const { deriveSlug } = await import('../lib/bloodline-slug.js');
++    expect(deriveSlug('Order of Sir Martin')).toBe('order-of-sir-martin');
++    expect(deriveSlug('Scions of the First City')).toBe('scions-of-the-first-city');
++    expect(deriveSlug('Hounds of Actaeon')).toBe('hounds-of-actaeon');
++  });
++
++  it('strips diacritics rather than hyphenating through them', async () => {
++    // Naive non-alphanumeric replacement would give "lid-rc", which is a legal
++    // kebab string but a nonsense identifier.
++    const { deriveSlug } = await import('../lib/bloodline-slug.js');
++    expect(deriveSlug('Lidérc')).toBe('liderc');
++  });
++
++  it('collapses runs of separators and trims the ends', async () => {
++    const { deriveSlug } = await import('../lib/bloodline-slug.js');
++    expect(deriveSlug("  The O'Hara  Line  ")).toBe('the-o-hara-line');
++  });
++
++  it('derives a schema-legal slug for every migrated bloodline', async () => {
++    // Re-pointed at the frozen fixture: the constants this used to walk are
++    // deleted, and the 23 as migrated is what it always meant.
++    const { deriveSlug } = await import('../lib/bloodline-slug.js');
++    const slugPattern = new RegExp(bloodlineSchema.properties.slug.pattern);
++    expect(BLOODLINE_FIXTURES).toHaveLength(23);
++    for (const { name, slug } of BLOODLINE_FIXTURES) {
++      const derived = deriveSlug(name);
++      expect(slugPattern.test(derived), `slug "${derived}" from "${name}" is not schema-legal`).toBe(true);
++      // ...and it still agrees with the slug the migration actually wrote.
++      expect(derived, `derivation drifted for "${name}"`).toBe(slug);
++    }
+   });
+ 
+   it('the route derives the same slug the seed would', async () => {
+diff --git a/server/tests/helpers/bloodline-fixtures.js b/server/tests/helpers/bloodline-fixtures.js
+new file mode 100644
+index 00000000..0591f8e2
+--- /dev/null
++++ b/server/tests/helpers/bloodline-fixtures.js
+@@ -0,0 +1,70 @@
++/**
++ * BL-3b (issue #1008) — the 23 bloodline documents, frozen.
++ *
++ * Captured on 2026-08-11 by running the real seed builder
++ * (`buildSeedDocs({ discs: BLOODLINE_DISCS, clans: BLOODLINE_CLANS })`) one last
++ * time, immediately BEFORE that story deleted the constants and retired the
++ * script to `server/scripts/archive/`. So this is provably the data that was
++ * migrated, not a retyped copy of it.
++ *
++ * Shape is what `GET /api/bloodlines` serves: `_id`, `name`, `slug`, `clan`,
++ * `disciplines`, with `notes` projected out (`server/routes/bloodlines.js`).
++ *
++ * This is a FIXTURE, not a source of truth. The `bloodlines` collection is the
++ * only place a bloodline is defined, and BL-4's admin screen is the only place
++ * one is added. A bloodline added there will not appear here, and must not:
++ * these specs assert the behaviour of the 23 that existed at migration, which
++ * is the set every equivalence claim in BL-1/BL-2/BL-3a was made against.
++ *
++ * A second frozen copy lives in `public/js/dev-fixtures.js` as its
++ * `var BLOODLINES=` blob, because that file cannot import anything (it is
++ * guarded by `if(_isDev)` and patches `window.fetch`). The two are held equal by
++ * `server/tests/bl3b-constants-deleted.test.js`, which parses the blob back out
++ * of the source text and deep-equals it against this list.
++ */
++
++/** The 23 bloodlines as `GET /api/bloodlines` serves them, sorted by name. */
++export const BLOODLINE_FIXTURES = [
++  {"_id":"bl-0","name":"Ankou","slug":"ankou","clan":"Mekhet","disciplines":["Auspex","Celerity","Obfuscate","Vigour"]},
++  {"_id":"bl-1","name":"Apollinaire","slug":"apollinaire","clan":"Ventrue","disciplines":["Animalism","Dominate","Resilience","Obfuscate"]},
++  {"_id":"bl-2","name":"Bron","slug":"bron","clan":"Ventrue","disciplines":["Animalism","Auspex","Dominate","Resilience"]},
++  {"_id":"bl-3","name":"Gorgons","slug":"gorgons","clan":"Ventrue","disciplines":["Animalism","Dominate","Protean","Resilience"]},
++  {"_id":"bl-4","name":"Hounds of Actaeon","slug":"hounds-of-actaeon","clan":"Gangrel","disciplines":["Animalism","Obfuscate","Protean","Resilience"]},
++  {"_id":"bl-5","name":"Icelus","slug":"icelus","clan":"Ventrue","disciplines":["Auspex","Dominate","Obfuscate","Resilience"]},
++  {"_id":"bl-6","name":"Jharana","slug":"jharana","clan":"Mekhet","disciplines":["Auspex","Celerity","Obfuscate","Vigour"]},
++  {"_id":"bl-7","name":"Kerberos","slug":"kerberos","clan":"Gangrel","disciplines":["Animalism","Majesty","Protean","Resilience"]},
++  {"_id":"bl-8","name":"Khaibit","slug":"khaibit","clan":"Mekhet","disciplines":["Auspex","Celerity","Obfuscate","Vigour"]},
++  {"_id":"bl-9","name":"Lasombra","slug":"lasombra","clan":"Ventrue","disciplines":["Animalism","Dominate","Nightmare","Resilience"]},
++  {"_id":"bl-10","name":"Lidérc","slug":"liderc","clan":"Daeva","disciplines":["Celerity","Majesty","Obfuscate","Vigour"]},
++  {"_id":"bl-11","name":"Lygos","slug":"lygos","clan":"Mekhet","disciplines":["Auspex","Nightmare","Obfuscate","Vigour"]},
++  {"_id":"bl-12","name":"Malkovians","slug":"malkovians","clan":"Ventrue","disciplines":["Auspex","Dominate","Obfuscate","Resilience"]},
++  {"_id":"bl-13","name":"Mnemosyne","slug":"mnemosyne","clan":"Mekhet","disciplines":["Auspex","Celerity","Obfuscate","Dominate"]},
++  {"_id":"bl-14","name":"Morbus","slug":"morbus","clan":"Mekhet","disciplines":["Animalism","Auspex","Celerity","Obfuscate"]},
++  {"_id":"bl-15","name":"Norvegi","slug":"norvegi","clan":"Mekhet","disciplines":["Auspex","Obfuscate","Celerity","Vigour"]},
++  {"_id":"bl-16","name":"Nosoi","slug":"nosoi","clan":"Nosferatu","disciplines":["Dominate","Obfuscate","Protean","Resilience"]},
++  {"_id":"bl-17","name":"Order of Sir Martin","slug":"order-of-sir-martin","clan":"Nosferatu","disciplines":["Nightmare","Obfuscate","Resilience","Vigour"]},
++  {"_id":"bl-18","name":"Rotgrafen","slug":"rotgrafen","clan":"Ventrue","disciplines":["Animalism","Dominate","Protean","Resilience"]},
++  {"_id":"bl-19","name":"Scions of the First City","slug":"scions-of-the-first-city","clan":"Gangrel","disciplines":["Animalism","Auspex","Obfuscate","Resilience"]},
++  {"_id":"bl-20","name":"Vardyvle","slug":"vardyvle","clan":"Ventrue","disciplines":["Dominate","Obfuscate","Protean","Resilience"]},
++  {"_id":"bl-21","name":"Vilseduire","slug":"vilseduire","clan":"Nosferatu","disciplines":["Majesty","Nightmare","Obfuscate","Resilience"]},
++  {"_id":"bl-22","name":"Zelani","slug":"zelani","clan":"Daeva","disciplines":["Celerity","Majesty","Auspex","Vigour"]},
++];
++
++/** Fresh deep copy, so a spec that mutates a document cannot poison the next. */
++export function bloodlineFixtures() {
++  return BLOODLINE_FIXTURES.map(d => ({ ...d, disciplines: [...d.disciplines] }));
++}
++
++/** name -> disciplines, the shape `BLOODLINE_DISCS` had. */
++export function fixtureDiscsByName() {
++  const out = {};
++  for (const d of BLOODLINE_FIXTURES) out[d.name] = [...d.disciplines];
++  return out;
++}
++
++/** clan -> names, the shape `BLOODLINE_CLANS` had. */
++export function fixtureNamesByClan() {
++  const out = {};
++  for (const d of BLOODLINE_FIXTURES) (out[d.clan] ??= []).push(d.name);
++  return out;
++}
+diff --git a/server/tests/bl3b-constants-deleted.test.js b/server/tests/bl3b-constants-deleted.test.js
+new file mode 100644
+index 00000000..e622ac03
+--- /dev/null
++++ b/server/tests/bl3b-constants-deleted.test.js
+@@ -0,0 +1,256 @@
++/**
++ * BL-3b (issue #1008) — the constants are gone, the seed is archived, and the
++ * two frozen fixture copies cannot drift.
++ *
++ * AC 1, 2, 3, 5, 6, 8. This is a deletion story, so almost everything it can
++ * get wrong is invisible to a unit test of behaviour: an export removed while
++ * something still reads it (`data-map.md` Known Drift Pattern #1) is a runtime
++ * `ReferenceError`, not a parse error, because ES modules resolve free
++ * identifiers at runtime and this repo has no linter. BL-3a's own review
++ * shipped exactly that bug — `isClanDisc` deleted with two live call sites
++ * surviving, past a test that checked for the declaration rather than the
++ * calls. So the assertions here are source greps over the real tree, and they
++ * are deliberately written against what is CALLED and IMPORTED, not what is
++ * declared.
++ *
++ * The other half of the story's risk is scaffolding drift. `dev-fixtures.js`
++ * and `server/tests/helpers/bloodline-fixtures.js` now hold the same 23
++ * documents frozen in two places, because `dev-fixtures.js` cannot import
++ * anything (it is guarded by `if(_isDev)` and replaces `window.fetch`). Two
++ * frozen copies of dev scaffolding are acceptable; two that can silently
++ * disagree are not, which is what the equality guard below is for.
++ */
++
++import { describe, it, expect } from 'vitest';
++import fs from 'node:fs';
++import path from 'node:path';
++import { fileURLToPath } from 'node:url';
++import { BLOODLINE_FIXTURES } from './helpers/bloodline-fixtures.js';
++// Imported, not grepped: a named import of a deleted export is itself the
++// assertion that CLAN_DISCS survived, and it fails this file loudly at load
++// time rather than quietly at some future call site.
++import { CLAN_DISCS } from '../../public/js/data/constants.js';
++
++const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
++const read = rel => fs.readFileSync(path.join(REPO_ROOT, rel), 'utf8');
++
++/** A source grep must not pass (or fail) on prose. */
++const code = rel => read(rel)
++  .replace(/\/\*[\s\S]*?\*\//g, '')
++  .replace(/(^|[^:])\/\/.*$/gm, '$1');
++
++function walkJs(dir, out = []) {
++  for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
++    if (e.isDirectory()) { if (e.name !== 'node_modules') walkJs(path.join(dir, e.name), out); }
++    else if (e.name.endsWith('.js')) out.push(path.join(dir, e.name));
++  }
++  return out;
++}
++
++const rel = file => path.relative(REPO_ROOT, file).replace(/\\/g, '/');
++
++// ─────────────────────────────────────────────────────────────────────────────
++// AC 1 — the three exports are gone, and CLAN_DISCS is not
++// ─────────────────────────────────────────────────────────────────────────────
++
++describe('BL-3b — AC 1: constants.js no longer defines a bloodline', () => {
++  const src = code('public/js/data/constants.js');
++
++  it('exports none of the three', () => {
++    expect(src).not.toMatch(/export\s+const\s+BLOODLINE_DISCS\b/);
++    expect(src).not.toMatch(/export\s+const\s+BLOODLINE_CLANS\b/);
++    expect(src).not.toMatch(/export\s+const\s+APPROVED_BLOODLINES\b/);
++  });
++
++  it('keeps CLAN_DISCS, which is a different thing and still live', () => {
++    // It is the five clans' own discipline lists, read by `data/accessors.js`
++    // for the no-bloodline fallback. Deleting it with the others would break
++    // every character who has no bloodline, which is most of them.
++    expect(src).toMatch(/export\s+const\s+CLAN_DISCS\s*=/);
++    expect(Object.keys(CLAN_DISCS).sort())
++      .toEqual(['Daeva', 'Gangrel', 'Mekhet', 'Nosferatu', 'Ventrue']);
++  });
++
++  it('says where bloodlines went, so the next author does not re-add them here', () => {
++    // Comment-only, and the point of it: an ST opening this file used to find a
++    // complete, plausible, current-looking bloodline table with nothing saying
++    // it was dead.
++    const raw = read('public/js/data/constants.js');
++    expect(raw).toMatch(/bloodlines-cache\.js/);
++  });
++});
++
++// ─────────────────────────────────────────────────────────────────────────────
++// AC 2 — nothing in public/js names the three in code
++// ─────────────────────────────────────────────────────────────────────────────
++
++describe('BL-3b — AC 2: no client file mentions the deleted constants in code', () => {
++  it('has no offenders at all, with no allow-list', () => {
++    // BL-3a needed a five-entry allow-list here. BL-3b removed every reason for
++    // one, so this runs with none: any file that turns up is a regression, not
++    // an exception to be carved out.
++    const offenders = [];
++    for (const file of walkJs(path.join(REPO_ROOT, 'public/js'))) {
++      if (/BLOODLINE_DISCS|BLOODLINE_CLANS|APPROVED_BLOODLINES/.test(code(rel(file)))) {
++        offenders.push(rel(file));
++      }
++    }
++    expect(offenders).toEqual([]);
++  });
++
++  it('the migration-history comments survive, because they are the signpost', () => {
++    // `code()` strips comments before matching, so these are invisible to the
++    // grep above and must stay: they are how a reader finds the collection.
++    expect(read('public/js/data/bloodlines-cache.js')).toMatch(/BLOODLINE_DISCS/);
++    expect(read('public/js/data/accessors.js')).toMatch(/BLOODLINE_DISCS/);
++  });
++});
++
++// ─────────────────────────────────────────────────────────────────────────────
++// AC 3 — dev-fixtures.js serves a frozen blob and imports nothing
++// ─────────────────────────────────────────────────────────────────────────────
++
++describe('BL-3b — AC 3: dev-fixtures.js is self-contained', () => {
++  const raw = read('public/js/dev-fixtures.js');
++
++  it('has no import statements at all', () => {
++    // The rest of the file already assumes this: it is a plain script of `var`
++    // blobs plus a `window.fetch` shim, and the bloodline branch was the only
++    // thing that ever made it a module.
++    expect(code('public/js/dev-fixtures.js')).not.toMatch(/^\s*import\s/m);
++  });
++
++  it('carries BLOODLINES as a single-line pure-JSON var, like its five siblings', () => {
++    // The file is CRLF, so trim before stripping the semicolon.
++    const line = raw.split('\n').map(l => l.trim()).find(l => l.startsWith('var BLOODLINES='));
++    expect(line, 'no `var BLOODLINES=` line').toBeTruthy();
++    expect(() => JSON.parse(line.slice('var BLOODLINES='.length).replace(/;$/, ''))).not.toThrow();
++  });
++
++  it('serves the blob directly instead of computing the payload', () => {
++    expect(code('public/js/dev-fixtures.js'))
++      .toMatch(/if\(method==='GET'&&seg\[0\]==='bloodlines'&&!seg\[1\]\)return _mock\(BLOODLINES\);/);
++  });
++});
++
++// ─────────────────────────────────────────────────────────────────────────────
++// AC 8 — the two frozen copies are equal, by test
++// ─────────────────────────────────────────────────────────────────────────────
++
++describe('BL-3b — AC 8: the two frozen fixture copies cannot drift', () => {
++  /**
++   * `dev-fixtures.js` cannot be imported under Node — it reads `localStorage`
++   * at module scope and replaces `window.fetch` — so the blob is parsed back
++   * out of the source text. This is why AC 3 requires it on ONE line as pure
++   * JSON: a multi-line or JS-literal blob would need a JS parser here, and a
++   * guard that is hard to write is a guard that gets dropped.
++   */
++  const blob = (() => {
++    const m = /^var BLOODLINES=(\[.*\]);$/m.exec(read('public/js/dev-fixtures.js'));
++    if (!m) throw new Error('the `var BLOODLINES=` line is missing or no longer single-line JSON');
++    return JSON.parse(m[1]);
++  })();
++
++  it('parses to 23 documents', () => {
++    expect(blob).toHaveLength(23);
++  });
++
++  it('deep-equals the server suite fixture, document for document', () => {
++    expect(blob).toEqual(BLOODLINE_FIXTURES);
++  });
++
++  it('carries exactly the fields GET /api/bloodlines serves, with notes projected out', () => {
++    for (const d of blob) {
++      expect(Object.keys(d).sort()).toEqual(['_id', 'clan', 'disciplines', 'name', 'slug']);
++      expect(d.disciplines).toHaveLength(4);
++    }
++  });
++});
++
++// ─────────────────────────────────────────────────────────────────────────────
++// AC 5 — the seed is archived, self-contained, and out of the live tree
++// ─────────────────────────────────────────────────────────────────────────────
++
++describe('BL-3b — AC 5: the seed is retired to scripts/archive', () => {
++  it('lives at scripts/archive/seed-bloodlines.js and not at scripts/', () => {
++    expect(fs.existsSync(path.join(REPO_ROOT, 'server/scripts/archive/seed-bloodlines.js'))).toBe(true);
++    expect(fs.existsSync(path.join(REPO_ROOT, 'server/scripts/seed-bloodlines.js'))).toBe(false);
++  });
++
++  it('carries the two constants as frozen local literals, not a cross-boundary import', () => {
++    const src = code('server/scripts/archive/seed-bloodlines.js');
++    expect(src).toMatch(/const BLOODLINE_DISCS = \{/);
++    expect(src).toMatch(/const BLOODLINE_CLANS = \{/);
++    expect(src, 'the constants file no longer exports these').not.toMatch(/BLOODLINE_DISCS[^=]*\}\s*from/);
++  });
++
++  it('no longer re-exports deriveSlug', () => {
++    // Its stated purpose was to keep importers working UNTIL the archive move.
++    expect(code('server/scripts/archive/seed-bloodlines.js')).not.toMatch(/export\s*\{\s*deriveSlug\s*\}/);
++  });
++
++  it('nothing outside scripts/archive imports it', () => {
++    // Import specifiers only, static or dynamic — this file names the path in
++    // string literals all over the place and is not an importer.
++    const IMPORTS_SEED = /(?:from|import\s*\()\s*'[^']*seed-bloodlines\.js'/;
++    const offenders = [];
++    for (const file of walkJs(path.join(REPO_ROOT, 'server'))) {
++      const r = rel(file);
++      if (r.startsWith('server/scripts/archive/')) continue;
++      if (IMPORTS_SEED.test(code(r))) offenders.push(r);
++    }
++    expect(offenders, 'a retired migration must have no live importers').toEqual([]);
++  });
++
++  it('still resolves every relative import it kept, one directory deeper', () => {
++    // The move added a level; a missed `../` is a crash the moment someone runs
++    // it, which is the one thing this file is kept runnable for.
++    const src = code('server/scripts/archive/seed-bloodlines.js');
++    const dir = path.join(REPO_ROOT, 'server/scripts/archive');
++    const specs = [...src.matchAll(/from\s+'(\.[^']+)'/g)].map(m => m[1]);
++    expect(specs.length).toBeGreaterThan(0);
++    for (const spec of specs) {
++      expect(fs.existsSync(path.resolve(dir, spec)), `unresolved import ${spec}`).toBe(true);
++    }
++  });
++});
++
++// ─────────────────────────────────────────────────────────────────────────────
++// AC 6 — retiring the seed does not retire the unique-index guarantee
++// ─────────────────────────────────────────────────────────────────────────────
++
++describe('BL-3b — AC 6: the unique name index keeps a live owner', () => {
++  /**
++   * Archiving the seed took one of `bloodline-name-index.js`'s two importers
++   * with it. The other is `server/routes/bloodlines.js`, which memoises
++   * `ensureNameIndex()` and calls it before the first write of the process, so
++   * a collection created entirely through BL-4's admin screen still gets the
++   * collated unique index. That is what makes the seed optional rather than a
++   * precondition — and it is exactly the kind of guarantee a later "tidy up the
++   * archive" pass could take away without noticing. Pin the live caller.
++   */
++  const importers = () => {
++    const out = [];
++    for (const file of walkJs(path.join(REPO_ROOT, 'server'))) {
++      const r = rel(file);
++      if (r.startsWith('server/scripts/archive/')) continue;
++      if (r.endsWith('/bloodline-name-index.js')) continue;
++      if (/from\s+'[^']*bloodline-name-index\.js'/.test(code(r))) out.push(r);
++    }
++    return out;
++  };
++
++  it('has at least one importer outside scripts/archive', () => {
++    expect(importers().length, 'the archived seed must not be the last caller').toBeGreaterThan(0);
++  });
++
++  it('and that importer is the write route', () => {
++    expect(importers()).toContain('server/routes/bloodlines.js');
++  });
++
++  it('the route still ensures the index before the first write', () => {
++    const src = code('server/routes/bloodlines.js');
++    expect(src).toMatch(/ensureBloodlineNameIndex\(/);
++    expect(src).toMatch(/await ensureNameIndex\(\)/);
++  });
++});
