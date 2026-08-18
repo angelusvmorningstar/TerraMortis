@@ -579,7 +579,13 @@ development_status:
   # NPCR.1-13 shipped prior to sprint-status registration. Listed only
   # for hardening stories that emerge afterwards.
 
-  npcr-14-directory-scope-to-player-creations: review
+  # 2026-08-18 (/bmad-loop next, position check): tracker said review, but
+  # its own implementing commit (583d3115, "fix(npcr.14): scope
+  # /api/npcs/directory to caller's own quick-adds", 2026-04-24) is already
+  # an ancestor of origin/main. Merged and live, tracker just never updated
+  # — same drift class as the 2026-08-16 reconciliation's errors, in the
+  # review bucket rather than the never-started one.
+  npcr-14-directory-scope-to-player-creations: done
 
   # ============================================================
   # DOWNTIME OVERHAUL — six-epic set scoped 2026-04-27

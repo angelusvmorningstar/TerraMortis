@@ -1,7 +1,7 @@
 ---
 id: npcr.14
 epic: npcr
-status: review
+status: done
 priority: high
 depends_on: [npcr.6, npcr.8]
 ---
@@ -104,3 +104,7 @@ Implemented 2026-04-24 under bmad-dev-story workflow.
 ### Change Log
 
 - 2026-04-24 — NPCR-14 implemented. ready-for-dev → in-progress → review.
+- 2026-08-18 — Verified (via `/bmad-loop next` position check) that the implementing commit
+  (`583d3115`) is already an ancestor of `origin/main` — merged and live, tracker never updated.
+  Status → done. No code review run; nothing further to verify beyond the ancestor check and the
+  Dev Agent Record's own test results above.
