@@ -382,13 +382,24 @@ development_status:
   # Epic file: specs/epic-features.md
   # FEAT-4 and FEAT-5 not ready for dev — need scoping
 
-  epic-feat: in-progress
+  # 2026-08-18: all feat-N stories now resolved (done or superseded) —
+  # feat-4/5/6 closed this session, everything else already done. Flipped
+  # to done.
+  epic-feat: done
 
   feat-1-remove-resolved-tickets: done
   feat-2-non-vampire-territories: done
   feat-3-duplicate-character-hard-delete: done
-  feat-4-st-plot-npc-tracker: backlog
-  feat-5-login-linked-to-email: backlog
+  # 2026-08-18: CLOSED, Angelus's own ruling. Plot tracking is redundant for
+  # TM Game/Suite — entirely the prerogative of TM Story and TM Admin
+  # (control), not this repo. NPCs are no longer a TM Game feature; NPC
+  # work ties into TM Story instead. Never had a story file (backlog
+  # placeholder only) — closing directly in tracker.
+  feat-4-st-plot-npc-tracker: superseded  # plot/NPCs belong to TM Story + TM Admin, not TM Suite — Angelus's own ruling 2026-08-18
+  # 2026-08-18: CLOSED, Angelus's own ruling. Superseded by TM Herald
+  # (the Discord bot) — email-linked login is no longer needed. Never had
+  # a story file (backlog placeholder only) — closing directly in tracker.
+  feat-5-login-linked-to-email: superseded  # superseded by TM Herald — Angelus's own ruling 2026-08-18
   # 2026-08-18 (/bmad-loop next): CLOSED AS MOOT, Angelus's own call.
   # Investigated via code search (public/player.html, the story's own
   # target, was deleted 2026-07-28 — #1047 USF Phase 0 Stage B). The one
