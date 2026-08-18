@@ -774,8 +774,6 @@ development_status:
   dtui-9-per-action-outcome-treatments: done
   dtui-10-ambience-consolidation: done
   dtui-11-maintenance-target-chip-array: done
-  dtui-33-target-type-selector-ticker: done  # Wave 2 addition — ticker polish for target type radios
-  dtui-34-action-block-ui-polish: done  # Wave 2 addition — Direction/Target Type labels, spacing, placeholder audit
 
   # Wave 3 — Joint Collaboration Hub
   dtui-12-joint-panel-auto-expand: done
