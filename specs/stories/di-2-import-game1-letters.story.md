@@ -1,10 +1,35 @@
 ---
 id: di.2
 epic: di
-status: needs-product-input
+status: superseded
 priority: low
 depends_on: []
 ---
+
+> ## ✅ CLOSED AS GOOD-ENOUGH — 2026-08-18, scoping conversation with Angelus
+>
+> This story's original plan (new `character_letters` collection, new import script, new TM Suite
+> UI card) was the wrong shape entirely. The sibling repo at `../TM Story` (its own `CLAUDE.md`:
+> *"Terra Mortis Wiki is a companion, read-only, player-facing site"* — this is TM Wiki, renamed
+> since the umbrella `CLAUDE.md` was last updated) already has a **shipped, live Letters archive**
+> (Story 9.2, `server/letters.js`) that reads correspondence directly off TM Suite's
+> `downtime_submissions` — no new collection, no new TM Suite render code needed.
+>
+> **The real gap, found by checking live data**: Game 1's submissions (`chapters` at
+> `game_number: 2`, per `di-1`'s own resolved finding) have `responses: {}` and no `st_narrative`
+> field at all — confirmed via direct query, not inference. The letter content only exists as a
+> `## Letter` heading inside the monolithic `published_outcome` markdown blob (from however
+> `game_number: 2` was originally populated, back on 2026-04-17). TM Wiki's Letters archive reads
+> structured fields (`responses.personal_story_text`, `st_narrative.story_moment.response`, etc.),
+> so it finds nothing for Game 1 even though the feature works for every other cycle.
+>
+> **Decision: close as good-enough.** The letter content is already player-visible — in the general
+> Chronicle text, just not on the dedicated Wiki Letters page. Not worth a structured-field backfill
+> for one historical cycle's data-shape gap.
+>
+> **Standing note for future scoping**: check `../TM Story` (TM Wiki) for an existing feature before
+> planning new TM-Suite-side player-facing UI. This story would have been built redundant had the
+> scoping conversation not surfaced the sibling app.
 
 # Story DI-2: Import Game 1 Letters into Chronicles
 

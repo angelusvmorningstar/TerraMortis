@@ -1,10 +1,21 @@
 ---
 id: ord.10
 epic: ord
-status: draft
+status: superseded
 priority: medium
 depends_on: [ord.9]
 ---
+
+> ## ✅ SUPERSEDED — 2026-08-18, found while scoping TM Wiki for redundancies
+>
+> A dated, explicit ruling in the sibling TM Wiki repo (`../TM Story/specs/ordeals-tab-port-scoping.md`,
+> 2026-08-12, Angelus via AskUserQuestion) already decided this domain's ownership: *"rubric authoring
+> also moves to a Cockpit skill. `ordeal_rubrics` editing leaves TM Suite's admin app entirely (not just
+> marking)... replaces `ordeals-admin.js`'s OR-3 rubric editor. This completes the Ordeals domain's full
+> removal from TM Suite's admin surface, not a partial one."* TM Game's own tracker never caught up to
+> this ruling — this story (rubric content authoring inside TM Suite) targets exactly the surface that
+> decision retires. Superseded, not built here. If rubric authoring still needs doing, it belongs to a
+> future TM Cockpit skill, per that ruling — not this repo.
 
 # Story ORD-10: Fill ordeal_rubric expected_answers with real content
 

@@ -361,7 +361,16 @@ development_status:
   # archived to server/scripts/archive/ alongside the original migrate-dt1*.js
   # it was meant to replace.
   di-1-import-dt1-narratives: done
-  di-2-import-game1-letters: backlog        # needs-product-input — see story file front-matter
+  # 2026-08-18: CLOSED AS GOOD-ENOUGH, Angelus's own call. Scoping conversation
+  # found the original plan (new collection + new TM Suite UI) was the wrong
+  # shape - ../TM Story (TM Wiki) already has a shipped Letters archive
+  # (Story 9.2) reading directly off downtime_submissions. Real gap: Game 1's
+  # data (game_number:2) has no structured responses/st_narrative fields, only
+  # a monolithic published_outcome markdown blob - confirmed via live query.
+  # Content is already player-visible in the Chronicle, just not the dedicated
+  # Wiki Letters page. Not worth a backfill for one historical cycle. See
+  # story file's own closure note.
+  di-2-import-game1-letters: superseded     # closed as good-enough 2026-08-18 — see story file
   di-3-sync-ordeal-data: done        # investigation spike — produces audit note, not code
 
   epic-di-retrospective: optional
@@ -453,7 +462,16 @@ development_status:
   dtfc-14-form-buttons-layout: done
   dtfc-9-npc-story-moment: done          # unshelved — implemented as DT Story 1.11 + 1.14 (see deferred-work.md)
   dtfc-10-collaborative-projects: superseded  # superseded by Epic JDT (Joint Downtimes) — 2026-04-27 scoping
-  dtfc-11-equipment-tab: backlog          # deferred
+  # 2026-08-18: SUPERSEDED, found while scoping TM Wiki for redundancies
+  # (../TM Story = TM Wiki, renamed since the umbrella CLAUDE.md was last
+  # updated). This story's own scope ("Equipment Tab in player.html", per
+  # specs/sprint-change-proposal-2026-04-20.md) is fully duplicated by
+  # TM Wiki's Story 5-2 "asset-equipment-library": done, code-reviewed
+  # (3-layer adversarial), 506/506 tests, reads player-owned character.
+  # equipment[] joined against equipment_catalogue by catalogue_id, LEAK-
+  # GATE verified. No story file existed here to update (was "SCOPED
+  # SEPARATELY," never actually written up) - closing directly in tracker.
+  dtfc-11-equipment-tab: superseded       # superseded by TM Wiki story 5-2 (done, shipped) — see 2026-08-18 note above
 
   epic-dtfc-retrospective: optional
 
@@ -574,9 +592,25 @@ development_status:
   ord-9-ordeal-submissions-execute-import: done
 
   # Tier 4 — Rubric content authoring (content task; run when authoring time)
-  ord-10-ordeal-rubric-content-authoring: backlog
+  # 2026-08-18: SUPERSEDED, found while scoping TM Wiki for redundancies.
+  # ../TM Story/specs/ordeals-tab-port-scoping.md (2026-08-12, Angelus via
+  # AskUserQuestion): "rubric authoring also moves to a Cockpit skill...
+  # ordeal_rubrics editing leaves TM Suite's admin app entirely." This
+  # story targets exactly the surface that ruling retires. See the story
+  # file's own closure note.
+  ord-10-ordeal-rubric-content-authoring: superseded  # moved to a future TM Cockpit skill per the 2026-08-12 ruling — see story file
 
   # Tier 5 — History pipeline (depends on ORD-3 + ORD-4)
+  # FLAGGED 2026-08-18, not closed — found while scoping TM Wiki for
+  # redundancies, genuinely ambiguous rather than clearly superseded like
+  # ord-10 was. This story targets public/js/admin/ordeals-admin.js (the
+  # same admin surface ../TM Story/specs/ordeals-tab-port-scoping.md's
+  # 2026-08-12 ruling says is being "fully cut over" away from TM Suite)
+  # and writes to archive_documents (already separately flagged for Wiki
+  # handover — dbo-7, joint with Wiki 31-4/31-5). Three-repo interaction
+  # (TM Suite / TM Wiki / TM Cockpit); TM Cockpit isn't present in this
+  # session's environment to check its own side. Needs Angelus's read, not
+  # guessed at — left as backlog.
   ord-11-character-history-to-archive-pipeline: backlog
 
   # Follow-up — Dossier live-section restructure
