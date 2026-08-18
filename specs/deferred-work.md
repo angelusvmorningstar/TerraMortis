@@ -1,5 +1,36 @@
 # Deferred Work
 
+## Deferred from: code review of xpl-1-xp-ledger-write-hook (2026-08-15)
+
+- **No index on `xp_ledger.character_id`** — `GET /:id/xp_ledger` does a full collection scan plus
+  in-memory sort. Negligible at current data volume; deliberately not patched in this pass because
+  the fix (a boot-time `createIndex` call in `server/index.js`, matching the existing
+  `cyoa_passages`/`office_actions`/`contested_roll_requests` convention there) would land in a file
+  that already carries an unrelated, uncommitted, in-progress change from a concurrent session —
+  touching it risked entangling two unrelated diffs. Cheap follow-up once that file is clear.
+- **Pre-fetch → diff → write is not atomic (TOCTOU)** — two concurrent `PUT`s for the same character
+  can both diff against the same stale prior state, producing ledger rows that don't sum to the
+  real change. Mirrors this route's own pre-existing last-writer-wins behaviour on the character
+  document itself (no optimistic locking anywhere in `PUT /:id` today, ledger or not) — a real
+  architectural gap, not unique to this story, and low-probability given a 3-ST team. Fixing it
+  properly (findOneAndUpdate with `returnDocument:'before'` diffed against the pre-image, or a
+  transaction) is a bigger change appropriate to its own story if ever prioritised.
+- **Ledger covers only 4 of 5 XP-spend buckets** — `bp_creation.xp`, `humanity_xp`,
+  `xp_log.spent.willpower`/`.special`, and the `powers[]` categories (devotions/pacts/fighting
+  styles, via `xpSpentMerits`/`xpSpentPowers`) are real spend but out of this story's explicit
+  scope. The XP History section title now says so explicitly (code-review patch); extending
+  coverage is a natural follow-up story, not folded in here.
+- **Non-integer `.xp` values are not guarded against** — `Number(x) || 0` in `diffXpLedgerRows`
+  would carry a fractional or string-coerced XP value straight into a `delta`/`new_total` the
+  (currently unwired) schema declares `integer`. No known live data has this shape; worth a guard
+  if the schema is ever wired up for real.
+- **Order-dependent tests in `xpl-1-xp-ledger-api.test.js`** — several tests assert on state left
+  behind by an earlier test in the same file rather than establishing their own fixture. Matches
+  this project's existing test style elsewhere; not fixed here to avoid restructuring test flow
+  under time pressure the same day this story shipped.
+
+---
+
 ## Deferred from: DT Story UX (2026-04-17)
 
 - ~~**DT Story — taller narrative textarea**~~ — **FOLDED INTO Epic 1 (Story Surface Reform) as DTS1.10** during 2026-04-27 scoping pass. See `memory/project_dt_overhaul_2026-04-27.md`.

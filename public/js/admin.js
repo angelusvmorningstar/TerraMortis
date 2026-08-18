@@ -681,6 +681,7 @@ function openCharDetail(c) {
         <button class="dt-btn" id="cd-edit-toggle">Edit</button>
         <button class="dt-btn" id="cd-print">PDF</button>
         <button class="dt-btn" id="cd-export-json">JSON</button>
+        <input class="sh-edit-input" id="cd-xp-reason" style="display:none" placeholder="XP change reason (optional)" title="Set this before saving an ad-hoc XP correction, so the XP History records why - leave blank for a routine downtime-driven save">
         <button class="dt-btn" id="cd-save-api" style="display:none">Save to DB</button>
         <a class="dt-btn cd-player-view" href="/" id="cd-player-view">Player View</a>
         <button class="dt-btn" id="cd-link-player">Link Player</button>
@@ -702,8 +703,10 @@ function openCharDetail(c) {
     editorState.editMode = !editorState.editMode;
     const btn = document.getElementById('cd-edit-toggle');
     const saveBtn = document.getElementById('cd-save-api');
+    const reasonInput = document.getElementById('cd-xp-reason');
     btn.textContent = editorState.editMode ? 'View' : 'Edit';
     saveBtn.style.display = editorState.editMode ? '' : 'none';
+    if (reasonInput) reasonInput.style.display = editorState.editMode ? '' : 'none';
 
     // When entering edit mode, fetch fresh data from the server so that one
     // ST's session cannot silently overwrite another's recent saves with a
@@ -1021,12 +1024,20 @@ async function saveCharToApi() {
   const saveBtn = document.getElementById('cd-save-api');
   saveBtn.textContent = 'Saving...';
 
+  // xpl.1: an optional ST-entered reason for this save's XP delta(s), read
+  // fresh each save so it can never leak onto a later, unrelated save.
+  const reasonInput = document.getElementById('cd-xp-reason');
+  const xpReason = reasonInput ? reasonInput.value.trim() : '';
+
   try {
     const _id = c._id;
-    const updated = await apiPut('/api/characters/' + _id, buildSaveBody(c));
+    const body = buildSaveBody(c);
+    if (xpReason) body.xp_ledger_reason = xpReason;
+    const updated = await apiPut('/api/characters/' + _id, body);
     Object.assign(chars[idx], updated);
     selectedChar = chars[idx];
     editorState.dirty.clear();
+    if (reasonInput) reasonInput.value = '';
 
     const badge = document.getElementById('cd-dirty-badge');
     if (badge) badge.style.display = 'none';
@@ -1387,6 +1398,8 @@ Object.assign(window, {
     editorState.editMode = true;
     document.getElementById('cd-edit-toggle').textContent = 'View';
     document.getElementById('cd-save-api').style.display = '';
+    const reasonInput = document.getElementById('cd-xp-reason');
+    if (reasonInput) reasonInput.style.display = '';
     renderSheetWithOverlay(chars[editorState.editIdx]);
   },
   createNewCharacter, openPlayerLinkModal,

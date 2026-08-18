@@ -1232,16 +1232,21 @@ development_status:
   # Epic file: specs/epic-rlog-roll-logging.md
 
   # ── Epic XPL: XP Ledger ──────────────────────────────────────────────────
-  # NOTE: this epic's own entries also exist on the still-unmerged
-  # ms/xpl-1-xp-ledger-write-hook branch (xpl.1 was dev-storied and code-
-  # reviewed there before xpl.2's branch was cut fresh off origin/main, per
-  # this project's own one-branch-per-story convention) - the two copies will
-  # need reconciling at merge time, same as every other sprint-status.yaml
-  # conflict this project has resolved before. This copy reflects xpl.1 as
-  # DONE (code review closed, 136/136, not yet merged) and adds xpl.2.
-  epic-xpl: in-progress                                        # xpl.1 code-reviewed and done (see ms/xpl-1-xp-ledger-write-hook, not yet merged). xpl.2 story created 2026-08-15 after a real investigation found the epic's own original one-line scope wrong on two counts: the game_number:2 cycle (originally labelled "DT1" here, that identity now an open question - see xpl-2's own 2026-08-17 correction note) has zero structured XP data (0 of 25 submissions), and no cycle has any approval signal (approval_status is schema-declared but null on all 104 real xp-bearing submissions live-checked). Angelus's ruling: confirmed-only backfill (only write a row when the character's current live state corroborates the historic request; everything else surfaces in a report for manual review). xpl.2 corrected 2026-08-17 against cm-4's renumber (its scope is game_number 3-7, not 2-6 as originally recorded) - see the story's own STALE correction note before dev-storying. Full detail: specs/stories/xpl-2-historic-reconciliation.md.
+  # 2026-08-18: RECONCILED. xpl.1 had been dev-storied and code-reviewed on
+  # its own branch (ms/xpl-1-xp-ledger-write-hook, cut before cm-2/cm-2b/
+  # cm-4/cm-7/gdx-5/6/7/di-1/epic-bl) but never merged - found during a
+  # backlog-staleness sweep alongside the epic-bl surprise earlier this same
+  # session, same shape (done, reviewed, just never landed). Merged onto dev
+  # via a throwaway ms/xpl-1-reconcile-test branch, three conflicts resolved
+  # by hand (server/routes/characters.js: the write-once compare-and-set
+  # filter from BL-5 and xpl.1's own ledger-diff pre-fetch/insert are
+  # independent and now both run around the same findOneAndUpdate; this
+  # epic doc's own add/add conflict and this file's history header both took
+  # the newer, more complete HEAD side). Both stories now done - epic flipped
+  # to done.
+  epic-xpl: done                                               # xpl.1 + xpl.2 both done. xpl.1 reconciled onto dev 2026-08-18 (see note above); xpl.2 done 2026-08-18 (own review). Full detail: specs/epic-xpl-xp-ledger.md.
 
-  xpl-1-xp-ledger-write-hook: done                             # See ms/xpl-1-xp-ledger-write-hook branch for full history - dev-storied, code-reviewed (2 real High findings fixed, live-data-reproduced), 136/136 regression. Committed locally, not merged.
+  xpl-1-xp-ledger-write-hook: done                             # See specs/stories/xpl-1-xp-ledger-write-hook.md for full history - dev-storied, code-reviewed (2 real High findings fixed, live-data-reproduced), 136/136 regression. Reconciled onto dev 2026-08-18 (was stranded on ms/xpl-1-xp-ledger-write-hook, never merged); NOT pushed to origin.
   # 2026-08-18: dev-storied, then 3-layer code-reviewed same day. Script + 30
   # tests (grew from 20 post-review). DT1-identity question resolved (see
   # di-1's own flag — that's where the real finding landed). xpl.1 still not

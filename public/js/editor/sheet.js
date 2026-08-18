@@ -1891,6 +1891,57 @@ export async function patchOfficeMerits(c) {
   }
 }
 
+// xpl.1: ST-only, edit-mode-only read view of xp_ledger rows for the open
+// character. Reserve-slot-then-patch shape and module-scoped generation
+// guard both follow patchOfficeMerits directly above — see that function's
+// own doc comment for the reasoning (stale-view race prevention). Unlike
+// patchOfficeMerits this DOES show a "could not load" state on failure: it
+// is ST-facing audit tooling, not player-facing content that should stay
+// invisible rather than error, so a load failure is worth surfacing.
+let _xpLedgerGen = 0;
+
+// Code-review (2026-08-15): covers Attributes/Skills/Disciplines/Merits
+// only, not Blood Potency, Humanity, Willpower or the powers[] categories
+// (devotions/pacts/fighting styles) - rendered directly under the full XP
+// Spent breakdown, which sums all of those, so an unqualified "XP History"
+// label reads as a complete account when it is not. Named explicitly rather
+// than silently narrower.
+const XP_LEDGER_TITLE = 'XP History (Attributes / Skills / Disciplines / Merits)';
+
+export async function patchXpLedger(c) {
+  // Code-review (2026-08-15, Low): guard BEFORE bumping the counter - the
+  // original order let a no-op call (missing c/_id) cancel a real in-flight
+  // fetch's generation check.
+  if (!c || !c._id) return;
+  const gen = ++_xpLedgerGen;
+  const slotSel = '[data-xp-ledger-char="' + CSS.escape(String(c._id)) + '"]';
+
+  try {
+    const rows = await apiGet('/api/characters/' + c._id + '/xp_ledger');
+    if (gen !== _xpLedgerGen) return;
+
+    let bodyHtml;
+    if (!Array.isArray(rows) || !rows.length) {
+      bodyHtml = '<div class="sh-track-empty">No XP history recorded yet.</div>';
+    } else {
+      const rowsHtml = rows.map(r => {
+        const when = r.at ? new Date(r.at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '';
+        const sign = r.delta > 0 ? '+' : '';
+        return '<tr><td>' + esc(when) + '</td><td>' + esc(r.category || '') + '</td><td>' + esc(r.trait_name || '') +
+          '</td><td>' + esc(sign + r.delta) + ' XP</td><td>' + esc(r.reason || '') + '</td></tr>';
+      }).join('');
+      bodyHtml = '<table class="sh-xp-ledger-table"><tr><th>Date</th><th>Category</th><th>Trait</th><th>Δ</th><th>Reason</th></tr>' + rowsHtml + '</table>';
+    }
+
+    const sectionHtml = '<div class="sh-xp-breakdown"><div class="sh-sec-title">' + esc(XP_LEDGER_TITLE) + '</div>' + bodyHtml + '</div>';
+    document.querySelectorAll(slotSel).forEach(slot => { slot.innerHTML = sectionHtml; });
+  } catch {
+    if (gen !== _xpLedgerGen) return;
+    const failHtml = '<div class="sh-xp-breakdown"><div class="sh-sec-title">' + esc(XP_LEDGER_TITLE) + '</div><div class="sh-track-empty">Could not load XP history.</div></div>';
+    document.querySelectorAll(slotSel).forEach(slot => { slot.innerHTML = failHtml; });
+  }
+}
+
 export function shRenderStandingMerits(c, editMode) {
   const standM = (c.merits || []).filter(m => m.category === 'standing');
   if (!editMode && !standM.length) return '';
@@ -3175,6 +3226,9 @@ export function renderSheet(c, target = null) {
     const eT = xpEarned(c), sT = xpSpent(c);
     const _pt5 = xpPT5(c);
     h += '<div class="sh-xp-breakdown"><table><tr><th colspan="2">XP Earned</th><th colspan="2">XP Spent</th></tr><tr><td>Starting</td><td>' + xpStarting() + '</td><td>Attributes</td><td>' + xpSpentAttrs(c) + '</td></tr><tr><td>Humanity Drop</td><td>' + xpHumanityDrop(c) + '</td><td>Skills + Specs</td><td>' + xpSpentSkills(c) + '</td></tr><tr><td>Ordeals</td><td>' + xpOrdeals(c) + '</td><td>Merits</td><td>' + xpSpentMerits(c) + '</td></tr><tr><td>Game</td><td>' + xpGame(c) + '</td><td>Powers</td><td>' + xpSpentPowers(c) + '</td></tr>' + (_pt5 ? '<tr><td>PT \u25cf\u25cf\u25cf\u25cf\u25cf</td><td>' + _pt5 + '</td>' : '<tr><td></td><td></td>') + '<td>Special</td><td>' + xpSpentSpecial(c) + '</td></tr><tr class="xp-total-row"><td>Total Earned</td><td>' + eT + '</td><td>Total Spent</td><td>' + sT + '</td></tr><tr class="xp-total-row"><td colspan="3" style="text-align:right;padding-right:8px">Available</td><td>' + (eT - sT) + '</td></tr></table></div>';
+    // xpl.1: reserved slot, filled async by patchXpLedger (mirrors
+    // shRenderOfficeMerits/patchOfficeMerits's reserve-then-patch pattern).
+    h += '<div data-xp-ledger-char="' + esc(String(c._id)) + '"></div>';
     const ords = c.ordeals || []; if (ords.length) { h += '<div class="sh-ordeals">'; ords.forEach(o => { h += '<span class="sh-ordeal' + (o.complete ? ' done' : '') + '"><span class="sh-ordeal-dot">' + (o.complete ? '\u25CF' : '\u25CB') + '</span><span class="sh-ordeal-label">' + esc(o.name) + '</span></span>'; }); h += '</div>'; }
   }
   h += '<div class="sh-char-body"><div class="sh-char-left">';
@@ -3278,4 +3332,5 @@ export function renderSheet(c, target = null) {
   }
   const _scrollEl = el.closest('.sh-wrap') || el.parentElement || document.documentElement, _scrollTop = _scrollEl.scrollTop;
   el.innerHTML = h; _scrollEl.scrollTop = _scrollTop;
+  if (editMode) patchXpLedger(c); // un-awaited, mirrors patchOfficeMerits's own call shape
 }

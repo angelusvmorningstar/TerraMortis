@@ -498,6 +498,15 @@ body {
   text-decoration: none;
 }
 
+/* xpl.1: the optional XP-change-reason input sits inline among the header
+   action buttons - bounded width, matching the buttons' own compact sizing
+   rather than .sh-edit-input's block-context width:100% default. */
+.cd-header-actions .sh-edit-input {
+  width: 220px;
+  font-size: 11px;
+  padding: 4px 8px;
+}
+
 .cd-header-actions .dt-btn:hover {
   background: var(--accent-a8);
   border-color: var(--accent);
