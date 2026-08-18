@@ -346,7 +346,7 @@ development_status:
   # DI-2 held at backlog: source data location unknown — needs product input before ready-for-dev
   # DI-3 is an investigation-spike: produces an audit note, not a code change
 
-  epic-di: in-progress
+  epic-di: done                                                # 2026-08-18: all 3 children resolved (di-1 done, di-2 superseded, di-3 done) — epic flag was stale, found during this session's backlog-staleness sweep
 
   # 2026-08-18: RESOLVED — retired, not reworked. The 2026-08-18 finding that
   # the target chapter (game_number:1) was wrong led to checking whether
