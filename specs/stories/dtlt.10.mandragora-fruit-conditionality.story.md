@@ -2,7 +2,7 @@
 title: 'Mandragora Garden fruit conditionality — gate fruit and maintenance cost on a single switch'
 type: 'fix'
 created: '2026-04-30'
-status: 'awaiting-ruling'
+status: 'ready-for-dev'
 recommended_model: 'sonnet — implementation surface is bounded once the ST ruling lands; both possible readings are laid out below with concrete code-map paths'
 context:
   - specs/epic-dtlt-dt2-live-form-triage.md
@@ -11,7 +11,22 @@ context:
   - C:/Users/angel/.claude/projects/D--Terra-Mortis-TM-Suite/memory/reference_vitae_deficit.md
 ---
 
-> **⚠ BLOCKED ON ST TEAM RULING.** Two valid readings exist; the dev cannot implement until canon is decided. This story file documents both implementation paths so work can start the moment the ruling lands. **Sprint-status remains `backlog`** until then.
+> **✅ RULED — 2026-08-18 (Angelus, direct).** Neither Reading A nor Reading B. **Reading C: Mandragora
+> Garden simply provides `mandDots` Blood Fruit per cycle, unconditionally — no vitae maintenance
+> cost, no toggle, no gating on rite/sorcery usage at all.** This is a simplification, not a
+> conditionality fix: it rejects the errata's "pay 1V/dot for 2x in fruit" framing entirely in
+> favour of a flat per-dot passive benefit.
+>
+> **One interpretation flag, not silently assumed:** Angelus's own words were "just provide 1 blood
+> fruit per dot" — this addresses the FRUIT side explicitly. The maintenance COST side isn't
+> explicitly ruled on in those words. Given the story's own "Boundaries" constraint that cost and
+> fruit must gate symmetrically (not asymmetrically, which was the original bug), and given no
+> toggle/condition was described for either, this story interprets the ruling as **dropping the
+> vitae cost entirely too** — Mandragora Garden becomes a pure passive benefit, no upkeep. If that
+> reads wrong, correct at implementation or review; flagged here rather than guessed at silently.
+>
+> Reading A and Reading B below are KEPT for historical record (what was considered) but are NOT
+> what's being built — see "Reading C" in Tasks & Acceptance for the actual implementation.
 
 ## Intent
 
@@ -171,9 +186,35 @@ if (mandActive) {
 
 Skip if Reading B — the per-rite Mandragora chips on the rite slot are visible context enough.
 
+### Reading C — RULED, 2026-08-18: unconditional flat fruit, no cost
+
+**This is what actually gets built.** Simpler than either A or B: remove the cost line entirely,
+make the fruit line unconditional.
+
+`public/js/tabs/downtime-form.js:5687-5690` — the fruit calc becomes just the existing unconditional
+line, kept as-is (no gating helper needed at all):
+```js
+const mandDots = effectiveDomainDots(c, 'Mandragora Garden');
+const bloodFruit = mandDots; // unconditional per-dot benefit, no maintenance cost (2026-08-18 ruling)
+```
+
+`:5776` — **delete** the Mandragora cost line from `negMods` entirely (do not push a `-mandDots` row
+under any condition):
+```js
+// Mandragora Garden maintenance cost REMOVED 2026-08-18 (Angelus's ruling): the garden is a flat
+// per-dot Blood Fruit benefit with no vitae upkeep. Do not reintroduce a cost line here.
+```
+
+The fruit row at `:5799` (conditioned on `bloodFruit > 0`) is unchanged — it already renders
+correctly for a flat, always-positive `bloodFruit`.
+
+No new persisted fields, no new UI, no toggle, no per-rite linkage. The per-rite Mandragora
+bonus-dice grant at `:3771` is a separate effect, untouched, per the story's own "Never" constraints.
+
 ## Tasks & Acceptance
 
-> **Both reading paths share the "shared changes" tasks. The reading-specific tasks ship only the chosen path. Do not implement both.**
+> **Reading C (ruled 2026-08-18) is the only path to implement.** Reading A/B tasks below are kept
+> for historical record only — do not build them.
 
 **Shared (both readings):**
 
@@ -196,7 +237,23 @@ Skip if Reading B — the per-rite Mandragora chips on the rite slot are visible
 - [ ] Confirm existing re-render on per-rite mandragora checkbox click (`:2462-2469`) still fires; no new handler needed.
 - [ ] Edge case for Theban-only Mandragora-owning char: confirm fruit suppression is intended (per Ask First).
 
-**Acceptance Criteria (template — fill in after ruling):**
+**Reading C (ruled 2026-08-18 — this is what ships):**
+
+- [ ] Delete the unconditional `-mandDots` cost push at `:5776` — no cost row, ever, under any condition.
+- [ ] Confirm the fruit calc at `:5687-5690` stays `bloodFruit = mandDots` (already correct — no change needed, just confirm no gating creeps in).
+- [ ] Confirm the fruit row at `:5799` renders whenever `bloodFruit > 0` (already correct).
+- [ ] Remove/update any in-code comment that describes the maintenance cost as intentional or pending a gate — replace with a note citing this ruling (2026-08-18) so a future reader doesn't reintroduce it as a "fix".
+- [ ] Manual smoke: character with Mandragora Garden N shows `+N` Blood Fruit and NO cost row, regardless of sorcery/rite activity that cycle.
+- [ ] Manual smoke: character without the merit shows neither row.
+- [ ] Legacy DT 1/DT 2 submissions unaffected (immutable, not re-rendered under the new logic retroactively).
+
+**Acceptance Criteria (Reading C — supersedes the template below):**
+
+- Given a character with Mandragora Garden rated N, when the vitae projection renders, then it shows `+N` Blood Fruit and no Mandragora cost row — regardless of sorcery, rite, or maintenance activity that cycle.
+- Given a character without Mandragora Garden, when the form renders, then no Mandragora-related row appears at all.
+- Given a legacy submission already published under the old unconditional-cost-and-fruit logic, when re-opened for ST review, then the published outcome text is unchanged (immutable) — this fix only changes future rendering, not past records.
+
+**Acceptance Criteria template (Reading A/B — historical, not built):**
 
 - Given a character with Mandragora Garden, when they DO NOT activate the gate (Reading A: don't tick maintain; Reading B: no rite uses mandragora), then the vitae projection shows neither the Mandragora cost row nor the Blood Fruit row.
 - Given the same character, when they DO activate the gate, then the projection shows `-mandDots` cost AND `+mandDots` Blood Fruit. Both rows present.

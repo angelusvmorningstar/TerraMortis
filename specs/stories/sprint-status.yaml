@@ -885,8 +885,22 @@ development_status:
   dtlt-7-st-processing-skill-acq-parity: done             # T27
   dtlt-8-resources-multi-acquisition: done                # T26
   dtlt-9-archive-all-published-cycles: done               # T1 (specs Option B; A/C alternatives in story)
-  dtlt-10-mandragora-fruit-conditionality: backlog          # T13 — blocked on ST ruling (story file specced for both readings A/B; see dtlt.10.mandragora-fruit-conditionality.story.md)
-  dtlt-11-rote-barrens-ambience-rule: backlog               # T16 — blocked on ST ruling
+  # 2026-08-18: RULED, Angelus's own words: "Mandragora garden just provide 1
+  # blood fruit per dot." Neither Reading A nor B — "Reading C": flat, always-
+  # on mandDots fruit, no vitae maintenance cost at all. Story file updated
+  # with the ruling, the Reading C code map, and its own tasks/ACs. One
+  # interpretation flagged in the story file (cost side wasn't explicitly
+  # named in the ruling; interpreted as dropped too, for symmetry) — flagged,
+  # not silently assumed.
+  dtlt-10-mandragora-fruit-conditionality: ready-for-dev    # ruled 2026-08-18 — Reading C (flat, no cost) — see story file
+  # 2026-08-18: CLOSED AS MOOT, Angelus's own confirmation, verified against
+  # current code. The redesigned downtime form (dt-form.22, ROTE moved to a
+  # personal-project-action variant) already locks the rote feed to the SAME
+  # territory type as the main feed ("Rote feed must use the same territory
+  # type as your main feed. Barrens locks both." — downtime-form.js:3968).
+  # The "which ambience wins" conflict T16 asked about can no longer occur
+  # at all — confirmed in code, not just taken on Angelus's word.
+  dtlt-11-rote-barrens-ambience-rule: superseded  # premise moot — rote/main territory ambience can no longer differ, see downtime-form.js:3958-3970
   epic-dtlt-retrospective: optional
 
   # ============================================================
@@ -1245,7 +1259,7 @@ development_status:
   # mentions vitae or willpower). GitHub: epic #981, gdx-1 #982, gdx-2 #983,
   # gdx-3 #984, gdx-4 #985, gdx-5 #986, gdx-6 #987, gdx-7 #988, gdx-8 #989,
   # gdx-9 #990, gdx-10 #991.
-  epic-gdx: in-progress                                        # gdx-5/6/7 done 2026-08-15 (Group A/B). Seven sibling stories (gdx-1..4, gdx-8..10) still backlog, tracked here as placeholders - not yet storied, no epic doc written locally.
+  epic-gdx: in-progress                                        # gdx-5/6/7/10 done. Six sibling stories (gdx-1..4, gdx-8, gdx-9) genuinely backlog (audited 2026-08-18: real open GitHub issues #982-985/989/990, none secretly done, none TM Wiki-redundant), tracked here as placeholders - not yet storied, no epic doc written locally.
 
   gdx-1-mobile-zoom: backlog                                   # #982. Group A: mobile hygiene, independent of B/C.
   gdx-2-mobile-type-scale: backlog                              # #983. Group A.
@@ -1256,4 +1270,9 @@ development_status:
   gdx-7-apply-costs-on-roll: done                                # #988. Group B. THE vitae/willpower one-tap-spend feature. Both prerequisites (gdx-5, gdx-6) done and committed (d4abeeec). Story: gdx-7-apply-costs-on-roll.md. Major finding during investigation: the tracker_state write path is ALREADY player-writable server-side (server/routes/tracker.js's own canAccess()) - CLAUDE.md's "ST-auth only" claim was stale (corrected this story), as was this session's own earlier answer to Angelus about the roller having no player-facing spend path. Dev-storied to completion 2026-08-15: pools.js threads vitae_cost/willpower_cost (?? null, 0-vs-null preserved); roll-v2.js gained 3 pure functions (spendableCost/canAffordCost/rollButtonLabel) + doRoll() spending once via the already-built trackerAdj() before rolling. Internal 3-layer code review same day: 0 decision-needed, 6 patch (all applied - notably doRoll() now awaits ensureTrackerLoaded before spending, since pickChar()/a sheet-view setter in app.js set rollChar without loading the tracker first, contradicting the story's own Dev Notes claim; added a double-tap re-entrancy guard; sequenced the two trackerAdj calls; separated a power's own WP cost from the WP-boost chip's in spendableCost/rollButtonLabel, fixing a real AC3/AC6 violation the dev round shipped undisclosed), 4 defer (fire-and-forget writes, non-atomic two-field spend, a TOCTOU balance race - all pre-existing architecture explicitly out of scope; plus the test-harness/prod auth-mount drift found during dev-story), 10 dismissed with evidence (several matched AC3/AC5's own literal, deliberate design). Same-day post-review follow-up: Angelus clarified the actual original ask was a STANDALONE Vitae-spend button + Willpower-spend button on the Dice tab, not the roll-button relabeling alone - added spendVitae()/spendWillpower() (same trackerAdj chain, own game_in_progress guard, not just UI hide) to roll-v2.js, wired in index.html, exposed in app.js. 30/30 final regression, 108/108 alongside gdx-5/gdx-6/api-tracker-state/api-app-settings/dbo-3. Committed 074e8d04, PR #1183 merged to main (50c5c994), dev synced (3361d07d) - Angelus's explicit "commit merge and push". Live-tested during Game 7: tm-use-new-dice-roller defaults off per-device (phone never had it set) and game_in_progress had never actually been toggled live (app_settings.global only carried st_mods_enabled) - both found and fixed live, game_in_progress flipped true then back to false post-game, but the game ended before either fix landed in time for the feature to actually be used.
   gdx-8-roll-history: backlog                                   # #989. Group B, after gdx-7.
   gdx-9-single-scroll-sheet: backlog                             # #990. Group C, after Group A.
-  gdx-10-legacy-retirement: backlog                              # #991. Group C, after Group A.
+  # 2026-08-18: DONE, found in the epic-wide backlog audit. GitHub issue
+  # #991 is closed — its own AC (delete player.html/player.js, no console
+  # errors) was satisfied by a different issue's commit (#1047 USF Phase 0
+  # Stage B, 5fdaa032, 2026-07-28), the same one that deleted player.html
+  # while feat-6 was investigated this session. Tracker never caught up.
+  gdx-10-legacy-retirement: done                                 # #991 closed — satisfied by #1047 (5fdaa032), 2026-08-18

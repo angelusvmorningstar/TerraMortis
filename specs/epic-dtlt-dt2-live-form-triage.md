@@ -474,18 +474,29 @@ So that "whilst feeding the garden" (per RAW) is enforced and players can't clai
 
 #### Story 1.11: Rote feeding in Barrens — ambience policy
 
+> **✅ CLOSED AS MOOT — 2026-08-18.** The downtime form was redesigned since this story was written
+> (dt-form.22: ROTE moved from a feeding-section sub-block to a personal-project-action variant).
+> The rote territory picker is now hard-locked to the same territory type as the main feed —
+> *"Rote feed must use the same territory type as your main feed. Barrens locks both."*
+> (`public/js/tabs/downtime-form.js:3968`, verified directly in code, not assumed). The "best of two
+> ambience modifiers" conflict this story worried about can no longer occur at all — there is only
+> ever one ambience value, because there is only ever one territory. No ruling needed; nothing to
+> build. `dtlt-11` closed as superseded in `sprint-status.yaml`.
+
 As a Storyteller,
 I want a clear rule for how rote-feed ambience interacts with main-feed ambience,
 So that rote-in-Barrens is not a free escape hatch from territorial penalty (or, if intentional, the rule is documented in-form).
 
 **Implements:** T16.
 
-**Status:** **Blocked on ST team ruling.** Current rule at `downtime-form.js:5732-5742` is "best of two ambience modifiers wins" — Barrens (-4) is always dominated, so rote-in-Barrens is consequence-free. ST team needs to decide:
-1. Keep best-of-two (current; document for players).
-2a. Use rote's ambience always.
-2b. Use main's ambience always.
-2c. Use worst of two (penalise risk-taking).
-2d. Sum or average.
+**Status (as originally written — superseded, see closure note above):** ~~Blocked on ST team
+ruling. Current rule at `downtime-form.js:5732-5742` is "best of two ambience modifiers wins" —
+Barrens (-4) is always dominated, so rote-in-Barrens is consequence-free. ST team needs to decide:~~
+1. ~~Keep best-of-two (current; document for players).~~
+2a. ~~Use rote's ambience always.~~
+2b. ~~Use main's ambience always.~~
+2c. ~~Use worst of two (penalise risk-taking).~~
+2d. ~~Sum or average.~~
 
 **When unblocked:**
 
