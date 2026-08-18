@@ -1,0 +1,518 @@
+diff --git a/public/js/data/accessors.js b/public/js/data/accessors.js
+index 1b532a6d..5b0fc86b 100644
+--- a/public/js/data/accessors.js
++++ b/public/js/data/accessors.js
+@@ -287,13 +287,12 @@ export function calcVitaeMax(c) {
+ // ── City Status (base + title bonus) ──
+ 
+ import { TITLE_STATUS_BONUS } from './constants.js';
++import { calcEffectiveCityStatus, regentAmbienceBonusFor } from './city-status-calc.js';
+ 
+ export function titleStatusBonus(c) {
+   return TITLE_STATUS_BONUS[c.court_category] || 0;
+ }
+ 
+-const REGENT_AMBIENCE_BONUS = { 'Curated': 1, 'Verdant': 1, 'The Rack': 2 };
+-
+ // Module-level territories store, set by load sites via setStatusTerritories
+ // (or implicitly kept in sync with the apps' own caches). Used by the City
+ // Status calc path to recompute the regent ambience bonus from fresh data
+@@ -326,13 +325,14 @@ export function getStoredTerritories() {
+ // Bonus is regent-only by design; do not extend to lieutenant_id without an
+ // explicit game-rules decision.
+ export function regentAmienceBonus(c) {
+-  return REGENT_AMBIENCE_BONUS[getRegentTerritoryFor(c)?.ambience] || 0;
++  return regentAmbienceBonusFor(getRegentTerritoryFor(c)?.ambience);
+ }
+ 
+-// Clamped to 10 per issue #13 Q-B (2026-05-05) — system cap on City Status.
+-// Display dot tracks already cap at 10; this matches the calc to the display
+-// so prereq checks and downstream consumers see the same value.
++// otc.2 (2026-08-12): the actual arithmetic (title bonus + regent-ambience
++// bonus + the 10-cap) now lives in the pure, server-importable
++// city-status-calc.js — the server's own budget check was silently using a
++// different, incomplete formula. This wrapper preserves the exact
++// single-argument signature every existing call site already uses.
+ export function calcCityStatus(c) {
+-  const raw = (c.status?.city || 0) + titleStatusBonus(c) + regentAmienceBonus(c);
+-  return Math.min(raw, 10);
++  return calcEffectiveCityStatus(c, getRegentTerritoryFor(c)?.ambience);
+ }
+diff --git a/public/js/tabs/office-tab.js b/public/js/tabs/office-tab.js
+index 9fb2ec0f..9ea69269 100644
+--- a/public/js/tabs/office-tab.js
++++ b/public/js/tabs/office-tab.js
+@@ -3,6 +3,7 @@ import { esc, displayName } from '../data/helpers.js';
+ import { apiGet, apiPost } from '../data/api.js';
+ import { calcCityStatus } from '../data/accessors.js';
+ import { charPicker, setCharPickerSources } from '../components/character-picker.js';
++import { getGamePhaseCycle } from '../downtime/db.js';
+ 
+ export function renderOfficeTab(el, char, chars = []) {
+   if (!el || !char) { if (el) el.innerHTML = '<div class="dtl-empty">No character loaded.</div>'; return; }
+@@ -74,11 +75,19 @@ async function _wireHosActions(el, char, chars) {
+   const btnArea     = el.querySelector('.office-action-btns');
+   const msgEl       = el.querySelector('.office-action-msg');
+ 
+-  // Fetch current game session
++  // Fetch current game session (budget grouping) and the live game-phase
++  // cycle. otc.2: Status Actions only fire while a game is actually live —
++  // getGamePhaseCycle is the existing "is the game live right now" read
++  // (was already defined, unused, in db.js). Deliberately not
++  // getFeedingCycle, which is broader (prep|game) and gates feeding, not
++  // Status Actions.
+   let session = null;
+   try { session = await apiGet('/api/office_actions/latest_session'); } catch { /* ignore */ }
+   const sessionId = session ? String(session._id) : null;
+ 
++  let liveCycle = null;
++  try { liveCycle = await getGamePhaseCycle(); } catch { /* ignore */ }
++
+   // Load prior actions by this actor this session
+   let priorActions = [];
+   if (sessionId) {
+@@ -96,6 +105,11 @@ async function _wireHosActions(el, char, chars) {
+   }
+ 
+   function renderBudget() {
++    if (!liveCycle) {
++      budgetLine.textContent = 'Available once the game session opens';
++      budgetLine.className = 'office-budget-line';
++      return;
++    }
+     if (!sessionId) {
+       budgetLine.textContent = `${budget} actions available per session — no active game session found`;
+       budgetLine.className = 'office-budget-line';
+@@ -129,7 +143,7 @@ async function _wireHosActions(el, char, chars) {
+ 
+   function renderButtons() {
+     btnArea.innerHTML = '';
+-    if (!selectedChar || !sessionId) return;
++    if (!liveCycle || !selectedChar || !sessionId) return;
+ 
+     const targetStatus = selectedChar.status?.city || 0;
+     const alreadyPaid  = priorActions.some(
+@@ -168,7 +182,7 @@ async function _wireHosActions(el, char, chars) {
+   }
+ 
+   async function doAction(actionType) {
+-    if (!selectedChar || !sessionId) return;
++    if (!liveCycle || !selectedChar || !sessionId) return;
+     msgEl.textContent = 'Saving…';
+     try {
+       const result = await apiPost('/api/office_actions', {
+diff --git a/server/routes/office-actions.js b/server/routes/office-actions.js
+index 6accb53a..d385f6d9 100644
+--- a/server/routes/office-actions.js
++++ b/server/routes/office-actions.js
+@@ -3,11 +3,12 @@ import { getCollection } from '../db.js';
+ import { ObjectId } from 'mongodb';
+ import { validate } from '../middleware/validate.js';
+ import { officeActionSchema } from '../schemas/office_action.schema.js';
++import { calcEffectiveCityStatus } from '../../public/js/data/city-status-calc.js';
++import { findRegentTerritory } from '../../public/js/data/helpers.js';
++import { cyclePhase } from '../../public/js/downtime/cycle-phase.js';
+ 
+-const TITLE_STATUS_BONUS = {
+-  'Head of State': 3, 'Primogen': 2, 'Socialite': 1, 'Enforcer': 1, 'Administrator': 1,
+-};
+ const PAID_TYPES = new Set(['raise', 'lower']);
++const GATED_TYPES = new Set(['raise', 'lower', 'grant_first', 'strip_last']);
+ 
+ const router = Router();
+ const col    = () => getCollection('office_actions');
+@@ -40,6 +41,20 @@ router.get('/', async (req, res) => {
+ router.post('/', validate(officeActionSchema), async (req, res) => {
+   const { game_session_id, actor_id, target_id, action_type } = req.body;
+ 
++  // otc.2 (2026-08-12): Status Actions must only fire while a game is live.
++  // Checked first, before any other validation — a Status Action submitted
++  // outside game phase is rejected outright regardless of whether the actor,
++  // target, or budget would otherwise be valid. Mirrors the server-side
++  // convention already used elsewhere (server/routes/downtime.js): cyclePhase
++  // called with no second argument trusts the phase-aware lane only.
++  if (GATED_TYPES.has(action_type)) {
++    const cycles = await getCollection('downtime_cycles').find().toArray();
++    const gameCycles = cycles.filter(c => cyclePhase(c) === 'game');
++    const liveCycle = gameCycles.sort((a, b) => (b.game_number || 0) - (a.game_number || 0))[0] || null;
++    if (!liveCycle)
++      return res.status(403).json({ error: 'FORBIDDEN', message: 'No game session is currently in progress' });
++  }
++
+   if (actor_id === target_id)
+     return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'Cannot target yourself' });
+ 
+@@ -54,7 +69,12 @@ router.post('/', validate(officeActionSchema), async (req, res) => {
+ 
+   // Budget + uniqueness checks for paid actions
+   if (PAID_TYPES.has(action_type)) {
+-    const budget = (actor.status?.city || 0) + (TITLE_STATUS_BONUS[actor.court_category] || 0);
++    // otc.2: was (actor.status.city + TITLE_STATUS_BONUS) only, silently
++    // dropping the regent-ambience bonus and the 10-cap the client already
++    // displays. Now the same effective-City-Status calculation as the client.
++    const territories = await getCollection('territories').find().toArray();
++    const regentAmbience = findRegentTerritory(territories, actor)?.ambience;
++    const budget = calcEffectiveCityStatus(actor, regentAmbience);
+     const used = await col().countDocuments({
+       game_session_id, actor_id, action_type: { $in: ['raise', 'lower'] },
+     });
+diff --git a/server/tests/helpers/test-app.js b/server/tests/helpers/test-app.js
+index f5b2d817..ad92ac59 100644
+--- a/server/tests/helpers/test-app.js
++++ b/server/tests/helpers/test-app.js
+@@ -32,6 +32,7 @@ import devlogRouter from '../../routes/devlog.js';
+ import buildEquipmentCatalogueRouter from '../../routes/equipment-catalogue.js';
+ import { chaptersRouter } from '../../routes/chapters.js';
+ import cyoaRouter from '../../routes/cyoa.js';
++import officeActionsRouter from '../../routes/office-actions.js';
+ 
+ /**
+  * Create a test app with a mock user injected via header.
+@@ -115,6 +116,8 @@ export function createTestApp() {
+   app.use('/api/chapters', mockAuth, noCache(), chaptersRouter);
+   // Issue #971: CYOA cross-project write-back
+   app.use('/api/cyoa', mockAuth, noCache(), cyoaRouter);
++  // Issue #691 / otc.2: office actions (Status Actions)
++  app.use('/api/office_actions', mockAuth, noCache(), officeActionsRouter);
+ 
+   return app;
+ }
+diff --git a/public/js/data/city-status-calc.js b/public/js/data/city-status-calc.js
+new file mode 100644
+index 00000000..e69c9d98
+--- /dev/null
++++ b/public/js/data/city-status-calc.js
+@@ -0,0 +1,37 @@
++/**
++ * Effective City Status — the one shared calculation, importable by both the
++ * client (public/js/data/accessors.js) and the server
++ * (server/routes/office-actions.js), so there is exactly one implementation
++ * of the budget formula, not two independently-maintained copies. Mirrors
++ * the public/js/downtime/cycle-phase.js precedent for the same reason.
++ *
++ * Deliberately imports only public/js/data/constants.js, a verified
++ * zero-import leaf module — accessors.js itself is NOT safe to import
++ * server-side (its getRulesCache import chain transitively reads
++ * location.hostname at module scope via public/js/data/api.js and crashes
++ * under Node/vitest, the same landmine issue-1141 routed around once
++ * already via a different chain).
++ */
++
++import { TITLE_STATUS_BONUS } from './constants.js';
++
++// Bonus from regenting an ambience territory. Regent-only by design;
++// lieutenants receive no bonus (issue #13 Q-A, 2026-05-05).
++export const REGENT_AMBIENCE_BONUS = Object.freeze({ 'Curated': 1, 'Verdant': 1, 'The Rack': 2 });
++
++export function titleStatusBonusFor(courtCategory) {
++  return TITLE_STATUS_BONUS[courtCategory] || 0;
++}
++
++export function regentAmbienceBonusFor(ambience) {
++  return REGENT_AMBIENCE_BONUS[ambience] || 0;
++}
++
++/**
++ * @param {object} c - character-like object with status.city and court_category
++ * @param {string|null|undefined} regentAmbience - ambience of the territory c regents, if any
++ */
++export function calcEffectiveCityStatus(c, regentAmbience) {
++  const raw = (c?.status?.city || 0) + titleStatusBonusFor(c?.court_category) + regentAmbienceBonusFor(regentAmbience);
++  return Math.min(raw, 10);
++}
+diff --git a/server/tests/otc-2-city-status-calc.test.js b/server/tests/otc-2-city-status-calc.test.js
+new file mode 100644
+index 00000000..31d1ea77
+--- /dev/null
++++ b/server/tests/otc-2-city-status-calc.test.js
+@@ -0,0 +1,70 @@
++import { describe, it, expect } from 'vitest';
++import {
++  calcEffectiveCityStatus,
++  titleStatusBonusFor,
++  regentAmbienceBonusFor,
++  REGENT_AMBIENCE_BONUS,
++} from '../../public/js/data/city-status-calc.js';
++
++describe('otc.2 — city-status-calc.js (pure, shared client/server)', () => {
++  describe('titleStatusBonusFor', () => {
++    it('returns the correct bonus per court category', () => {
++      expect(titleStatusBonusFor('Head of State')).toBe(3);
++      expect(titleStatusBonusFor('Primogen')).toBe(2);
++      expect(titleStatusBonusFor('Socialite')).toBe(1);
++      expect(titleStatusBonusFor('Enforcer')).toBe(1);
++      expect(titleStatusBonusFor('Administrator')).toBe(1);
++    });
++
++    it('returns 0 for no office / unknown category', () => {
++      expect(titleStatusBonusFor(undefined)).toBe(0);
++      expect(titleStatusBonusFor(null)).toBe(0);
++      expect(titleStatusBonusFor('Not A Real Office')).toBe(0);
++    });
++  });
++
++  describe('regentAmbienceBonusFor', () => {
++    it('returns the correct bonus per ambience', () => {
++      expect(regentAmbienceBonusFor('Curated')).toBe(1);
++      expect(regentAmbienceBonusFor('Verdant')).toBe(1);
++      expect(regentAmbienceBonusFor('The Rack')).toBe(2);
++    });
++
++    it('returns 0 for no ambience / not a regent', () => {
++      expect(regentAmbienceBonusFor(undefined)).toBe(0);
++      expect(regentAmbienceBonusFor(null)).toBe(0);
++      expect(regentAmbienceBonusFor('Some Other Ambience')).toBe(0);
++    });
++
++    it('REGENT_AMBIENCE_BONUS is frozen (single canonical source, not re-copyable)', () => {
++      expect(Object.isFrozen(REGENT_AMBIENCE_BONUS)).toBe(true);
++    });
++  });
++
++  describe('calcEffectiveCityStatus — the regression this story fixes', () => {
++    it('base dots only, no office, no ambience', () => {
++      const c = { status: { city: 4 }, court_category: undefined };
++      expect(calcEffectiveCityStatus(c, null)).toBe(4);
++    });
++
++    it('base dots + title bonus (the everyday case)', () => {
++      const c = { status: { city: 4 }, court_category: 'Head of State' };
++      expect(calcEffectiveCityStatus(c, null)).toBe(7); // matches the "7 of 7" example from live scoping
++    });
++
++    it('base dots + title bonus + regent-ambience bonus (the case the old server calc dropped)', () => {
++      const c = { status: { city: 4 }, court_category: 'Head of State' };
++      expect(calcEffectiveCityStatus(c, 'The Rack')).toBe(9); // 4 + 3 + 2
++    });
++
++    it('caps at 10 even when the raw sum would exceed it (the other thing the old server calc dropped)', () => {
++      const c = { status: { city: 10 }, court_category: 'Head of State' };
++      expect(calcEffectiveCityStatus(c, 'The Rack')).toBe(10); // 10 + 3 + 2 = 15, capped to 10
++    });
++
++    it('handles a character with no status object at all', () => {
++      const c = { court_category: 'Primogen' };
++      expect(calcEffectiveCityStatus(c, null)).toBe(2);
++    });
++  });
++});
+diff --git a/server/tests/otc-2-office-actions-api.test.js b/server/tests/otc-2-office-actions-api.test.js
+new file mode 100644
+index 00000000..f5f3cb03
+--- /dev/null
++++ b/server/tests/otc-2-office-actions-api.test.js
+@@ -0,0 +1,214 @@
++/**
++ * otc.2 — real behavioural coverage for the two defects fixed in
++ * server/routes/office-actions.js: the budget calculation (was missing the
++ * regent-ambience bonus and the 10-dot cap) and the game-phase gate (Status
++ * Actions previously had no relationship to the live game state at all).
++ *
++ * feature.691.hos-city-status-power.test.js proves the ROUTE SOURCE contains
++ * certain calls (source-text/regex assertions); it never drives a real
++ * request. This file drives real requests against a live mounted app +
++ * tm_suite_test, per the pattern established in oath-b-d6-api-roundtrip.test.js.
++ *
++ * DB-backed: skips wholesale when MongoDB is unreachable (setup-env.js/db.js
++ * hard-override MONGODB_DB to *_test under vitest).
++ */
++
++import { describe, it, expect, beforeAll, afterAll } from 'vitest';
++import request from 'supertest';
++import { createTestApp, stUser } from './helpers/test-app.js';
++import { setupDb, teardownDb } from './helpers/db-setup.js';
++import { getCollection } from '../db.js';
++import { ObjectId } from 'mongodb';
++
++let app;
++const NAME_PREFIX = 'OTC-2 Probe';
++const GAME_SESSION_ID = 'otc-2-test-session';
++
++async function cleanup() {
++  await getCollection('characters').deleteMany({ name: { $regex: `^${NAME_PREFIX}` } });
++  await getCollection('territories').deleteMany({ name: { $regex: `^${NAME_PREFIX}` } });
++  await getCollection('downtime_cycles').deleteMany({ label: { $regex: `^${NAME_PREFIX}` } });
++  await getCollection('office_actions').deleteMany({ game_session_id: GAME_SESSION_ID });
++}
++
++async function seedActor({ city = 0, regentAmbience = null } = {}) {
++  const actorDoc = {
++    name: `${NAME_PREFIX} Actor ${Date.now()}_${Math.random()}`,
++    court_category: 'Head of State',
++    status: { city },
++    retired: false,
++  };
++  const { insertedId: actorId } = await getCollection('characters').insertOne(actorDoc);
++
++  if (regentAmbience) {
++    await getCollection('territories').insertOne({
++      name: `${NAME_PREFIX} Territory`,
++      slug: 'otc-2-probe-territory',
++      ambience: regentAmbience,
++      regent_id: String(actorId),
++    });
++  }
++  return actorId;
++}
++
++async function seedTargets(count, startingCity = 1) {
++  const docs = Array.from({ length: count }, (_, i) => ({
++    name: `${NAME_PREFIX} Target ${Date.now()}_${i}_${Math.random()}`,
++    status: { city: startingCity },
++    retired: false,
++  }));
++  const result = await getCollection('characters').insertMany(docs);
++  return Object.values(result.insertedIds);
++}
++
++async function seedGameCycle(gameNumber = 900) {
++  const { insertedId } = await getCollection('downtime_cycles').insertOne({
++    label: `${NAME_PREFIX} Cycle`,
++    phase: 'game',
++    game_number: gameNumber,
++  });
++  return insertedId;
++}
++
++beforeAll(async () => {
++  await setupDb();
++  app = createTestApp();
++  await cleanup();
++});
++
++afterAll(async () => {
++  await cleanup();
++  await teardownDb();
++});
++
++describe('otc.2 — POST /api/office_actions phase gate', () => {
++  it('rejects a raise with 403 when no cycle is in game phase', async () => {
++    await getCollection('downtime_cycles').deleteMany({ label: { $regex: `^${NAME_PREFIX}` } });
++    const actorId = await seedActor({ city: 3 });
++    const [targetId] = await seedTargets(1);
++
++    const res = await request(app).post('/api/office_actions').set('X-Test-User', stUser()).send({
++      game_session_id: GAME_SESSION_ID,
++      actor_id: String(actorId),
++      target_id: String(targetId),
++      action_type: 'raise',
++    });
++
++    expect(res.status).toBe(403);
++    expect(res.body.message).toMatch(/no game session/i);
++  });
++
++  it('rejects a raise with 403 when the only cycle is in prep phase (not game)', async () => {
++    await getCollection('downtime_cycles').deleteMany({ label: { $regex: `^${NAME_PREFIX}` } });
++    await getCollection('downtime_cycles').insertOne({
++      label: `${NAME_PREFIX} Cycle`, phase: 'prep', game_number: 901,
++    });
++    const actorId = await seedActor({ city: 3 });
++    const [targetId] = await seedTargets(1);
++
++    const res = await request(app).post('/api/office_actions').set('X-Test-User', stUser()).send({
++      game_session_id: GAME_SESSION_ID,
++      actor_id: String(actorId),
++      target_id: String(targetId),
++      action_type: 'raise',
++    });
++
++    expect(res.status).toBe(403);
++  });
++
++  it('rejects grant_first and strip_last too, not just the paid types', async () => {
++    await getCollection('downtime_cycles').deleteMany({ label: { $regex: `^${NAME_PREFIX}` } });
++    const actorId = await seedActor({ city: 3 });
++    const [target0, target1] = await seedTargets(2, 0);
++    await getCollection('characters').updateOne({ _id: target1 }, { $set: { 'status.city': 1 } });
++
++    const grantRes = await request(app).post('/api/office_actions').set('X-Test-User', stUser()).send({
++      game_session_id: GAME_SESSION_ID, actor_id: String(actorId), target_id: String(target0), action_type: 'grant_first',
++    });
++    expect(grantRes.status).toBe(403);
++
++    const stripRes = await request(app).post('/api/office_actions').set('X-Test-User', stUser()).send({
++      game_session_id: GAME_SESSION_ID, actor_id: String(actorId), target_id: String(target1), action_type: 'strip_last',
++    });
++    expect(stripRes.status).toBe(403);
++  });
++
++  it('allows a raise once a cycle is in game phase', async () => {
++    await seedGameCycle(902);
++    const actorId = await seedActor({ city: 3 });
++    const [targetId] = await seedTargets(1);
++
++    const res = await request(app).post('/api/office_actions').set('X-Test-User', stUser()).send({
++      game_session_id: GAME_SESSION_ID,
++      actor_id: String(actorId),
++      target_id: String(targetId),
++      action_type: 'raise',
++    });
++
++    expect(res.status).toBe(201);
++  });
++});
++
++describe('otc.2 — POST /api/office_actions budget = effective City Status (the regression)', () => {
++  it('includes the regent-ambience bonus, which the old formula silently dropped', async () => {
++    await getCollection('downtime_cycles').deleteMany({ label: { $regex: `^${NAME_PREFIX}` } });
++    await seedGameCycle(903);
++
++    // city 0 + Head of State title (+3) + Verdant ambience (+1) = 4.
++    // The OLD formula (base + title only, no ambience) computed budget 3 —
++    // the 4th raise below would have been rejected under the bug.
++    const actorId = await seedActor({ city: 0, regentAmbience: 'Verdant' });
++    const targets = await seedTargets(4, 1);
++
++    for (let i = 0; i < 4; i++) {
++      const res = await request(app).post('/api/office_actions').set('X-Test-User', stUser()).send({
++        game_session_id: GAME_SESSION_ID,
++        actor_id: String(actorId),
++        target_id: String(targets[i]),
++        action_type: 'raise',
++      });
++      expect(res.status, `raise #${i + 1} of 4 should succeed under the corrected budget of 4`).toBe(201);
++    }
++
++    // The 5th distinct target exceeds the real budget of 4 and must be rejected.
++    const [overBudgetTarget] = await seedTargets(1);
++    const res = await request(app).post('/api/office_actions').set('X-Test-User', stUser()).send({
++      game_session_id: GAME_SESSION_ID,
++      actor_id: String(actorId),
++      target_id: String(overBudgetTarget),
++      action_type: 'raise',
++    });
++    expect(res.status).toBe(403);
++  });
++
++  it('caps the budget at 10, which the old formula never applied', async () => {
++    await getCollection('downtime_cycles').deleteMany({ label: { $regex: `^${NAME_PREFIX}` } });
++    await seedGameCycle(904);
++
++    // city 8 + Head of State title (+3) = raw 11. The OLD formula used this
++    // raw, uncapped sum as the budget (11). The correct effective City
++    // Status caps at 10 — the 11th raise below must be rejected under the
++    // fix, where it would have been the OLD formula's still-valid 11th use.
++    const actorId = await seedActor({ city: 8 });
++    const targets = await seedTargets(10, 1);
++
++    for (let i = 0; i < 10; i++) {
++      const res = await request(app).post('/api/office_actions').set('X-Test-User', stUser()).send({
++        game_session_id: GAME_SESSION_ID,
++        actor_id: String(actorId),
++        target_id: String(targets[i]),
++        action_type: 'raise',
++      });
++      expect(res.status, `raise #${i + 1} of 10 should succeed under the capped budget of 10`).toBe(201);
++    }
++
++    const [eleventhTarget] = await seedTargets(1);
++    const res = await request(app).post('/api/office_actions').set('X-Test-User', stUser()).send({
++      game_session_id: GAME_SESSION_ID,
++      actor_id: String(actorId),
++      target_id: String(eleventhTarget),
++      action_type: 'raise',
++    });
++    expect(res.status, 'the 11th raise exceeds the capped budget of 10 and must be rejected').toBe(403);
++  });
++});
