@@ -624,6 +624,19 @@ development_status:
   # Follow-up — Dossier live-section restructure
   ord-12-dossier-restructure-live-sections: done # NOTE (2026-08-16 reconciliation): real file is ord.12.dossier-restructure-live-sections.story.md (dot notation, not dash) - same flag as ord-4.
 
+  # Not an ord-N epic story — a separately-tracked GitHub issue (#350) found stranded on its
+  # own branch during the 2026-08-18 stranded-branch sweep alongside issue-779/791. Real file:
+  # fix.57.ordeals-commissioning.story.md (fix.57 naming, not ord- prefixed).
+  # 2026-08-18: SUPERSEDED, Angelus's own direct ruling — this whole surface (player-submission
+  # reliability, player/character audit tooling) is redundant given how TM Admin/TM Cockpit now
+  # process ordeals/downtime. Distinct from the ord-10/ord-11 "owned by Story" ruling above -
+  # investigation confirmed this branch's scope didn't overlap that ruling, but Angelus closed
+  # it anyway on the more specific TM Admin/Cockpit point. One claimed fix in its Dev Agent
+  # Record (a schema/body field mismatch 400ing every ordeal-response POST) checked and found
+  # already independently fixed on dev via a different issue (#525) - no live P0 left open.
+  # Branch (ms/issue-350-ordeals-submit-audit) deleted, local + origin.
+  fix.57-ordeals-commissioning: superseded  # redundant given TM Admin/Cockpit's process — Angelus's own ruling 2026-08-18
+
   epic-ord-retrospective: optional
 
   # ============================================================
