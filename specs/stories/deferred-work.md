@@ -488,3 +488,23 @@ The 8 patched findings are in the story's Senior Developer Review.
   merging the epic before the seed is applied puts all 13 bloodline-carrying characters on BL-2's
   loud-miss path at once. It lives in the BL-3b story and its Senior Developer Review, and it is
   Angelus's operational act, not a coding task.
+
+## Deferred from: dtlt-10-mandragora-fruit-conditionality internal 3-layer review (2026-08-18)
+
+- **`specs/epic-dtlt-dt2-live-form-triage.md`'s Story 1.10 AC template is stale against the shipped
+  Reading C ruling.** It still describes the old symmetric Reading A/B gating shape ("neither the
+  `-mandDots` cost nor the `+bloodFruit` row appear" when the player opts out) — Reading C's actual
+  shipped behaviour is asymmetric by design: the fruit row is now unconditional and the cost row is
+  gone entirely, with no toggle to opt out of either. The epic doc was never updated when the ruling
+  landed on the story file itself. Not this diff's fault (the epic doc is not in the story's own File
+  List) and not fixed here; a future reader of the epic doc in isolation, without the story file's
+  RULED header, would get the wrong mental model.
+- **External reference memory is stale.** `C:/Users/angel/.claude/projects/D--Terra-Mortis-TM-Suite/memory/reference_vitae_deficit.md`
+  (cited in dtlt-10's own story frontmatter as context) states Mandragora Garden "costs 1 vitae per
+  dot" and "generates 2 fruit per dot" — both now false: Reading C removed the cost entirely, and
+  the fruit multiplier was already 1x dots in the shipped code (`bloodFruit = mandDots`), not 2x, a
+  pre-existing deviation from the errata's "twice that quantity" wording that predates this story
+  and stays out of its scope. Not fixed here — it is a Claude memory file in a different project's
+  namespace (`D--Terra-Mortis-TM-Suite`, the pre-rename project name), not a file this repo's diff
+  touches. Worth a manual purge/update in a future session so it doesn't get cited as ground truth.
+  Angelus's operational act, not a coding task.

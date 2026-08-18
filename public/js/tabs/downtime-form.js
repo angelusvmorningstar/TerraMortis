@@ -7370,7 +7370,9 @@ function renderQuestion(q, value) {
         if (oathBonus > 0) posMods.push({ label: `Oath of Fealty (Invictus Status ${invStatusForOath})`, val: oathBonus });
         if (ghoulCost > 0) negMods.push({ label: 'Ghoul Retainers', val: -ghoulCost });
         if (riteVitaeCost > 0) negMods.push({ label: 'Cruac Rites', val: -riteVitaeCost });
-        if (mandDots > 0) negMods.push({ label: `Mandragora Garden (${'●'.repeat(mandDots)})`, val: -mandDots });
+        // Mandragora Garden maintenance cost REMOVED 2026-08-18 (dtlt-10, Angelus's ruling):
+        // the garden is a flat per-dot Blood Fruit benefit with no vitae upkeep. Do not
+        // reintroduce a cost line here.
 
         const netStarting = posMods.reduce((s, m) => s + m.val, 0) + negMods.reduce((s, m) => s + m.val, 0);
         const projected = Math.max(0, Math.min(vitaeMax, netStarting + avgGathered));

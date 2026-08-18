@@ -892,7 +892,7 @@ development_status:
   # interpretation flagged in the story file (cost side wasn't explicitly
   # named in the ruling; interpreted as dropped too, for symmetry) — flagged,
   # not silently assumed.
-  dtlt-10-mandragora-fruit-conditionality: ready-for-dev    # ruled 2026-08-18 — Reading C (flat, no cost) — see story file
+  dtlt-10-mandragora-fruit-conditionality: done    # ruled 2026-08-18 — Reading C (flat, no cost) — implemented, internal 3-layer review clean (0 patch/decision-needed, 2 defer logged to deferred-work.md), NOT committed, NOT pushed
   # 2026-08-18: CLOSED AS MOOT, Angelus's own confirmation, verified against
   # current code. The redesigned downtime form (dt-form.22, ROTE moved to a
   # personal-project-action variant) already locks the rote feed to the SAME

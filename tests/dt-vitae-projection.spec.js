@@ -216,7 +216,7 @@ test.describe('Downtime feeding — vitae projection', () => {
     await expect(budget.locator('.dt-vitae-subtotal span').last()).toHaveText('+3');
   });
 
-  test('Mandragora Garden costs vitae (negative mod) and lists Blood Fruit produced', async ({ page }) => {
+  test('Mandragora Garden lists Blood Fruit produced with no vitae cost (dtlt-10, Reading C)', async ({ page }) => {
     const char = buildChar({
       merits: [{ category: 'domain', name: 'Mandragora Garden', rating: 2, cp: 2 }],
     });
@@ -225,12 +225,11 @@ test.describe('Downtime feeding — vitae projection', () => {
 
     const budget = sb(page).locator('.dt-vitae-budget');
     const mandRow = budget.locator('.dt-vitae-cost', { hasText: 'Mandragora Garden' });
-    await expect(mandRow).toBeVisible();
-    await expect(mandRow.locator('span').last()).toHaveText('−2'); // unicode minus + 2
+    await expect(mandRow).toHaveCount(0);
     const fruitRow = budget.locator('.dt-vitae-note', { hasText: 'Blood Fruit produced' });
     await expect(fruitRow).toBeVisible();
     await expect(fruitRow.locator('span').last()).toHaveText('2');
-    await expect(budget.locator('.dt-vitae-subtotal span').last()).toHaveText('−2');
+    await expect(budget.locator('.dt-vitae-subtotal span').last()).toHaveText('+0');
   });
 
   test('Oath of Fealty (canonical lowercase name) adds effective Invictus Status', async ({ page }) => {
