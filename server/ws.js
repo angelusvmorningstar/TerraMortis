@@ -183,12 +183,12 @@ export function broadcastBloodlineUpdate(bloodlineId, op) {
  */
 export function broadcastSettingsUpdate() {
   if (!_wss) return;
-  const msg = JSON.stringify({ type: 'settings' });
-  for (const ws of _wss.clients) {
-    if (ws.readyState === 1) { // OPEN
-      ws.send(msg);
-    }
-  }
+  // BL-4 review gap (found 2026-08-18 reconciliation): this broadcaster was
+  // added by gdx.5 after BL-4's own review fixed the identical one-bad-socket
+  // vulnerability in the other four broadcasters. It had its own unguarded
+  // send loop, missing the shared _fanOut try/catch. Routed through _fanOut
+  // like every other broadcaster now.
+  _fanOut(JSON.stringify({ type: 'settings' }));
 }
 
 // ── Token resolution (mirrors middleware/auth.js logic) ──
