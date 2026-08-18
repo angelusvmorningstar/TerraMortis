@@ -1,10 +1,76 @@
 ---
 id: feat.6
 epic: feat
-status: needs-investigation
+status: superseded
 priority: low
 depends_on: []
 ---
+
+> ## ✅ CLOSED AS MOOT — 2026-08-18, Angelus's own call
+>
+> Tracing the actual player code path (`app.js:showPlayerSheet` → `onSheetChar` → `suite/sheet.js`,
+> confirmed via `app.js:129`'s import) shows a player's own sheet view **never** reaches
+> `editor/sheet.js` at all — that file (and the `.cd-sheet` width toggle found below) only serves
+> the admin editor tab and the ST's read-only quick-view modal, both gated `role !== 'st'`. The
+> `.cd-sheet` finding is real but belongs to a different surface this story was never about.
+>
+> The actual player path (`suite/sheet.js` + `suite.css`) shows **no content-driven width mechanism
+> at all**: `#app` is a fixed `900px` cap (or uniformly uncapped in `desktop-mode`), tabs fill via
+> `inset:0`, and the tab-content panes carry no width rule of their own. Nothing in that chain
+> varies per-character. Combined with the story's own target file (`public/player.html`) having
+> been deleted 2026-07-28 (see the STALE PREMISE note below, kept for the record), the honest
+> conclusion is that **the original symptom no longer exists in the current unified SPA** — it was
+> most likely specific to the now-gone `player.html`.
+>
+> Closed as moot rather than carried forward speculatively. Reopen only if a player reports the
+> symptom again against the current app — and if so, capture which two characters and confirm both
+> were viewed via the same nav path (not one via an ST quick-view surface and one via the player
+> tab), since that distinction is what this investigation had to rule out by hand.
+
+> ## ⚠ STALE PREMISE — found 2026-08-18, investigation redirected
+>
+> This story's own file references (`public/player.html`, `public/css/player-app.css`) point at a
+> path **deleted 2026-07-28** (`5fdaa032`, `feat(#1047): USF Phase 0 Stage B — delete dead player
+> path`), three months after this story was drafted (2026-04-27). Confirmed: no `player.html`
+> anywhere in the working tree, no `/player` route in `netlify.toml` or `server/index.js`/
+> `server/routes/*.js`. **This is why the original grep for `player-sheet`/`left.*panel.*width`
+> found nothing — the target file is gone, not hidden.**
+>
+> The player sheet now lives in the unified SPA at `public/index.html`, gated by a role/view-mode
+> flag (`public/js/app.js:151-155`). Two renderers produce it: `public/js/suite/sheet.js`
+> (player-facing, phone-width tab panes) and `public/js/editor/sheet.js` (admin editor tab AND the
+> ST's read-only "char-detail" quick-view modal).
+>
+> **A real, reproducible width-inconsistency mechanism was found in the current code — but it is
+> context-driven, not character-content-driven as originally hypothesised:**
+>
+> ```css
+> /* public/css/components.css:749-753 */
+> #sh-content{max-width:640px;margin:0 auto;}
+> .cd-sheet #sh-content,
+> #sh-content.cd-sheet,
+> .char-detail #sh-content{max-width:none !important;}
+> ```
+> ```js
+> // public/js/editor/sheet.js:3133
+> const isDesktop = el.closest('.cd-sheet');
+> ```
+>
+> The SAME renderer produces a genuinely different layout depending on which DOM element it's told
+> to render into: the ST's "char-detail" quick-view (`admin.js:678`, `<div id="sh-content"
+> class="cd-sheet">`) gets `isDesktop: true` (2-column `.sh-desktop` grid, no width cap); the
+> player/editor tab (`index.html:124`, no `cd-sheet` class) gets `isDesktop: false` (single-column,
+> `640px`/`900px` capped). **No `max-content`/`min-content`/content-driven grid track exists
+> anywhere in the sheet's outer-container chain** — every ancestor checked (`suite.css`,
+> `components.css`, `admin-layout.css`) uses fixed `fr`/`minmax`/flex-ratio values, several with an
+> explicit `min-width:0` specifically preventing content from forcing growth.
+>
+> **Conclusion:** if the original "left panel width varies between characters" symptom is still
+> real, it very likely traces to *which surface was used to view each character* (ST quick-view
+> modal vs. player-tab vs. `desktop-mode` toggle) — not any character's data. This story cannot
+> proceed to `ready-for-dev` on its original hypothesis; it needs re-scoping against the current
+> app structure, and Step 1 (identify two characters showing the difference) needs re-running
+> noting which surface/nav-path opened each one.
 
 # Story FEAT-6: Player Sheet Width Consistency
 

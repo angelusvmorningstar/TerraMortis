@@ -380,7 +380,18 @@ development_status:
   feat-3-duplicate-character-hard-delete: done
   feat-4-st-plot-npc-tracker: backlog
   feat-5-login-linked-to-email: backlog
-  feat-6-player-sheet-width-consistency: backlog  # needs-investigation per story front-matter — cause not isolated yet; needs DOM inspection on two visibly-differing characters before ready-for-dev
+  # 2026-08-18 (/bmad-loop next): CLOSED AS MOOT, Angelus's own call.
+  # Investigated via code search (public/player.html, the story's own
+  # target, was deleted 2026-07-28 — #1047 USF Phase 0 Stage B). The one
+  # real width-inconsistency mechanism found (.cd-sheet toggle in
+  # editor/sheet.js) turned out to be ST-admin-only (quick-view modal /
+  # editor tab) — traced the actual player path (app.js:showPlayerSheet ->
+  # onSheetChar -> suite/sheet.js) and confirmed it never reaches that
+  # code, and shows no content-driven width mechanism of its own (fixed
+  # 900px #app cap, tabs fill via inset:0). Original symptom likely
+  # specific to the now-deleted player.html; closed rather than carried
+  # forward speculatively. See the story file's own closure note.
+  feat-6-player-sheet-width-consistency: superseded  # closed as moot 2026-08-18 — see story file; reopen only if reported again against the current app
   feat-7-player-read-latest-downtime: done  # exposes player's own raw responses[] alongside the existing published_outcome render
   feat-8-contact-action-type: done       # suppress action-type selector in DT Processing + action-type badge in DT Story for contacts only
   feat-9-auspex-insight-overlay: done              # Auspex Insight question reference overlay in game app — triggered from Auspex discipline drawer
