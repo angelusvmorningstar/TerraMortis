@@ -1,6 +1,6 @@
 # Story DBO.6: `story_threads` handover to TM Wiki (joint with Wiki 31-3)
 
-Status: in-progress
+Status: done
 
 ## Story
 
@@ -67,12 +67,20 @@ the reshape runs.
 **Given** the Wiki has verified a real end-to-end read of the reshaped `story_threads` data
 **Then** the Suite-side drop script (`server/scripts/_drop-31-3-story-threads.mjs`, on branch
 `ms/31-3-suite-story-threads-drop-script`) is run with `--apply`/`--write` against production by
-Angelus, and `tm_suite.story_threads` is confirmed empty/absent afterward. *(Not done — gated on
-Wiki-side verification this session cannot check.)*
+Angelus, and `tm_suite.story_threads` is confirmed empty/absent afterward. *(Met — 2026-08-19.
+`--write` run for real against production: the script's own live re-verify immediately before
+dropping reported story_threads 44/44, CLEAN, by slug; the collection then dropped. Independently
+re-confirmed via a direct `listCollections` query against `tm_suite` afterward — the collection
+does not exist among the remaining 43. Pre-drop backup:
+`server/scripts/_backups/dbo-5-6-predrop-story_threads-2026-08-19T08-16-04-152Z.json`,
+parse-verified, 44 docs.)*
 
 **Given** the 2 documents carrying `status: 'seeded'`
 **Then** their handling is explicitly decided (migrate as-is, drop, or hold) rather than silently
-carried through or silently discarded. *(Not decided.)*
+carried through or silently discarded. *(Decided 2026-08-19 — Angelus: migrate as-is. Matches what
+already happened in practice: the Wiki-side `--write` copied all 44 source documents verbatim,
+including both `seeded` ones, and the live re-verify above confirms all 44 present and matching
+in `tm_wiki`. No further action needed on this AC.)*
 
 ---
 
@@ -101,9 +109,12 @@ carried through or silently discarded. *(Not decided.)*
 ## Definition of Done
 
 - This repo has zero readers/writers for `story_threads`. **Met.**
-- The `status: 'seeded'` handling is explicitly decided. **Not started.**
-- Wiki confirms a real end-to-end read of the reshaped data. **Owned by the Wiki side.**
-- Production drop run by Angelus, `tm_suite.story_threads` confirmed empty/absent. **Not started.**
+- The `status: 'seeded'` handling is explicitly decided. **Met (2026-08-19) — migrate as-is,
+  Angelus's ruling.**
+- Wiki confirms a real end-to-end read of the reshaped data. **Met (2026-08-19) — production
+  cutover complete, independently re-verified live against `tm_wiki` directly.**
+- Production drop run by Angelus, `tm_suite.story_threads` confirmed empty/absent. **Met
+  (2026-08-19) — `--write` run for real, collection dropped, independently re-confirmed absent.**
 
 ---
 
@@ -113,3 +124,10 @@ carried through or silently discarded. *(Not decided.)*
   per `/bmad-loop`'s own position check finding no story file existed). Re-verified this repo's own
   reader/writer state and the drop-script branch's real commit/push status directly. No code changed.
   Status stays `in-progress` — real, cross-repo work remains outstanding.
+- 2026-08-19: Wiki-side production cutover confirmed complete and independently re-verified live
+  against `tm_wiki` directly (44/44, exact match). Drop script's dry run re-run against production:
+  clean. Pre-drop `tm_suite` backup taken and parse-verified. Angelus ruled on the `seeded`-status
+  AC: migrate as-is (already the practical outcome of the Wiki-side write).
+- 2026-08-19 (later, same day): Angelus ran `--write` for real. `story_threads` dropped from
+  production `tm_suite`, independently re-confirmed absent via a direct `listCollections` query.
+  All Definition-of-Done items met. Status: in-progress -> done.
