@@ -129,6 +129,14 @@ export function renderCharPools(el, char, onTap) {
       _pools.push({ opensPanel: m.mode, label: m.label });
       vmHtml += choiceBtn(m.label, idx);
     }
+    // gdx.12: third tile kind — {submitAction}, routed by app.js's onTap to
+    // submitHumanityCheck() instead of openPanel()/loadPool(). No panel, no
+    // roll — see the story's own "What this story is NOT" for why.
+    {
+      const idx = _pools.length;
+      _pools.push({ submitAction: 'humanity_check', label: 'Humanity Check' });
+      vmHtml += submitBtn('Humanity Check', idx);
+    }
     h += '<div class="gcp-section-hd">Vampire Mechanics</div>';
     h += `<div class="gcp-pool-grid">${vmHtml}</div>`;
   }
@@ -229,7 +237,11 @@ export function renderCharPools(el, char, onTap) {
 
   el.querySelectorAll('.gcp-pool-btn').forEach(btn => {
     const idx = Number(btn.dataset.idx);
-    btn.addEventListener('click', () => onTap(_pools[idx]));
+    // gdx.12: second arg (the tapped button element) is new — existing
+    // onTap callbacks that only declare one parameter are unaffected. Lets
+    // submitAction handling disable the tile immediately to prevent a
+    // double-submit, without char-pools.js itself making any network call.
+    btn.addEventListener('click', () => onTap(_pools[idx], btn));
   });
 
   el.querySelector('.gcp-collapse-btn')?.addEventListener('click', () => {
@@ -251,6 +263,13 @@ function statChip(label, value) {
 function choiceBtn(label, idx, wide) {
   const cls = 'gcp-pool-btn gcp-choice' + (wide ? ' gcp-choice-wide' : '');
   return `<button class="${cls}" data-idx="${idx}"><span class="gcp-pool-n gcp-choice-arrow">›</span><span class="gcp-pool-lbl">${esc(label)}</span><span class="gcp-pool-sub">tap to choose</span></button>`;
+}
+
+// gdx.12: a "submit" tile — posts a pending request immediately, no panel,
+// no dice total. Visually the same chrome as choiceBtn (reuse .gcp-choice)
+// but distinct subtitle copy so it doesn't falsely promise a choice panel.
+function submitBtn(label, idx) {
+  return `<button class="gcp-pool-btn gcp-choice" data-idx="${idx}"><span class="gcp-pool-n gcp-choice-arrow">✓</span><span class="gcp-pool-lbl">${esc(label)}</span><span class="gcp-pool-sub">tap to submit</span></button>`;
 }
 
 function poolBtn(label, total, sub, idx, nineAgain, roteEligible) {

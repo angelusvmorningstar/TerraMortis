@@ -1,10 +1,15 @@
-/* Approval Queue (oaq.3) — ST review surface for pending Status Actions.
+/* Approval Queue (oaq.3) — ST review surface for pending Status Actions and,
+ * as of gdx.12, pending Humanity Checks.
  *
- * Lists every pending status_action record from GET /api/office_actions/pending
- * (oldest-first) with one-click Accept/Decline, backed by the existing
- * ST-only PUT /api/office_actions/:id/accept and /:id/decline routes built
- * and code-reviewed under oaq.2. This module only submits/reads — it never
- * touches the transaction, budget, or precondition logic those routes own.
+ * Lists every pending record from GET /api/office_actions/pending
+ * (oldest-first, widened by gdx.12 to also return request_type:
+ * 'humanity_check'), with one-click Accept/Decline. Status Actions resolve
+ * through the ST-only PUT /api/office_actions/:id/accept and /:id/decline
+ * routes built and code-reviewed under oaq.2; Humanity Checks resolve
+ * through their own PUT /api/humanity_check_requests/:id/accept and
+ * /:id/decline (gdx.12) — see _resolve()'s per-request_type routing. This
+ * module only submits/reads — it never touches the transaction, budget,
+ * precondition, or pool-arithmetic logic those routes own.
  *
  * Lives in the main game app (app.js's goTab), not the ST admin app — moved
  * here from public/js/admin/office-approvals.js so it's reachable from the
@@ -51,6 +56,11 @@ const state = {
   fetchFailed: false,   // last GET /pending attempt errored — distinct from a genuinely empty queue
   busyIds: new Set(),   // requests currently mid accept/decline — disable their buttons
   errorById: new Map(), // requestId -> last error message (e.g. "already actioned by X")
+  // gdx.12: the ST's in-progress breaking-point-level choice for a pending
+  // Humanity Check row, persisted across the 10-second poll's re-renders
+  // (a fresh GET /pending response never carries this — it's local-only
+  // until Accept is actually pressed).
+  levelByRequestId: new Map(),
 };
 
 let _rootEl = null;
@@ -83,7 +93,7 @@ function renderScaffold() {
     <div class="stm-audit-root">
       <header class="stm-audit-head">
         <h2>Approval Queue</h2>
-        <p class="stm-audit-sub">Pending Status Actions awaiting sign-off. Oldest first.</p>
+        <p class="stm-audit-sub">Pending Status Actions and Humanity Checks awaiting sign-off. Oldest first.</p>
       </header>
       <div class="oaq-queue-list" data-oaq-body>
         <p class="stm-audit-loading">Loading…</p>
@@ -109,6 +119,19 @@ function _attachDelegatedHandlers(root) {
     const action = btn.dataset.oaqAction;
     if (!requestId || !action) return;
     _resolve(requestId, action);
+  });
+  // gdx.12: the breaking-point-level <select> on a pending Humanity Check
+  // row — stores the ST's choice and re-renders just the Accept button's
+  // disabled state, without waiting for the next poll tick.
+  root.addEventListener('change', (e) => {
+    const sel = e.target.closest('[data-oaq-level-select]');
+    if (!sel) return;
+    const requestId = sel.dataset.oaqId;
+    if (!requestId) return;
+    const level = sel.value ? Number(sel.value) : null;
+    if (level) state.levelByRequestId.set(requestId, level);
+    else state.levelByRequestId.delete(requestId);
+    _renderBody();
   });
 }
 
@@ -146,13 +169,35 @@ async function _refetchAndRender() {
 
 async function _resolve(requestId, action) {
   if (state.busyIds.has(requestId)) return;
+
+  // gdx.12: route to the right endpoint per request_type — status_action's
+  // own lifecycle lives in office-actions.js, humanity_check's in
+  // humanity-check.js, sharing this one queue view but not one route file.
+  const row = state.rows.find(r => String(r._id) === requestId);
+  if (!row) {
+    // review finding: a poll or another ST already changed this row since
+    // the last render — don't guess which endpoint to call (that silently
+    // misrouted humanity_check ids to /api/office_actions), just resync.
+    _refetchAndRender();
+    return;
+  }
+  const isHumanityCheck = row.request_type === 'humanity_check';
+  const endpoint = isHumanityCheck ? '/api/humanity_check_requests' : '/api/office_actions';
+  let body = {};
+  if (isHumanityCheck && action === 'accept') {
+    const level = state.levelByRequestId.get(requestId);
+    if (!level) return; // Accept button is disabled until a level is chosen — defence in depth.
+    body = { breaking_point_level: level };
+  }
+
   state.busyIds.add(requestId);
   state.errorById.delete(requestId);
   _renderBody();
 
-  const res = await apiRaw('PUT', `/api/office_actions/${requestId}/${action}`, {});
+  const res = await apiRaw('PUT', `${endpoint}/${requestId}/${action}`, body);
   if (res.ok) {
     state.rows = state.rows.filter(r => String(r._id) !== requestId);
+    state.levelByRequestId.delete(requestId);
     // Refetch rather than trust the local removal alone — keeps the queue
     // consistent with the server after a resolve, same generation guard as
     // the poll so an even-newer response still wins.
@@ -195,7 +240,10 @@ function _renderBody() {
     return;
   }
 
-  body.innerHTML = state.rows.map(_renderRow).join('');
+  // gdx.12: Humanity Check rows need a distinct shape (level picker gating
+  // Accept) — dispatched here rather than restructuring _renderRow itself,
+  // per this module's own extension-point design (see file header).
+  body.innerHTML = state.rows.map(r => (r.request_type === 'humanity_check' ? _renderHumanityCheckRow(r) : _renderRow(r))).join('');
 }
 
 function _renderRow(r) {
@@ -216,6 +264,45 @@ function _renderRow(r) {
           <span class="derived-note">${esc(when)}</span>
           <div class="ch-modal-actions oaq-queue-btns">
             <button class="ch-btn ch-btn-accept" data-oaq-action="accept" data-oaq-id="${esc(id)}" ${busy ? 'disabled' : ''}>Accept</button>
+            <button class="ch-btn ch-btn-decline" data-oaq-action="decline" data-oaq-id="${esc(id)}" ${busy ? 'disabled' : ''}>Decline</button>
+          </div>
+        </div>
+      </div>
+      ${error ? `<div class="ch-error oaq-queue-error">${esc(error)}</div>` : ''}
+    </div>
+  `;
+}
+
+// gdx.12: Humanity Check's own row shape — a breaking-point-level picker
+// (the ST's judgement call, per the rulebook — not automated) gates Accept;
+// pool arithmetic itself happens server-side once accepted (AC2).
+const BREAKING_POINT_LEVELS = [10, 9, 8, 7, 6, 5, 4, 3, 2, 1];
+
+function _renderHumanityCheckRow(r) {
+  const id = String(r._id);
+  const busy = state.busyIds.has(id);
+  const error = state.errorById.get(id);
+  const when = r.created_at ? r.created_at.replace('T', ' ').replace(/\..*$/, '') : '';
+  const chosenLevel = state.levelByRequestId.get(id);
+  const canAccept = !!chosenLevel && !busy;
+
+  const levelOptions = BREAKING_POINT_LEVELS
+    .map(lvl => `<option value="${lvl}" ${chosenLevel === lvl ? 'selected' : ''}>Humanity ${lvl}</option>`)
+    .join('');
+
+  return `
+    <div class="oaq-queue-row-wrap" data-oaq-row="${esc(id)}">
+      <div class="oaq-queue-row">
+        <span class="oaq-queue-name">${esc(redactCharName(r.character_name || 'Unknown'))}</span>
+        <div class="oaq-queue-actions">
+          <span class="dtl-badge">Humanity Check</span>
+          <select class="form-select oaq-hc-level-select" data-oaq-level-select data-oaq-id="${esc(id)}" ${busy ? 'disabled' : ''}>
+            <option value="">Breaking point level…</option>
+            ${levelOptions}
+          </select>
+          <span class="derived-note">${esc(when)}</span>
+          <div class="ch-modal-actions oaq-queue-btns">
+            <button class="ch-btn ch-btn-accept" data-oaq-action="accept" data-oaq-id="${esc(id)}" ${canAccept ? '' : 'disabled'}>Accept</button>
             <button class="ch-btn ch-btn-decline" data-oaq-action="decline" data-oaq-id="${esc(id)}" ${busy ? 'disabled' : ''}>Decline</button>
           </div>
         </div>

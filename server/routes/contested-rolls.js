@@ -129,8 +129,10 @@ router.put('/:id/void', requireRole('st'), async (req, res) => {
   // family recognizes, permanently orphaning the record (office-actions.js's
   // own _findPending only ever matches status:'pending', so a 'voided'
   // record becomes unreachable by either the correct accept or decline).
+  // gdx.12: same reasoning extends to Humanity Checks (request_type:
+  // 'humanity_check', humanity-check.js's own accept/decline lifecycle).
   const result = await col().updateOne(
-    { _id: oid, request_type: { $ne: 'status_action' } },
+    { _id: oid, request_type: { $nin: ['status_action', 'humanity_check'] } },
     { $set: { status: 'voided', updated_at: new Date().toISOString() } }
   );
   if (!result.matchedCount) return res.status(404).json({ error: 'NOT_FOUND' });
@@ -149,8 +151,10 @@ async function _findChallenge(req, res) {
   // oaq.2 review finding: exclude status_action requests — they have their
   // own lifecycle (office-actions.js's accept/decline), and a status_action
   // doc has no challenger/target_character_id fields for the caller-
-  // ownership check below to compare against anyway.
-  const doc = await col().findOne({ _id: oid, request_type: { $ne: 'status_action' } });
+  // ownership check below to compare against anyway. gdx.12: same exclusion
+  // for humanity_check requests (humanity-check.js's own lifecycle; a
+  // humanity_check doc has no challenger/target_character_id fields either).
+  const doc = await col().findOne({ _id: oid, request_type: { $nin: ['status_action', 'humanity_check'] } });
   if (!doc) { res.status(404).json({ error: 'NOT_FOUND' }); return null; }
   if (doc.status !== 'pending') {
     res.status(409).json({ error: 'CONFLICT', message: 'Challenge is no longer pending' });

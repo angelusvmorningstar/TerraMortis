@@ -188,6 +188,19 @@ export function setSkillObj(c, skill, obj) {
 /** Effective discipline rating. Disciplines have no bonus channel — `dots` is canonical. */
 export function discDots(c, disc) { return c.disciplines?.[disc]?.dots || 0; }
 
+/**
+ * Count of a character's Touchstones currently "Attached" — gdx.12,
+ * rulebook p.108's touchstone modifier for Detachment rolls needs this
+ * count, not the full per-touchstone Attached/Detached list. Formula
+ * verified to agree with the 4 existing inline sites using this same
+ * predicate: public/js/suite/sheet.js:268; public/js/editor/sheet.js:428,451;
+ * public/js/admin/downtime-story.js:1698,1765,1897.
+ */
+export function attachedTouchstoneCount(c) {
+  const hum = c.humanity || 0;
+  return (c.touchstones || []).filter(t => hum >= t.humanity).length;
+}
+
 export function skDots(c, skill) { return c.skills?.[skill]?.dots || 0; }
 export function skBonus(c, skill) { return c.skills?.[skill]?.bonus || 0; }
 export function skTotal(c, skill) {

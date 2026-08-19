@@ -2357,6 +2357,17 @@ body.desktop-mode.sidebar-collapsed .sb-collapse-btn { width: 100%; justify-cont
 .oaq-queue-btns .ch-btn { padding: 6px 12px; }
 .oaq-queue-error { padding: 0 14px 8px; }
 
+/* gdx.12: Humanity Check row's breaking-point-level picker — the ST's
+   judgement call, gates Accept until chosen (see AC5/AC2). Actions row
+   wraps on narrow phone widths rather than overflowing horizontally. */
+.oaq-hc-level-select { max-width: 140px; padding: 6px 8px; font-size: 12px; }
+.oaq-queue-row:has(.oaq-hc-level-select) .oaq-queue-actions { flex-wrap: wrap; justify-content: flex-end; }
+
+/* gdx.12 AC7: Roll tab's own "Load Pool" banner for a resolved, not-yet-
+   loaded Humanity Check — reuses the same .oaq-queue-row-wrap/.ch-btn chrome
+   as the Approval Queue row it originated from. */
+.gcp-hc-load-banner { margin-top: 10px; background: var(--surf2); border-radius: 6px; }
+
 /* HoS interactive actions */
 .office-budget-line { font-family: var(--fb); font-size: 14px; color: var(--txt); margin-bottom: 12px; }
 .office-budget-line.exhausted { color: var(--crim); }

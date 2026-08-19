@@ -736,3 +736,50 @@ deferred as pre-existing, not caused by this diff:
   repo (`migrate-office-purchases-to-seats.mjs` is the closest precedent) has the identical class of
   non-atomic guard, mitigated only by "a human runs this once, by hand," not by code. Revisit if this
   project ever moves to a pattern where migration scripts can run concurrently or unattended.
+
+## Deferred from: gdx-12-humanity-check-oaq-submit-approve (2026-08-19, dev-story)
+
+- **`middleware/validate.js` caches compiled Ajv validators keyed by `schema.title`, and any two
+  schemas that both omit `title` silently share one cache slot** — `cache.get(schema.title)` with
+  `schema.title === undefined` for both means whichever schema compiles first "wins" the cache entry
+  for both routes; the second route then validates every request against the WRONG schema. Found
+  live: `server/schemas/office_action.schema.js` has no `title`; the new
+  `humanity_check_request.schema.js` originally didn't either, and every POST to
+  `/api/humanity_check_requests` was silently validated against `officeActionSchema` instead (a
+  schema-valid Humanity Check payload 400'd with no obvious cause). Fixed locally for this story by
+  giving the new schema a `title` (matching `contested_roll_request.schema.js`'s own existing
+  convention). `office_action.schema.js` itself is UNCHANGED and still title-less — it remains
+  latently vulnerable to the identical collision against any future schema that also omits `title`.
+  Real fix is either titling every schema (enforce via a lint/test) or keying the cache off the
+  schema object's own identity (`WeakMap`) instead of a string field that happens to be optional.
+  Out of this story's scope — flagging so the next schema author doesn't rediscover this the hard
+  way.
+
+## Deferred from: code review of gdx-12-humanity-check-oaq-submit-approve (2026-08-20)
+
+- **`PUT /:id/accept` and `PUT /:id/decline` bypass the Ajv `validate()` middleware/schema
+  convention** the `POST /` route in the same file uses — `accept` validates its one field
+  (`breaking_point_level`) manually inline instead, `decline` needs no body at all. Correct today,
+  but inconsistent with this route file's own established pattern. Deferred as pre-existing
+  convention drift, not unique to this story.
+- **The "Load Pool" banner (`humanity-check.js`) uses a hardcoded `id="gcp-hc-load-banner"`**
+  rather than a per-container-scoped id. Not currently triggered — `checkForResolvedHumanityCheck`
+  has exactly one call site today (the roll tab's pools element in `app.js`'s `pickChar()`) — but
+  would produce duplicate DOM ids if a future call site (e.g. the Sheet tab's own pools panel) ever
+  renders it too. Deferred as a latent risk only.
+- **Resolved `humanity_check` documents (`GET /mine`, unbounded query) and the ST's session-local
+  `office-approvals.js` `state.levelByRequestId` Map (no eviction when a row is removed by another
+  ST's poll) both grow unbounded with no cleanup path.** Matches this project's existing accepted
+  accumulation pattern elsewhere for resolved/declined records at this campaign's scale — not a new
+  class of problem. Deferred.
+- **`.oaq-queue-row:has(.oaq-hc-level-select)` (`suite.css`) has no `@supports` fallback** for
+  browsers lacking `:has()` support — the rule prevents the actions row from overflowing on narrow
+  phone widths; without it that overflow returns silently on an unsupported browser. Deferred as low
+  likelihood given this campaign's known device set.
+- **The Approval Queue's 10-second poll re-render can interrupt an ST mid-choice on an open
+  breaking-point `<select>`** (`office-approvals.js`). Deferred — shares the same re-render-on-poll
+  shape as the rest of this file's existing rows, not a new pattern introduced by this story.
+- **The `middleware/validate.js` Ajv-cache title-collision landmine** (`office_action.schema.js`
+  still has no `title`, still latently vulnerable to the identical collision against any future
+  title-less schema) — already found, fixed for this story's own schema, and filed above during
+  Task 2. Re-confirmed by this review as already tracked, not a new gap.

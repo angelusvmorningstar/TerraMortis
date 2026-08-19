@@ -54,6 +54,7 @@ import { renderMapStageHtml } from './components/map-overlay.js';
 import { openContestedRoll, closeContestedRoll, crSetType, crSetChar, crAdjPool, crRoll } from './game/contested-roll.js';
 import { startChallengePoller, stopChallengePoller } from './game/challenge-notification.js';
 import { openChallengeModal } from './game/challenge-initiation.js';
+import { submitHumanityCheck, checkForResolvedHumanityCheck } from './game/humanity-check.js';
 import { loadDtLookup } from './game/dt-lookup.js';
 import { initTracker, trackerReset, trackerAdj, trackerAddCondition, trackerRemoveCond, trackerToggle, ensureLoaded as ensureTrackerLoaded, refreshTrackerCard } from './game/tracker.js';
 import { initWS } from './data/ws.js';
@@ -340,7 +341,12 @@ function openChar(idx) {
   const poolsEl = document.getElementById('gcp-panel');
   if (poolsEl) {
     suiteState.rollChar = c;
-    renderCharPools(poolsEl, c, (p) => {
+    renderCharPools(poolsEl, c, (p, btn) => {
+      // gdx.12: submit tiles (Humanity Check) POST-and-toast in place — no
+      // panel, no roll, no tab switch (nothing is being loaded into the
+      // roller). Checked first, before the goTab('dice') every other tile
+      // kind below still wants.
+      if (p.submitAction === 'humanity_check') { submitHumanityCheck(c, btn); return; }
       // gdx-11 (#981, Task 8): choice tiles (Lash Out, Clash of Wills, Blood
       // Bond Resistance, + Custom Pool) push {opensPanel} instead of a
       // total/pi — route to the scoped panel rather than loadPool().
@@ -1281,13 +1287,23 @@ function pickChar(c) {
   // Render tappable pool chips in the roll tab for the selected character
   const rollPoolsEl = document.getElementById('roll-char-pools');
   if (rollPoolsEl) {
-    renderCharPools(rollPoolsEl, c, (p) => {
+    renderCharPools(rollPoolsEl, c, (p, btn) => {
+      // gdx.12: submit tiles (Humanity Check) POST-and-toast in place — no
+      // panel, no roll, checked first same as the two gcp-panel call sites.
+      if (p.submitAction === 'humanity_check') { submitHumanityCheck(c, btn); return; }
       // gdx-11 (#981, Task 8): see the identical routing comment at the
       // gcp-panel call site above — already on the dice tab here.
       if (p.opensPanel) { openPanel(p.opensPanel); return; }
       loadPool(p.total, p.label, p.pi || { total: p.total, attr: p.attr, attrV: p.attrV, skill: p.skill, skillV: p.skillV, nineAgain: p.nineAgain, resistance: p.resistance });
     });
     rollPoolsEl.style.display = '';
+    // AC7: surfaces a "Load Pool" banner if this character has a resolved,
+    // not-yet-loaded Humanity Check. Fire-and-forget — a convenience
+    // surface, not blocking character load on a network round-trip. v2-gated
+    // like the rest of gdx-11's Vampire Mechanics section (AC8) — loadPool()
+    // is a roll-v2.js export and v1's roll.js UI doesn't provide the same
+    // pool-display DOM this banner's tap target expects.
+    if (USE_NEW_ROLLER) checkForResolvedHumanityCheck(c, rollPoolsEl);
   }
 
   // Show Auspex button if character has Auspex
@@ -1419,7 +1435,10 @@ async function _switchChar(idx) {
   // Pools panel
   const poolsEl = document.getElementById('gcp-panel');
   if (poolsEl) {
-    renderCharPools(poolsEl, c, (p) => {
+    renderCharPools(poolsEl, c, (p, btn) => {
+      // gdx.12: see the identical submitAction check at the openChar() call
+      // site above — same reasoning, checked before goTab('dice') here too.
+      if (p.submitAction === 'humanity_check') { submitHumanityCheck(c, btn); return; }
       // gdx-11 (#981, Task 8): see the identical routing comment at the
       // openChar() call site above.
       goTab('dice');
