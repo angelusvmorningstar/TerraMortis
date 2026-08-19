@@ -22,7 +22,7 @@ import { ALL_ATTRS, ALL_SKILLS, CORE_DISCS, RITUAL_DISCS, INFLUENCE_SPHERES, NON
 // legitimately compute dots without going through meritEffectiveRating.
 import { freeOf, normaliseAttachedTo, applySuspensionTo } from '../data/rules-helpers.js';
 import { calcTotalInfluence, domMeritTotal, attacheBonusDots, effectiveInvictusStatus, ssjHerdBonus, flockHerdBonus, meritEffectiveRating, influenceBreakdown, domKey, canAllocateCarthianPull } from '../editor/domain.js';
-import { calcVitaeMax, skTotal, riteCost, skillAcqPoolStr, getAttrEffective, getAttrTotal, discDots, isInClanDisc, clanDiscList } from '../data/accessors.js';
+import { calcVitaeMax, skTotal, riteCost, getAttrEffective, getAttrTotal, discDots, isInClanDisc, clanDiscList } from '../data/accessors.js';
 import { xpLeft } from '../editor/xp.js';
 import { meetsPrereq, isMeritExcluded, isMeritEventGranted } from '../editor/merits.js';
 import { getRuleByKey, getRulesByCategory } from '../data/loader.js';
