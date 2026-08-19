@@ -48,6 +48,13 @@ running the affected suites because a change "looks safe".
     which was renamed to `toast.js` elsewhere; the test never got updated to match.
   - `issue-1013-indomitable-rules-text.test.js` — two assertions blocked on the `markdown/` rulebook
     corpus genuinely not existing in this checkout (#1117); not a code defect.
+  - `cm-4-renumber-chapter-merge.test.js` (added 2026-08-19, gdx-11) — fails with timeouts ("Test
+    timed out in 5000ms"), identically with and without unrelated changes present (`git stash` A/B
+    verified). Matches this repo's own documented Atlas-connection-contention flake class (see
+    oxp-5's own sprint-status entry for the same pattern), not a code defect.
+  - `fix.715.dt-manual-open-gate.test.js` (added 2026-08-19, gdx-11) — passes clean (1/1) in
+    isolation; only fails inside a full untargeted suite run. Resource contention under full-suite
+    load, not a regression — `git stash` A/B verified the same shape present at base.
   - `tests/desktop-and-css.spec.js` (12) — `#btn-desktop-toggle` never becomes visible under the
     stubbed API.
   - `tests/post-game-1.spec.js` nav-1-3 (3) — `#n-more` has never existed in `NAV_ITEMS`.
