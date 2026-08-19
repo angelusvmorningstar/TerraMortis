@@ -1,5 +1,20 @@
 # generated: 2026-04-15
-# last_updated: "2026-08-19 (epic-bl actually pushed to origin/main, continuing where the TM
+# last_updated: "2026-08-19 (gdx-12-humanity-check-oaq-submit-approve storied via bmad-create-story,
+#   backlog -> ready-for-dev - the placeholder row gdx-11 itself left behind when Humanity Check was
+#   carved out of it. Grounded directly against the real office-actions.js/contested-rolls.js/
+#   office-approvals.js code, not just the one-line sprint-status summary that named the pattern, and
+#   against the rulebook's actual dice-per-level table + touchstone modifiers (p.107-108, read
+#   directly this session). Design: new request_type:'humanity_check' discriminator sharing
+#   contested_roll_requests (own schema/route file, humanity-check.js - no MongoDB collection-level
+#   validator exists on that collection, confirmed by grep, so a third discriminator is zero-risk to
+#   the other two), widens office-actions.js's GET /pending filter and contested-rolls.js's two
+#   exclusion guards, a submit-and-toast tile in char-pools.js's Vampire Mechanics section (not a
+#   panel - no roll happens at submit time), a new office-approvals.js row type with an ST-side
+#   breaking-point-level picker gating Accept, and a Roll-tab-side Load Pool affordance scoped to the
+#   already-loaded character (loadPool() requires state.rollChar already set - no cross-tab
+#   auto-navigation, a deliberate scope boundary, see the story's own "What this story is NOT"). Full
+#   detail: specs/stories/gdx-12-humanity-check-oaq-submit-approve.md. Not committed. Prior entry
+#   follows.) 2026-08-19 (epic-bl actually pushed to origin/main, continuing where the TM
 #   Admin cross-repo check below left off — that check correctly found the seed-production
 #   precondition met but shipped nothing; this session did. Local `main` already carried epic-bl
 #   since 2026-08-18's f7d5d047 merge, just never pushed — turned out to be a clean 36-commit
@@ -1463,4 +1478,13 @@ development_status:
   # gdx-11's own struck Task 2 - verify the 4 existing inline char.humanity >= t.humanity sites
   # agree before adding it (public/js/suite/sheet.js:268; public/js/editor/sheet.js:428,451;
   # public/js/admin/downtime-story.js:1698,1765,1897).
-  gdx-12-humanity-check-oaq-submit-approve: backlog
+  # STORIED 2026-08-19: full bmad-create-story pass done, grounded directly against the real
+  # office-actions.js/contested-rolls.js/office-approvals.js code (not just this summary) and the
+  # rulebook's actual dice-per-level table + touchstone modifiers (p.107-108). Design: new
+  # request_type:'humanity_check' discriminator (own schema/route file, humanity-check.js), widens
+  # office-actions.js's GET /pending filter and contested-rolls.js's two exclusion guards, new
+  # submit tile in char-pools.js's Vampire Mechanics section (POST-and-toast, not open-a-panel), new
+  # office-approvals.js row type with an ST-side breaking-point-level picker gating Accept, and a
+  # Roll-tab-side "Load Pool" affordance (no auto-navigation - see story's "What this story is NOT").
+  # See specs/stories/gdx-12-humanity-check-oaq-submit-approve.md for full detail.
+  gdx-12-humanity-check-oaq-submit-approve: ready-for-dev
