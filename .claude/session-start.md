@@ -1,125 +1,117 @@
-# Session Start — TM Suite Orientation (project playbook)
+# Session Start — TM Suite (project playbook)
 
-> Loaded by the global `session-start` dispatcher skill when the working dir is this project.
-> Orient to the project before touching anything: git/branch state, the sprint-status header,
-> live GitHub issues/PRs, and test posture. Run these steps in order. Output a short summary at
-> the end. No narration while reading.
+> Loaded by the global `session-start` dispatcher skill when the working dir is this repo.
+> Mirror image of this repo's own `.claude/session-wrap.md` — orient here, wrap there. Run these
+> steps in order; keep output to ~8-12 lines, no narration while reading.
 
-*Playbook created 2026-08-12 (first version — this repo had no project playbook before).*
+*Playbook created 2026-08-18 (this repo had a `session-wrap.md` since 2026-08-12 but no matching
+`session-start.md` until now — see that file's own note flagging the gap).*
 
 ---
 
-## Step 1 — Git & branch state
+## 1. Branch & git state
 
 ```bash
-git status -sb
+git status --short --branch
 git log --oneline -8
 ```
 
-- **Never push, merge to `main`, or deploy** unless Angelus's *current* message explicitly says
-  so (hard rule, `CLAUDE.md`). A prior session's "commit and merge" does not carry forward.
-- Branch convention: `ms/issue-<n>-<slug>` cut from up-to-date `main`, PR'd straight back to
-  `main`. There is **no dev-sync protocol** any more — don't run `git merge dev`, don't raise
-  "dev is ahead/behind" as an action item unless asked. `dev` flows *from* `main`, not into it
-  (reversed after #1128).
-- **Expect a large pile of untracked files under `server/scripts/_acad-*`, `_arrow_*`, `_ath-*`
-  etc.** — these are scratch output from map-edge-building tool sessions, not gitignored, and
-  not a sign of anything broken. Don't flag the count or offer to clean it up unless asked; only
-  note it if it looks like it changed unexpectedly (e.g. a file mid-edit from an interrupted
-  session).
-- If the working tree has a **tracked** modification (not scratch clutter), identify whether it
-  matches the current branch's stated purpose or looks like a stray/unrelated edit.
+- **Never push, merge, or sync `dev` from a session-start check itself** — only when Angelus's
+  *current* message explicitly says so (hard rule, `CLAUDE.md`). Report state, don't act on it.
+- Confirm the branch isn't `main` mid-work (should be a side branch, or `main` right after a clean
+  merge-back) — flag immediately if commits landed directly on `main` without a PR.
+- Branching convention: `ms/issue-<n>-<slug>` cut from up-to-date `main`, PR straight back to
+  `main`. `dev` is a Netlify staging deploy target only now, not an integration stream — don't
+  suggest syncing it unless asked.
 
-## Step 2 — Where we left off (`specs/stories/sprint-status.yaml`)
-
-**This file now EXCEEDS the `Read` tool's 256KB hard limit** (312.7KB as of 2026-08-16, up from
-~100KB when this playbook was first written — it grows every session, re-check the size rather
-than trusting either figure). A bare `Read` on the whole file will fail. Read the header in full
-with `offset`/`limit` (the `last_updated` block is entirely within the first ~50 lines), then use
-`Grep` for the specific epic/story rows you actually need rather than reading the whole body —
-same shape as TM Wiki's own grep-only constraint, arrived at independently rather than copied.
-
-- The `last_updated` header (and `last_updated_previously` beneath it) is a dense freeform
-  paragraph the previous session writes on close-out: what shipped, defect root causes, issue/PR
-  numbers, test counts, MERGED/DEPLOYED status, what's still open. Read both before touching the
-  story table below them.
-- Cross-check `specs/deferred-work.md` (small, ~4KB, safe to read whole) for anything opened
-  last session or awaiting an explicit Angelus ruling.
-
-## Step 3 — Live GitHub state
-
-This repo actively uses `gh` issue/PR tracking alongside `sprint-status.yaml` (TM Wiki and TM
-Cockpit don't) — check both, they should agree:
+## 2. Local hooks check (cheap, worth it every session)
 
 ```bash
-gh pr view --json number,title,state,url 2>&1          # does the current branch have an open PR?
-gh issue list --limit 10
-gh pr list --limit 8
+git config --get core.hooksPath
 ```
 
-- If the current branch already has an OPEN PR, that usually means the story is done and
-  awaiting review/merge, not still in progress — check its title/number against
-  `sprint-status.yaml`'s `last_updated` header to see which is true.
-- **Several long-open PRs are stale, not active threads**: anything under `piatra/*` predates
-  Peter stepping back from TM Suite dev (2026-08-09); third-party branches (e.g.
-  `vipin-kumar17:*`) are external contributions awaiting Angelus's own review call. Don't act on
-  these — just note if one has moved recently.
-- Commit messages use `fix(#N)` / `feat(#N)` — the issue closes automatically when that commit's
-  PR merges to `main`, not before. Don't mark an issue mentally "done" off an open PR alone.
+If empty (a fresh clone/checkout forgets this), flag it and recommend
+`git config core.hooksPath .githooks` — it's the parse-check that catches smart-quote-as-syntax
+and similar errors on staged `public/js/**/*.js` before they reach `main` (`.githooks/README.md`).
 
-## Step 4 — Sibling project pulse (TM Admin, TM Story)
+## 3. Sprint status — grep only, never Read whole
 
-Lightweight only — a pulse check, not an audit. Two sibling repos under the umbrella root:
-`D:\Terra Mortis\TM Admin` and `D:\Terra Mortis\TM Story` (TM Story is TM Wiki, renamed same day
-as this repo's own TM Suite → TM Game rename — don't be thrown by the name). Read-only; never
-touch either working tree.
+`specs/stories/sprint-status.yaml` runs ~420KB as of 2026-08-18 and **will hard-error the `Read`
+tool's 256KB limit** — always grep, never attempt to load it whole.
 
 ```bash
-cd "D:\Terra Mortis\TM Admin" && git log --oneline -5 && git status -sb
-cd "D:\Terra Mortis\TM Story" && git log --oneline -5 && git status -sb
+grep -n "^last_updated:" specs/stories/sprint-status.yaml | head -1
 ```
 
-- Note the latest commit's subject + rough date for each — what's actively being built there.
-- Note ahead/behind `origin` and whether the working tree is clean.
-- **If `git status` shows a large number of modified files, check one diff before flagging it as a
-  concern** — TM Story has previously shown its *entire* tree as modified from a CRLF/LF mismatch,
-  not real changes (`git diff -- <one file>` and look for the "LF will be replaced by CRLF"
-  warning). Don't report line-ending noise as if it were in-progress work.
-- Don't read either repo's own `sprint-status.yaml` (or equivalent) in full — just note it exists.
-  That's this step's whole job: a pulse, not a second orientation.
-- Keep it to 2–3 lines per repo in the final summary. Only flag something as worth a closer look if
-  it's genuinely surprising (a large unexplained real diff, many unpushed commits sitting a long
-  time, an obvious blocker) — don't dig deeper automatically, offer to.
+Take the header's **opening clause only** for orientation — the rest is session-to-session
+archaeology chained with "Prior entry follows.)", not something to re-read in full or re-summarise
+upward. If one epic needs more context, grep that epic's own line specifically:
 
-## Step 5 — Test posture (don't run by default)
+```bash
+grep -n "^  epic-[a-z0-9-]*:" specs/stories/sprint-status.yaml
+```
 
-- **Run the changed area's suites, not the whole thing** — full runs are slow and bury the
-  signal (`CLAUDE.md`, `feedback_targeted_tests_not_full_suite` memory). Only run tests if this
-  session is about to touch code, or verifying a claim from last session.
-- vitest: `cd server && npx vitest run tests/<name>.test.js`. Playwright:
-  `npx playwright test tests/<name>.spec.js` (never two Playwright runs concurrently — shared
-  port 8080).
-- **Known pre-existing failures are already catalogued in `CLAUDE.md`** (the allocator-readers
-  source-window assertion, `desktop-and-css.spec.js` (12), `post-game-1.spec.js` nav-1-3 (3)) —
-  cite that list rather than re-deriving it fresh.
-- **Angelus cannot run the app locally.** Anything needing a human look must reach `dev` or
-  `main` first — don't claim a UI change is "verified" off test suites alone.
+Then the anchored status scan for live work (anchor on `^  key: value` — an unanchored pattern
+also matches status words inside the narrative prose and returns noise):
 
-## Step 6 — Output orientation summary
+```bash
+grep -n "^  [a-zA-Z0-9-]*: \(review\|in-progress\|ready-for-dev\)\b" specs/stories/sprint-status.yaml
+```
 
-Write a short summary (6–9 lines max) covering:
+## 4. GitHub issues cross-check (a TM Game-specific convention)
 
-1. **Branch + PR** — current branch, ahead/behind `origin/main`, and whether it already has an
-   open PR (with number).
-2. **Last session** — condensed from `sprint-status.yaml`'s `last_updated` header.
-3. **GitHub flags** — anything from Step 3 worth surfacing (stale PR that moved, issue that
-   should auto-close soon). Omit if nothing new.
-4. **Sibling projects** — 2–3 lines total from Step 4: what's active in TM Admin and TM Story
-   right now. Omit entirely if both are quiet/unremarkable since last time.
-5. **Working tree** — tracked changes only; mention scratch clutter exists only if it changed
-   unexpectedly.
-6. **Unblocked now** — the single highest-priority workable item (the open PR awaiting merge, a
-   `ready-for-dev` story, or an issue with no branch yet).
+This repo, unlike its siblings, tracks real GitHub issues alongside `sprint-status.yaml` (e.g.
+Epic GDX's `gdx-N` rows each cite a `#98x` issue). Sanity-check the two agree:
 
-Then ask: *"What would you like to work on?"* — or, if Angelus already named a task in their
-opening message, skip the question and get started directly.
+```bash
+gh issue list --limit 15
+```
+
+Flag anything open on GitHub that `sprint-status.yaml` already calls `done`, or vice versa — that
+mismatch is exactly the kind of tracker drift this project's own reconciliation sweeps (2026-08-16)
+found repeatedly. Don't do a full reconciliation every session — just note if something looks off.
+
+## 5. Deferred work (`specs/deferred-work.md`, ~60KB — safe to read in full)
+
+Check for anything opened in the last session or two that's still awaiting an explicit Angelus
+ruling (grep `ANGELUS` or tail the last ~3000 characters rather than reading start-to-end if
+pressed for time):
+
+```bash
+grep -n "ANGELUS" specs/deferred-work.md | tail -5
+```
+
+## 6. Stranded-branch check
+
+```bash
+git branch -a
+git for-each-ref --sort=-committerdate refs/heads/ --format='%(committerdate:short) %(refname:short)' | head -15
+```
+
+This repo accumulates side branches faster than it merges them (a recurring, previously-real risk
+— a live security hotfix once sat stranded for 3 days; see memory `project-stranded-branches.md`).
+Cross-reference any branch with real, recent commits against `sprint-status.yaml`'s own
+"committed locally, not pushed/merged" notes — if a branch has commits `sprint-status.yaml` doesn't
+account for, flag it by name rather than assuming it's already tracked.
+
+## 7. Test-suite orientation (don't re-diagnose known failures as new)
+
+Commands: `cd server && npm test` (vitest, 171 suites) and `npx playwright test` (root, ~150
+specs — **never run two Playwright invocations concurrently**, they share port 8080). Don't run
+either proactively at session start; this is orientation only, so a later test run isn't misread.
+
+Known pre-existing failures at base (full list + reasons: this repo's own `CLAUDE.md`):
+`n7-n9-allocator-readers.test.js`, `epic.708.3-cycle-phase-controls.test.js`,
+`oath-a-pledge-helpers.test.js`, `issue-836-legacy-tracker-cache-removed.test.js`,
+`issue-1013-indomitable-rules-text.test.js`, `tests/desktop-and-css.spec.js` (12),
+`tests/post-game-1.spec.js` nav-1-3 (3), `tests/cycle-phase-controls.spec.js` (11). Several vitest
+suites need a local `mongod` and **skip rather than fail** without one — a skipped suite is not a
+passing suite.
+
+## 8. Output orientation summary, then ask
+
+Write a short summary (8-12 lines) covering: last session's commit(s); the sprint-status header's
+opening clause; anything Step 4/5/6 flagged (omit any that came back clean); the single
+highest-priority workable item if one is obvious. Then ask: *"What would you like to work on?"* —
+unless Angelus already named a task in their opening message, in which case skip the question and
+proceed directly.
