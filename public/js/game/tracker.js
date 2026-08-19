@@ -103,6 +103,15 @@ export async function ensureLoaded(c) {
       aggravated: remote.aggravated ?? 0,
       inf:        remote.influence  ?? calcTotalInfluence(c),
       conditions: remote.conditions ?? local.conditions ?? [],
+      // gdx-11 (#981, code review finding, Edge Case Hunter): 'in_torpor' was
+      // added to the WRITE allowlist below but never read back here, so a
+      // reload after Staking silently dropped it from the client's own
+      // cache even though the server still had it. No current UI reads
+      // cs.in_torpor yet (AC7 only requires the server-side GET to be
+      // correct, which it already was) - fixed anyway so the cache doesn't
+      // silently disagree with the server the moment a future consumer
+      // reads this field.
+      in_torpor:  remote.in_torpor  ?? false,
     };
     _confirmed.add(id);
     return _cache[id];
@@ -162,7 +171,11 @@ export function trackerWriteField(charId, field, value) {
   if (!c) return;
   const cs = fromCache(c);
   cs[field] = value;
-  if (['vitae', 'willpower', 'bashing', 'lethal', 'aggravated'].includes(field)) {
+  // gdx-11 (#981, Task 6): 'in_torpor' added for Staking (AC7) — a genuine
+  // server-persisted status write, not a client-only flash. The server route
+  // (server/routes/tracker.js) does an unvalidated $set of the whole body,
+  // so no schema change is needed on that side.
+  if (['vitae', 'willpower', 'bashing', 'lethal', 'aggravated', 'in_torpor'].includes(field)) {
     // Only write to API if confirmed loaded — prevents migration code from
     // overwriting real MongoDB data with stale localStorage on every page load
     if (_confirmed.has(charId)) saveToApi(charId, { [field]: value });

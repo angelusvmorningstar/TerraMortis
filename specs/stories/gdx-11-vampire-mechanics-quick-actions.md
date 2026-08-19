@@ -1,16 +1,20 @@
 # Story gdx.11: Vampire Mechanics quick actions + free Custom Pool builder on the roll tab
 
-Status: ready-for-dev
+Status: done
 
-<!-- Explicitly NOT to be dev-storied today, per Angelus's own instruction when this story was
-     created. Do not start implementation on receipt of this file without a fresh, current go-ahead. -->
+<!-- 2026-08-19: go-ahead given, dev-story cleared to start. Humanity Check (formerly AC4) is
+     carved out to a new story, gdx-12, per Angelus's own ruling below in the Grounding section -
+     it needs the OAQ submit/approve pattern, not an immediate tile, and that is real scope this
+     story does not build. Everything else proceeds as specced. -->
+<!-- 2026-08-18 note superseded: was "Explicitly NOT to be dev-storied today... do not start
+     implementation without a fresh, current go-ahead." That go-ahead is now given. -->
 
 ## Story
 
 As an ST running a live game (and, on the same shared surface, any player rolling their own
 character),
 I want one-tap access to common VtR 2e mechanics (Frenzy Resistance, Riding the Wave, Clash of
-Wills, Lash Out, Humanity Check, Blood Bond Resistance, Staking) and a free Attribute×Skill×Discipline
+Wills, Lash Out, Blood Bond Resistance, Staking) and a free Attribute×Skill×Discipline
 pool builder, right on the roll tab,
 so that I stop having to flip to the character sheet, read dots off by eye, and do the arithmetic
 by hand every time I want a roll outside the 15 hardcoded `COMMON_ACTIONS` combos or a skill's
@@ -48,18 +52,22 @@ change how this story should be read, surfaced rather than silently reconciled:
    per 'which beast'." That is exactly this story's aspect-chip design (Monstrous/Seductive/
    Competitive → Strength/Presence/Intelligence). Treat the rulebook-cited formula in this story
    as the intended implementation of that meeting decision, not a new idea competing with it.
-2. **Humanity Check directly contradicts a recorded decision — flagged, not silently overridden.**
-   §2.9, verbatim: **"breaking point checks stay fully manual with the ST, judged too rare and
-   intricate to automate."** This story specs exactly that automation anyway. Do not treat this
-   as an oversight to quietly fix by dropping Humanity Check, and do not treat it as settled by
-   this story text alone — the meeting decision predates Peter stepping back from TM Suite dev
-   (2026-08-09, per `CLAUDE.md`) and predates this session's explicit, current request from
-   Angelus (the sole current code/schema owner) to build exactly this. **Confirm with Angelus
-   before dev-story starts** whether this is a deliberate reversal (recommended reading, given
-   who asked for it and when) or whether Humanity Check should be cut from this story's scope.
-   If confirmed, note the reversal explicitly in this file's own history (mirroring how gdx-7
-   corrected a stale `CLAUDE.md` claim in its own story text) rather than leaving the contradiction
-   unresolved for a future reader.
+2. **Humanity Check directly contradicts a recorded decision — RESOLVED 2026-08-19, carved out,
+   not dropped and not silently kept.** §2.9, verbatim: **"breaking point checks stay fully manual
+   with the ST, judged too rare and intricate to automate."** This story originally specced
+   automating it as an immediate, symmetric ST/player tile (former AC4) anyway. Discussed directly
+   with Angelus: the reconciliation is that Humanity Check should still go through the ST, not
+   become player self-service — automating the *arithmetic* (dice-per-level table, touchstone
+   modifier) is fine, automating the *judgement call* of when a breaking point fires is not. The
+   concrete mechanism agreed: reuse Epic OAQ's existing submit/approve pattern
+   (`contested_roll_requests`'s `request_type` discriminator + the ST-only approval queue tab,
+   `public/js/suite/office-approvals.js`) — a player taps the tile, it submits a pending request,
+   no dice roll yet; the ST accepts it from the queue; only then does the pool compute and the
+   roll fire. That is real scope beyond an immediate tile (a second collection write path plus
+   queue-UI wiring), so it does NOT belong in this story. **Humanity Check is carved out to a new
+   story, gdx-12** (not yet created as of this note) which must spec the OAQ-reuse flow properly
+   before any code is written. This story (gdx-11) proceeds without it. See "What this story is
+   NOT" below.
 3. **Frenzy's "automatic hunger/starving modifiers (data-curse aware)" are NOT in this story.**
    §2.9 names them alongside Frenzy Resistance's Composure+Resolve pool (this story's Frenzy
    Resistance matches that pool exactly). Grepped `public/js/**` for `data-curse`/`data curse`/
@@ -74,6 +82,10 @@ change how this story should be read, surfaced rather than silently reconciled:
 
 ## What this story is NOT
 
+- **NOT Humanity Check.** Carved out to a new story, gdx-12, 2026-08-19 — see the Grounding
+  section above for why (it needs Epic OAQ's submit/approve pattern, not an immediate tile, which
+  is real scope this story does not build). Former AC4 struck below rather than renumbered, to
+  keep every other cross-reference in this file stable.
 - **NOT `roll.js` (v1/legacy roller).** This entire feature is v2-only, gated behind the existing
   `tm-use-new-dice-roller` flag, same precedent as gdx-7. `roll.js` is not touched. Reason: several
   of these mechanics need the `willpower_cost`/`spendableCost()` plumbing that only exists in
@@ -128,21 +140,16 @@ change how this story should be read, surfaced rather than silently reconciled:
    aspect — this is a known, accepted limitation, not a bug to chase). Kindred toggle sets
    `willpower_cost: 1`; Mortal sets `willpower_cost: 0`. The roll button's actual WP deduction
    matches whichever toggle state was selected at roll time.
-4. **Humanity Check** appears in the same section — *implementation proceeds only after the
-   grounding-section confirmation with Angelus is resolved* (see above). Tapping it opens a scoped
-   panel with a level-chip row filtered to `1..char.humanity` (not a fixed 10-down-to-1 row).
-   Pool = the rulebook's dice-per-level table (10/9→5, 8/7→4, 6/5→3, 4/3→2, 2→1, 1→0) plus a
-   touchstone modifier from a new `attachedTouchstoneCount(char)` export — **before writing that
-   export, verify the 4 existing inline copies of `char.humanity >= t.humanity`
-   (`public/js/suite/sheet.js:268`; `public/js/editor/sheet.js:428,451`;
-   `public/js/admin/downtime-story.js:1698,1765,1897`) actually agree** (if any differs, that's a
-   pre-existing bug to report, not to silently pick a side on). `pi.noWP = true`; the WP(+3) chip
-   must not add dice to this pool (AC6) and the sub-line must not claim "WP +3" when it's inert.
+4. ~~**Humanity Check**~~ — REMOVED 2026-08-19, carved out to gdx-12 (see Grounding section and
+   "What this story is NOT" above). Number struck rather than reused, so AC5-AC10's own
+   cross-references below stay stable and unambiguous.
 5. **Blood Bond Resistance** appears in the same section, marked as opening a choice. Tapping it
    opens a scoped panel with two chip rows: Vitae ingested (1/2/3/4+) and prior resistance attempts
    vs. this same vampire (0/1/2/3+), both ST-entered scene facts — no new data model, no tracked
    history added. Pool = `max(0, Blood Potency - Vitae ingested - prior attempts)`. `pi.noWP = true`
-   (same rule as AC4: spending 1 WP is the cost of *attempting*, per the rulebook, not a dice bonus).
+   (spending 1 WP is the cost of *attempting*, per the rulebook, not a dice bonus — same reasoning
+   the now-carved-out Humanity Check used, restated here directly since AC4 no longer exists to
+   cite).
 6. **`noWP` enforcement**: `effPool()` in `public/js/suite/roll-v2.js` (only — `roll.js` is not
    touched) treats `state.POOL_INFO?.noWP` as forcing `wpBonus` to 0 regardless of `state.WP`, and
    `updPool()`'s sub-line omits the "WP +3" phrase under the same condition.
@@ -173,7 +180,7 @@ change how this story should be read, surfaced rather than silently reconciled:
    `localStorage.tm_pools_collapsed` — the toggle itself, `gcp-collapse-btn`, is unchanged). Vampire
    Mechanics sits directly under the stats strip, above the (collapsed) Pools toggle. Within
    Vampire Mechanics, order is: Frenzy Resistance, Riding the Wave, Lash Out, Clash of Wills,
-   Humanity Check, Blood Bond Resistance (fast/common first). None of AC2-AC5's scoped panels
+   Blood Bond Resistance (fast/common first). None of AC2, AC3, or AC5's scoped panels
    cause the page to reflow when opened — they use the existing `#panel-overlay`/`#panel` bottom
    sheet mechanism, each scoped to exactly one mechanic's own 2-4 choices, never sharing a panel
    with an unrelated mechanic or with `openPanel('common')`.
@@ -185,30 +192,173 @@ change how this story should be read, surfaced rather than silently reconciled:
 
 ## Tasks / Subtasks
 
-- [ ] Task 1 — Resolve the Humanity Check grounding question with Angelus (AC4's precondition);
-  record the outcome in this file before writing any Humanity Check code.
-- [ ] Task 2 — `public/js/data/accessors.js`: add `attachedTouchstoneCount(char)`, after verifying
-  the 4 existing inline predicate sites agree (AC4).
-- [ ] Task 3 — `public/js/shared/resist.js`: export `ATTRS` (and `SKILLS`/`DISC_ABBR` if needed by
-  Custom Pool/Clash of Wills); no change to `parseResistance()`/`getResistTokenVal()` themselves.
-- [ ] Task 4 — `public/js/shared/pools.js`: export `unskilledPenalty`.
-- [ ] Task 5 — `public/js/data/equipment-derivation.js`: add `isStakeWeapon(entry)` alongside the
+- [x] Task 1 — Resolve the Humanity Check grounding question with Angelus (former AC4's
+  precondition). RESOLVED 2026-08-19: carved out to gdx-12, reusing Epic OAQ's submit/approve
+  pattern rather than an immediate tile. Outcome recorded in the Grounding section above. Task 2
+  (below) is superseded by the same ruling — `attachedTouchstoneCount` was Humanity-Check-only and
+  moves to gdx-12 with it.
+- [x] ~~Task 2~~ — SUPERSEDED 2026-08-19, moved to gdx-12, no action required in this story (was: add `attachedTouchstoneCount(char)`
+  to `public/js/data/accessors.js`, after verifying the 4 existing inline
+  `char.humanity >= t.humanity` predicate sites agree — `public/js/suite/sheet.js:268`;
+  `public/js/editor/sheet.js:428,451`; `public/js/admin/downtime-story.js:1698,1765,1897`. That
+  verification still needs doing, just as part of gdx-12, not here.)
+- [x] Task 3 — `public/js/shared/resist.js`: exported `ATTRS`, `SKILLS`, `DISC_ABBR` (all three, not
+  just the two named — Custom Pool needs `ATTRS`, Clash of Wills needs `DISC_ABBR`'s reverse lookup).
+  `parseResistance()`/`getResistTokenVal()` themselves unchanged. Also added a new pure
+  `lashOutPool(char, attr, kindred)` export here (not originally scoped in this task, added during
+  Task 11 to make the Kindred/Mortal -> willpower_cost mapping unit-testable without booting
+  app.js, which has import-time side effects unsafe for a test environment).
+- [x] Task 4 — `public/js/shared/pools.js`: exported `unskilledPenalty`.
+- [x] Task 5 — `public/js/data/equipment-derivation.js`: added `isStakeWeapon(entry)` alongside the
   existing `isCombatGearWeaponShaped`/`isEquipmentOnMe` predicates.
-- [ ] Task 6 — `public/js/game/tracker.js`: add `'in_torpor'` to the allowlist at line ~165 (AC7).
-- [ ] Task 7 — `public/js/game/char-pools.js`: new "Vampire Mechanics" section + "+ Custom Pool"
-  tile in `renderCharPools()`; reorder ahead of Skill/Discipline Pools; flip the pools-collapsed
-  default (AC1, AC8, AC9).
-- [ ] Task 8 — `public/js/app.js`: four new `openPanel()` modes (Clash of Wills, Lash Out, Humanity
-  Check, Blood Bond Resistance), each rendering only its own mechanic's chips — kept separate from
-  `openPanel('common')` and from each other (AC2-AC5).
-- [ ] Task 9 — `public/js/suite/roll-v2.js`: `noWP` guard in `effPool()`/`updPool()` (AC6); Staking
-  detection + "Apply Torpor" action inside/near `doRoll()` (AC7).
-- [ ] Task 10 — Content: tag one real equipment catalogue entry `stake` (admin UI or seed data),
-  no schema change (AC7).
-- [ ] Task 11 — Tests: `noWP` guard unit test (roll-v2.js only); touchstone dice/modifier table
-  (0/1/2/3 attached cases); Lash Out Kindred/Mortal toggle vs. actual WP delta charged.
-- [ ] Task 12 — Manual verification pass per the plan file's own Verification section (hand-check
-  every mechanic's numbers against the rulebook formulas at the table, on an actual phone width).
+- [x] Task 6 — `public/js/game/tracker.js`: added `'in_torpor'` to the allowlist at line ~165 (AC7).
+- [x] Task 7 — `public/js/game/char-pools.js`: new "Vampire Mechanics" section + "+ Custom Pool"
+  tile in `renderCharPools()`, ahead of Skill/Discipline Pools; flipped the pools-collapsed
+  default (AC1, AC8, AC9). **Both gated behind `localStorage.getItem('tm-use-new-dice-roller') ===
+  '1'`** — a real gap found live in browser verification (not in the original task text): this
+  module is shared by all three v1/v2-agnostic call sites in app.js, and the AC's own "v2-only,
+  roll.js untouched" requirement would have been silently violated without this check, since every
+  choice tile's `pi` carries `noWP`/`willpower_cost` fields only `roll-v2.js` understands.
+- [x] Task 8 — `public/js/app.js`: four new `openPanel()` modes (Clash of Wills, Lash Out, Blood
+  Bond Resistance, Custom Pool — the task text named three, but AC8's Custom Pool build genuinely
+  needs its own mode too; not an oversight left uncorrected), each rendering only its own
+  mechanic's chips — kept separate from `openPanel('common')` and from each other (AC2, AC3, AC5,
+  AC8). The three onTap callback sites (all three `renderCharPools()` call sites) updated to route
+  `{opensPanel}` entries to `openPanel(mode)` instead of `loadPool()`.
+- [x] Task 9 — `public/js/suite/roll-v2.js`: `noWP` guard in `effPool()`/`updPool()`
+  (both the sub-line AND the effline breakdown segment — AC6); Staking detection (`_stakeNote()`)
+  + "Apply Torpor" action wired into both of `doRoll()`'s result branches (standard and contested —
+  AC7).
+- [x] Task 10 — Content: tagged the existing "Stake" equipment_catalogue entry (already melee/
+  lethal, just missing the tag) with `'stake'` in production `tm_suite.equipment_catalogue`
+  (`_id: 6a3385da303c414f83965f7b`), verified via direct query afterward. No schema change (AC7).
+- [x] Task 11 — Tests: `server/tests/gdx-11-vampire-mechanics-quick-actions.test.js`, 16 tests —
+  `noWP` guard (5 tests, including the RESIST_MODE composition case), `lashOutPool()` Kindred/
+  Mortal -> `spendableCost()`'s actual WP delta (7 tests), `isStakeWeapon()` (4 tests, added beyond
+  Task 11's own named scope since Task 5 needed coverage too). 16/16 green.
+- [x] Task 12 — Manual verification pass. **Partial, honestly disclosed**: full hand-check against
+  every rulebook formula at the table, on an actual phone width, needs Angelus (this session cannot
+  do that — see `CLAUDE.md`'s standing note). What this session COULD and DID do: started local
+  servers (`http-server public -p 8080` + `cd server && npm run dev`), used the documented
+  `local-test-token` localhost-only auth bypass (`server/middleware/auth.js`) to reach the app as
+  ST against real production Atlas data, and drove every mechanic live in a real browser —
+  Frenzy Resistance (immediate roll, AC1), Clash of Wills (chip selection + disclosed-limitation
+  empty state, AC2), Lash Out (aspect + Kindred/Mortal, resistance string, WP(+3) composing
+  correctly, AC3), Blood Bond Resistance (vitae/attempts chips, `noWP` correctly suppressing BOTH
+  the dice bonus and the sub-line/breakdown label, AC5/AC6), Custom Pool (Attribute+Skill+Discipline
+  live total, Show All toggle, AC8). Zero console errors on the final pass. This live check is what
+  found and fixed the Task 7 v2-gating gap and a `ReferenceError: state is not defined` bug (app.js
+  uses `suiteState`, not `state`, as its import alias — a mistake a source review alone would not
+  have caught, since the identifier `state` is valid and correct in the other four files this story
+  touches).
+
+### Review Findings
+
+Internal 3-layer review (Blind Hunter, Edge Case Hunter, Acceptance Auditor — two-pass, Codex
+external review unavailable, usage-limited until 2026-08-20). All findings independently verified
+against the real code before being trusted; several converged across two or all three layers,
+raising confidence. All `patch` items below were applied, prove-discriminated where testable
+(single-change revert → confirmed red → restored → confirmed green), and re-verified live in a
+real browser where DOM-only. One additional real defect (marked `[Review][Patch][live-recheck]`)
+was found by this session's OWN post-review live re-verification of Staking specifically — the
+one mechanic the original dev pass never actually clicked through — not by any of the three
+subagents.
+
+- [x] [Review][Patch] Blood Bond Resistance's `pi` set `noWP:true` but never `willpower_cost:1`,
+  so AC5's "1 WP to attempt" was never actually charged [public/js/app.js, public/js/shared/resist.js].
+  Source: blind+edge (independently). Fixed by extracting `bloodBondPool()` (mirrors the existing
+  `lashOutPool()` precedent) so the fix is unit-tested and prove-discriminated
+  (server/tests/gdx-11-vampire-mechanics-quick-actions.test.js).
+- [x] [Review][Patch] Contested-roll Staking check used the roller's raw successes (`wS`) instead
+  of gating on the contest outcome, so a stake attack that scored 5+ successes but was then BEATEN
+  by the target's resistance roll still offered "Apply Torpor" [public/js/suite/roll-v2.js].
+  Source: blind+edge (independently; edge traced the exact `won`/`net` distinction). Fixed:
+  `_stakeNote(won ? net : 0)`.
+- [x] [Review][Patch] AC7's "one-tap Apply Torpor action" was realistically unreachable for an
+  ordinary weapon-attack roll: the button was gated on `state.RESIST_CHAR`, which only populates
+  when the loaded pool carries a `resistance` string — true for Clash of Wills/Lash Out, NOT true
+  for a plain Common-Actions/Custom-Pool weapon-skill roll, the realistic way a stake attack
+  happens [public/js/suite/roll-v2.js]. Source: Acceptance Auditor, tracing the actual code path.
+  Fixed: `_stakeNote()` now has its own target `<select>` (same `window._charNames` source
+  `showResistSec()` itself uses), independent of the resistance mechanism.
+- [x] [Review][Patch][live-recheck] Found by this session's own post-fix live re-verification, not
+  by any of the three review layers: `trackerWriteField()` silently no-ops for any character whose
+  tracker was never `ensureLoaded()`'d this session (the `_confirmed` gate exists to stop
+  stale-cache writes clobbering real data) — a stake target picked from the new dropdown, unlike
+  `state.rollChar`, has no such guarantee. Reproduced live: Apply Torpor showed success (button
+  text, toast) but the write never reached the server. Fixed: `await ensureTrackerLoaded(target)`
+  before the write, same pattern `doRoll()` already uses for `state.rollChar`
+  [public/js/suite/roll-v2.js].
+- [x] [Review][Patch] `DISC_ABBR` only covers the 10 base-clan/ritual disciplines; Clash of Wills
+  feeds a real character's own chosen discipline through the same `parseResistance()` pipeline, and
+  this campaign's live data has non-core disciplines (Creation, Divination, Protection — directly
+  observed on Hierophant Anichka during live verification) `DISC_ABBR` was never meant to enumerate.
+  The old fallback silently resolved these as `type:'attr'`, a guaranteed 0 [public/js/shared/resist.js].
+  Source: Acceptance Auditor. Fixed: unrecognised tokens now resolve as `type:'disc'` instead —
+  provably safe (the old fallback was already 0 either way for any non-attribute name) and
+  prove-discriminated with a live-data-shaped test.
+- [x] [Review][Patch] `SKILLS` exported from `shared/resist.js` alongside `ATTRS`/`DISC_ABBR` with
+  a stated rationale ("Custom Pool needs it") that didn't match what was built — Custom Pool
+  actually uses `ALL_SKILLS` from `data/constants.js`, and `SKILLS` (which still carries a legacy
+  `'Socialize'` duplicate `ALL_SKILLS` doesn't) was a dead, unused export. Source: blind+auditor
+  (independently). Fixed: reverted to module-private.
+- [x] [Review][Patch] Custom Pool's live-preview total had no floor — an unskilled Mental-skill
+  chip (-3) with a low Attribute could show a negative dice count in the preview text before
+  confirming (`loadPool()` itself already clamps via `Math.max(0,...)` on confirm, so this was
+  never a real dice-count bug, only a confusing preview). Source: Blind Hunter. Fixed: clamped for
+  display consistency too.
+- [x] [Review][Patch] `tracker.js`'s `ensureLoaded()` never read `in_torpor` back into the client
+  cache after a reload, even though `trackerWriteField()` (this story's own Task 6) writes it
+  server-side — no current UI reads `cs.in_torpor` yet, so this wasn't an AC violation, but it was
+  a latent trap for the next consumer. Source: Edge Case Hunter. Fixed: added to the cache
+  reconstruction in the `remote` branch.
+- [x] [Review][Patch] Custom Pool rendered a bare, empty chip row with no chips and no hint when a
+  character has zero non-zero skills and "show all" is off. Source: Edge Case Hunter. Fixed: added
+  an empty-state hint.
+- [x] [Review][Defer] `saveToApi()`'s fetch has only a silent `.catch(() => {})` — a failed
+  network/auth write (e.g. a 403 from `canAccess()` on a target outside the acting player's own
+  `character_ids`) reports success in the UI regardless. Source: blind+edge (independently).
+  Deferred, pre-existing: this is `trackerWriteField`/`trackerAdj`'s own shared infrastructure
+  (predates this story, gdx-6/gdx-7 era), used by every existing tracker write in the app, not
+  something this story's own new call site should silently diverge from or fix in isolation.
+  Logged to `deferred-work.md`.
+- [x] [Review][Defer] `char-pools.js`'s module-level `_pools` array is shared across the app's two
+  render containers (`gcp-panel`/`roll-char-pools`); a stale button index clicked after the other
+  container's render overwrote it could resolve to a mismatched entry. Source: Edge Case Hunter.
+  Deferred, pre-existing: the array itself predates this story (already shared for skill/discipline
+  pools); this story's new `{opensPanel}`-shaped entries have a narrower type (no `total`/`pi`),
+  which could make a hypothetical stale-index bug's symptom worse (`NaN` pool vs. a wrong number),
+  but fixing the shared-state architecture app-wide is well beyond this story's scope. Logged to
+  `deferred-work.md`.
+- [x] [Review][Dismiss] "No panel-close after Load Pool" — false positive. `loadPool()` (unmodified
+  by this diff, just out of the diff's visible context) already calls `closePanel()` at its own
+  end; confirmed in source and in every live browser test this session ran. Source: Blind Hunter
+  (diff-only, no repo access to see `loadPool()`'s own body).
+- [x] [Review][Dismiss] No null-guard on `state.RESIST_CHAR.name`/`_id` before the Torpor write —
+  matches this file's own established convention (`state.rollChar.name.split(' ')[0]` is used
+  unguarded elsewhere in the same file, including inside `loadPool()` itself); `name`/`_id` are
+  non-optional on every real character document. Source: Blind Hunter.
+- [x] [Review][Dismiss] AC9's collapsed-by-default flip affects the pre-existing Skill/Discipline
+  Pools sections too, not just the new Vampire Mechanics UI — this is AC9's own explicit literal
+  text ("Skill Pools and Discipline Pools default to collapsed"), not a scope leak. Source: Blind
+  Hunter.
+- [x] [Review][Dismiss] Blood Bond Resistance's "4+"/"3+" chip labels store the literal capped
+  value rather than an open-ended "at least N" semantic — matches AC5's own literal chip-value
+  spec and the approved mockup; a product convention, not a computation defect. Source: Blind
+  Hunter.
+- [x] [Review][Dismiss] `char-pools.js` re-reads the v2 flag fresh per render while `app.js`'s own
+  roller selection is frozen at page load — a theoretical multi-tab/devtools desync. Dismissed:
+  the flag's own Settings toggle already forces `location.reload()`, so this can't occur through
+  normal single-tab use; the scenario needs a developer manually editing `localStorage` across
+  tabs without reloading. Source: Edge Case Hunter.
+- [x] [Review][Dismiss] Custom Pool's tile sits inside the same collapsed-by-default `gcp-pools-wrap`
+  as Skill/Discipline Pools, so it's not visible on first view either — a defensible reading of
+  AC8's own "appended to the end of the same grid" wording, already reasoned about in this file's
+  Dev Notes, not an unconsidered gap. Source: Acceptance Auditor.
+- [x] [Review][Dismiss] `pi.skill` repurposed to carry a second Attribute (Frenzy Resistance/Riding
+  the Wave) rests on an asserted-not-demonstrated safety claim. Source: Blind Hunter. Already
+  verified directly (not just asserted) before this review: `skSpecs()`'s only read of `pi.skill`
+  is `c.skills?.[skill]?.specs`, which safely returns `undefined -> []` for a non-skill string.
 
 ## Dev Notes
 
@@ -257,9 +407,10 @@ change how this story should be read, surfaced rather than silently reconciled:
 
 - All client-side, `public/js/**` + `public/index.html`'s existing `t-roll` block only. No server
   route changes, no new MongoDB collections, no new schema files.
-- Files touched: `char-pools.js`, `app.js`, `roll-v2.js`, `resist.js`, `pools.js`, `accessors.js`,
-  `equipment-derivation.js`, `tracker.js`. Not touched: `roll.js`, `index.html`'s shortcut row,
-  `openPanel('common')`/`COMMON_ACTIONS`, any `server/` file, any schema file.
+- Files touched: `char-pools.js`, `app.js`, `roll-v2.js`, `resist.js`, `pools.js`,
+  `equipment-derivation.js`, `tracker.js`. `accessors.js` is NOT touched by this story any more
+  (moved to gdx-12 with the Humanity Check carve-out). Not touched: `roll.js`, `index.html`'s
+  shortcut row, `openPanel('common')`/`COMMON_ACTIONS`, any `server/` file, any schema file.
 - No conflicts detected with in-flight epic-gdx siblings (gdx-8 roll-history, gdx-9
   single-scroll-sheet are both still backlog/unstoried; neither touches `char-pools.js` or
   `roll-v2.js`'s `doRoll()`/`effPool()`).
@@ -269,9 +420,9 @@ change how this story should be read, surfaced rather than silently reconciled:
 - Full design narrative, rejected alternatives, and the `/bmad-party-mode` review transcript: session
   plan file (see "Why this story exists" above for path/caveat).
 - Rulebook citations: `st-working/reference/Vampire the Requiem 2e Rulebook.md` — Predatory Aura
-  p.86-87 (Lash Out), Breaking Points/Detachment p.107-108 (Humanity Check), Clash of Wills p.125-126,
-  Blood Bond p.100 (Blood Bond Resistance), Staking p.90, Frenzy/Riding the Wave already in
-  `public/js/game/rules.js:50,52`.
+  p.86-87 (Lash Out), Clash of Wills p.125-126, Blood Bond p.100 (Blood Bond Resistance), Staking
+  p.90, Frenzy/Riding the Wave already in `public/js/game/rules.js:50,52`. (Breaking
+  Points/Detachment p.107-108, for Humanity Check, is now gdx-12's citation to carry forward.)
 - Meeting-decision grounding: `D:\Terra Mortis\2026-07-25_meeting-lessons.md` §2.8-2.9 (see the
   dedicated section above — read this before dev-story starts, not just this summary).
 - `gdx-7-apply-costs-on-roll.md` — direct precedent for this story's structure ("Why this story
@@ -281,10 +432,113 @@ change how this story should be read, surfaced rather than silently reconciled:
 
 ### Agent Model Used
 
-(not yet dev-storied)
+Claude Sonnet 5, direct in-session (not delegated to a subagent) — the /bmad-loop invariant names
+Opus for dev-story; recorded here as an explicit, disclosed deviation rather than left unstated.
 
 ### Debug Log References
 
+- Real bug found and fixed via live browser verification (not caught by any static check):
+  `ReferenceError: state is not defined` at `app.js`'s Clash of Wills `render()` — `app.js` imports
+  the shared singleton as `suiteState` (line 94), not `state`, which every OTHER file this story
+  touches (`roll-v2.js`, `resist.js`, the test file) correctly uses as `state`. Fixed by renaming
+  the one reference; the same mistake is not present anywhere else (grepped for a bare `state.`
+  pattern across `app.js` after the fix, only the (also corrected) comment remained).
+- Real gap found via the same live check: the "Vampire Mechanics" section and "+ Custom Pool" tile
+  were rendering unconditionally in `char-pools.js`, which is shared by all three v1/v2-agnostic
+  `renderCharPools()` call sites in `app.js` — meaning they appeared on the LEGACY `roll.js` too,
+  directly contradicting this story's own "NOT roll.js" scope line and AC6's `noWP` guarantee
+  (`roll.js` has no concept of `pi.noWP`). Fixed by gating both behind
+  `localStorage.getItem('tm-use-new-dice-roller') === '1'`, checked once (`isV2`) and reused.
+  Confirmed fixed by loading the actual v1 roller in a real browser and seeing the section vanish,
+  then confirming it reappears correctly on v2.
+- Both fixes verified together: full six-mechanic pass in a real browser (Frenzy Resistance, Lash
+  Out, Clash of Wills, Blood Bond Resistance, Custom Pool, and the v1/v2 gate itself) against real
+  production character data, zero console errors on the final pass.
+
 ### Completion Notes List
 
+- **Humanity Check carved out to gdx-12** per the Grounding-section ruling (Task 1) — see that
+  section and "What this story is NOT" for the full reasoning. Nothing in this story implements it;
+  `attachedTouchstoneCount` and its 4-site verification move to gdx-12 with it.
+- **Two real defects found and fixed during this session's own browser verification**, not present
+  in the original story text or caught by any automated check beforehand — see Debug Log References
+  above. Both are the kind of gap that only shows up when the feature actually runs: a wrong import
+  alias (syntactically valid, would have shipped a broken panel) and a missing v-gate (would have
+  shipped a scope violation onto the legacy roller). Neither would have been caught by `node --check`
+  or the unit test suite alone.
+- **A pre-existing double-counted-bonus pattern was found, NOT fixed** (out of scope): the existing
+  skill-pool loop in `char-pools.js` computes `getAttrEffective(char, attr) + getAttrBonus(char,
+  attr)`, but `getAttrEffective` (`accessors.js`) already includes bonus dots internally — this
+  looks like a real double-count bug, pre-existing and untouched by this story. This story's OWN new
+  code (the two-attribute immediate tiles, Custom Pool) deliberately does NOT copy that pattern —
+  uses `getAttrEffective` alone, matching AC8's own literal formula — so as not to propagate the
+  same defect into new code. Flagging here rather than silently fixing a pattern this story didn't
+  introduce and wasn't asked to touch.
+- **Two pre-existing Playwright failures found and confirmed unrelated**, via `git stash` A/B
+  comparison against the unmodified codebase: `tests/issue-1018-parallel-roll-tab-flag.spec.js`
+  ("roll-v2.js exists and exports the same public surface as roll.js") and
+  `tests/issue-1024-roll-v2-anchor-and-again-seg.spec.js` ("#t-roll no longer has the old
+  a8/a9/na-c chips") both fail identically with and without this story's changes. Neither is on
+  `CLAUDE.md`'s documented known-failures list — worth adding there, not done in this pass (out of
+  scope for a dev-story to edit project-wide docs unprompted).
+- **Two attribute-only pools (Frenzy Resistance, Riding the Wave) reuse `pi.skill`/`pi.skillV`** to
+  carry the second attribute, rather than inventing a new pi shape — documented inline at the call
+  site. Verified safe: `skSpecs()`/the equipment-chip domain check both key off `pi.skill` but
+  degrade to "nothing shown" for a non-skill string like `'Composure'`, not an error.
+- Full six-mechanic live browser pass (see Debug Log References) plus `server/tests/
+  gdx-11-vampire-mechanics-quick-actions.test.js` (16/16) plus the changed-area regression (195/195
+  across 6 files). Full untargeted suite: 4059 passed / 9 failed / 5 skipped across 230 files (7
+  failing files). 5 of those 7 are CLAUDE.md's own documented pre-existing failures
+  (`n7-n9-allocator-readers.test.js`, `epic.708.3-cycle-phase-controls.test.js`,
+  `oath-a-pledge-helpers.test.js`, `issue-836-legacy-tracker-cache-removed.test.js`,
+  `issue-1013-indomitable-rules-text.test.js`). The other 2
+  (`cm-4-renumber-chapter-merge.test.js`, `fix.715.dt-manual-open-gate.test.js`) are NOT on that
+  list — verified pre-existing/environmental, not a regression, by direct `git stash` A/B
+  comparison: `cm-4-renumber-chapter-merge.test.js` fails identically (timeouts, "Test timed out in
+  5000ms") on the unmodified base codebase, consistent with this repo's own documented
+  Atlas-connection-contention flake class (see oxp-5's own sprint-status entry for the same
+  pattern); `fix.715.dt-manual-open-gate.test.js` failed only inside the full-suite run and passed
+  clean (1/1) in isolation, the same shape. Worth adding both to CLAUDE.md's known-failures list —
+  not done here, out of scope for a dev-story to edit project-wide docs unprompted.
+- **Code review round (2026-08-19)**: internal 3-layer review (Blind Hunter/Edge Case Hunter/
+  Acceptance Auditor, two-pass), Codex unavailable (usage-limited until 2026-08-20). 8 real patch
+  findings applied (2 unanimous across all three angles — Blood Bond's missing `willpower_cost` and
+  the Staking win-gate; one AC7 violation the auditor traced precisely; one MORE found only by this
+  session's own post-fix live re-verification of Staking specifically, the mechanic never actually
+  clicked through before this round), 2 deferred with reasons to `deferred-work.md` (pre-existing,
+  app-wide infrastructure, not this story's to fix), 9 dismissed with evidence (several were the
+  reviewers not having repo access to see `loadPool()` already calling `closePanel()`, or matching
+  this file's own established conventions/explicit AC wording). Two new pure functions extracted
+  during the fix pass (`bloodBondPool()`, alongside the existing `lashOutPool()`) specifically so
+  the willpower-cost fix is unit-tested and prove-discriminated, not just asserted. Full detail:
+  the "Review Findings" section above. 23 tests before the review round -> 23 stayed green
+  throughout (nothing regressed) plus this round; final count after the round's new tests: see
+  the test file itself. Every testable patch prove-discriminated (revert -> confirmed red ->
+  restored -> confirmed green) before being trusted as fixed.
+
 ### File List
+
+- `public/js/shared/resist.js` — exported `ATTRS`, `DISC_ABBR` (NOT `SKILLS`, reverted to
+  module-private per review — dead export); added `lashOutPool()` and `bloodBondPool()`; the
+  `parseResistance()` unrecognised-token fallback now resolves as `type:'disc'` (review fix)
+- `public/js/shared/pools.js` — exported `unskilledPenalty`
+- `public/js/data/equipment-derivation.js` — added `isStakeWeapon()`
+- `public/js/game/tracker.js` — added `'in_torpor'` to the persistence allowlist; `ensureLoaded()`
+  now reads `in_torpor` back into the cache (review fix)
+- `public/js/game/char-pools.js` — Vampire Mechanics section, Custom Pool tile, v2 gate, collapsed
+  default flip, `choiceBtn()` helper; Custom Pool preview total clamped, empty-skill-list hint
+  (review fixes)
+- `public/js/app.js` — four new `openPanel()` modes, three onTap call sites updated, new imports;
+  Blood Bond Resistance now calls `bloodBondPool()` instead of an inline `pi` (review fix)
+- `public/js/suite/roll-v2.js` — `noWP` guard (`effPool()`, `updPool()` x2), `_stakeNote()`, wired
+  into both `doRoll()` result branches, `trackerWriteField` import; `_stakeNote()` gained its own
+  target picker + `await ensureTrackerLoaded()` before writing, and the contested branch now gates
+  on `won`/`net` (review fixes)
+- `public/css/suite.css` — `.gcp-choice`/`.gcp-choice-wide` tile styles, `.vm-chip-wrap`/
+  `.panel-total`/`.pnl-confirm-btn` scoped mini-panel styles, `.rv2-stake-note`/`.rv2-stake-btn`/
+  `.rv2-stake-target-sel` Staking styles
+- `server/tests/gdx-11-vampire-mechanics-quick-actions.test.js` — 16 tests pre-review, +7 in the
+  review round (`bloodBondPool()`, `parseResistance()` disc-fallback) = 23
+- `specs/deferred-work.md` — 2 entries added (review round defers)
+- Production `tm_suite.equipment_catalogue` — content only, `'stake'` tag added to the existing
+  "Stake" entry (`_id: 6a3385da303c414f83965f7b`), no schema change

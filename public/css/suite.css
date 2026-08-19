@@ -338,6 +338,15 @@ body.desktop-mode .sh-powers-grid > .sh-sec{break-inside:avoid;}
 .pi-badge{font-family:var(--fl);font-size:10px;color:var(--gdim);}
 .pi-pool{width:36px;height:36px;border-radius:8px;background:var(--crim);display:flex;align-items:center;justify-content:center;font-family:var(--fl);font-size:15px;color:var(--txt-on-dark);flex-shrink:0;}
 .pi-pool.nr{background:var(--surf2);color:var(--txt3);}
+/* gdx-11 (#981) — scoped mini-panels (Lash Out, Clash of Wills, Blood Bond
+   Resistance, Custom Pool): wrapping chip rows, live total, confirm button */
+.vm-chip-wrap{display:flex;flex-wrap:wrap;gap:6px;padding:0 16px 8px;}
+.vm-chip-wrap .mchip{flex:0 0 auto;height:36px;padding:0 12px;}
+.panel-section .cp-showall-btn{float:right;background:none;border:none;color:var(--gdim);font-family:var(--fl);font-size:8px;letter-spacing:.1em;text-transform:uppercase;cursor:pointer;padding:0;-webkit-tap-highlight-color:transparent;}
+.panel-total{margin:8px 16px;padding:10px 12px;border:1px solid var(--gold2-a25);border-radius:6px;background:var(--gold2-a12);font-family:var(--fl);font-size:11px;color:var(--txt2);letter-spacing:.02em;}
+.panel-total b{color:var(--gold2);}
+.pnl-confirm-btn{display:block;width:calc(100% - 32px);margin:8px 16px 16px;padding:14px;border:none;border-radius:8px;background:var(--crim);color:var(--txt-on-dark);font-family:var(--fl);font-size:12px;letter-spacing:.14em;text-transform:uppercase;cursor:pointer;-webkit-tap-highlight-color:transparent;}
+.pnl-confirm-btn:active{filter:brightness(1.15);}
 /* ── Auspex Insight ── */
 .auspex-insight-btn{display:block;width:100%;margin-top:10px;padding:10px 14px;background:var(--gold-a8);border:1px solid var(--gold-a20);border-radius:6px;color:var(--gold);font-family:var(--fl);font-size:12px;letter-spacing:.1em;text-align:left;cursor:pointer;-webkit-tap-highlight-color:transparent;}
 .auspex-insight-btn:active{background:var(--gold-a15);}
@@ -831,6 +840,13 @@ body.desktop-mode .sh-powers-grid > .sh-sec{break-inside:avoid;}
 .gcp-9a-badge{position:absolute;top:-4px;right:-4px;width:16px;height:16px;border-radius:50%;background:var(--gold2);color:var(--bg);font-family:var(--fl);font-size:9px;font-weight:700;display:flex;align-items:center;justify-content:center;line-height:1;}
 .gcp-pool-btn.gcp-rote{border-color:var(--rote-a40);}
 .gcp-rote-badge{position:absolute;top:-4px;right:14px;width:16px;height:16px;border-radius:50%;background:var(--rote);color:var(--txt-on-dark);font-family:var(--fl);font-size:9px;font-weight:700;display:flex;align-items:center;justify-content:center;line-height:1;}
+/* gdx-11 (#981) — "choice" tiles (open a scoped panel, no immediate dice total) */
+.gcp-pool-btn.gcp-choice{border-color:var(--gold2-a25);}
+.gcp-choice-arrow{color:var(--gdim);font-size:18px;}
+.gcp-choice-wide{grid-column:1/-1;flex-direction:row;align-items:center;gap:8px;}
+.gcp-choice-wide .gcp-choice-arrow{order:2;margin-left:auto;}
+.gcp-choice-wide .gcp-pool-lbl{order:1;margin-top:0;}
+.gcp-choice-wide .gcp-pool-sub{display:none;}
 
 /* ══════════════════════════════════════════════════════════════════════════════
    STATUS TAB — ported from player-layout.css
@@ -2551,3 +2567,36 @@ body.desktop-mode.sidebar-collapsed .sb-collapse-btn { width: 100%; justify-cont
   transition: filter 0.12s;
 }
 .rv2-roll-btn:active { filter: brightness(1.15); }
+
+/* gdx-11 (#981, AC7) — Staking flag + Apply Torpor action */
+.rv2-stake-note {
+  margin: 8px 16px 0;
+  padding: 12px;
+  border: 1px solid var(--gold2-a25);
+  border-radius: 8px;
+  background: var(--gold2-a12);
+}
+.rv2-stake-msg {
+  font-family: var(--fl);
+  font-size: 12px;
+  letter-spacing: 0.02em;
+  color: var(--txt2);
+}
+.rv2-stake-target-sel { margin-top: 8px; }
+.rv2-stake-btn {
+  margin-top: 8px;
+  width: 100%;
+  padding: 10px;
+  border: 1px solid var(--gold2);
+  border-radius: 6px;
+  background: var(--gold2);
+  color: var(--txt-on-dark);
+  font-family: var(--fl);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.rv2-stake-btn:active { filter: brightness(1.1); }
+.rv2-stake-btn:disabled { opacity: 0.6; cursor: default; }

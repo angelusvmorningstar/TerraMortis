@@ -26,12 +26,12 @@ import { d10, mkDie, mkChain, rollPool, cntSuc } from '../shared/dice.js';
 import { skSpecs, skNineAgain } from '../data/accessors.js';
 import { hasAoE } from '../data/helpers.js';
 import { getCatalogueEntry } from '../data/equipment-catalogue-cache.js';
-import { isCombatGearWeaponShaped, isEquipmentOnMe } from '../data/equipment-derivation.js';
+import { isCombatGearWeaponShaped, isEquipmentOnMe, isStakeWeapon } from '../data/equipment-derivation.js';
 // gdx.7 (#988): read the game-day flag (gdx.5) and spend from the already-
 // built, already-correct tracker write path (gdx.6 supplies the cost data
 // on the rule itself, via pools.js — see spendableCost below).
 import { getGlobalSettings } from '../data/app-settings.js';
-import { trackerAdj, trackerRead, ensureLoaded as ensureTrackerLoaded } from '../game/tracker.js';
+import { trackerAdj, trackerRead, trackerWriteField, ensureLoaded as ensureTrackerLoaded } from '../game/tracker.js';
 
 // ── Imports from other suite modules (will exist once extracted) ──
 // showResistSec / updResist live in shared/resist.js
@@ -204,7 +204,10 @@ export function loadPool(total, name, pi) {
 // ── EFFECTIVE POOL ──
 
 export function effPool() {
-  const wpBonus = state.WP ? 3 : 0;
+  // gdx-11 (#981, AC6): pi.noWP pools (Humanity Check's would-be sibling
+  // Blood Bond Resistance) cost 1 WP to ATTEMPT, per the rulebook — never a
+  // dice bonus. The WP(+3) chip must not add dice regardless of chip state.
+  const wpBonus = (state.WP && !state.POOL_INFO?.noWP) ? 3 : 0;
   return state.RESIST_MODE === '-'
     ? Math.max(0, state.PS + state.MOD + wpBonus - state.RESIST_VAL)
     : state.PS + state.MOD + wpBonus;
@@ -291,7 +294,9 @@ export function updPool() {
     // this line claimed "(spends 1 WP)" even when the combined cost (power
     // + chip) couldn't be afforded and doRoll() would spend nothing at all,
     // disagreeing with the button's own (correctly gated) fallback label.
-    if (state.WP) parts.push((spend.gameInProgress && spend.canAfford) ? 'WP +3 (spends 1 WP)' : 'WP +3');
+    // gdx-11 (#981, AC6): noWP pools never add dice from the chip, so the
+    // sub-line must not claim "WP +3" when it's inert.
+    if (state.WP && !state.POOL_INFO?.noWP) parts.push((spend.gameInProgress && spend.canAfford) ? 'WP +3 (spends 1 WP)' : 'WP +3');
     if (state.ROTE) parts.push('rote');
     if (state.RESIST_MODE === '-' && state.RESIST_VAL > 0) parts.push('−' + state.RESIST_VAL + ' resist');
     // U+00B7 middle-dot separator (matches sub-line separators elsewhere).
@@ -341,7 +346,7 @@ export function updPool() {
   if (pi.discName && pi.discV) segs.push('<span class="effpool-seg">' + pi.discName + ' <b>' + pi.discV + '</b></span>');
   if (pi.meritBonus && pi.meritLabel) segs.push('<span class="effpool-seg effpool-seg--merit">' + pi.meritLabel + ' <b>+' + pi.meritBonus + '</b></span>');
   if (pi.roteEligible && !state.ROTE) segs.push('<span class="effpool-seg effpool-seg--rote" onclick="togMod(\'rote\')" title="PT dot 5: spend 1 WP for Rote quality">Rote \u2713</span>');
-  if (state.WP) segs.push('<span class="effpool-seg effpool-seg--wp">WP <b>+3</b></span>');
+  if (state.WP && !pi.noWP) segs.push('<span class="effpool-seg effpool-seg--wp">WP <b>+3</b></span>');
   if (state.RESIST_MODE === '-' && state.RESIST_VAL > 0) {
     segs.push('<span class="effpool-seg effpool-seg--resist">\u2212Resist <b>' + state.RESIST_VAL + '</b></span>');
   }
@@ -585,6 +590,91 @@ export function mkColsEl(cols, base) {
   return w;
 }
 
+// ── STAKING (gdx-11, #981, AC7) ──
+//
+// After any weapon-attack roll where the active weapon is stake-tagged and
+// the roll's own successes are 5+, flag it for a Torpor confirmation —
+// armour/soak reduction is not computed at this layer, honestly disclosed in
+// the note text itself rather than silently assumed. Apply Torpor targets
+// `state.RESIST_CHAR` (the resist-target dropdown's own selection) per this
+// story's AC — DISCLOSED LIMITATION: that dropdown only populates when the
+// loaded pool carries a `resistance` string (showResistSec()), so a plain
+// weapon-skill pool with no resistance formula (most Common Actions weapon
+// rolls) will not have a resist-target selected. The note still shows; the
+// button is omitted rather than wired to a target that was never chosen —
+// not a bug to chase, matching this story's own accepted-limitation
+// precedent (see Lash Out's resistance-string simplification).
+function _stakeNote(successes) {
+  if (successes < 5 || !state.activeWeaponId) return null;
+  const entry = getCatalogueEntry(state.activeWeaponId);
+  if (!isStakeWeapon(entry)) return null;
+
+  const div = document.createElement('div');
+  div.className = 'rv2-stake-note';
+  const msg = document.createElement('div');
+  msg.className = 'rv2-stake-msg';
+  msg.textContent = '5+ successes with a stake — confirm 5+ net damage for Torpor';
+  div.appendChild(msg);
+
+  // Code review finding (Acceptance Auditor, tracing the actual code path):
+  // this originally gated the Apply Torpor button on state.RESIST_CHAR,
+  // which only gets set by showResistSec() when the loaded pool carries a
+  // `resistance` string - true for Clash of Wills/Lash Out, but NOT true
+  // for an ordinary weapon-skill attack roll (Brawl/Weaponry via Common
+  // Actions or Custom Pool), which is the realistic way a stake attack
+  // actually happens. AC7 promises "a one-tap Apply Torpor action" - it was
+  // realistically unreachable. Fixed with its own target picker, same
+  // window._charNames/_charDisplayMap source showResistSec() itself uses,
+  // independent of the resistance mechanism. Defaults to the current
+  // resist-target as a convenience when one happens to be set.
+  const sel = document.createElement('select');
+  sel.className = 'resist-sel rv2-stake-target-sel';
+  const optDefault = document.createElement('option');
+  optDefault.value = '';
+  optDefault.textContent = '— select target —';
+  sel.appendChild(optDefault);
+  (window._charNames || []).slice().sort().forEach(n => {
+    const opt = document.createElement('option');
+    opt.value = n;
+    opt.textContent = (window._charDisplayMap || {})[n] || n;
+    sel.appendChild(opt);
+  });
+  if (state.RESIST_CHAR) sel.value = state.RESIST_CHAR.name;
+  div.appendChild(sel);
+
+  const btn = document.createElement('button');
+  btn.className = 'rv2-stake-btn';
+  btn.textContent = 'Apply Torpor';
+  btn.disabled = !sel.value;
+  sel.addEventListener('change', () => { btn.disabled = !sel.value; });
+  btn.addEventListener('click', async () => {
+    const target = (state.chars || []).find(c => c.name === sel.value);
+    if (!target) return;
+    // Disabled immediately, before the await, so a double-tap during the
+    // (usually instant, first-time-only) load can't fire this twice.
+    btn.disabled = true;
+    sel.disabled = true;
+    btn.textContent = 'Applying…';
+    const targetId = String(target._id);
+    const targetName = target.name.split(' ')[0];
+    // Found via live re-verification (this exact button is what AC7's own
+    // "Verified end-to-end" line requires proving): trackerWriteField()
+    // silently no-ops for any character whose tracker was never
+    // ensureLoaded()'d this session (tracker.js's _confirmed gate exists to
+    // stop stale-cache writes clobbering real data, but a stake target
+    // picked from this dropdown - unlike state.rollChar - has no guarantee
+    // anything has loaded their tracker yet). Same await-before-write
+    // pattern doRoll() already uses for state.rollChar, applied here for
+    // the target instead.
+    await ensureTrackerLoaded(target);
+    trackerWriteField(targetId, 'in_torpor', true);
+    toast('Torpor applied to ' + targetName);
+    btn.textContent = 'Torpor Applied';
+  });
+  div.appendChild(btn);
+  return div;
+}
+
 // ── MAIN ROLL ──
 
 // Review fix (Blind Hunter + Edge Case Hunter, independently): nothing
@@ -710,6 +800,15 @@ export async function doRoll() {
     rb.appendChild(mkColsEl(cR, wC.length + 2));
     area.appendChild(rb);
 
+    // Code review finding (Blind Hunter + Edge Case Hunter, independently):
+    // this used to check raw wS regardless of contest outcome, so a stake
+    // attack that scored 5+ successes but was then BEATEN by the target's
+    // resistance roll (a loss or draw) still offered "Apply Torpor" - wrong,
+    // and contradicts the note's own text ("confirm 5+ NET damage"). Gated
+    // on `won` now; `net` (not `wS`) is what actually reached the target.
+    const stakeNoteC = _stakeNote(won ? net : 0);
+    if (stakeNoteC) area.appendChild(stakeNoteC);
+
     addHist(eff + 'd10', cls, outcome, won ? net : wS, verd);
     return;
   }
@@ -736,6 +835,9 @@ export async function doRoll() {
   } else {
     area.appendChild(mkColsEl(wC, 0));
   }
+
+  const stakeNote = _stakeNote(wS);
+  if (stakeNote) area.appendChild(stakeNote);
 
   addHist(eff + 'd10', cls, lbl, wS, verd);
 

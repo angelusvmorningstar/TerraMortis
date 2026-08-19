@@ -1386,7 +1386,7 @@ development_status:
   # mentions vitae or willpower). GitHub: epic #981, gdx-1 #982, gdx-2 #983,
   # gdx-3 #984, gdx-4 #985, gdx-5 #986, gdx-6 #987, gdx-7 #988, gdx-8 #989,
   # gdx-9 #990, gdx-10 #991.
-  epic-gdx: in-progress                                        # gdx-5/6/7/10 done. Six sibling stories (gdx-1..4, gdx-8, gdx-9) genuinely backlog (audited 2026-08-18: real open GitHub issues #982-985/989/990, none secretly done, none TM Wiki-redundant), tracked here as placeholders - not yet storied, no epic doc written locally. gdx-11 (2026-08-18) is a new, actually-storied 11th member with no GitHub issue of its own yet - see its own row below.
+  epic-gdx: in-progress                                        # gdx-5/6/7/10/11 done. Six sibling stories (gdx-1..4, gdx-8, gdx-9) genuinely backlog (audited 2026-08-18: real open GitHub issues #982-985/989/990, none secretly done, none TM Wiki-redundant), tracked here as placeholders - not yet storied, no epic doc written locally. gdx-11 (created 2026-08-18, dev-storied + reviewed + done 2026-08-19) has no GitHub issue of its own yet - see its own row below. gdx-12 (2026-08-19) is a 12th member, born from resolving gdx-11's own Grounding blocker - Humanity Check carved out to its own story reusing Epic OAQ's submit/approve pattern; not yet storied.
 
   gdx-1-mobile-zoom: backlog                                   # #982. Group A: mobile hygiene, independent of B/C.
   gdx-2-mobile-type-scale: backlog                              # #983. Group A.
@@ -1412,4 +1412,55 @@ development_status:
   # silent one - story's own "Grounding" section requires confirming with Angelus before Task 1
   # proceeds. v2-only (roll-v2.js), roll.js untouched. Explicitly NOT dev-storied today per
   # Angelus's own instruction when this story was created - do not pick up without a fresh go-ahead.
-  gdx-11-vampire-mechanics-quick-actions: ready-for-dev          # Story: gdx-11-vampire-mechanics-quick-actions.md. Frenzy Resistance, Riding the Wave, Clash of Wills, Lash Out, Humanity Check, Blood Bond Resistance quick-actions + a free Attribute×Skill×Discipline "Custom Pool" builder, added to the existing renderCharPools() grid (not a new panel). Also adds a Staking auto-detect/apply-Torpor flow off any weapon attack roll. Mockup: https://claude.ai/code/artifact/0cd782d3-2083-4013-b02f-82c3fefe28f4.
+  # CORRECTED 2026-08-19: go-ahead given via /bmad-loop. Humanity Check (former AC4) carved out
+  # to a new story, gdx-12 (see its own row below) - it needs Epic OAQ's submit/approve pattern
+  # (contested_roll_requests + the ST-only approval queue tab), not an immediate symmetric tile,
+  # which is real scope beyond this story. Story file's own Grounding section, "What this story
+  # is NOT", ACs, and Task list all updated to record the carve-out and strike former AC4/Task 2
+  # in place rather than renumbering. gdx-11 itself proceeds to dev-story without Humanity Check.
+  # DEV COMPLETE 2026-08-19, in-progress -> review. All 8 remaining tasks (3-10) done, Task 11
+  # tests 16/16 green, Task 12 partial-and-disclosed (full rulebook-number hand-check needs
+  # Angelus; this session did a real six-mechanic live browser pass instead - local servers,
+  # server/middleware/auth.js's own documented local-test-token bypass, real production Atlas
+  # data, zero console errors on the final pass). That live check found and fixed two real
+  # defects the story text and unit tests alone did not catch: (1) app.js uses suiteState, not
+  # state, as its import alias for the shared singleton - a ReferenceError on every choice-panel
+  # tap; (2) the Vampire Mechanics section and Custom Pool tile were rendering unconditionally in
+  # char-pools.js, which is shared by all three v1/v2-agnostic renderCharPools() call sites -
+  # meaning they leaked onto the LEGACY roll.js too, directly violating this story's own "NOT
+  # roll.js" scope line and AC6's noWP guarantee (roll.js has no noWP concept). Both fixed and
+  # re-verified live (v1 correctly shows nothing, v2 shows the full section). Full suite: 4059
+  # passed/9 failed/5 skipped, 230 files. 5 of 7 failing files are CLAUDE.md's own documented
+  # pre-existing list; the other 2 (cm-4-renumber-chapter-merge.test.js,
+  # fix.715.dt-manual-open-gate.test.js) verified pre-existing/environmental via git-stash A/B
+  # comparison, not a regression - full detail in the story's own Dev Agent Record. Humanity
+  # Check carved out to gdx-12 per the Grounding-section ruling (see gdx-12's own row above).
+  # CODE REVIEW DONE 2026-08-19, review -> done. Internal 3-layer review (Blind Hunter/Edge Case
+  # Hunter/Acceptance Auditor, two-pass), Codex unavailable until 2026-08-20. 8 patch findings
+  # applied (2 unanimous across all three layers - Blood Bond's missing willpower_cost and the
+  # Staking win-gate; one real AC7 violation the Auditor traced precisely - Apply Torpor was
+  # realistically unreachable for a plain weapon attack; one MORE found only by this session's own
+  # post-fix live re-verification of Staking, the one mechanic never actually clicked through
+  # before - trackerWriteField silently no-oping for a target whose tracker was never
+  # ensureLoaded()'d), 2 deferred to deferred-work.md (pre-existing app-wide infra, not this
+  # story's to fix), 9 dismissed with evidence. Two new pure functions extracted (bloodBondPool(),
+  # alongside the existing lashOutPool()) so the willpower-cost fix is unit-tested and
+  # prove-discriminated, not just asserted - every testable patch reverted, confirmed red,
+  # restored, confirmed green before being trusted. Test count 16 -> 23. Full detail: the story's
+  # own "Review Findings" section.
+  gdx-11-vampire-mechanics-quick-actions: done          # Story: gdx-11-vampire-mechanics-quick-actions.md. Frenzy Resistance, Riding the Wave, Clash of Wills, Lash Out, Blood Bond Resistance quick-actions + a free Attribute×Skill×Discipline "Custom Pool" builder, added to the existing renderCharPools() grid (not a new panel). Also adds a Staking auto-detect/apply-Torpor flow off any weapon attack roll. Mockup: https://claude.ai/code/artifact/0cd782d3-2083-4013-b02f-82c3fefe28f4.
+  # NEW 2026-08-19, born from resolving gdx-11's own Grounding-section blocker (Humanity Check
+  # directly contradicted the 2026-07-25 meeting's "breaking point checks stay fully manual with
+  # the ST" ruling). Reconciliation agreed with Angelus: automate the arithmetic (dice-per-level
+  # table + touchstone modifier), not the ST's judgement call - reuse Epic OAQ's existing
+  # submit/approve pattern (contested_roll_requests's request_type discriminator + the ST-only
+  # approval queue tab, public/js/suite/office-approvals.js) rather than an immediate tile. Player
+  # taps Humanity Check -> submits a pending request, no roll yet -> ST accepts from the queue ->
+  # pool computes and rolls. Not yet storied - needs its own bmad-create-story pass grounded in
+  # both gdx-11's struck former-AC4 text (specs/stories/gdx-11-vampire-mechanics-quick-actions.md)
+  # and oaq-2/oaq-3's real implementation (contested_roll_requests schema, office-approvals.js)
+  # before any code is written. attachedTouchstoneCount(char) (accessors.js) belongs here, per
+  # gdx-11's own struck Task 2 - verify the 4 existing inline char.humanity >= t.humanity sites
+  # agree before adding it (public/js/suite/sheet.js:268; public/js/editor/sheet.js:428,451;
+  # public/js/admin/downtime-story.js:1698,1765,1897).
+  gdx-12-humanity-check-oaq-submit-approve: backlog

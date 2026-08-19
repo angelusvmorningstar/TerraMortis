@@ -706,6 +706,26 @@ deferred as pre-existing, not caused by this diff:
   future importer) would bypass the "linked cycles" refusal and let a Story with real dependents be
   deleted. Pre-existing code, untouched by cm-3's diff (which only extended the PATCH handler).
 
+## Deferred from: code review of gdx-11-vampire-mechanics-quick-actions (2026-08-19)
+
+- **`saveToApi()` (`public/js/game/tracker.js`) has only a silent `.catch(() => {})`** — a failed
+  network/auth write (e.g. a 403 from `canAccess()` on a target outside the acting player's own
+  `character_ids`) reports success in the UI regardless (the optimistic cache update happens before
+  the fetch even resolves). Found via gdx-11's Apply Torpor button, but this is `trackerWriteField`/
+  `trackerAdj`'s own shared infrastructure (predates gdx-11, gdx-6/gdx-7 era) — every existing
+  tracker write in the app (Vitae/Willpower/damage steppers, conditions) shares the identical
+  pattern. Revisit as a cross-cutting fix (e.g. surface a toast on a non-2xx response) rather than
+  patching one call site.
+- **`char-pools.js`'s module-level `_pools` array is shared across the app's two render containers**
+  (`gcp-panel` on the Sheets tab, `roll-char-pools` on the Roll tab) — a stale button `data-idx`
+  clicked after the other container's own render overwrote `_pools` could resolve to a mismatched
+  entry. Pre-existing (the array predates gdx-11, already shared for skill/discipline pool tiles);
+  gdx-11's new `{opensPanel}`-shaped entries (no `total`/`pi`) make a hypothetical stale-index hit
+  worse (`loadPool(undefined, ...)` -> `NaN` pool) than the pre-existing worst case (a wrong
+  number). Real fix needs scoping `_pools` per-container (e.g. on `el.dataset` or a `WeakMap` keyed
+  by the container element) rather than one shared module array — an app-wide change, not scoped to
+  one story.
+
 ## Deferred from: code review of xpl-2-historic-reconciliation (2026-08-18)
 
 - **`applyReconciliation`'s idempotency guard is a non-atomic check-then-insert** —

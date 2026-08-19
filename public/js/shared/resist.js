@@ -4,17 +4,25 @@ import state from '../suite/data.js';
 import { getPool } from './pools.js';
 import { getAttrEffective, skDots } from '../data/accessors.js';
 
-const ATTRS = [
+// gdx-11 (#981, Task 3): exported so Custom Pool (Attribute chip group) can
+// reuse this repo's one list rather than maintaining its own copy.
+export const ATTRS = [
   'Intelligence', 'Wits', 'Resolve',
   'Presence', 'Manipulation', 'Composure',
   'Strength', 'Dexterity', 'Stamina'
 ];
+// NOT exported (code review finding, Blind Hunter + Acceptance Auditor,
+// independently): Custom Pool's skill chips use ALL_SKILLS from
+// data/constants.js instead (the canonical list - this one still carries a
+// legacy 'Socialize' duplicate ALL_SKILLS doesn't). Exporting this alongside
+// ATTRS/DISC_ABBR was a dead export nothing imports; stays module-private,
+// used only by this file's own parseResistance().
 const SKILLS = [
   'Athletics', 'Brawl', 'Drive', 'Firearms', 'Larceny', 'Stealth', 'Survival', 'Weaponry',
   'Animal Ken', 'Empathy', 'Expression', 'Intimidation', 'Persuasion', 'Socialise', 'Socialize', 'Streetwise', 'Subterfuge',
   'Academics', 'Computer', 'Crafts', 'Investigation', 'Medicine', 'Occult', 'Politics', 'Science'
 ];
-const DISC_ABBR = {
+export const DISC_ABBR = {
   'Obf': 'Obfuscate', 'Aus': 'Auspex', 'Dom': 'Dominate',
   'Cel': 'Celerity', 'Maj': 'Majesty', 'Nig': 'Nightmare',
   'Pro': 'Protean', 'Res': 'Resilience', 'Vig': 'Vigour',
@@ -39,9 +47,65 @@ export function parseResistance(r) {
     if (ATTRS.includes(p)) return { label: p, key: p, type: 'attr' };
     if (SKILLS.includes(p)) return { label: p, key: p, type: 'skill' };
     if (DISC_ABBR[p]) return { label: DISC_ABBR[p], key: DISC_ABBR[p], type: 'disc' };
-    return { label: p, key: p, type: 'attr' };
+    // Code review finding (Acceptance Auditor): DISC_ABBR only covers the 10
+    // base-clan/ritual disciplines. gdx-11's Clash of Wills feeds a real
+    // character's OWN chosen discipline name through this same pipeline, and
+    // this campaign's live data has non-core disciplines (Creation,
+    // Divination, Protection) DISC_ABBR was never meant to enumerate. A token
+    // this fallback can't identify was silently resolved as type:'attr',
+    // which getResistTokenVal reads via getAttrEffective(c, p) - always 0 for
+    // a non-attribute name, exactly the same silent-zero either way, so
+    // resolving it as type:'disc' instead cannot regress any currently-
+    // working resistance string; it only fixes the case where the
+    // unrecognised token genuinely IS a discipline name.
+    return { label: p, key: p, type: 'disc' };
   });
   return { mode, tokens };
+}
+
+/**
+ * gdx-11 (#981, AC3) — pure pool+cost builder for Lash Out, extracted so the
+ * Kindred/Mortal -> willpower_cost mapping is unit-testable without booting
+ * app.js (which has import-time side effects unsafe for a test environment
+ * - registerEditCallbacks() and friends run at module load). app.js's
+ * openPanel('lashout') click handler is the only real caller.
+ */
+export function lashOutPool(char, attr, kindred) {
+  const bp = char?.blood_potency || 0;
+  const attrV = getAttrEffective(char, attr);
+  const total = attrV + bp;
+  return {
+    total,
+    pi: {
+      total, attr, attrV, skill: null, skillV: 0, discName: null, discV: 0,
+      resistance: 'v ' + attr + ' + BP',
+      willpower_cost: kindred ? 1 : 0,
+      noWP: false,
+    },
+  };
+}
+
+/**
+ * gdx-11 (#981, AC5) — pure pool+cost builder for Blood Bond Resistance,
+ * same reasoning as lashOutPool above (unit-testable without booting
+ * app.js). Code review finding (Blind Hunter + Edge Case Hunter,
+ * independently): the original inline pi at the app.js call site set
+ * noWP:true but never willpower_cost:1, so the "1 WP to attempt" this
+ * mechanic's own AC5 promises was never actually charged. Extracting this
+ * as its own function is what makes that regression provable — see
+ * server/tests/gdx-11-vampire-mechanics-quick-actions.test.js.
+ */
+export function bloodBondPool(char, vitae, attempts) {
+  const bp = char?.blood_potency || 0;
+  const total = Math.max(0, bp - vitae - attempts);
+  return {
+    total,
+    pi: {
+      total, attr: 'Blood Potency', attrV: bp, skill: null, skillV: 0,
+      discName: null, discV: 0, resistance: null,
+      noWP: true, willpower_cost: 1,
+    },
+  };
 }
 
 /** Resolve a single resistance token's value from a character. */

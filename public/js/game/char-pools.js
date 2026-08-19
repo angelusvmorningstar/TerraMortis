@@ -58,6 +58,11 @@ let _pools = [];
  */
 export function renderCharPools(el, char, onTap) {
   _pools = [];
+  // gdx-11 (#981): every new tile/panel this story adds sets pi.noWP /
+  // pi.willpower_cost, fields only roll-v2.js's effPool()/spendableCost()
+  // understand — read once, reused by both the Vampire Mechanics section
+  // and the Custom Pool tile below, both v2-only.
+  const isV2 = localStorage.getItem('tm-use-new-dice-roller') === '1';
 
   const defence = defenceForDisplay(char);
   const hp      = calcHealth(char);
@@ -75,6 +80,58 @@ export function renderCharPools(el, char, onTap) {
   h += statChip('Vitae Max', vitae);
   h += statChip('Speed',     speed);
   h += '</div>';
+
+  // ── Vampire Mechanics (gdx-11, #981) ──
+  // v2-ONLY (AC's own "NOT roll.js" scope note) — this whole section is
+  // gated behind the same tm-use-new-dice-roller flag app.js itself reads,
+  // checked directly here rather than threaded in as a parameter, since
+  // renderCharPools() is called identically from all three v1/v2-agnostic
+  // call sites in app.js. The choice tiles push {opensPanel}, routed by
+  // app.js's onTap callback to openPanel(mode) - openPanel() itself is
+  // shared chrome, but every mode built for it in Task 8 sets pi.noWP /
+  // pi.willpower_cost, fields only roll-v2.js's effPool()/spendableCost()
+  // understand. Exposing these tiles on v1 would silently produce a wrong
+  // WP(+3)/spend result there, so gating at the render level (not just
+  // relying on v1 never being taught about noWP) is the correct fix, found
+  // by an actual browser check against the (default) v1 roller.
+  if (isV2) {
+    let vmHtml = '';
+    const VM_IMMEDIATE = [
+      { label: 'Frenzy Resistance', a1: 'Resolve', a2: 'Composure' },
+      { label: 'Riding the Wave', a1: 'Wits', a2: 'Composure' },
+    ];
+    for (const m of VM_IMMEDIATE) {
+      // getAttrEffective already includes bonus dots + discipline enhancement
+      // (accessors.js) - NOT added again here, unlike the pre-existing skill-
+      // pool loop below (out of this story's scope to touch). AC8's own
+      // Custom Pool formula uses getAttrEffective alone for the same reason.
+      const v1 = getAttrEffective(char, m.a1);
+      const v2 = getAttrEffective(char, m.a2);
+      const total = v1 + v2;
+      const idx = _pools.length;
+      // The second attribute is modelled via pi's generic `skill` field —
+      // downstream (roll-v2.js's effline/spec/equipment-chip logic) only
+      // ever reads it as a display label + a lookup key, and none of
+      // Composure/Wits/Resolve resolve against any real skill's specs or
+      // equipment domain, so this is a safe, zero-side-effect reuse rather
+      // than inventing a second bespoke pi shape for a two-attribute pool.
+      const pi = { total, attr: m.a1, attrV: v1, skill: m.a2, skillV: v2, discName: null, discV: 0, resistance: null, noWP: false };
+      _pools.push({ total, label: m.label, attr: m.a1, attrV: v1, skill: m.a2, skillV: v2, nineAgain: false, resistance: null, pi });
+      vmHtml += poolBtn(m.label, total, ab(m.a1) + '+' + ab(m.a2), idx, false);
+    }
+    const VM_CHOICE = [
+      { label: 'Lash Out', mode: 'lashout' },
+      { label: 'Clash of Wills', mode: 'clash' },
+      { label: 'Blood Bond Resistance', mode: 'bloodbond' },
+    ];
+    for (const m of VM_CHOICE) {
+      const idx = _pools.length;
+      _pools.push({ opensPanel: m.mode, label: m.label });
+      vmHtml += choiceBtn(m.label, idx);
+    }
+    h += '<div class="gcp-section-hd">Vampire Mechanics</div>';
+    h += `<div class="gcp-pool-grid">${vmHtml}</div>`;
+  }
 
   // ── Skill pools (only non-zero skills) ──
   // Include PT dot-4 and MCI dot-3 bonus dots from applyDerivedMerits
@@ -131,9 +188,28 @@ export function renderCharPools(el, char, onTap) {
     discHtml += poolBtn(pw.name, pi.total, sub, idx, discNa);
   }
 
-  const hasPools = skillHtml || discHtml;
-  if (hasPools) {
-    const collapsed = localStorage.getItem('tm_pools_collapsed') === '1';
+  // gdx-11 (#981, AC8): "+ Custom Pool" tile — a free Attribute x Skill x
+  // Discipline builder, opens the same choice-panel mechanism as the
+  // Vampire Mechanics choice tiles above (app.js's openPanel('custom')).
+  // v2-ONLY, same reasoning and same flag check as the Vampire Mechanics
+  // section above (its pi also carries noWP-shaped fields roll.js does not
+  // understand). Always available on v2 (even for a character with zero
+  // skills/disciplines) — Custom Pool alone is reason enough to render the
+  // Pools section, so it's no longer conditional on skillHtml/discHtml.
+  let customHtml = '';
+  if (isV2) {
+    const customIdx = _pools.length;
+    _pools.push({ opensPanel: 'custom', label: '+ Custom Pool' });
+    customHtml = choiceBtn('+ Custom Pool', customIdx, true);
+  }
+
+  // gdx-11 (#981, AC9): phone-density — first view after loading a
+  // character defaults to COLLAPSED (previously expanded-by-default).
+  // `stored === null` means the toggle has never been touched on this
+  // device; an explicit prior '0' (user un-collapsed manually) still wins.
+  if (skillHtml || discHtml || customHtml) {
+    const storedCollapsed = localStorage.getItem('tm_pools_collapsed');
+    const collapsed = storedCollapsed === null ? true : storedCollapsed === '1';
     h += `<button class="gcp-collapse-btn">${collapsed ? '▸' : '▾'} Pools</button>`;
     h += `<div class="gcp-pools-wrap${collapsed ? ' gcp-all-collapsed' : ''}">`;
     if (skillHtml) {
@@ -144,6 +220,7 @@ export function renderCharPools(el, char, onTap) {
       h += '<div class="gcp-section-hd">Discipline Pools</div>';
       h += `<div class="gcp-pool-grid">${discHtml}</div>`;
     }
+    if (customHtml) h += `<div class="gcp-pool-grid">${customHtml}</div>`;
     h += '</div>';
   }
 
@@ -166,6 +243,14 @@ export function renderCharPools(el, char, onTap) {
 
 function statChip(label, value) {
   return `<div class="gcp-stat"><span class="gcp-stat-v">${value}</span><span class="gcp-stat-l">${esc(label)}</span></div>`;
+}
+
+// gdx-11 (#981): a "choice" tile — opens a scoped panel instead of rolling
+// immediately, so there is no dice total to show yet. `wide` spans the full
+// grid row (used for the "+ Custom Pool" tile only).
+function choiceBtn(label, idx, wide) {
+  const cls = 'gcp-pool-btn gcp-choice' + (wide ? ' gcp-choice-wide' : '');
+  return `<button class="${cls}" data-idx="${idx}"><span class="gcp-pool-n gcp-choice-arrow">›</span><span class="gcp-pool-lbl">${esc(label)}</span><span class="gcp-pool-sub">tap to choose</span></button>`;
 }
 
 function poolBtn(label, total, sub, idx, nineAgain, roteEligible) {

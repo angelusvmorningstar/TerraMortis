@@ -75,6 +75,16 @@ export function isCombatGearWeaponShaped(entry) {
 }
 
 /**
+ * gdx-11 (#981, Task 5) — Staking (AC7): is this catalogue entry tagged as a
+ * wooden stake? `tags` is already a free `string[]` on the equipment
+ * catalogue schema, so this is a content addition, not a schema change.
+ */
+export function isStakeWeapon(entry) {
+  if (!entry) return false;
+  return Array.isArray(entry.tags) && entry.tags.includes('stake');
+}
+
+/**
  * EQC-2 (issue #1153, epic #1038) - "on me" (bonus applies in game) vs
  * "owned but elsewhere" (available in downtime only), per the epic's own
  * display distinction. Derived from the EXISTING `state` field, not a new
