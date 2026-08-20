@@ -562,3 +562,38 @@ verified against real code before deferral, not taken on a reviewer's word.
   coercion or an unbounded negative in the total instead of a clean numeric sum. Identical
   exposure existed in the pre-fix summing code — not introduced by this diff, just not
   addressed by it either.
+
+## Deferred from: code review of gdx-2-mobile-type-scale (2026-08-20, internal 3-layer)
+
+All six items below were independently verified against the live app (headless Chromium against the
+real page, or direct source read) before deferral, not taken on a reviewer's word.
+
+- **Pre-existing inline `style="font-size:Npx"` sites bypass this story's AC1 audit by construction**
+  (it only scans `suite.css`/`components.css`) — `public/js/suite/territory.js:368` (12px),
+  `public/js/tabs/downtime-form.js:5662` (12px), `public/js/app.js:2034` (11px). Pre-existing, not
+  introduced by gdx-2, and already against this repo's own "no inline `style=`" CSS convention
+  independent of this story. Candidate for a future sweep (e.g. gdx-4 mobile CSS cleanup).
+- **`.npcr-modal`'s narrow-phone fix leaves zero gutter below ~400px** — `min-width:min(360px,100%)`
+  (exactly what gdx-2's own Task 6 prescribed) sits the modal flush to both screen edges. Satisfies
+  the story's literal AC3 (nothing clipped, fits at 360px and narrower); a cosmetic polish gap, not a
+  functional violation. Worth padding the overlay in a future pass if breathing room matters.
+- **200 literal `0.75rem` and 42 literal `0.6875rem` `font-size` values coexist with
+  `var(--fs-floor-body)`/`var(--fs-floor-micro)` at the same computed sizes** in `suite.css` and
+  `components.css` — gdx-2 only tokenised declarations it *raised* to the floor; declarations already
+  at 12px/11px pre-conversion were left as plain rem literals. Retuning either floor token later would
+  not move these ~242 sites. Not swept here — deciding whether "already 12px" was coincidence or the
+  same floor concept is a design call, site by site, that gdx-2's own AC didn't ask for.
+- **`.cc-alert.yellow{font-size:var(--fs-floor-body)}` is now dead** (`public/css/components.css`) —
+  identical to its own base rule `.cc-alert{...font-size:var(--fs-floor-body)}` post-conversion, and
+  `.cc-alert` itself has no live reference anywhere in `public/js/`, suggesting it predates this story
+  as dead CSS. Candidate for gdx-4 (mobile CSS cleanup).
+- **The AC2 sub-floor carve-out allowlist has two entries keyed to Chromium's CSSOM selector
+  serialisation rather than authored source text** (`tests/desktop-and-css.spec.js`) —
+  `:nth-child(2n+1)` for the authored `:nth-child(odd)`, and normalised whitespace/quoting for one
+  attribute selector. Harmless while Playwright is Chromium-only in this repo (per `CLAUDE.md`); would
+  fail for a spurious reason if a firefox/webkit project were ever added to `playwright.config.js`.
+- **The AC3/AC4 Playwright test helpers mount a synthetic `<div class="tab active">` on
+  `document.body`** rather than the real `#app`/tab ancestor chain (`tests/desktop-and-css.spec.js`),
+  so an ancestor's own width cap or padding wouldn't be caught. gdx-2's specific fixes were
+  independently re-verified against the real live page during this review, so this is test-methodology
+  hardening for a future pass, not a live gap today.

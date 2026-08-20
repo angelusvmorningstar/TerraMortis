@@ -169,6 +169,15 @@
 
   /* Registration / confirmation state (admin scheduling) */
   --reg-confirmed-fg:#5dc86a;
+
+  /* Type-size floors (gdx-2). Legibility floors for the player app, expressed in
+     rem so they compose with the browser/OS text-size preference. There is no
+     html{font-size} override anywhere in public/css/, so 1rem is the browser
+     default and the px-to-rem divisor is 16.
+     --fs-floor-body  = 12px-equivalent: prose, values, table cells, button text.
+     --fs-floor-micro = 11px-equivalent: badges, chips, pills, uppercase micro-labels.
+     Theme-invariant, so declared in :root only, never in [data-theme="dark"]. */
+  --fs-floor-body:0.75rem;--fs-floor-micro:0.6875rem;
 }
 
 /* ── Dark mode override ── */
