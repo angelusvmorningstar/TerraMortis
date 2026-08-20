@@ -903,3 +903,62 @@ headless Chromium against the real served page, not reasoned from the diff.
   multi-sibling test that closes the specific hole; a fixture strategy that renders through the real
   JS renderers rather than hand-written HTML would close it properly, and is a test-infrastructure
   story of its own.
+
+## Deferred from: gdx-4-mobile-css-cleanup (2026-08-20, dev-story)
+
+Four deliberate carve-outs from the CSS-standards cleanup (issue #985, absorbing #859). Two were
+named when the story was scoped, two surfaced during the audit that wrote it. Each is recorded with
+its evidence and a suggested follow-up title so nothing has to be re-derived. Opening GitHub issues
+for them is Angelus's call.
+
+- **Carve-out 1: seven confirmed-dead CSS declarations, blocked on retiring gdx-3's fixtures.**
+  `.hdr-profile` (`suite.css:59`), `.hdr-profile-menu` (`:64`), `.hdr-menu-item` (`:65`),
+  `.prestige-toggle` (`:578`), `.st-char-dismiss` (`:590`), `.feed-toggle` (`:514`), and
+  `.cc-alert.yellow`'s `font-size` (`components.css:21`). Evidence is already in this file's gdx-3
+  dev-story and gdx-3 Codex-review sections: the first three are emitted nowhere in `public/js/`,
+  `public/index.html` or `public/admin.html` (`app.js` queries the `#hdr-profile-menu` **id**, which
+  is a different thing); `.prestige-toggle` and `.st-char-dismiss` occur only in the
+  repository-root legacy `index.html`, which is not served; `.feed-toggle`'s only grep hits are the
+  substring inside `proc-feed-toggles-row` in `public/js/admin/downtime-views.js`, an admin class,
+  and `admin.html` does not load `suite.css`. **Why not in gdx-4:** this is removal of live CSS
+  surface, not a token substitution, and six of the seven currently carry gdx-3's touch-target rules
+  **and** gdx-3 test fixtures (`suite.css:2783`, `2788`, `2859`, `2864`, `2955`, plus `GDX3_PROBES`
+  and `GDX3_SIBLING_PROBES` in `tests/desktop-and-css.spec.js`). Deleting the base rules without
+  retiring those fixtures breaks the gdx-3 ratchet, and retiring gdx-3 fixtures is a decision about
+  gdx-3's AC. Suggested title: *`gdx-13-dead-css-selector-retirement`: delete seven confirmed dead
+  declarations and retire their gdx-3 fixtures.*
+
+- **Carve-out 2: three inline `font-size:Npx` literals gdx-2's file-scoped audit could not reach.**
+  `public/js/suite/territory.js:368` (`font-size:12px` inside a `selStyle` string),
+  `public/js/tabs/downtime-form.js:5662` (`font-size:12px` on `.dt-feed-dim`), and
+  `public/js/app.js:2034` (`font-size:11px` on the Player Mode sub-label). All three re-verified at
+  their stated lines during gdx-4's audit. **Why not in gdx-4:** gdx-4's AC is colour-scoped, exactly
+  as #854's was, and #985 says nothing about `font-size`. More substantively these are gdx-2's
+  concern: the right fix is `var(--fs-floor-body)` / `var(--fs-floor-micro)` under gdx-2's own floor
+  rules, checked against the ~242 sibling sites `specs/stories/deferred-work.md:570-575` records,
+  rather than fixed in isolation. Suggested title: *`gdx-14-inline-font-size-sweep`: retire the three
+  inline `font-size` literals gdx-2's file-scoped audit could not reach.*
+
+- **Carve-out 3: the ~17 bare `rgba()` literals in `suite.css` (discovered during gdx-4's audit).**
+  Lines 40, 252, 253, 721, 1030, 1319, 1324, 1356, 1363, 1378, 1477, 1478, 1535, 1948, 2259, 2272,
+  2297 at the pre-gdx-4 commit: shadows, scrims and tinted fills. Many have a plausible alpha token
+  in `theme.css` (`--overlay`, `--overlay2`, `--crim-aNN`, `--gold-aNN`, `--green4-aNN` and about
+  sixty siblings) but several have none. **Why not in gdx-4:** matching a hand-mixed rgba to the
+  nearest token is a per-site design judgement **in two themes**, not a mechanical substitution, and
+  seventeen of those is its own story. `server/tests/gdx-4-css-standards-grep.test.js` deliberately
+  asserts these are still present, so sweeping them is a conscious act that updates that test rather
+  than something that happens quietly under cover of tidying. Suggested title:
+  *`gdx-15-rgba-literal-tokenisation`: match or mint an alpha token for each of the seventeen bare
+  `rgba()` sites in `suite.css`.*
+
+- **Carve-out 4: two undefined custom properties in the admin Next Session panel (discovered during
+  gdx-4's audit).** `public/js/admin/next-session.js` uses `var(--fh2)` (line 23) and `var(--muted)`
+  (line 24); **neither token is declared anywhere in `public/css/`**, verified by grep across all six
+  stylesheets. Both declarations therefore silently do nothing today, so the heading falls back to
+  the inherited font and the status text to the inherited colour. (gdx-4's story text cited these as
+  "lines 22-23"; the real lines are 23 and 24, and they are two different declarations rather than
+  one line carrying both.) **Why not in gdx-4:** an undefined token is a live rendering bug whose fix
+  **changes what the admin panel looks like**, and Angelus cannot smoke-test locally, so it needs a
+  look on a deployed environment. gdx-4 edited line 26 of the same function and deliberately left
+  these alone. Suggested title: *`gdx-16-next-session-undefined-tokens`: resolve `--fh2` and
+  `--muted` in the admin Next Session panel, with a deployed look before and after.*

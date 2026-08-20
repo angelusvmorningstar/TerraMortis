@@ -285,7 +285,7 @@ async function boot() {
   if (location.hostname === 'localhost') {
     const devBtn = document.createElement('button');
     devBtn.textContent = 'Dev Preview (local only)';
-    devBtn.style.cssText = 'margin-top:12px;padding:8px 16px;background:#333;color:#aaa;border:1px solid #555;border-radius:4px;cursor:pointer;font-size:12px;width:100%';
+    devBtn.className = 'dev-preview-btn';
     devBtn.addEventListener('click', () => { localTestLogin(); location.reload(); });
     document.querySelector('.login-box').appendChild(devBtn);
   }

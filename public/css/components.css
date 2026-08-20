@@ -3680,6 +3680,10 @@ html:not([data-theme="dark"]) .sk-spec-row  span { color: var(--crim) !important
 .dt-equip-name { flex: 2; min-width: 140px; }
 .dt-equip-qty { flex: 0 0 60px; }
 .dt-equip-notes { flex: 3; min-width: 160px; }
+/* The markup (downtime-form.js, EQC-4 #1155) always carried this class but the
+   rule was never declared, which is why the colour was inlined as #b23.
+   --crim2 is the repo's soft warning red; #854 used it for exactly this. */
+.dt-equipment-tweak-warn { color: var(--crim2); margin-left: 6px; }
 
 /* ── Vitae Budget panel ── */
 .dt-vitae-budget {
@@ -4285,6 +4289,10 @@ html:not([data-theme="dark"]) .sk-spec-row  span { color: var(--crim) !important
 .feed-confirm-btn { width: 100%; padding: 12px; background: var(--gold); border: none; border-radius: 6px; color: var(--bg); font-family: var(--fl); font-size:0.8125rem; letter-spacing: .1em; text-transform: uppercase; cursor: pointer; }
 .feed-confirm-btn:hover { filter: brightness(1.1); }
 .feed-confirm-btn:disabled { opacity: .6; cursor: default; }
+/* Save-failure state, added by feeding-tab.js's catch. Never cleared by hand:
+   the success path calls render(), which rebuilds the container's innerHTML, so
+   the button is a fresh node. Re-adding on a second failure is idempotent. */
+.feed-confirm-btn.is-error { background: var(--crim); color: var(--txt-on-dark); }
 .feed-st-vitae-total { font-family: var(--fl); font-size:0.8125rem; color: var(--accent); margin-bottom: 10px; }
 .feed-inf-display { margin-top: 12px; font-size:0.8125rem; color: var(--txt2); display: flex; gap: 8px; align-items: center; }
 .feed-inf-lbl { color: var(--txt2); }

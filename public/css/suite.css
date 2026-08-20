@@ -87,8 +87,11 @@ body.desktop-mode .view-toggle-btn{display:inline-flex !important;}
 @media (min-width: 600px) { #bnav { justify-content: flex-start; } }
 @media (max-width: 599px) {
   #bnav {
-    -webkit-mask-image: linear-gradient(to right, transparent 0, #000 8px, #000 calc(100% - 8px), transparent 100%);
-            mask-image: linear-gradient(to right, transparent 0, #000 8px, #000 calc(100% - 8px), transparent 100%);
+    /* Mask alpha stops, not visible colour: any opaque value works. Tokenised
+       rather than exempted purely because --ink-black already exists, is
+       theme-invariant and is declared once in :root. */
+    -webkit-mask-image: linear-gradient(to right, transparent 0, var(--ink-black) 8px, var(--ink-black) calc(100% - 8px), transparent 100%);
+            mask-image: linear-gradient(to right, transparent 0, var(--ink-black) 8px, var(--ink-black) calc(100% - 8px), transparent 100%);
   }
   .nbtn { flex: 0 0 65px; }
 }
@@ -1261,8 +1264,11 @@ body.desktop-mode .sheet-picker-grid { grid-template-columns: repeat(6, 1fr); }
 
 /* ── Sheet responsive breakpoints for suite app (mirrors player-layout.css EPB.2) ── */
 @media (max-width: 768px) {
-  .sh-attr-grid { grid-template-columns: 1fr !important; gap: 12px; }
-  .skill-grid   { grid-template-columns: 1fr !important; gap: 12px; }
+  /* No !important: both of these beat a components.css rule of identical
+     specificity, and index.html loads components.css first, so source order
+     already decides it. Neither class is ever emitted with an inline style. */
+  .sh-attr-grid { grid-template-columns: 1fr; gap: 12px; }
+  .skill-grid   { grid-template-columns: 1fr; gap: 12px; }
   .sh-body { padding: 0 8px 20px; }
 }
 
@@ -1417,7 +1423,7 @@ details.city-section[open] > .city-section-hd::before { transform: rotate(90deg)
 .city-char-right { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
 .city-stat-icon { position: relative; display: inline-flex; align-items: center; justify-content: center; width: 18px; height: 18px; }
 .city-stat-img { width: 18px; height: 18px; display: block; }
-.city-stat-glyph { position: absolute; font-size:var(--fs-floor-body); color: #fff; font-weight: 700; line-height: 1; pointer-events: none; }
+.city-stat-glyph { position: absolute; font-size:var(--fs-floor-body); color: var(--txt-on-dark); font-weight: 700; line-height: 1; pointer-events: none; }
 .city-placeholder { font-size:0.75rem; margin: 0; }
 @media (max-width: 768px) {
   .city-split { flex-direction: column; align-items: stretch; }
@@ -1607,7 +1613,11 @@ html:not([data-theme="dark"]) .more-app-icon-svg svg {
 
 /* ── Unified Downtime tab CSS ── */
 #t-downtime.active { display: block; overflow-y: auto; padding: 0 0 80px; }
-.story-split { display: flex; flex-direction: column; gap: 20px; }
+/* Single column on phone, side-by-side from 900px. This used to be declared
+   twice, thirty lines apart, the second copy using !important purely to beat
+   the first. Merged in gdx-4; the surviving gap is 16px because that is the
+   value the second block was actually winning with. */
+.story-split { display: flex; flex-direction: column; gap: 16px; }
 .story-left,.story-right { display: flex; flex-direction: column; gap: 16px; }
 .story-pane-title { font-family: var(--fl); font-size:var(--fs-floor-micro); font-weight: 900; letter-spacing: .14em; text-transform: uppercase; color: var(--accent); margin: 0 0 8px; padding-bottom: 8px; border-bottom: 1px solid var(--bdr); }
 .story-feed { display: flex; flex-direction: column; gap: 16px; }
@@ -1630,21 +1640,7 @@ html:not([data-theme="dark"]) .more-app-icon-svg svg {
 
 /* ── Two-panel layout fixes — all apps (css-audit follow-up) ── */
 /* Force single-column on phone; restore side-by-side only at tablet+ */
-
-/* story-split: DT Report Chronicle + Documents */
-.story-split {
-  display: flex !important;
-  flex-direction: column !important;
-  gap: 16px;
-}
-@media (min-width: 900px) {
-  .story-split {
-    display: grid !important;
-    grid-template-columns: 1fr 1fr !important;
-    gap: 28px;
-    align-items: start;
-  }
-}
+/* story-split's copy of this pair was merged into its own block above (gdx-4). */
 
 /* tab-split: used by Feeding and Ordeals */
 .tab-split { display: flex; flex-direction: column; height: auto; }

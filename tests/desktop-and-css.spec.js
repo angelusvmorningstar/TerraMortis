@@ -1656,3 +1656,212 @@ test('css-audit — .pref-dot keeps its pre-gdx-3 box, pitch and row height (gdx
   expect(m.rowHeight, 'the preference row got taller than its pre-gdx-3 66px').toBeCloseTo(66, 1);
   expect(m.overlaps, 'two .pref-dot hit areas overlap').toBe(0);
 });
+
+// ── gdx-4: CSS standards cleanup (issue #985, absorbing #859) ─────────────────
+//
+// AC4 and AC6 are computed-style properties, so they live here rather than in
+// `server/tests/gdx-4-css-standards-grep.test.js`, which owns the source-text
+// half (AC1, AC2, AC3). Two AC4 assertions already existed before this story and
+// keep working for free: `story-split is single column on phone` and its
+// `tab-split` twin, above.
+//
+// None of these uses `setupSuite()`. That helper waits on `#app` becoming
+// visible and is the root cause of the 12 pre-existing failures CLAUDE.md
+// documents for this file; gdx-1, gdx-2 and gdx-3 all used a bare `page.goto()`
+// for the same reason.
+
+/**
+ * Mount a probe node, read computed values off it, then remove it.
+ *
+ * Appending to `document.body` is safe for every selector below: none of them
+ * depends on an ancestor's padding or width cap (the gdx-1/gdx-2 viewport trap),
+ * because each is a flex/grid container or a colour-only rule measured on itself.
+ */
+async function gdx4Probe(page, className, props, theme) {
+  return page.evaluate(({ className, props, theme }) => {
+    const root = document.documentElement;
+    const had = root.getAttribute('data-theme');
+    if (theme) root.setAttribute('data-theme', theme);
+    else root.removeAttribute('data-theme');
+
+    const el = document.createElement('div');
+    el.className = className;
+    document.body.appendChild(el);
+    const cs = getComputedStyle(el);
+    const out = {};
+    for (const p of props) out[p] = cs[p];
+    // Read the tokens off :root in the SAME call and under the SAME theme, so
+    // the expectation survives a token retune instead of pinning rgb literals.
+    const rootCs = getComputedStyle(root);
+    out._tokens = {
+      crim: rootCs.getPropertyValue('--crim').trim(),
+      txtOnDark: rootCs.getPropertyValue('--txt-on-dark').trim(),
+      crim2: rootCs.getPropertyValue('--crim2').trim(),
+    };
+    document.body.removeChild(el);
+
+    if (had === null) root.removeAttribute('data-theme'); else root.setAttribute('data-theme', had);
+    return out;
+  }, { className, props, theme });
+}
+
+/** Resolve a hex/keyword colour to the `rgb(...)` string getComputedStyle returns. */
+async function gdx4Resolve(page, value) {
+  return page.evaluate((v) => {
+    const el = document.createElement('div');
+    el.style.color = v;
+    document.body.appendChild(el);
+    const c = getComputedStyle(el).color;
+    document.body.removeChild(el);
+    return c;
+  }, value);
+}
+
+test('css-audit — .story-split keeps gap:16px at 390px after the duplicate-block merge (gdx-4 AC4)', async ({ page }) => {
+  // The highest-value assertion in the story. `.story-split` was declared TWICE,
+  // thirty lines apart: block one with `gap: 20px`, block two with `gap: 16px`
+  // and `!important`. Block two won, so 16px is the shipped value. A merge that
+  // keeps block one's 20px is a silent 4px shift on every phone downtime report
+  // and nothing else in the suite would catch it.
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/');
+  const m = await gdx4Probe(page, 'story-split', ['display', 'flexDirection', 'rowGap', 'columnGap']);
+  expect(m.display).toBe('flex');
+  expect(m.flexDirection).toBe('column');
+  expect(m.rowGap, 'the merge picked up the losing block 20px value').toBe('16px');
+  expect(m.columnGap).toBe('16px');
+});
+
+test('css-audit — .story-split is a two-track grid with a 28px gutter at 900px (gdx-4 AC4)', async ({ page }) => {
+  // The desktop half of the merge, and the assertion that proves dropping
+  // `!important` from the media block did not drop the media block with it.
+  await page.setViewportSize({ width: 900, height: 900 });
+  await page.goto('/');
+  const m = await gdx4Probe(page, 'story-split', ['display', 'gridTemplateColumns', 'columnGap', 'alignItems']);
+  expect(m.display).toBe('grid');
+  expect(m.columnGap).toBe('28px');
+  expect(m.alignItems).toBe('start');
+  // Two tracks, equal to each other. Compared rather than pinned, because the
+  // resolved px depends on the probe's own width.
+  const tracks = m.gridTemplateColumns.split(/\s+/).filter(Boolean).map(parseFloat);
+  expect(tracks, 'not two tracks').toHaveLength(2);
+  expect(tracks[0]).toBeCloseTo(tracks[1], 1);
+});
+
+test('css-audit — .sh-attr-grid and .skill-grid are single-track at 390px without !important (gdx-4 AC4)', async ({ page }) => {
+  // Both rules dropped a redundant `!important` that only ever beat a
+  // components.css rule of identical specificity which index.html already loads
+  // first. If source order were not in fact deciding it, these go to three
+  // tracks (`.sh-attr-grid`) or two (`.skill-grid`).
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/');
+  for (const cls of ['sh-attr-grid', 'skill-grid']) {
+    const m = await gdx4Probe(page, cls, ['gridTemplateColumns', 'rowGap']);
+    const tracks = m.gridTemplateColumns.split(/\s+/).filter(Boolean);
+    expect(tracks, `.${cls} is no longer single-column at 390px`).toHaveLength(1);
+    expect(m.rowGap, `.${cls} lost its 12px gap`).toBe('12px');
+  }
+});
+
+test('css-audit — #bnav keeps a resolved opaque mask stop at 390px after tokenising (gdx-4 AC3)', async ({ page }) => {
+  // `var()` inside a gradient resolves at computed-value time, so a token that
+  // does not exist shows up here as `none` or as an unresolved string rather
+  // than as a broken pixel someone has to notice by eye.
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/');
+  const mask = await page.evaluate(() => {
+    const el = document.getElementById('bnav');
+    if (!el) return null;
+    const cs = getComputedStyle(el);
+    return cs.maskImage && cs.maskImage !== 'none' ? cs.maskImage : cs.webkitMaskImage;
+  });
+  expect(mask, '#bnav is missing from the page').not.toBeNull();
+  expect(mask).toContain('linear-gradient');
+  expect(mask, 'the --ink-black token did not resolve inside the gradient').not.toContain('var(');
+  expect(mask, 'the opaque stops are gone').toMatch(/rgb\(0,\s*0,\s*0\)|#000|black/i);
+});
+
+test('css-audit — .city-stat-glyph resolves to --txt-on-dark in both themes (gdx-4 AC6)', async ({ page }) => {
+  // Was `#fff`. The token is theme-invariant Parchment cream (#F4EFE4), so the
+  // Parchment theme gets a small deliberate warm shift; the assertion reads the
+  // token off :root in the same call rather than hard-coding rgb(244,239,228),
+  // so a retune of the token does not turn this red for the wrong reason.
+  await page.goto('/');
+  for (const theme of [null, 'dark']) {
+    const m = await gdx4Probe(page, 'city-stat-glyph', ['color'], theme);
+    const want = await gdx4Resolve(page, m._tokens.txtOnDark);
+    expect(m.color, `theme=${theme || 'parchment'}`).toBe(want);
+  }
+});
+
+test('css-audit — .feed-confirm-btn.is-error matches --crim on --txt-on-dark in both themes (gdx-4 AC1, AC6)', async ({ page }) => {
+  // Replaces `btn.style.background = 'var(--crim)'` + `btn.style.color = '#fff'`
+  // with one class toggle, so the pair moved into CSS together. --crim DOES flip
+  // between themes (#7A0000 Parchment / #8B0000 dark), which is exactly why the
+  // expectation is read from the token rather than pinned.
+  await page.goto('/');
+  for (const theme of [null, 'dark']) {
+    const m = await gdx4Probe(page, 'feed-confirm-btn is-error', ['backgroundColor', 'color'], theme);
+    expect(m.backgroundColor, `background, theme=${theme || 'parchment'}`)
+      .toBe(await gdx4Resolve(page, m._tokens.crim));
+    expect(m.color, `text, theme=${theme || 'parchment'}`)
+      .toBe(await gdx4Resolve(page, m._tokens.txtOnDark));
+  }
+});
+
+test('css-audit — .dt-equipment-tweak-warn is declared and resolves to --crim2 (gdx-4 AC2, AC6)', async ({ page }) => {
+  // The class the EQC-4 markup already carried but which no stylesheet declared,
+  // which is why its colour was inlined as `#b23`. --crim2 is the repo's soft
+  // warning red and the #854 precedent for this exact case.
+  await page.goto('/');
+  for (const theme of [null, 'dark']) {
+    const m = await gdx4Probe(page, 'dt-equipment-tweak-warn', ['color', 'marginLeft'], theme);
+    expect(m.color, `theme=${theme || 'parchment'}`).toBe(await gdx4Resolve(page, m._tokens.crim2));
+    expect(m.marginLeft).toBe('6px');
+  }
+});
+
+test('css-audit — .ns-field-grid and .dev-preview-btn are declared in admin-layout.css (gdx-4 AC4, AC6)', async ({ page }) => {
+  // Both are admin-only classes and `index.html` does not load
+  // `admin-layout.css`, so this one test navigates to the admin app. It stops at
+  // the login screen without auth, which is fine: the stylesheets are linked in
+  // the document head and the CSSOM is populated regardless.
+  await page.goto('/admin.html');
+
+  const found = await page.evaluate(() => {
+    const want = new Set(['.ns-field-grid', '.dev-preview-btn']);
+    const hit = {};
+
+    // CSSOM walk trap, paid for once by gdx-2 and re-warned by gdx-3: with CSS
+    // Nesting a plain CSSStyleRule ALSO exposes an empty `cssRules` list, so the
+    // obvious `if (rule.cssRules) { recurse; continue; }` shape silently skips
+    // every style rule in the sheet. Read the declaration FIRST, then recurse
+    // only when there is genuinely something to recurse into.
+    const walk = (rules) => {
+      for (const rule of rules) {
+        if (rule.selectorText && want.has(rule.selectorText)) {
+          hit[rule.selectorText] = rule.style.cssText;
+        }
+        if (rule.cssRules && rule.cssRules.length) walk(rule.cssRules);
+      }
+    };
+    for (const sheet of document.styleSheets) {
+      try { walk(sheet.cssRules); } catch { /* cross-origin (Google Fonts) */ }
+    }
+    return hit;
+  });
+
+  expect(found['.ns-field-grid'], '.ns-field-grid is not declared').toBeTruthy();
+  expect(found['.ns-field-grid']).toContain('grid');
+  expect(found['.ns-field-grid']).toContain('160px');
+
+  // The one declared AC6 exception: this button's hard-coded dark greys
+  // (#333/#aaa/#555) became tokens, so it changes appearance in the default
+  // Parchment theme. That is the fix, not a regression - it renders only when
+  // location.hostname === 'localhost', so no deployed user sees either version.
+  expect(found['.dev-preview-btn'], '.dev-preview-btn is not declared').toBeTruthy();
+  expect(found['.dev-preview-btn']).toContain('var(--surf2)');
+  expect(found['.dev-preview-btn']).toContain('var(--txt3)');
+  expect(found['.dev-preview-btn']).toContain('var(--bdr2)');
+  expect(found['.dev-preview-btn'], 'a literal grey came back').not.toMatch(/#[0-9a-f]{3,8}/i);
+});

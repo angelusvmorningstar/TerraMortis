@@ -1,5 +1,76 @@
 # generated: 2026-04-15
-# last_updated: "2026-08-20 (session-wrap: header was one rotation behind - gdx-12 Task 8 and its
+# last_updated: "2026-08-20, later session (bmad-create-story): gdx-4-mobile-css-cleanup storied,
+#   backlog -> ready-for-dev. Story at specs/stories/gdx-4-mobile-css-cleanup.md. #985, absorbing
+#   #859 in full (both issue bodies read; #859's five ACs carried through verbatim, so closing #985
+#   closes #859). Third GDX story running where the source issue's own figures turned out stale, and
+#   the first where its PREMISE does not hold: both #859 DOM-API line numbers had drifted (admin.js
+#   222 -> 288, feeding-tab.js 952 -> 983); NONE of #985's three cited suite.css line numbers
+#   (1387/1704/2451) resolves to a colour literal at the current commit or at 9498df02, the last
+#   commit before the issue was filed (checked, plus two earlier dates - 1387 is an off-by-one onto
+#   .city-stat-glyph, 1704 is .emg-list with no colour at all, 2451 is a comment), though the real
+#   bare-hex count in suite.css today is coincidentally also three (lines 89, 90, 1420); print.js
+#   holds 8 hexes not 5, and the split matters - the 5 inline style=\"...\" sites are in scope, the 3
+#   inside its embedded print stylesheet are a genuine exemption (the generated print document links
+#   no stylesheet and must render dark ink on white paper in either theme) that the fix.854 story
+#   recorded twice but coding-standards.md never did, which is exactly why #985 reads as 'delete all
+#   8'; and the 'inline JS grid-template-columns that force !important media-query overrides' bullet
+#   describes two unrelated things, neither causing the other - there is exactly ONE inline JS grid
+#   site (admin/next-session.js:26, overridden by nothing) and the four !important grid declarations
+#   in suite.css all beat other CSS rules, one of them a duplicated .story-split block ten lines
+#   above it in the same file (with a 20px-vs-16px gap difference that makes the merge a real trap).
+#   One NEW post-#854 regression found during the audit and pulled into scope rather than deferred:
+#   downtime-form.js:5498 style=\"color:#b23\", introduced by EQC-4 (#1155, ff72cbad, 2026-08-13) on
+#   a class (.dt-equipment-tweak-warn) that is declared in no stylesheet at all - precisely the drift
+#   the story's own ratchet test exists to stop, so leaving it would have shipped an AC that could
+#   not pass. Four carve-outs named with suggested follow-up story titles rather than silently
+#   absorbed, per this repo's convention: dead-CSS deletion (7 confirmed-dead selectors, blocked on
+#   retiring the gdx-3 touch-target fixtures that reference six of them, so it is a task chain not a
+#   substitution -> gdx-13-dead-css-selector-retirement); the three inline font-size:Npx sites gdx-2's
+#   file-scoped audit could not reach -> gdx-14-inline-font-size-sweep; the ~17 bare rgba() sites in
+#   suite.css, each a per-site two-theme design judgement -> gdx-15-rgba-literal-tokenisation; and two
+#   custom properties (--fh2, --muted) used in next-session.js that are declared in no stylesheet,
+#   flagged as log-do-not-fix since fixing them changes what the admin panel looks like. Testing
+#   specified as two surfaces deliberately: a NEW vitest source-scan ratchet
+#   (server/tests/gdx-4-css-standards-grep.test.js, following bl3b-constants-deleted.test.js's idiom
+#   and reusing helpers/strip-comments.js so the guard has no blind spot) for the three greps, plus
+#   extensions to the EXISTING css-audit group in tests/desktop-and-css.spec.js for the computed-style
+#   ACs, with the 36/12 gdx-3 baseline and the setupSuite() trap both carried forward. No code
+#   changed, no git action taken - story creation only. Prior entry follows.)"
+# last_updated_previously_gdx3_shipped: "2026-08-20, later session (session-wrap): gdx-3-mobile-touch-targets run through the
+#   full /bmad-loop wheel and committed. Created (audited all 218 cursor:pointer rules across
+#   suite.css/components.css; found issue #984's own figures stale, same pattern as #983 before it -
+#   .svt-btn's real line and size were both wrong, and the "18px rating dot" it named turned out to
+#   be ST-editor-only chrome, with the real player-facing .pref-dot at 38x38 missed entirely).
+#   Dev-storied (--tap-min:44px token; T1 direct box growth / T2 transparent ::after overlay, new to
+#   this codebase / T3 phone-tier-only box growth; 76+ elements fixed, 6 new tests, 6/6 green,
+#   36 passed/12 failed full-file matching gdx-2's 29/12 baseline). Externally reviewed - Codex CLI
+#   stalled silently on its first attempt (no findings, no error, just stopped after one tool call;
+#   killed and re-run clean the second time, this time to completion though it hit a 10-minute wall
+#   before finishing its own exhaustive Pass 3b claim-verification) - then EVERY finding independently
+#   re-verified in headless Chromium rather than trusted, per this project's own codex-review
+#   convention. 5 High/8 Medium/7 Low returned, 9 patched (7 Codex, 2 found only during independent
+#   verification), 4 deferred, 7 dismissed with evidence, 1 decision. Two of Codex's own High findings
+#   held up under independent arithmetic/code verification (the Office .cs-step-btn steppers
+#   overlapped 12px, fixed to the exact AC2 midpoint size 32x40; .pref-dot's box-growth technique
+#   broke its own AC3 wording, fixed by switching to the overlay technique instead, removing the
+#   exception entirely) and one Medium finding was DISCONFIRMED by two independent fresh test runs
+#   (both 6/6 green, contradicting Codex's claimed 5/1) and dismissed as a Codex-environment artefact.
+#   The review's own biggest find was not Codex's at all: the transparent-overlay technique is a
+#   functional REGRESSION on any stacked/wrapped sibling run (a later sibling's overlay can steal a
+#   tap meant for the one above it) - Codex found one instance, independent verification found
+#   thirteen more, all fixed, with a new sibling-overlap ratchet test added so this class of bug
+#   cannot regress silently again. Those thirteen now reach 44px horizontally only, recorded as AC2's
+#   evidenced exception - Angelus authorised a follow-up rather than block gdx-3 on it, filed as
+#   GitHub issue #1192 (thirteen named selectors, a genuine phone-visible layout change needing its
+#   own deploy-then-look verification pass, exactly the reasoning that kept it out of this round).
+#   Status -> done, committed 53e55ea5 (12 files, +63036/-9 - the code-review artefacts, including the
+#   raw Codex transcript, are committed too, matching this project's own established convention for
+#   oxp-6/oxp-7/xpl-1's own external-review artefacts). dev now 6 commits ahead of origin/dev,
+#   unpushed - no push asked for. Epic GDX: gdx-1/2/3/5/6/7/10/11/12 done (9 of 12 members), gdx-4/
+#   gdx-8/gdx-9 still backlog and unstoried, plus the new gdx-3-follow-up issue #1192 tracked
+#   separately (not yet its own gdx-N row - would need one if picked up via the normal loop).
+#   Prior entry follows.)"
+# last_updated_previously: "2026-08-20 (session-wrap: header was one rotation behind - gdx-12 Task 8 and its
 #   review both actually finished in the session right after the one this replaces (committed
 #   b4544e19, feat(gdx-12): Humanity Check via Epic OAQ submit/approve pattern - live-verified
 #   against real tm_suite with three real characters across all three touchstone-mod buckets, test
@@ -29,7 +100,7 @@
 #   introduced or fixed here. dev is now 5 commits ahead of origin/dev, unpushed (be115816,
 #   b4544e19, two docs commits, 3f4b2f2a) - no push happened or was asked for. Prior entry
 #   follows.)"
-# last_updated_previously: "2026-08-19, later session (/bmad-loop: gdx-12-humanity-check-oaq-submit-approve
+# last_updated_previously_gdx12_taskseven: "2026-08-19, later session (/bmad-loop: gdx-12-humanity-check-oaq-submit-approve
 #   dev-storied, Tasks 1-7 of 8 done, status LEFT AT in-progress (not review) - Task 8 (manual/live
 #   verification) not run this session, user asked to wrap up before it could start. Real work done:
 #   attachedTouchstoneCount(char) (accessors.js); new server/routes/humanity-check.js (POST/accept/
@@ -157,7 +228,7 @@
 # - DT Fixes: new epic — bugs, quick features, feeding panel parity, DT Story pill fix
 
 generated: 2026-04-15
-last_updated: "2026-08-20 (session-wrap): gdx-2-mobile-type-scale done (created, dev-storied, internally 3-layer reviewed, 7 patches applied and prove-discriminated) and committed (3f4b2f2a, not pushed); gdx-12 and gdx-1 done in the prior session (committed b4544e19, be115816). Full detail in the comment header above. Rewritten back to a short pointer per this field's own stated convention - it had drifted into a duplicate narrative across several prior sessions."
+last_updated: "2026-08-20, later session (dev-story): gdx-4-mobile-css-cleanup in-progress -> review, not committed. Baseline greps matched the story's audit exactly, so nothing needed re-deriving; after the change the DOM-API grep returns only app.js:2180's compliant var(--green2, #7EC8A0) fallback and the style-attribute grep returns nothing at all, including all five print.js sites and the EQC-4 downtime-form.js:5498 regression. Ten tasks, thirteen files modified plus one new test file. Six !important tokens went rather than the four the story counted (the duplicate .story-split's base block carried display:flex !important and flex-direction:column !important as well as the two in its media block); the merge kept gap:16px, asserted both in source and by computed style and prove-discriminated against a 20px version. print.js's five moved sites measured byte-identical across eighteen computed properties in a real browser. New vitest ratchet server/tests/gdx-4-css-standards-grep.test.js written red-first (16 failed / 4 passed at base, 20/20 after) and eight computed-style assertions appended to the existing css-audit group, each prove-discriminated individually. Playwright 44 passed / 12 failed, the 12 being the documented setupSuite() set confirmed by name; vitest 4127 passed / 12 failed / 3 skipped, zero new. Three vitest failures NOT on CLAUDE.md's list were A/B verified with every gdx-4-touched file swapped back to HEAD and fail identically at base: bl3a-one-inclan-implementation and issue-830-inherited-card-css are gdx-2 rem-type-scale casualties asserting literal px sizes, and api-downtime-personal-story-freetext is the no-local-mongod class - the first two are worth adding to CLAUDE.md's known-failures list, not done here as out of scope. Three story-baseline corrections logged in the Dev Agent Record (suite.css mask lines are 90/91 not 89/90; ten hex var() fallbacks not eleven, the eleventh being an rgba fallback; carve-out 4's undefined tokens are on lines 23 and 24 as two separate declarations, not 22-23). One process note: the hand-off said the four carve-outs were already logged to specs/deferred-work.md by create-story - they were not, only gdx-3's own forward-pointing mentions were there, so the gdx-4 section was written for real under Task 8. Prior entry follows.) 2026-08-20, later session (session-wrap): gdx-3-mobile-touch-targets done (created, dev-storied, externally Codex-reviewed then independently re-verified, 9 patches applied, 1 decision resolved by Angelus - follow-up filed as GitHub issue #1192) and committed (53e55ea5, not pushed). Epic GDX now 9 of 12 members done. Full detail in the comment header above."
 project: TM Suite
 project_key: NOKEY
 tracking_system: file-system
@@ -1752,7 +1823,7 @@ development_status:
   # gdx-3 now with the capped state as AC2's documented exception list, and authorise a follow-up
   # for the T3 growth rather than block this story on it - filed as GitHub issue #1192. Status ->
   # done. Not committed.
-  gdx-4-mobile-css-cleanup: backlog                              # #985. Group A.
+  gdx-4-mobile-css-cleanup: review                               # #985 (absorbs #859). Group A. Story: gdx-4-mobile-css-cleanup.md, created 2026-08-20. Audited the real tree rather than trusting the issue, third GDX story running where the source issue's own figures were stale: both #859 DOM-API line numbers had drifted (admin.js 222 -> 288, feeding-tab.js 952 -> 983); NONE of #985's three cited suite.css line numbers (1387/1704/2451) resolves to a colour literal at the current commit or at the commit it was filed against (checked 9498df02 plus two earlier dates), though the real bare-hex count in suite.css is coincidentally also three (lines 89, 90, 1420); print.js has 8 hexes not 5 (the 5 inline style="..." sites are in scope, the 3 inside its embedded print stylesheet are a genuine exemption the fix.854 story recorded but coding-standards.md never did); and the "inline JS grid-template-columns that force !important media-query overrides" premise does not hold at all - there is exactly ONE inline JS grid site (admin/next-session.js:26, overridden by nothing) and the four !important grid declarations in suite.css beat other CSS rules, one of them a duplicated .story-split block ten lines above it in the same file. One NEW post-#854 regression found and pulled into scope: downtime-form.js:5498 style="color:#b23" introduced by EQC-4 (#1155, ff72cbad, 2026-08-13), which is exactly the drift AC7's ratchet exists to stop. Four carve-outs named with suggested follow-up titles rather than absorbed: dead-CSS deletion (7 selectors, blocked on retiring gdx-3 fixtures that reference six of them), the inline font-size:Npx sweep gdx-2 could not reach, the ~17 bare rgba() sites in suite.css (per-site two-theme design judgement), and two undefined custom properties (--fh2, --muted) in next-session.js. Closing #985 also closes #859.
   gdx-5-game-in-progress-setting: done                          # #986. Group B, first of 986∥987 -> 988 -> 989. Story: gdx-5-game-in-progress-setting.md. Dev-storied to completion 2026-08-15, all 5 tasks/9 ACs done. Internal 3-layer code review same day: 0 decision-needed, 6 patch (all applied - notably admin.js's own initWS had NO onSettingsUpdate wiring at all, a real gap fixed with a new exported refreshStModsPanelSettings(); GET now backfills missing default keys on a partial doc, prove-discriminated), 3 defer (logged to deferred-work.md, all pre-existing patterns shared with sibling code, not unique to this story), 7 dismissed. 39/39 final regression. game_in_progress key + open GET + WS broadcast (both app.js AND admin.js) + admin toggle, all shipped and reviewed. Deliberate side effect: st_mods_enabled becomes live-broadcast too (previously had none) - flagged throughout. Committed locally, not pushed/merged - Angelus's call. Unblocks gdx.7 (vitae/willpower one-tap roll spend) alongside gdx.6.
   gdx-6-structured-power-costs: done                             # #987. Codex external review attempted, hit its own usage limit mid-run (unavailable until 2026-08-20) before completing any pass - fell back to internal 3-layer review. 8 patch findings applied (parseCostString non-string/whitespace/empty guards - prove-discriminated; console wording; comment accuracy; test global-pollution fix; corrected a false Debug Log claim), 4 deferred (fmtRuleStats not the only display site after all - print/CSV bypass it, logged to deferred-work.md; admin editor has no field for the new costs; CSV round-trip drops them; unchecked updateOne), 4 dismissed. Acceptance Auditor's independent verdict was Ship even before the patch round. 36/36 final regression. Group B, blocker for gdx-7 alongside gdx-5. Story: gdx-6-structured-power-costs.md. Live investigation (2026-08-15) found the issue's "purchasable_powers AND devotions data" framing stale - Epic PP already unified devotions into purchasable_powers, one place to touch. Real scope: only discipline(50)/devotion(51)/rite(132) of 674 total rows ever carry a cost string; rites are 132/132 cleanly parseable, disciplines/devotions have real edge cases (ranges, choices, body-mutilation devotions with unquantified Vitae) requiring an unparsed/cost_note bucket.
   gdx-7-apply-costs-on-roll: done                                # #988. Group B. THE vitae/willpower one-tap-spend feature. Both prerequisites (gdx-5, gdx-6) done and committed (d4abeeec). Story: gdx-7-apply-costs-on-roll.md. Major finding during investigation: the tracker_state write path is ALREADY player-writable server-side (server/routes/tracker.js's own canAccess()) - CLAUDE.md's "ST-auth only" claim was stale (corrected this story), as was this session's own earlier answer to Angelus about the roller having no player-facing spend path. Dev-storied to completion 2026-08-15: pools.js threads vitae_cost/willpower_cost (?? null, 0-vs-null preserved); roll-v2.js gained 3 pure functions (spendableCost/canAffordCost/rollButtonLabel) + doRoll() spending once via the already-built trackerAdj() before rolling. Internal 3-layer code review same day: 0 decision-needed, 6 patch (all applied - notably doRoll() now awaits ensureTrackerLoaded before spending, since pickChar()/a sheet-view setter in app.js set rollChar without loading the tracker first, contradicting the story's own Dev Notes claim; added a double-tap re-entrancy guard; sequenced the two trackerAdj calls; separated a power's own WP cost from the WP-boost chip's in spendableCost/rollButtonLabel, fixing a real AC3/AC6 violation the dev round shipped undisclosed), 4 defer (fire-and-forget writes, non-atomic two-field spend, a TOCTOU balance race - all pre-existing architecture explicitly out of scope; plus the test-harness/prod auth-mount drift found during dev-story), 10 dismissed with evidence (several matched AC3/AC5's own literal, deliberate design). Same-day post-review follow-up: Angelus clarified the actual original ask was a STANDALONE Vitae-spend button + Willpower-spend button on the Dice tab, not the roll-button relabeling alone - added spendVitae()/spendWillpower() (same trackerAdj chain, own game_in_progress guard, not just UI hide) to roll-v2.js, wired in index.html, exposed in app.js. 30/30 final regression, 108/108 alongside gdx-5/gdx-6/api-tracker-state/api-app-settings/dbo-3. Committed 074e8d04, PR #1183 merged to main (50c5c994), dev synced (3361d07d) - Angelus's explicit "commit merge and push". Live-tested during Game 7: tm-use-new-dice-roller defaults off per-device (phone never had it set) and game_in_progress had never actually been toggled live (app_settings.global only carried st_mods_enabled) - both found and fixed live, game_in_progress flipped true then back to false post-game, but the game ended before either fix landed in time for the feature to actually be used.

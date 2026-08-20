@@ -5495,7 +5495,7 @@ function renderEquipmentRow(n, saved) {
     // over cap regardless of whether the player had actually requested the
     // tweak yet. Gated on isChecked too now.
     const warning = (isChecked && tweakCost > rawMax)
-      ? `<span class="dt-equipment-tweak-warn" style="color:#b23;margin-left:6px;">Above your effective availability (max ${rawMax}) - the ST will need to adjudicate.</span>`
+      ? `<span class="dt-equipment-tweak-warn">Above your effective availability (max ${rawMax}) - the ST will need to adjudicate.</span>`
       : '';
     h += `<div class="dt-equipment-tweak" style="margin-top:4px;">`;
     h += `<label><input type="checkbox" id="dt-equipment_${n}_tweak" class="dt-equip-tweak"${tweakChecked}> Request +1 ${esc(tweakField)} (raises cost to avail ${tweakCost})</label>`;
