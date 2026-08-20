@@ -14,7 +14,7 @@ export const config = {
   // Discord OAuth2
   DISCORD_CLIENT_ID: process.env.DISCORD_CLIENT_ID,
   DISCORD_CLIENT_SECRET: process.env.DISCORD_CLIENT_SECRET,
-  DISCORD_REDIRECT_URI: process.env.DISCORD_REDIRECT_URI || 'http://localhost:8080/admin',
+  DISCORD_REDIRECT_URI: process.env.DISCORD_REDIRECT_URI || 'http://localhost:8080/login.html',
 
   // Allowed ST Discord IDs
   ST_IDS: (process.env.ST_IDS || '').split(',').filter(Boolean),

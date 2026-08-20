@@ -85,7 +85,7 @@ import { initArchiveTab } from './tabs/archive-tab.js';
 import { renderFeedingTab } from './tabs/feeding-tab.js';
 import { findRegentTerritory } from './data/helpers.js';
 import { printSheet, printPDF, exportJSON } from './editor/print.js';
-import { handleCallback, isLoggedIn, validateToken, login, logout, getUser, getRole, getPlayerInfo } from './auth/discord.js';
+import { isLoggedIn, validateToken, login, logout, getUser, getRole, getPlayerInfo } from './auth/discord.js';
 
 // ══════════════════════════════════════════════
 //  SUITE IMPORTS
@@ -1442,12 +1442,6 @@ async function boot() {
   const loginScreen = document.getElementById('login-screen');
   const app = document.getElementById('app');
   const errorEl = document.getElementById('login-error');
-
-  try {
-    await handleCallback();
-  } catch (err) {
-    if (errorEl) errorEl.textContent = err.message;
-  }
 
   // Close profile dropdown on outside click
   document.addEventListener('click', e => {
