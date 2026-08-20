@@ -21,14 +21,14 @@
 #   silently defeated the new 480px grid fix, reproducing the exact clip bug the story existed to
 #   remove. Full-file run after patches: 29 passed/12 failed, same 12 by name as baseline, +10 net
 #   new passing tests. Status ready-for-dev -> in-progress -> review -> done, all same session.
-#   6 items deferred to deferred-work.md, 6 dismissed with evidence. NOT committed - working tree
-#   has 6 modified files (suite.css, components.css, theme.css, the two tracking files, the test
-#   spec) plus the new untracked story file, all uncommitted pending Angelus's own go-ahead.
+#   6 items deferred to deferred-work.md, 6 dismissed with evidence. COMMITTED same session,
+#   3f4b2f2a (7 files, +2802/-1085) - NOT pushed, no push asked for.
 #   Pre-existing, not this session's: this file (sprint-status.yaml) still does not parse as strict
 #   YAML - an unescaped Windows path inside a double-quoted last_updated scalar further down this
 #   same header chain breaks on \\T - confirmed present before gdx-2 touched anything, not
-#   introduced or fixed here. dev is 4 commits ahead of origin/dev, unpushed (be115816, b4544e19,
-#   and two docs commits) - no push happened or was asked for. Prior entry follows.)"
+#   introduced or fixed here. dev is now 5 commits ahead of origin/dev, unpushed (be115816,
+#   b4544e19, two docs commits, 3f4b2f2a) - no push happened or was asked for. Prior entry
+#   follows.)"
 # last_updated_previously: "2026-08-19, later session (/bmad-loop: gdx-12-humanity-check-oaq-submit-approve
 #   dev-storied, Tasks 1-7 of 8 done, status LEFT AT in-progress (not review) - Task 8 (manual/live
 #   verification) not run this session, user asked to wrap up before it could start. Real work done:
@@ -157,7 +157,7 @@
 # - DT Fixes: new epic — bugs, quick features, feeding panel parity, DT Story pill fix
 
 generated: 2026-04-15
-last_updated: "2026-08-20 (session-wrap): gdx-2-mobile-type-scale done (created, dev-storied, internally 3-layer reviewed, 7 patches applied and prove-discriminated, none committed); gdx-12 and gdx-1 done in the prior session (committed b4544e19, be115816). Full detail in the comment header above. Rewritten back to a short pointer per this field's own stated convention - it had drifted into a duplicate narrative across several prior sessions."
+last_updated: "2026-08-20 (session-wrap): gdx-2-mobile-type-scale done (created, dev-storied, internally 3-layer reviewed, 7 patches applied and prove-discriminated) and committed (3f4b2f2a, not pushed); gdx-12 and gdx-1 done in the prior session (committed b4544e19, be115816). Full detail in the comment header above. Rewritten back to a short pointer per this field's own stated convention - it had drifted into a duplicate narrative across several prior sessions."
 project: TM Suite
 project_key: NOKEY
 tracking_system: file-system
@@ -1465,7 +1465,7 @@ development_status:
   # mentions vitae or willpower). GitHub: epic #981, gdx-1 #982, gdx-2 #983,
   # gdx-3 #984, gdx-4 #985, gdx-5 #986, gdx-6 #987, gdx-7 #988, gdx-8 #989,
   # gdx-9 #990, gdx-10 #991.
-  epic-gdx: in-progress                                        # UPDATED 2026-08-20 (session-wrap): gdx-1/5/6/7/10/11/12 done, gdx-2 also now done same session. Remaining backlog: gdx-3 (#984), gdx-4 (#985), gdx-8 (#989, after gdx-7), gdx-9 (#990, Group C after Group A) - none yet storied. gdx-11 (created 2026-08-18, no GitHub issue of its own) and gdx-12 (born 2026-08-19 from resolving gdx-11's own Grounding blocker, Humanity Check via Epic OAQ submit/approve) are both 12-member additions beyond the original 10 GitHub issues #982-991 - see their own rows below.
+  epic-gdx: in-progress                                        # UPDATED 2026-08-20: gdx-1/2/3/5/6/7/10/11/12 done, all same session for gdx-2/gdx-3. gdx-3's one open decision (thirteen capped touch-target selectors) resolved by Angelus - shipped with the capped state as AC2's documented exception, follow-up GitHub issue filed for the T3 row-growth work rather than blocking. Remaining backlog: gdx-4 (#985), gdx-8 (#989, after gdx-7), gdx-9 (#990, Group C after Group A) - none yet storied, plus the new gdx-3 follow-up issue (see gdx-3's own row). gdx-11 (created 2026-08-18, no GitHub issue of its own) and gdx-12 (born 2026-08-19 from resolving gdx-11's own Grounding blocker, Humanity Check via Epic OAQ submit/approve) are both 12-member additions beyond the original 10 GitHub issues #982-991 - see their own rows below.
 
   gdx-1-mobile-zoom: done                                       # #982. Group A: mobile hygiene, independent of B/C. Storied 2026-08-20: remove index.html's viewport zoom-lock (WCAG 1.4.4) - every other HTML entry point already uses the plain form. Verified during story creation (not left to the dev to assume): #hdr/#bnav are position:relative flex children, not position:fixed, so the classic fixed-positioning-under-zoom failure mode this story might have been scoped around doesn't actually apply here. Story: gdx-1-mobile-zoom.md.
   # DEV-STORIED 2026-08-20, same session: all 4 tasks done. Fix + regression test done and
@@ -1605,13 +1605,153 @@ development_status:
   # token categorisation (independently re-audited selector by selector, correct against the
   # story's own heuristic); the overflow-x:auto -> computed overflow-y:auto side effect
   # (matches #bnav's existing pattern); several uncorroborated Blind-Hunter-only stylistic nits.
-  # Not committed.
+  # COMMITTED 2026-08-20 (session-wrap, same session): 3f4b2f2a, 7 files (+2802/-1085), NOT pushed.
   # Baseline re-measured before any
   # edit and matches the story exactly (suite 494 px font-size / 219 sub-floor; components 583 /
   # 272; 380 player-surface sub-floor sites). One nuance found: one of components.css 583 is a
   # font-size:10px inside a COMMENT at :227 (a BL-3a note), not a declaration, so the real editor
   # carve-out is 110 live declarations, not 111. Everything else lands on the storied numbers.
-  gdx-3-mobile-touch-targets: backlog                            # #984. Group A.
+  # CODE REVIEW 2026-08-20 (EXTERNAL, Codex 3-pass adversarial, then independently re-verified in
+  # headless Chromium - every finding treated as an unverified claim, per the codex-review return
+  # protocol). Codex returned 5 High / 8 Medium / 7 Low. Outcome: 9 patched, 1 decision-needed
+  # (open), 7 dismissed with evidence. Patched: .pref-dot moved T1 -> T2 (its own box back to
+  # 38x38, so AC3 now holds literally and the story's single documented AC3 exception is gone);
+  # the two Office .cs-step-btn steppers capped to 32x40 per AC2's midpoint rule (12px horizontal
+  # AND 4px vertical overlap measured on the real office-tab.js merit rows - worse than Codex
+  # found); .sidebar-app-tile's OWN overflow:hidden relaxed in the collapsed strip (its 44px
+  # overlay was fully swallowed, all four edge samples resolving to .sidebar-app-grid); the
+  # out-of-scope #t-downtime selector mangling reverted; .qf-radio-label's dead position:relative
+  # removed; plus four test fixes. BIGGEST FINDING is this round's own, not Codex's: the T2
+  # centred-overlay technique is a functional REGRESSION wherever the control appears as a stacked
+  # or wrapped sibling run - an ::after is a positioned descendant so it paints above in-flow
+  # content, meaning the later sibling's overlay covers part of the earlier sibling's own visible
+  # box and a tap on the row you can SEE activates the row below it. Codex found 1 case
+  # (.rank-pill); mounting realistic sibling runs found 13 more (measured overlaps 2px to 26px,
+  # elementFromPoint confirming the wrong-control hit every time). Regression removed by dropping
+  # the vertical expansion for all 13; AC1 is NOT claimed for them. DECISION NEEDED (Angelus):
+  # accept that capped state as AC2's evidenced exception list, or authorise a follow-up growing
+  # those 13 rows inside @media (max-width:599px) for a genuine 44px - T3 is a VISIBLE phone
+  # change and AC4 wants each such selector signed off by name, so it was not landed unseen.
+  # New checked-in AC2 sibling-overlap ratchet (27 realistic sibling-run fixtures) plus a
+  # collapsed-state sidebar hit test. Full-file regression 36 passed / 12 failed vs gdx-2's 29/12
+  # baseline, the same 12 documented pre-existing failures confirmed by name, zero new; gdx-3
+  # group 7/7. Five patches each prove-discriminated by a single-change revert. Dismissed with
+  # evidence: Codex's "the gdx-3 group is red, 5 passed / 1 failed" (not reproducible - ran twice
+  # here before any edit, 6/6 both times); its own Pass 1 downtime-colour-regression claim
+  # (superseded by its Pass 2 correction, verified - both base rules already declare
+  # color:var(--txt)); .svt-btn's 24px desktop hit area (real and reproduced, but AC1 is written
+  # for 360px where T3 does apply - deferred, not an AC breach); the five dead/unserved selectors
+  # (confirmed, and .feed-toggle is deader than Codex said - its only grep hit is the substring
+  # inside proc-feed-toggles-row - but dead-rule deletion is explicitly gdx-4's, not gdx-3's);
+  # two .edit-tab-comment-accuracy Lows; the midpoint-only-probe Low; and the synthetic-fixture
+  # Mediums (fair critique, closed for the specific hole, logged as its own test-infra story).
+  # Deferred items in specs/deferred-work.md. STATUS STAYS review: one open decision item.
+  # NOT COMMITTED - working tree only.
+  gdx-3-mobile-touch-targets: done                                # #984. Group A: mobile hygiene, independent of B/C. Storied 2026-08-20: give every in-scope player game-night control a >=44px effective hit area via a new --tap-min token in theme.css plus three ranked techniques (T1 direct box growth where the box is invisible, T2 a transparent hit-area ::after - new to this codebase, T3 phone-tier box growth where T1/T2 would overlap a neighbour). Desktop AND phone visuals unchanged except an explicit T3 list. Story: gdx-3-mobile-touch-targets.md.
+  # Audited during story creation rather than trusting issue #984's figures (gdx-2 hit the same
+  # staleness with #983): all 218 cursor:pointer rules across suite.css + components.css extracted
+  # and sized - 24 already >=44px, 140 below, 54 not statically derivable - then each mapped to its
+  # emitting JS module and to app.js's own stOnly tab map so player surfaces separate from ST-only.
+  # Two of the issue's four named targets are wrong: (a) suite.css:730 for .svt-btn is really :750,
+  # and it derives to 23.2px not ~26px; (b) the "18px tappable rating dots" at components.css:48 are
+  # correct as a measurement but are `.dot`, emitted ONLY by editor/attrs-tab.js - ST editor chrome a
+  # player never renders. The real player-facing rating dot is .pref-dot (components.css:6081, 38x38,
+  # Chronicle Preferences on the Ordeals/XP tab), which the issue misses entirely. "Tracker tap
+  # zones" is unspecified and resolves to two things: .tbox (suite.css:243, 34x30, the player sheet's
+  # health/vitae/WP boxes) and the ST Tracker tab's .trk-adj (28x28) / .trk-adj.sm (24x24).
+  # Scoping calls made during story creation rather than left to the dev agent:
+  # (1) .edit-tab is IN, deliberately diverging from gdx-2's own Angelus-ruled carve-out. That ruling
+  #     was about a text-size floor and its deciding objection (editor density loss) does not exist
+  #     here, because T2 leaves the admin editor pixel-identical; and .edit-header's 12px padding
+  #     absorbs the 8px expansion cleanly. An ST editing on a phone has no other way between panes.
+  # (2) .dot is OUT, on measured evidence not inheritance: .attr-row pitch is ~29px and
+  #     .dot-stepper gap is 2px (20px pitch), so a 44px hit area would overlap the neighbouring row
+  #     and every neighbouring dot. Expanding it makes mis-taps MORE likely. Needs an editor relayout,
+  #     which AC3 forbids. Carved to B3.
+  # (3) The ST Tracker tab is IN (the issue names it, it is the ST's most-tapped game-night screen,
+  #     and .trk-row's existing 8px padding leaves room), while Combat/Territory/Spheres/Check-In/
+  #     ST-mods are OUT as B2 - the issue names none of them.
+  # (4) The Downtime form's .dt- prefixed controls are OUT as B1: Epic DTUI already RATIFIED a
+  #     conflicting target size for that surface (NFR9 ">=32px tickers/chips, >=36px buttons", and
+  #     dtui-2's CC6 shipped .dt-chip{min-height:32px} deliberately, measured at exactly 32px today).
+  #     Overriding another epic's accepted criterion is Angelus's call. The shared .qf- form
+  #     primitives stay IN - they also render on Ordeals/Archive/Feeding, and 44px exceeds rather
+  #     than contradicts DTUI's ">=36px for buttons".
+  # Checked, not assumed: there is NO existing hit-area pseudo-element or negative-margin technique
+  # anywhere in public/css (zero ::after{content:''} overlays), so T2 is genuinely new and the story
+  # introduces it as one commented reusable block. The existing repo convention is direct box growth
+  # (min-height:44px), already live from css-4, epb-4 and nav-1-2/1-3. Four T2 traps recorded with
+  # concrete instances: .svt-toggle's overflow:hidden clips it (so .svt-btn must use T3),
+  # .tab{overflow-x:hidden} clips horizontal expansion at the tab edge, .rv2-breakdown summary
+  # already owns ::before, and an overlay can cover a SIBLING control.
+  # 2026-08-20: DEV-STORIED to completion (bmad-dev-story), all 9 tasks / 7 ACs done, status ->
+  # review. NOT committed - no commit was asked for. --tap-min:44px in theme.css :root (px not rem,
+  # per AC5). One commented "TOUCH TARGETS" block at the end of suite.css introduces Technique T2 to
+  # this codebase; .edit-tab's own T2 rule sits in components.css so admin.html gets it.
+  # Final split: T1 x1 (.pref-dot, given a compensating negative margin so pitch/row-height/glyph
+  # position are pixel-identical), T2 x57 (55 ::after + 2 ::before for .hdr-icon-wrap.has-menu and
+  # .status-summary--toggle, which already own an ::after), T3 x18.
+  # ELEVEN selectors moved T2 -> T3 because the new hit test caught them, not by inspection:
+  # (a) six <select> controls - Chromium generates NO pseudo-element box on a form control, so T2 is
+  #     silently inert on them (computed width came back as the literal string "100%"). This is a
+  #     FIFTH T2 trap the story had not recorded; it is now written into the block's comments.
+  # (b) four stacked list rows (.arc-doc-item, .char-picker__option, .hdr-menu-item, .qf-radio-label)
+  #     whose overlays reached into the row above/below - .arc-doc-item's overlap was 0.5px and would
+  #     never have been caught by eye. Exactly the trade AC2 forbids.
+  # (c) five clipped-ancestor cases with FIVE different clipping ancestors (.prestige-board,
+  #     .st-char-row, .rules-panel all overflow:hidden; .cr-box is overflow-y:auto, a scroll
+  #     container, which clips the same way). None was relaxed - all five are load-bearing.
+  # .gcp-pool-btn deliberately kept out of T2 entirely: already 320x64, and position:relative would
+  # have relocated .gcp-rote-badge (which today anchors to .tab because only the .gcp-9a variant is
+  # positioned) - logged to deferred-work.md as a gdx-4 candidate, along with .hdr-profile /
+  # .hdr-profile-menu / .hdr-menu-item appearing to be dead CSS.
+  # 6 new tests in the EXISTING css-audit group, all green; each of the six technique groups
+  # prove-discriminated separately (T2 ::after, T2 ::before, T3 block, .edit-tab, .pref-dot, the
+  # token itself) rather than in aggregate. Full-file regression 35 passed / 12 failed = gdx-2's 29
+  # plus these 6, same documented 12 pre-existing failures, zero regressions.
+  # Task 9 done as a git-stash before/after sweep at 360px AND 1280px in BOTH themes rather than by
+  # eye: at 1280px exactly ONE element differs (.pref-dot, AC3's single documented exception - its
+  # rect grows 38->44 but its occupied footprint, glyph pitch 46px, first-glyph inset 19px and 66px
+  # row height are all unchanged); at 360px 20 differ, all named, including two INDIRECT ones no rule
+  # targets (.trk-cond-add stretches to match its grown flex sibling .trk-cond-sel;
+  # .status-ranking-save shifts down 5.5px beside the grown .status-ranking-sel).
+  # Test-harness traps paid for and documented so the next story does not repeat them: app.js paints
+  # the login overlay over everything on an unauthenticated boot; app.js:1670 removes whichever of
+  # #t-dice/#t-roll the roller preference is not using; and index.html ships #t-stats with
+  # class="tab active" already on it, which - since every .tab is position:absolute;inset:0 -
+  # silently swallowed the hit test for every probe mounted in an earlier tab.
+  # Two of the story's own derived figures corrected by live measurement, both harmless: .svt-btn is
+  # 24px tall not 23.2px, .edit-tab is 30px not 28px (the .on variant's 2px border-bottom).
+  # Optional housekeeping the story's Dev Notes suggested was taken: a four-line "Touch targets"
+  # entry added to coding-standards.md's CSS Standards section.
+  # REVIEWED AND DONE 2026-08-20, same session: EXTERNAL review (Codex 3-pass adversarial via codex
+  # exec, high reasoning effort - the CLI stalled on its first attempt with no output, killed and
+  # re-run clean), then every finding independently re-verified in headless Chromium rather than
+  # trusted. 5 High/8 Medium/7 Low returned, 9 patched (7 Codex, 2 found only during verification),
+  # 4 deferred, 7 dismissed with evidence, 1 decision resolved by Angelus. Two real bugs Codex itself
+  # found held up under independent arithmetic/code-read verification: the Office .cs-step-btn
+  # up/down steppers overlapped 12px (26px button + 6px gap, 44px overlay - exact AC2 midpoint math
+  # gives 32x40, applied as the fix and recorded as AC2's evidenced exception); .pref-dot's T1 box
+  # growth literally broke AC3's own "identical getBoundingClientRect()" wording (38px -> 44px) -
+  # switched to T2 instead, so the box is back to 38x38 and AC3 holds with no exception needed at
+  # all. One Codex Medium finding ("gdx-3 test group red, 5/1") was DISCONFIRMED - run twice in this
+  # exact tree, both times 6/6 green - dismissed as a Codex-environment artefact, not carried
+  # forward. Biggest find of the round was the verification pass's OWN, not Codex's: the T2 overlay
+  # technique is a functional REGRESSION on any stacked/wrapped sibling run, because a centred
+  # ::after paints above in-flow content, so a later sibling's overlay covers part of an earlier
+  # sibling's own visible box and a tap on the row you can see fires the wrong one. Codex found one
+  # instance (.rank-pill, real 5-clan wrap at 360px); realistic sibling-run fixtures for every T2
+  # selector found thirteen more (overlaps 2-26px) - fixed for all thirteen by dropping the vertical
+  # expansion (min-height:0), provably regression-free, horizontal gain kept. AC1 not claimed for
+  # those thirteen; a new AC2 sibling-overlap ratchet added (27 realistic fixtures) so this class of
+  # bug cannot regress silently again. Full-file run: 36 passed/12 failed vs gdx-2's 29/12 baseline,
+  # same twelve pre-existing failures confirmed by name, zero new. One decision left for Angelus -
+  # the thirteen capped selectors reach 44px horizontally only, not vertically; the correct fix is a
+  # visible phone-tier row growth (Technique T3) needing AC4 sign-off and a deploy-then-look pass
+  # (cannot be smoke-tested locally) - NOT applied blind in the review round. Angelus chose: ship
+  # gdx-3 now with the capped state as AC2's documented exception list, and authorise a follow-up
+  # for the T3 growth rather than block this story on it - filed as GitHub issue #1192. Status ->
+  # done. Not committed.
   gdx-4-mobile-css-cleanup: backlog                              # #985. Group A.
   gdx-5-game-in-progress-setting: done                          # #986. Group B, first of 986∥987 -> 988 -> 989. Story: gdx-5-game-in-progress-setting.md. Dev-storied to completion 2026-08-15, all 5 tasks/9 ACs done. Internal 3-layer code review same day: 0 decision-needed, 6 patch (all applied - notably admin.js's own initWS had NO onSettingsUpdate wiring at all, a real gap fixed with a new exported refreshStModsPanelSettings(); GET now backfills missing default keys on a partial doc, prove-discriminated), 3 defer (logged to deferred-work.md, all pre-existing patterns shared with sibling code, not unique to this story), 7 dismissed. 39/39 final regression. game_in_progress key + open GET + WS broadcast (both app.js AND admin.js) + admin toggle, all shipped and reviewed. Deliberate side effect: st_mods_enabled becomes live-broadcast too (previously had none) - flagged throughout. Committed locally, not pushed/merged - Angelus's call. Unblocks gdx.7 (vitae/willpower one-tap roll spend) alongside gdx.6.
   gdx-6-structured-power-costs: done                             # #987. Codex external review attempted, hit its own usage limit mid-run (unavailable until 2026-08-20) before completing any pass - fell back to internal 3-layer review. 8 patch findings applied (parseCostString non-string/whitespace/empty guards - prove-discriminated; console wording; comment accuracy; test global-pollution fix; corrected a false Debug Log claim), 4 deferred (fmtRuleStats not the only display site after all - print/CSV bypass it, logged to deferred-work.md; admin editor has no field for the new costs; CSV round-trip drops them; unchecked updateOne), 4 dismissed. Acceptance Auditor's independent verdict was Ship even before the patch round. 36/36 final regression. Group B, blocker for gdx-7 alongside gdx-5. Story: gdx-6-structured-power-costs.md. Live investigation (2026-08-15) found the issue's "purchasable_powers AND devotions data" framing stale - Epic PP already unified devotions into purchasable_powers, one place to touch. Real scope: only discipline(50)/devotion(51)/rite(132) of 674 total rows ever carry a cost string; rites are 132/132 cleanly parseable, disciplines/devotions have real edge cases (ranges, choices, body-mutilation devotions with unquantified Vitae) requiring an unparsed/cost_note bucket.

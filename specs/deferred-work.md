@@ -791,3 +791,115 @@ deferred as pre-existing, not caused by this diff:
   (`null` attribute, unclear matcher error) scenario.** Neither is reachable given the current
   DOM — there is exactly one, always-present viewport meta tag in `public/index.html` — cheap to
   add if that ever changes, not worth the defensive code now.
+
+## Deferred from: gdx-3-mobile-touch-targets (2026-08-20, dev-story)
+
+Three deliberate carve-outs from Epic GDX Group A's 44px touch-target pass (issue #984). Each is a
+real gap with a measured selector list, recorded here so a follow-up story does not have to
+re-derive it. Opening GitHub issues for them is Angelus's call.
+
+- **B1 - the Downtime form's own `.dt-` prefixed controls.** Roughly 45 selectors from
+  `components.css:1422` onward, plus `#t-downtime .qf-carthian-remove` (`suite.css:1699`),
+  `.raw-toggle-btn` (`suite.css:1734`), `.dt-history-summary` (`suite.css:1723`) and
+  `.dt-mobile-show-anyway` (`suite.css:1452`). **Reason: another epic has already ratified a
+  conflicting target size for this surface.** `specs/epic-dtui-downtime-form-ux-refactor.md`'s NFR9
+  says "Touch targets >= 32px for tickers and chips; >= 36px for buttons", and
+  `specs/stories/dtui-2-dt-chip-and-chip-grid.story.md`'s CC6 shipped `min-height:32px` on `.dt-chip`
+  as a deliberate design decision - it measures exactly 32px today, i.e. it is *at* its own ratified
+  floor. Overriding another epic's accepted criterion is a product decision, and the DT form's dense
+  chip grids would re-flow. The boundary is the `.dt-` prefix, not the file section: the `.qf-`
+  shared form primitives live in the same section but also render on Ordeals, Archive, Feeding and
+  the questionnaire, so they were fixed by gdx-3 (44px exceeds rather than contradicts DTUI's
+  ">= 36px for buttons").
+- **B2 - ST-only surfaces other than the Tracker tab.** `.cbt-*` (Combat tab,
+  `public/js/game/combat-tab.js`), `#t-territory .regent-sel` (24.4px) and
+  `#t-territory .peek-toggle-label` (14.4px) - the two stragglers css-4 missed - `.stm-*` (ST mods
+  panel and audit), `.si-*` (Check-In, coordinator-only), `.city-map-*` / `.city-section-hd`,
+  `.sidebar-st-btn`, and `#desktop-sidebar .sidebar-btn`. **Reason:** issue #984's AC1 says
+  "player-surface controls" and names none of these. The ST Tracker tab is the one ST-only surface
+  the issue does name, so it was fixed; these were not.
+- **B3 - the ST character editor's own chrome**, i.e. `components.css` lines 143 to 511 (`.dot`,
+  `.skill-flag`, `.cap-btn`, `.mci-*`, `.infl-*`, `.dev-*`, `.sk-spec-*`, `.sh-bane-*`,
+  `.sh-attr-pri select`, `.sh-edit-select`, `.topbar-btn`, `.topbar-action`, `.edit-back`) plus the
+  edit-mode-only selectors in the SHEET VIEW section (`.sh-stat-adj`, `.sh-stat-lr`,
+  `.sh-ts-slot-add`, `.sh-ts-slot-btn`, `.rel-edit-btn`, `.rite-free-badge`, `.rite-xp-badge`).
+  Same carve-out boundary gdx-2 used, for the same shared-stylesheet reason, with `.edit-tab`
+  explicitly pulled OUT of it and fixed (see the story's scoping call). `.dot` in particular
+  (`components.css:48`, 18x18) is carved out on measured evidence rather than by inheritance: the
+  `.attr-row` / `.skill-row` pitch is about 29px and `.dot-stepper{gap:2px}` gives a 20px horizontal
+  pitch, so a 44px hit area would overlap the row above and below by ~7px each and every neighbouring
+  dot by 24px. Expanding it would make mis-taps MORE likely, not less - WCAG 2.5.8's spacing
+  exception exists for exactly this case. The only real fix is re-laying-out the editor's Attribute
+  and Skill grids for phone widths, which is a redesign.
+
+Two smaller findings surfaced while measuring, both gdx-4 (mobile CSS cleanup) candidates rather
+than gdx-3 work:
+
+- **`.gcp-rote-badge` (`suite.css`) has no positioned ancestor.** It is `position:absolute;
+  top:-4px; right:14px`, but only `.gcp-pool-btn.gcp-9a` declares `position:relative` - the
+  `.gcp-rote` variant does not, so the badge currently anchors to `.tab` (`position:absolute;
+  inset:0`) and renders at the top of the whole tab rather than on its own tile. gdx-3 found this by
+  having to exclude `.gcp-pool-btn` from its Technique T2 list to avoid silently "fixing" (i.e.
+  moving) it. `.gcp-pool-btn` already measures 320x64 at 360px, so it needed no touch-target work
+  either way.
+- **`.hdr-profile`, `.hdr-profile-menu` and `.hdr-menu-item` (`suite.css:59-66`) appear to be dead
+  CSS.** A full grep of `public/` for that markup - `.html` and `.js`, excluding
+  `getElementById`/`closest` lookups - returns nothing that emits them, although `app.js` still
+  queries `#hdr-profile-menu` in two places. gdx-3 gave them their hit-area treatment anyway because
+  they are named in the story's own in-scope inventory, but if they really are dead they should be
+  deleted rather than maintained.
+
+## Deferred from: code review of gdx-3-mobile-touch-targets (2026-08-20, external Codex)
+
+External Codex adversarial review plus independent verification. Everything below was measured in
+headless Chromium against the real served page, not reasoned from the diff.
+
+- **[RESOLVED 2026-08-20 - Angelus, filed as [GitHub issue #1192](https://github.com/angelusvmorningstar/TerraMortis/issues/1192)] Thirteen Technique T2 selectors now expand horizontally only,
+  because a full 44px vertical expansion reaches into their own stacked or wrapped siblings.**
+  Angelus authorised the follow-up (option b below) rather than accepting the capped state
+  permanently - gdx-3 itself still ships `done` with the capped state as AC2's evidenced exception,
+  and issue #1192 tracks removing that exception via the Technique T3 fix described below.
+  `.effpool-spec`, `.trk-chip-rm`, `.trk-card-hd`, `.trk-adj.sm`, `.sh-tracker-info-btn`,
+  `.rl-sec-hd`, `.status-chip-st`, `.rank-pill`, `.settings-btn`, `.settings-checkbox-row`,
+  `.rules-expander-toggle`, `.qf-checkbox-label`, `.char-picker__chip-remove`. Measured overlaps
+  before the review round's fix ran from 2px (`.settings-btn`) to 26px (`.settings-checkbox-row`),
+  and in every case `document.elementFromPoint` inside the overlap resolved to the NEXT sibling, so
+  a tap on the row you can see activated the row below it. The review round removed that regression
+  by dropping the vertical expansion for these thirteen (the overlay is now exactly the element's
+  own box tall), which restores the pre-gdx-3 hit behaviour but does not reach 44px. **The real fix
+  is a phone-tier row growth (Technique T3), exactly as gdx-3 already did for `.arc-doc-item`,
+  `.char-picker__option`, `.hdr-menu-item` and `.qf-radio-label` - but that is a VISIBLE phone
+  change and AC4 requires each such selector to be signed off by name, so it is a product decision
+  rather than a review-round patch.** The checked-in `no two sibling hit areas overlap` test in
+  `tests/desktop-and-css.spec.js` ratchets the current state, and `GDX3_AC2_EXCEPTIONS` in the same
+  file is the machine-readable list.
+- **`.svt-btn` has only a 24px effective vertical hit area at viewports of 600px and above.**
+  `.sheet-topbar button::after` also matches it (they share the topbar), but its parent
+  `.svt-toggle` carries `overflow:hidden` to clip the segmented control's 4px corners, so the
+  overlay is swallowed. Measured at 1280px: box 62.19x24, overlay computes 62.19x44, and
+  `elementFromPoint` 21px above and below the centre both resolved to `div.sheet-topbar`. gdx-3's
+  T3 fix (`min-height:var(--tap-min)`) is scoped to `@media (max-width:599px)`, so desktop widths
+  get nothing. **Not an AC1 breach** - AC1 is written for a 360px viewport, where T3 does apply and
+  the control measures 62x44 - but it is a real gap for a wide touch device. The fix is either
+  relaxing `.svt-toggle` to `overflow:visible` with per-child radius, or lifting the `min-height`
+  out of the media query; both are visible-risk changes gdx-3 explicitly declined to make blind.
+- **`.prestige-toggle`, `.st-char-dismiss`, `.hdr-profile`, `.hdr-menu-item` and `.feed-toggle` have
+  no live render path, yet carry gdx-3 touch-target rules and test fixtures.** Verified by full
+  grep of `public/js/`, `public/index.html` and `public/admin.html`: `.prestige-toggle` and
+  `.st-char-dismiss` occur only in the repository-root legacy `index.html`, which is not served
+  (Playwright and the dev server both serve `public/`); `.hdr-profile` and `.hdr-menu-item` are
+  emitted nowhere at all (`app.js` still queries the `#hdr-profile-menu` **id**, which is a
+  different thing); and `.feed-toggle` is emitted nowhere either - the only grep hits are the
+  substring inside `proc-feed-toggles-row` in `public/js/admin/downtime-views.js`, which is an
+  admin-app class and `admin.html` does not load `suite.css`. This extends the dev-story's own
+  `.hdr-profile` note above to five selectors. Deleting them is gdx-4's job (dead-rule cleanup);
+  gdx-3 correctly declined to delete rules named in its own inventory.
+- **The gdx-3 fixtures are synthetic below the tab.** `gdx3Measure` mounts into the real
+  `#t-<tab>` element index.html ships (so the tab's padding, width cap and `overflow-x:hidden` do
+  apply) but replaces everything inside it with hand-authored markup, so a production clipping
+  ancestor, stacking context or neighbour that a fixture omits cannot fail the probe. Two real
+  defects hid behind exactly that gap and were only found by mounting realistic sibling runs (the
+  wrapped `.rank-pill` set and the Office `.cs-step-btn` pair). The review round added a
+  multi-sibling test that closes the specific hole; a fixture strategy that renders through the real
+  JS renderers rather than hand-written HTML would close it properly, and is a test-infrastructure
+  story of its own.

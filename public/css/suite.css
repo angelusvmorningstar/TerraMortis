@@ -2705,3 +2705,335 @@ body.desktop-mode.sidebar-collapsed .sb-collapse-btn { width: 100%; justify-cont
 .dom-inherited-card-title{font-size:var(--fs-floor-micro);}
 .infl-edit-row select,.infl-edit-row input[type=text]{font-size:var(--fs-floor-body);}
 .infl-edit-row .infl-area-fixed{font-size:var(--fs-floor-body);}
+
+/* ══════════════════════════════════════════
+   TOUCH TARGETS — 44px effective hit areas (gdx-3, #984, AC1/AC3/AC4)
+
+   WCAG 2.5.5 Target Size (AAA). The floor is var(--tap-min) (theme.css :root),
+   declared in px on purpose: a fingertip is not text and must not shrink with
+   the OS text-size preference.
+
+   THREE TECHNIQUES, in order of preference. Measure, then choose.
+
+   T1  direct box growth (min-height / width / height). The repo's existing
+       convention (.char-chip, .exp-row, .sh-stat-icon, #t-territory .adj,
+       .feed-adj, .gcp-pool-chip). Only safe where the box is genuinely
+       invisible: no background, border, box-shadow or visible radius, AND no
+       state variant (.on / :hover / :active / .filled) that paints one.
+       Used by gdx-3 for .pref-dot only (its rule stays in components.css).
+
+   T2  a transparent, TAPPABLE ::after overlay centred on the visible box and
+       never smaller than --tap-min. The visible box is untouched at every
+       width, so AC3 (desktop unchanged) and AC4 (phone unchanged) hold by
+       construction. This technique is NEW to this codebase - before gdx-3 there
+       was not one ::after{content:''} hit-area overlay in public/css/ - so it
+       lives here as ONE commented block rather than sprinkled per selector.
+       Do NOT add pointer-events:none to the overlay; that defeats the point.
+
+   T3  phone-tier box growth, inside @media (max-width:599px). Only where T1 and
+       T2 are both unsafe. See the T3 block further down for the three cases and
+       why each one needs it.
+
+   FOUR TRAPS, all real in this tree, all handled below:
+   1. overflow:hidden on an ancestor clips the overlay. .svt-toggle has it, so
+      .svt-btn takes T3. .hdr-char-menu-item has its own, so it takes T3 too.
+   2. .tab{overflow-x:hidden} clips horizontal expansion at the tab edge. .tab is
+      position:absolute;inset:0, so vertical expansion is unaffected.
+   3. the element must not already own the pseudo-element. Two do:
+      .hdr-icon-wrap.has-menu (its chevron badge) and .status-summary--toggle
+      (its phone-drawer chevron), so those two take the ::before variant. The
+      only ::before collision in scope is .qf-section-title's own caret, which
+      is why the default variant here is ::after and not ::before.
+   4. the overlay can cover a SIBLING control. It never steals a click from its
+      own element (the handler is on the element), but it does sit over whatever
+      is beside it. Every selector below was hit-tested at the four edge
+      midpoints of its intended 44px area, in its real ancestor chain, at 360px
+      (tests/desktop-and-css.spec.js, the gdx-3 group).
+   ══════════════════════════════════════════ */
+
+/* T2 — elements that need position:relative to anchor the overlay. */
+.trk-adj,
+.trk-card-hd,
+.trk-chip-rm,
+.trk-cond-add,
+.trk-reset-btn,
+.sh-tracker-info-btn,
+.effpool-seg--rote,
+.effpool-spec,
+.attr-carousel-badge,
+.panel-close,
+.panel-section .cp-showall-btn,
+.auspex-insight-btn,
+.rl-sec-hd,
+#btn-contested,
+.cr-type-btn,
+.gcp-collapse-btn,
+.hist-clr,
+.rv2-adj,
+.rv2-again-seg button,
+.rv2-breakdown summary,
+.rv2-stake-btn,
+.ch-btn,
+.sheet-char-chip,
+.cs-step-btn,
+.status-chip-st,
+.status-ranking-save,
+.rank-mode-btn,
+.rank-pill,
+.feed-toggle,
+.feed-method-card,
+.ordeal-card[data-form],
+.archive-card,
+.login-crim-btn,
+.hdr-profile,
+.pnl-confirm-btn,
+.import-banner-clr,
+.lifecycle-card,
+.sidebar-collapse-btn,
+.settings-toggle-btn,
+.settings-btn,
+.settings-checkbox-row,
+.sheet-topbar button,
+.rules-expander-toggle,
+.qf-section-title,
+.qf-checkbox-label,
+.qf-btn,
+.qf-back-btn,
+.qf-dynlist-add,
+.char-picker__chip-remove,
+.char-picker__pill-clear,
+.feed-confirm-btn,
+.feed-reconfirm-btn,
+.feeding-defer-btn{position:relative;}
+
+/* T2 — elements that are ALREADY positioned. Re-declaring position:relative on
+   these would move them, so they are listed separately and only get the
+   overlay. .cs-edit-close and .qf-dynlist-remove are position:absolute;
+   .more-app-icon and .sidebar-app-tile are already position:relative.
+
+   NOT on either list, deliberately: .gcp-pool-btn. It already measures 320x64
+   at 360px, so it needs no expansion at all, and giving it position:relative
+   would become the containing block for .gcp-rote-badge (suite.css, absolute,
+   top:-4px right:14px), which today anchors to .tab instead because only the
+   .gcp-9a variant declares position:relative. Moving that badge is a visual
+   change gdx-3 has no mandate for. Logged as a gdx-4 candidate.
+
+   Also NOT here: every <select> in the inventory (.resist-sel, .trk-cond-sel,
+   .status-ranking-sel, .qf-select, .list-filter, .form-select). Chromium does
+   not generate ::before/::after boxes on form controls, so T2 is silently
+   inert on them - getComputedStyle reports the declared 44px while nothing is
+   rendered or hit-tested. Measured, not assumed: the pseudo-element's computed
+   width/height came back as the literal string "100%" rather than a used px
+   value, which is the tell. They take T3 instead. */
+
+/* T2 — the overlay itself. */
+.trk-adj::after,
+.trk-card-hd::after,
+.trk-chip-rm::after,
+.trk-cond-add::after,
+.trk-reset-btn::after,
+.sh-tracker-info-btn::after,
+.effpool-seg--rote::after,
+.effpool-spec::after,
+.attr-carousel-badge::after,
+.panel-close::after,
+.panel-section .cp-showall-btn::after,
+.auspex-insight-btn::after,
+.rl-sec-hd::after,
+#btn-contested::after,
+.cr-type-btn::after,
+.gcp-collapse-btn::after,
+.hist-clr::after,
+.rv2-adj::after,
+.rv2-again-seg button::after,
+.rv2-breakdown summary::after,
+.rv2-stake-btn::after,
+.ch-btn::after,
+.sheet-char-chip::after,
+.cs-edit-close::after,
+.cs-step-btn::after,
+.status-chip-st::after,
+.status-ranking-save::after,
+.rank-mode-btn::after,
+.rank-pill::after,
+.feed-toggle::after,
+.feed-method-card::after,
+.ordeal-card[data-form]::after,
+.archive-card::after,
+.login-crim-btn::after,
+.hdr-profile::after,
+.pnl-confirm-btn::after,
+.import-banner-clr::after,
+.more-app-icon::after,
+.lifecycle-card::after,
+.sidebar-app-tile::after,
+.sidebar-collapse-btn::after,
+.settings-toggle-btn::after,
+.settings-btn::after,
+.settings-checkbox-row::after,
+.sheet-topbar button::after,
+.rules-expander-toggle::after,
+.qf-section-title::after,
+.qf-checkbox-label::after,
+.qf-btn::after,
+.qf-back-btn::after,
+.qf-dynlist-add::after,
+.qf-dynlist-remove::after,
+.char-picker__chip-remove::after,
+.char-picker__pill-clear::after,
+.feed-confirm-btn::after,
+.feed-reconfirm-btn::after,
+.feeding-defer-btn::after{
+  content:'';
+  position:absolute;
+  top:50%;
+  left:50%;
+  transform:translate(-50%,-50%);
+  width:100%;
+  height:100%;
+  min-width:var(--tap-min);
+  min-height:var(--tap-min);
+}
+
+/* T2, ::before variant — trap 3. These two already own ::after (the header
+   chevron badge at the top of this file, and the phone status-drawer chevron in
+   the max-width:599px block), so the overlay uses the free pseudo-element
+   instead. Neither declares a ::before of its own. */
+.hdr-icon-wrap.has-menu,
+.status-summary--toggle{position:relative;}
+.hdr-icon-wrap.has-menu::before,
+.status-summary--toggle::before{
+  content:'';
+  position:absolute;
+  top:50%;
+  left:50%;
+  transform:translate(-50%,-50%);
+  width:100%;
+  height:100%;
+  min-width:var(--tap-min);
+  min-height:var(--tap-min);
+}
+
+/* T3 — phone-tier box growth. Named here and in the story's Completion Notes
+   because AC4 requires every visible phone-side change to be listed.
+   Desktop (>=600px) is untouched by construction, which is AC3.
+
+   .tbox    the sheet's health / vitae / willpower / influence boxes. T2 is
+            unsafe: .sh-tracker-boxes is a 5px-gap wrap grid, so a 44px overlay
+            on a 34x30 box overlaps its neighbours on BOTH axes, and every
+            neighbour is another tracker box. A mis-tap would mark the wrong
+            point of damage, which is worse than the small target. The box grows
+            instead, so the run stays collision-free.
+   .svt-btn parent .svt-toggle is overflow:hidden (it clips the segmented
+            control's 4px corner radius), which clips any overlay - trap 1.
+            The parent is left alone so the corners still clip.
+   .hdr-char-menu-item carries its OWN overflow:hidden (for the name ellipsis),
+            so its overlay is clipped to its own box - trap 1 again.
+   the six <select> controls - Chromium generates no pseudo-element box on a
+            form control at all, so T2 is inert on them (see the note above the
+            T2 overlay list). Each is between 33 and 43px today, so this is a
+            1 to 11px growth on phone only.
+   the stacked list rows - .arc-doc-item, .char-picker__option, .hdr-menu-item
+            and .qf-radio-label are consecutive siblings on a pitch shorter than
+            44px, so a T2 overlay would reach into the row above and below. That
+            is the exact trade AC2 forbids: it swaps one mis-tap for another,
+            and the neighbour is another live control. Growing the row is the
+            only honest fix, and it is what the repo already does for .exp-row
+            and .char-chip. */
+@media (max-width: 599px) {
+  .tbox{width:var(--tap-min);height:var(--tap-min);}
+  .svt-btn{min-height:var(--tap-min);}
+  .hdr-char-menu-item{min-height:var(--tap-min);}
+  .resist-sel,
+  .trk-cond-sel,
+  .status-ranking-sel,
+  .qf-select,
+  .list-filter,
+  .form-select{min-height:var(--tap-min);}
+  .arc-doc-item,
+  .char-picker__option,
+  .hdr-menu-item,
+  .qf-radio-label{min-height:var(--tap-min);}
+  /* The two that are not already flex rows need to be, or their label would
+     sit against the top of the taller box instead of staying centred. */
+  .char-picker__option,
+  .hdr-menu-item{display:flex;align-items:center;}
+  /* Five more instances of trap 1, each with a DIFFERENT clipping ancestor,
+     all confirmed by hit test rather than by reading the CSS:
+       .prestige-toggle    inside .prestige-board{overflow:hidden}
+       .st-char-dismiss    inside .st-char-row{overflow:hidden}
+       .rules-panel-close  inside .rules-panel{overflow:hidden}
+       .cr-close, .cr-adj  inside .cr-box{overflow-y:auto}, a scroll container,
+                           which clips its overflow just as hidden does.
+     Every one of those five ancestors is load-bearing (three clip a rounded
+     corner, one is the contested-roll sheet's own scroller), so none of them is
+     relaxed. */
+  .prestige-toggle,
+  .rules-panel-close{min-height:var(--tap-min);}
+  .st-char-dismiss,
+  .cr-close{min-width:var(--tap-min);min-height:var(--tap-min);}
+  .cr-adj{width:var(--tap-min);height:var(--tap-min);}
+}
+
+/* ══════════════════════════════════════════
+   TOUCH TARGETS — AC2 overlap corrections (gdx-3 code review, 2026-08-20)
+
+   The block above expands a 44px overlay symmetrically about each control's
+   centre. Where that control appears as a STACKED or WRAPPED run of siblings on
+   a pitch shorter than --tap-min, the later sibling's overlay reaches back over
+   the earlier sibling's OWN visible box, so a tap on the label you can see
+   activates the control below it. That is worse than the small target it was
+   meant to fix, and it is exactly what AC2 forbids.
+
+   The original block caught four such runs by hit test (.arc-doc-item,
+   .char-picker__option, .hdr-menu-item, .qf-radio-label) and moved them to T3.
+   It missed the rest because every fixture in the gdx-3 test group mounted a
+   SINGLE control or one short un-wrapped row. The multi-sibling sweep added in
+   this review round measures realistic sibling runs and found fourteen more.
+
+   Two corrections, both measured, neither changing anything visible:
+
+   1. .cs-step-btn inside the two Office steppers has a KNOWN, CSS-declared
+      pitch, so AC2's midpoint rule gives an exact answer rather than a guess:
+        horizontal  26px button + 6px .cs-edit-stepper gap            = 32px
+        vertical    26px + .office-merit-row padding:4px 0 + 6px gap  = 40px
+      The overlay is capped to 32 x 40. Recorded as an AC2 evidenced exception:
+      AC1 is NOT claimed for .cs-step-btn on the Office tab.
+
+   2. Every other proven run has a pitch that depends on content height, so no
+      honest constant exists. Their overlays keep the horizontal expansion (which
+      never overlapped) and drop the vertical one: height:100% with min-height:0
+      makes the overlay exactly the element's own box vertically, i.e. the
+      pre-gdx-3 hit behaviour, so the regression is removed and nothing is made
+      worse. AC1 is NOT claimed for these; the real fix is a phone-tier row
+      growth (T3) like the four the original block already grew, and that is a
+      visible phone change, so it is Angelus's call rather than this round's.
+      Logged in specs/deferred-work.md.
+
+   3. .sidebar-app-tile carries its OWN overflow:hidden (suite.css, for the
+      label ellipsis), so its overlay was clipped to its own box - trap 1 again,
+      missed because the shipped sidebar test never enters the collapsed state.
+      It only matters when collapsed, where the tile is 40x40; there the label is
+      display:none so there is nothing left to clip and overflow can be relaxed.
+      Measured after the change: 44x44 tappable, 44px pitch, zero overlap, and
+      the tile renders identically.
+   ══════════════════════════════════════════ */
+
+.office-manoeuvre-rank-stepper .cs-step-btn::after,
+.office-merit-stepper .cs-step-btn::after{min-width:32px;min-height:40px;}
+
+.effpool-spec::after,
+.trk-chip-rm::after,
+.trk-card-hd::after,
+.trk-adj.sm::after,
+.sh-tracker-info-btn::after,
+.rl-sec-hd::after,
+.status-chip-st::after,
+.rank-pill::after,
+.settings-btn::after,
+.settings-checkbox-row::after,
+.rules-expander-toggle::after,
+.qf-checkbox-label::after,
+.char-picker__chip-remove::after{min-height:0;}
+
+body.desktop-mode.sidebar-collapsed #desktop-sidebar .sidebar-app-tile{overflow:visible;}

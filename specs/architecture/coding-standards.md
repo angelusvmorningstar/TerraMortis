@@ -109,6 +109,11 @@ Token families (see `public/css/theme.css` for the full set and per-theme values
 
 **Rule:** never write bare hex in rule bodies. Tokens are the only colour source. The only hex allowed is inside `:root` / `[data-theme]` declarations in `theme.css`.
 
+**Touch targets:** every interactive control on a player surface needs a hit area of at least
+`var(--tap-min)` (44px, WCAG 2.5.5 AAA, declared in `theme.css`'s `:root`). Use the token, never a
+bare `44px`. The three techniques and their traps are documented in one block at the end of
+`public/css/suite.css` (search "TOUCH TARGETS"); read it before adding a new control.
+
 ### Shared Chrome Pattern
 
 When multiple classes share visual chrome (background, border, radius, padding) or shared text style (font, size, weight, letter-spacing), declare it once via a grouped selector rather than duplicating rule bodies.

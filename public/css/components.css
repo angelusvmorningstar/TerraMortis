@@ -172,6 +172,27 @@ html:not([data-theme="dark"]) .edit-icon {
 .edit-back:hover{color:var(--gold);}
 .edit-tabs{display:flex;gap:2px;margin-left:24px;}
 .edit-tab{background:none;border:none;font-family:var(--fl);font-size:0.625rem;letter-spacing:.12em;text-transform:uppercase;color:var(--txt3);padding:8px 14px;cursor:pointer;border-radius:4px 4px 0 0;transition:color .15s,background .15s;}
+/* gdx-3 (#984) — Technique T2 hit-area overlay. Unlike every other gdx-3 T2
+   rule (which lives in one block at the end of suite.css), this one has to be
+   here: .edit-tab renders on admin.html as well as inside index.html's ST
+   editor, and admin.html does not load suite.css. The visible tab is untouched
+   at every width, so the admin editor header is pixel-identical; the 8px of
+   vertical expansion on each side of the 28px box lands inside .edit-header's
+   own padding:12px 24px and .edit-tabs' 2px gap is horizontal only, so no two
+   expanded areas overlap. See the technique block in suite.css for the full
+   rationale and the four traps. */
+.edit-tab{position:relative;}
+.edit-tab::after{
+  content:'';
+  position:absolute;
+  top:50%;
+  left:50%;
+  transform:translate(-50%,-50%);
+  width:100%;
+  height:100%;
+  min-width:var(--tap-min);
+  min-height:var(--tap-min);
+}
 .edit-tab:hover{color:var(--txt2);}
 .edit-tab.on{color:var(--accent);background:var(--accent-a8);border-bottom:2px solid var(--accent);}
 .edit-dirty{font-family:var(--fl);font-size:0.625rem;color:var(--accent);letter-spacing:.08em;margin-left:auto;opacity:0;transition:opacity .2s;}
@@ -6078,10 +6099,28 @@ html:not([data-theme="dark"]) .char-picker__pill { font-weight: 600; }
 .pref-axes-table .pref-axis-row:last-of-type td { border-bottom: none; }
 .pref-axis-lbl { width: 170px; color: var(--txt2); }
 .pref-dots-cell .dot-stepper { display: flex; gap: 8px; }
+/* gdx-3 (#984) — Technique T2 on .pref-dot: the player-facing rating dot the
+   issue was reaching for when it named `.dot` (which is ST-editor-only and
+   stays carved out).
+   This shipped as T1 first (38px box grown to --tap-min, with a compensating
+   negative margin so the pitch and row height stayed put) and the code review
+   moved it to T2, because T1 could not satisfy AC3 literally: AC3 asks for the
+   ELEMENT's own getBoundingClientRect() to be identical before and after, and a
+   38->44 box is not that, however faithfully the surrounding layout is
+   reconstructed. T2 satisfies AC3 by construction and needs no exception.
+   Measured after the swap, at 360px and 1280px: box back to 38x38, hit area a
+   true 44x44, glyph pitch 46px, first-glyph inset 19px, dot run 222px, row
+   height 66px - every one identical to the pre-gdx-3 values and to the T1
+   version's. Nothing in the ancestor chain clips the 3px of expansion
+   (.xpl-panel is overflow:auto but the dots sit well inside it), and adjacent
+   hit areas end 2px apart both across a row and between rows, so AC2 holds.
+   The overlay rule lives here rather than in suite.css's T2 block for the same
+   reason .edit-tab's does: this rule's own home is components.css. */
 .pref-dot {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  position: relative;
   width: 38px;
   height: 38px;
   font-size:1.875rem;
@@ -6091,6 +6130,17 @@ html:not([data-theme="dark"]) .char-picker__pill { font-weight: 600; }
   -webkit-tap-highlight-color: transparent;
   transition: opacity 0.1s;
   color: var(--accent-a25);
+}
+.pref-dot::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 100%;
+  height: 100%;
+  min-width: var(--tap-min);
+  min-height: var(--tap-min);
 }
 .pref-dot.filled { color: var(--accent); }
 .pref-dot:hover { opacity: 0.8; }
