@@ -168,6 +168,20 @@ test('desktop-mode — app width uncapped in desktop mode', async ({ page }) => 
 // The Primer TOC css-audit test was retired with #1135: the Primer tab and its
 // primer-* rules were both deleted, so there is no TOC left to style.
 
+test('css-audit — viewport meta tag does not disable pinch-zoom (WCAG 1.4.4, gdx.1)', async ({ page }) => {
+  // Deliberately NOT setupSuite() here — this is a static <head> tag present
+  // on raw HTML load, not app-runtime behaviour, so it doesn't need the full
+  // SPA boot (#app visible) that setupSuite() waits on.
+  await page.goto('/');
+  const content = await page.locator('meta[name="viewport"]').getAttribute('content');
+  // review finding (AC1): asserting the exact required value, not just the
+  // absence of the two zoom-lock tokens — a substring-absence check alone
+  // would pass for a regression that reintroduced zoom restriction through a
+  // different token (e.g. minimum-scale), or that accidentally dropped
+  // width=device-width/initial-scale=1.0 too.
+  expect(content).toBe('width=device-width, initial-scale=1.0');
+});
+
 test('css-audit — Archive CSS class is defined in suite.css', async ({ page }) => {
   await setupSuite(page);
 

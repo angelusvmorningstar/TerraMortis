@@ -783,3 +783,11 @@ deferred as pre-existing, not caused by this diff:
   still has no `title`, still latently vulnerable to the identical collision against any future
   title-less schema) — already found, fixed for this story's own schema, and filed above during
   Task 2. Re-confirmed by this review as already tracked, not a new gap.
+
+## Deferred from: code review of gdx-1-mobile-zoom (2026-08-20)
+
+- **The new viewport-meta-tag test (`tests/desktop-and-css.spec.js`) doesn't defensively handle a
+  hypothetical multiple-viewport-tag (Playwright strict-mode violation) or entirely-missing-tag
+  (`null` attribute, unclear matcher error) scenario.** Neither is reachable given the current
+  DOM — there is exactly one, always-present viewport meta tag in `public/index.html` — cheap to
+  add if that ever changes, not worth the defensive code now.
