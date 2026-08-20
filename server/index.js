@@ -312,7 +312,7 @@ async function start() {
 // of shipping silently broken behaviour. In dev/test we warn and continue so
 // a fresh laptop without seed data can still boot.
 async function runRulesEngineGate() {
-  const dbName = process.env.MONGODB_DB || 'tm_suite';
+  const dbName = process.env.MONGODB_DB || 'tm_game';
   const result = await verifyRulesEngine(getDb());
   if (result.ok) {
     console.log(formatPassReport(result.counts, dbName));

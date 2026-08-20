@@ -1,10 +1,10 @@
 /**
  * Session banner — populates #bn-date, #bn-time, #bn-deadline.
- * Primary source: TM Suite API (/api/game_sessions/next).
+ * Primary source: TM Game API (/api/game_sessions/next).
  * Fallback: Google Calendar iCal via CORS proxies.
  */
 (function () {
-  const API_URL  = 'https://tm-suite-api.onrender.com/api/game_sessions/next';
+  const API_URL  = 'https://tm-game-api.onrender.com/api/game_sessions/next';
   const CAL_ID   = 'terramortislarp@gmail.com';
   const ICAL_URL = 'https://calendar.google.com/calendar/ical/' + encodeURIComponent(CAL_ID) + '/public/basic.ics';
 
@@ -103,7 +103,7 @@
   }
 
   async function loadBanner() {
-    // 1. Try the TM Suite API first (set via admin Engine panel)
+    // 1. Try the TM Game API first (set via admin Engine panel)
     try {
       const res = await fetch(API_URL, { cache: 'no-cache' });
       if (res.ok) {

@@ -1,6 +1,6 @@
 services:
   - type: worker
-    name: tm-suite-bot
+    name: tm-game-bot
     runtime: node
     plan: free
     rootDir: bot
@@ -16,7 +16,7 @@ services:
       - key: DISCORD_GUILD_ID
         sync: false  # set manually in Render dashboard
       - key: TM_API_URL
-        value: https://tm-suite-api.onrender.com
+        value: https://tm-game-api.onrender.com
       - key: ANNOUNCE_DEVLOG_CHANNEL_ID
         sync: false
       - key: ANNOUNCE_DOWNTIME_CHANNEL_ID
@@ -25,7 +25,7 @@ services:
         sync: false
 
   - type: web
-    name: tm-suite-api
+    name: tm-game-api
     runtime: node
     plan: free
     rootDir: server

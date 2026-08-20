@@ -16,7 +16,7 @@
 # Update the 'to' URL when the Render service is deployed.
 [[redirects]]
   from = "/api/*"
-  to = "https://tm-suite-api.onrender.com/api/:splat"
+  to = "https://tm-game-api.onrender.com/api/:splat"
   status = 200
   force = true
 

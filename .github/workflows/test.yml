@@ -1,6 +1,6 @@
 name: API Tests
 
-# Disabled: tests require seeded v3 schema data in tm_suite_test (Atlas).
+# Disabled: tests require seeded v3 schema data in tm_game_test (Atlas).
 # The migrate.js seeds v2 data; migrate-schema-v3.js must run after.
 # Re-enable once a CI seed script chains both steps.
 # See: PP.9 (schema v3), PP.10 (client migration)
@@ -37,7 +37,7 @@ jobs:
       - name: Run tests
         env:
           MONGODB_URI: ${{ secrets.MONGODB_URI }}
-          MONGODB_DB: tm_suite_test
+          MONGODB_DB: tm_game_test
           DISCORD_CLIENT_ID: placeholder
           DISCORD_CLIENT_SECRET: placeholder
           SESSION_SECRET: placeholder-ci-secret

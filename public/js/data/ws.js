@@ -88,7 +88,7 @@ function _wsUrl() {
   const isLocal = location.hostname === 'localhost';
   const base = isLocal
     ? 'ws://localhost:3000'
-    : 'wss://tm-suite-api.onrender.com';
+    : 'wss://tm-game-api.onrender.com';
   return `${base}/ws?token=${encodeURIComponent(_token)}`;
 }
 

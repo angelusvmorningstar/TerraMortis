@@ -1,4 +1,4 @@
-# Terra Mortis TM Suite
+# Terra Mortis TM Game
 
 A browser-based character management system for a **Vampire: The Requiem 2nd Edition** campaign. Single-page admin app with Express API backend, MongoDB persistence, and Discord OAuth authentication.
 
@@ -6,9 +6,9 @@ A browser-based character management system for a **Vampire: The Requiem 2nd Edi
 
 | Service | URL | Deploys from |
 |---------|-----|--------------|
-| Admin App (Netlify) | `terramortissuite.netlify.app` | `main` branch |
-| API Server (Render) | `tm-suite-api.onrender.com` | `main` branch |
-| Database | MongoDB Atlas (`tm_suite`) | — |
+| Admin App (Netlify) | `terramortisgame.netlify.app` | `main` branch |
+| API Server (Render) | `tm-game-api.onrender.com` | `main` branch |
+| Database | MongoDB Atlas (`tm_game`) | — |
 
 <!-- deploy canary: 2026-07-27 dev branch-deploy pipeline test -->
 
@@ -36,7 +36,7 @@ API runs on port 3000; frontend at `http://localhost:8080/admin.html` calls it i
 
 | Location | Description |
 |----------|-------------|
-| MongoDB `tm_suite` | Live data: characters, territories, downtime, game sessions, session logs |
+| MongoDB `tm_game` | Live data: characters, territories, downtime, game sessions, session logs |
 | `archive/tm_characters.json` | 31 characters in pre-v2 format (frozen reference) |
 
 ### Character Schema (v2)
@@ -67,13 +67,13 @@ Full specification in `schemas/schema_v2_proposal.md`. Key design rules:
 
 ```
 Browser (Netlify)  →  Express API (Render)  →  MongoDB Atlas
-   static files        /api/* endpoints          tm_suite DB
+   static files        /api/* endpoints          tm_game DB
 ```
 
 - **Auth**: Discord OAuth2. ST IDs whitelisted in server config. Coordinator + dev roles for check-in / finance / dev access.
 - **Frontend**: vanilla JS modules, no build step. Themes: Parchment (default, warm light) + Dark override (`[data-theme="dark"]`). Fonts: Cinzel (headings), Lato (UI labels), Libre Baskerville (body), Cinzel Decorative (reading-pane display only).
 - **API**: Express 5, ES modules, `server/` directory. Routes: characters, territories (+ feeding-rights PATCH), downtime, game_sessions, session_logs, npcs, relationships, npc-flags, attendance, rules.
-- **Tests**: Vitest integration tests in `server/tests/`, forced against `tm_suite_test` (isolated from live DB).
+- **Tests**: Vitest integration tests in `server/tests/`, forced against `tm_game_test` (isolated from live DB).
 
 ## Branching
 

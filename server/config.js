@@ -6,7 +6,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 dotenv.config({ path: resolve(__dirname, '..', '.env') });
 
 export const config = {
-  MONGODB_URI: process.env.MONGODB_URI || 'mongodb://localhost:27017/tm_suite',
+  MONGODB_URI: process.env.MONGODB_URI || 'mongodb://localhost:27017/tm_game',
   PORT: parseInt(process.env.PORT, 10) || 3000,
   NODE_ENV: process.env.NODE_ENV || 'development',
   CORS_ORIGIN: process.env.CORS_ORIGIN || 'http://localhost:8080',

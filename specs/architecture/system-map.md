@@ -8,12 +8,12 @@
 ## 1. Three-Product Structure
 
 ```
-terramortissuite.netlify.app/        → public/index.html      Suite app (roll calc, sheet viewer)
-terramortissuite.netlify.app/player  → public/player.html     Player portal (sheets, downtime, feeding)
-terramortissuite.netlify.app/admin   → public/admin.html      ST admin (characters, attendance, DT processing)
+terramortisgame.netlify.app/        → public/index.html      Suite app (roll calc, sheet viewer)
+terramortisgame.netlify.app/player  → public/player.html     Player portal (sheets, downtime, feeding)
+terramortisgame.netlify.app/admin   → public/admin.html      ST admin (characters, attendance, DT processing)
 [game app is a tab within admin.html — no separate URL]
-tm-suite-api.onrender.com            → server/index.js        Express 5 API
-MongoDB Atlas                        → tm_suite database      All persistent data
+tm-game-api.onrender.com            → server/index.js        Express 5 API
+MongoDB Atlas                        → tm_game database      All persistent data
 ```
 
 ---

@@ -52,17 +52,17 @@ beforeAll(async () => {
 });
 
 // Defensive: /next picks the soonest session_date >= today, so any leaked
-// future-dated session in tm_suite_test would silently shadow our seeded one.
+// future-dated session in tm_game_test would silently shadow our seeded one.
 // Sweep all future sessions and live cycles before each test. Vitest runs
 // files serially (singleFork), so this only clears stale leaks.
 //
 // Hard guard: refuse to sweep if MONGODB_DB ever resolves to anything other
-// than tm_suite_test. setup-env.js forces this, but a destructive deleteMany
+// than tm_game_test. setup-env.js forces this, but a destructive deleteMany
 // against a misconfigured connection would be catastrophic — defence in depth.
 beforeEach(async () => {
   const dbName = getDb().databaseName;
-  if (dbName !== 'tm_suite_test') {
-    throw new Error(`Refusing to sweep '${dbName}' — tests must run against tm_suite_test`);
+  if (dbName !== 'tm_game_test') {
+    throw new Error(`Refusing to sweep '${dbName}' — tests must run against tm_game_test`);
   }
   const today = new Date().toISOString().slice(0, 10);
   await getCollection('game_sessions').deleteMany({ session_date: { $gte: today } });

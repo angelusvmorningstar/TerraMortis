@@ -22,7 +22,7 @@ export function assertTestDbSafety(dbName, isVitest) {
 
 export async function connectDb() {
   if (db) return; // Already connected — idempotent for test suites sharing a process
-  const dbName = process.env.MONGODB_DB || 'tm_suite';
+  const dbName = process.env.MONGODB_DB || 'tm_game';
   assertTestDbSafety(dbName, !!process.env.VITEST);
   // Strip legacy ssl= param — not accepted by MongoDB driver v7
   const uri = config.MONGODB_URI.replace(/[&?]ssl=[^&]*/g, '');
