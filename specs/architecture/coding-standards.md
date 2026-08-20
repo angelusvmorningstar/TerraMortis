@@ -221,9 +221,7 @@ the hex is a fallback and the token is what renders. `public/js/app.js`'s
 
 #### Enforcement
 
-Both greps are checked in as a vitest suite,
-`server/tests/gdx-4-css-standards-grep.test.js`, which runs them over the whole of
-`public/js` and `public/css/suite.css`. Run them by hand as:
+Both greps are the human-runnable form. Run them by hand as:
 
 ```
 grep -rnoE "\.style\.[a-zA-Z]+\s*=\s*['\"\`][^'\"\`]*(#[0-9A-Fa-f]{3,6}|rgba?\()" public/js/
@@ -232,6 +230,20 @@ grep -rnoE "style=\"[^\"]*(#[0-9A-Fa-f]{3,6}|rgba?\()" public/js/
 
 The first must return exactly one line, `public/js/app.js`'s `var()` fallback. The
 second must return none.
+
+**The checked-in vitest suite is a stricter superset of these two commands, not an
+identical copy** - a Codex adversarial review (2026-08-20) found that treating them
+as interchangeable let real bypasses through: the shell greps use `{3,6}` hex
+digits and (the second) double-quoted attributes only, while
+`server/tests/gdx-4-css-standards-grep.test.js` matches `{3,8}` digits, both quote
+styles, whitespace around `=`, and several more DOM-API syntax forms
+(`.style['prop'] =`, `+=`, `.setProperty(...)`, `.setAttribute('style', ...)`).
+It also runs over the whole of `public/js` and, for the bare-hex-in-declaration
+check, `public/css/suite.css` plus (grandfathered at their measured pre-existing
+count where non-zero) the rest of `public/css` except `theme.css` - see that
+file's own header for the full list. Prefer running the vitest suite over
+copy-pasting the shell commands: a match on the commands above is necessary but
+not sufficient for a clean gate.
 
 #### Documented exemptions
 

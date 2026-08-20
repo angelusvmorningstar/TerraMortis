@@ -904,12 +904,14 @@ headless Chromium against the real served page, not reasoned from the diff.
   JS renderers rather than hand-written HTML would close it properly, and is a test-infrastructure
   story of its own.
 
-## Deferred from: gdx-4-mobile-css-cleanup (2026-08-20, dev-story)
+## Deferred from: gdx-4-mobile-css-cleanup (2026-08-20, dev-story; +2, 2026-08-21, Codex review response)
 
-Four deliberate carve-outs from the CSS-standards cleanup (issue #985, absorbing #859). Two were
-named when the story was scoped, two surfaced during the audit that wrote it. Each is recorded with
-its evidence and a suggested follow-up title so nothing has to be re-derived. Opening GitHub issues
-for them is Angelus's call.
+Six deliberate carve-outs from the CSS-standards cleanup (issue #985, absorbing #859). Two were named
+when the story was scoped, two surfaced during the audit that wrote it, and two more surfaced while
+addressing the Codex adversarial review's findings (2026-08-21) - hardening the checked-in ratchet
+surfaced a genuine pre-existing violation the old, looser regex could never see. Each is recorded
+with its evidence and a suggested follow-up title so nothing has to be re-derived. Opening GitHub
+issues for them is Angelus's call.
 
 - **Carve-out 1: seven confirmed-dead CSS declarations, blocked on retiring gdx-3's fixtures.**
   `.hdr-profile` (`suite.css:59`), `.hdr-profile-menu` (`:64`), `.hdr-menu-item` (`:65`),
@@ -962,3 +964,46 @@ for them is Angelus's call.
   look on a deployed environment. gdx-4 edited line 26 of the same function and deliberately left
   these alone. Suggested title: *`gdx-16-next-session-undefined-tokens`: resolve `--fh2` and
   `--muted` in the admin Next Session panel, with a deployed look before and after.*
+
+- **Carve-out 5: the bare-hex ratchet only ever scanned `suite.css`, not the whole of `public/css`
+  AC7 promises (found by the Codex review, 2026-08-20).** `server/tests/gdx-4-css-standards-grep.test.js`'s
+  AC3 assertion read only `public/css/suite.css`; a literal reintroduced in any of the other five
+  stylesheets could stay green forever. Re-measured with the actual `declarationValues()`/`BARE_HEX`
+  predicate (not a naive grep, which mostly matches ID selectors like `#feed-toggle` and GitHub-issue
+  references like `#1155` inside comments): `admin-shared.css`, `admin-spheres.css`, `components.css`
+  and `layout.css` already have **zero** genuine bare-hex declaration values and are now held to the
+  same zero-offender standard as `suite.css`. `admin-layout.css` has **four** genuine, pre-existing
+  ones, none related to gdx-4: `.proc-ambience-dir-decrease { color: #c06060 }` (line 5712),
+  `.npcr-rels-row.disp-positive`'s `border-left` (`#5a7d3a`, line 9155), `.hd-btn-delete`'s `color`
+  (`#fff`, line 9983) and its `:hover` `background` (`#a00`, line 9985). **Why not swept now:**
+  matching each to a theme-correct token is the same per-site, two-theme design judgement carve-out 3
+  already deferred for `suite.css`'s rgba sites, just in a different stylesheet - bundling an
+  unaudited four-site sweep into a review response is how a "quick fix" becomes the next
+  `downtime-form.js:5498`. The ratchet now grandfathers `admin-layout.css` at its measured count of 4
+  and fails on growth, so a NEW bare hex anywhere in `public/css` is still caught even though these
+  four are not yet swept. Suggested title: *`gdx-17-css-hex-ratchet-full-coverage`: tokenise
+  `admin-layout.css`'s four remaining bare-hex declarations and drop the ratchet's baseline to zero.*
+
+- **Carve-out 6: a genuine, pre-existing rgba() literal in an inline `style="..."` attribute in
+  `public/js/editor/sheet.js`, invisible to AC2's ratchet until the Codex review's fix to it
+  (2026-08-20/21).** `sheet.js:456-457`, the Sheet editor's Touchstones panel: `'<span
+  class="sh-ts-slot-att" style="color:' + (att ? 'rgba(140,200,140,.9)' : 'var(--txt3)') + '">'` -
+  when a touchstone is "Attached" (`att === true`) the span's colour is the bare literal
+  `rgba(140,200,140,.9)`; when "Detached" it already uses a token. AC2's original regex stopped its
+  value scan at the first quote of EITHER kind, which sat zero characters after `color:` in this exact
+  source (`color:' + (att ? ...`), so it was structurally invisible to the old check and has nothing
+  to do with gdx-4's own diff - the Codex-hardened regex (quote-matched by backreference) is what
+  surfaced it. **Worth noting for whoever picks this up:** `theme.css`'s dark-theme block already
+  declares `--green2-a9:rgba(140,200,140,.9)` (line 231) - an EXACT match for the literal in dark
+  theme - while the Parchment (default, light) block's `--green2-a9` resolves to a different value
+  (`rgba(42,122,74,.90)`, line 57). That means the current code does not just skip tokenisation, it
+  renders the dark-theme green on every theme, which is the same "mis-themed by a hard-coded value"
+  shape `.dev-preview-btn` had. **Why not fixed here:** `sheet.js`'s Touchstones panel is entirely
+  outside gdx-4's file list and was never audited by this story; any colour change needs Angelus's own
+  deployed-environment look before shipping, per this repo's own testing discipline (Angelus cannot
+  smoke-test locally). `server/tests/gdx-4-css-standards-grep.test.js`'s AC2 describe block carries a
+  narrow, explicitly-labelled `DEFERRED_VIOLATIONS` entry for this one site (distinct from AC1's
+  compliant-shape `ALLOWED` list) so the ratchet stays green without silently absorbing it. Suggested
+  title: *`gdx-18-sheet-touchstone-attached-colour-token`: replace the Touchstones panel's inline
+  `rgba(140,200,140,.9)`/`var(--txt3)` conditional with a class toggle backed by `--green2-a9`
+  (or the nearest reviewed token), with a deployed before/after look.*

@@ -17,9 +17,47 @@
  *      `style="color:#b23"` in EQC-4 (#1155, commit ff72cbad, 2026-08-13) and
  *      nothing noticed for a week.
  *
- * So the grep is checked in. It runs over the WHOLE of `public/js` and
- * `public/css/suite.css`, not only over the files gdx-4 happened to touch,
- * because a ratchet that only guards yesterday's offenders is not a ratchet.
+ * So the grep is checked in. It runs over the WHOLE of `public/js` and (as of
+ * the Codex adversarial review below) the WHOLE of `public/css` except
+ * `theme.css`, not only over the files gdx-4 happened to touch, because a
+ * ratchet that only guards yesterday's offenders is not a ratchet.
+ *
+ * ──────────────────────────────────────────────────────────────────────────
+ *   Codex review hardening (2026-08-20)
+ * ──────────────────────────────────────────────────────────────────────────
+ *
+ * An adversarial review of this story found five real gaps in the ratchet as
+ * first written, all now closed here:
+ *
+ *   1. AC1's DOM-API regex only matched `.style.<prop> = '...'`. Bracket
+ *      notation, `+=` mutation, `.setProperty(...)` and
+ *      `.setAttribute('style', ...)` all set the same thing and were unguarded.
+ *      Fixed by `STYLE_FORMS` below.
+ *   2. The same regex's single greedy match could span an ENTIRE `cssText`
+ *      string and get excused in full because it merely CONTAINED the one
+ *      allowed `var()` fallback snippet - which would have let a second, real
+ *      bare hex sitting next to that fallback through unnoticed. Every colour
+ *      token is now checked against the allowlist by its own position, not by
+ *      the surrounding match's.
+ *   3. AC2's attribute regex stopped its value scan at the first quote
+ *      character of EITHER kind, so a double-quoted attribute whose value
+ *      legitimately contained a single quote truncated before reaching a real
+ *      colour later in the same attribute. It also required `style=` with no
+ *      surrounding whitespace. Both fixed with a backreference-matched value.
+ *   4. AC3's declaration-value scanner split on the first `;` even when that
+ *      `;` sat inside a quoted string within the value (e.g. a data-URI
+ *      background), which could silently drop a real bare hex sitting later
+ *      in the same declaration. The value scanner now steps over a quoted
+ *      string as one atomic unit, the same way it already steps over `var()`.
+ *   5. AC3 (and by extension AC7's "whole of public/css" claim) only ever
+ *      scanned `suite.css`. See the new AC7 describe block below for how that
+ *      is closed without silently absorbing unrelated pre-existing debt.
+ *
+ * What this still cannot catch, and is not trying to: a colour literal built
+ * by string concatenation (`'#' + 'fff'`) or assembled through a variable a
+ * human reading the diff would have to trace. A source-text ratchet is not a
+ * substitute for code review; it exists to catch the shape #859 and this
+ * review were actually raised for.
  *
  * ──────────────────────────────────────────────────────────────────────────
  *   The policy this file enforces, in full
@@ -80,6 +118,9 @@ const rel = file => path.relative(REPO_ROOT, file).replace(/\\/g, '/');
  */
 const code = rel => stripComments(read(rel));
 
+/** Replace matched text with same-length whitespace, preserving line numbers. */
+const blank = m => m.replace(/[^\n]/g, ' ');
+
 function walkJs(dir, out = []) {
   for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
     if (e.isDirectory()) { if (e.name !== 'node_modules') walkJs(path.join(dir, e.name), out); }
@@ -104,10 +145,21 @@ describe('gdx-4 AC1 - styling from JavaScript uses tokens, never literals', () =
    *
    *   grep -rnoE "\.style\.[a-zA-Z]+\s*=\s*['\"`][^'\"`]*(#[0-9A-Fa-f]{3,6}|rgba?\()" public/js/
    *
-   * Widened here to 8 hex digits so `#RRGGBBAA` cannot slip past, which the
-   * shell version's `{3,6}` would allow through as a 6-digit prefix anyway.
+   * The checked-in ratchet is a SUPERSET of that grep - see the file header's
+   * "Codex review hardening" section for exactly what it now catches that the
+   * shell grep cannot, and why (bracket-notation, `+=`, `setProperty`,
+   * `setAttribute`, and per-token rather than per-match allowlisting).
    */
-  const DOM_API = /\.style\.[a-zA-Z]+\s*=\s*['"`][^'"`]*(?:#[0-9A-Fa-f]{3,8}|rgba?\()/g;
+  const STYLE_FORMS = [
+    // `.style.<prop> =` / `+=`, and the bracket-notation twin `.style['prop']`.
+    /\.style(?:\.[a-zA-Z]+|\[\s*['"`][a-zA-Z]+['"`]\s*\])\s*\+?=\s*(['"`])((?:(?!\1)[\s\S])*)\1/g,
+    // `.style.setProperty('prop', '...')`
+    /\.style\.setProperty\s*\(\s*['"`][a-zA-Z-]+['"`]\s*,\s*(['"`])((?:(?!\1)[\s\S])*)\1/g,
+    // `.setAttribute('style', '...')`
+    /\.setAttribute\s*\(\s*['"`]style['"`]\s*,\s*(['"`])((?:(?!\1)[\s\S])*)\1/g,
+  ];
+
+  const COLOUR_TOKEN = /#[0-9A-Fa-f]{3,8}(?![0-9A-Za-z_-])|rgba?\(/g;
 
   /**
    * The single permitted hit, matched on CONTENT rather than on a line number.
@@ -118,21 +170,40 @@ describe('gdx-4 AC1 - styling from JavaScript uses tokens, never literals', () =
    * just queue up the same failure.
    */
   const ALLOWED = [
-    // No closing paren in the snippet: the grep's `[^'"`]*` stops at the hex, so
-    // the match text ends mid-`var()`. Match on what the grep actually captures,
-    // not on what the source line reads like.
     { file: 'public/js/app.js', snippet: 'var(--green2, #7EC8A0' },
   ];
 
-  it('has no offender outside the one documented var() fallback', () => {
+  /** Every colour token inside every DOM-API style assignment in `src`. */
+  function domApiOffenders(src, file) {
     const offenders = [];
-    for (const f of JS_FILES) {
-      const src = code(f);
-      for (const m of src.matchAll(DOM_API)) {
-        const permitted = ALLOWED.some(a => a.file === f && m[0].includes(a.snippet));
-        if (!permitted) offenders.push(`${f}:${lineOf(src, m.index)} ${m[0].trim()}`);
+    for (const form of STYLE_FORMS) {
+      form.lastIndex = 0;
+      for (const m of src.matchAll(form)) {
+        const content = m[2];
+        // Step over `var(--token, <fallback>)` the same way AC3 does, so a
+        // compliant fallback's own hex is never itself treated as a hit.
+        const stripped = content.replace(/var\(\s*--[^()]*\)/g, blank);
+        for (const hit of stripped.matchAll(COLOUR_TOKEN)) {
+          const hitEnd = hit.index + hit[0].length;
+          // Permitted ONLY if this exact token is the tail of an allowed
+          // snippet - not merely if the allowed snippet appears SOMEWHERE in
+          // the same assigned string. A second, unrelated hex earlier or later
+          // in the same `cssText` must still be caught.
+          const permitted = ALLOWED.some(a => {
+            if (a.file !== file) return false;
+            const idx = content.indexOf(a.snippet);
+            return idx !== -1 && idx + a.snippet.length === hitEnd;
+          });
+          if (!permitted) offenders.push(`${file}:${lineOf(src, m.index)} ${m[0].trim().slice(0, 100)}`);
+        }
       }
     }
+    return offenders;
+  }
+
+  it('has no offender outside the one documented var() fallback', () => {
+    const offenders = [];
+    for (const f of JS_FILES) offenders.push(...domApiOffenders(code(f), f));
     expect(offenders, 'set the colour with a class backed by a theme.css token instead').toEqual([]);
   });
 
@@ -152,6 +223,28 @@ describe('gdx-4 AC1 - styling from JavaScript uses tokens, never literals', () =
     // devtools console, which has no access to the page's custom properties.
     expect(code('public/js/admin.js')).toMatch(/console\.log\('%c\[TM Admin\]/);
   });
+
+  it('catches every DOM-API shape the Codex review found as a live bypass', () => {
+    const shapes = [
+      `el.style['color'] = '#fff';`,
+      `el.style.setProperty('color', '#fff');`,
+      `el.setAttribute('style', 'color:#fff');`,
+      `el.style.cssText += 'color:#fff';`,
+    ];
+    for (const src of shapes) {
+      expect(domApiOffenders(src, 'synthetic.js'), `expected an offender for: ${src}`).not.toEqual([]);
+    }
+  });
+
+  it('does not let a real hex hide behind the one allowed var() fallback in the same string', () => {
+    // The original single-pattern regex could match an entire cssText string
+    // in one backtrack and excuse the WHOLE match because it merely contained
+    // the allowed snippet - which would have let this #fff through unnoticed.
+    const src = `el.style.cssText = 'color:var(--green2, #7EC8A0);background:#fff';`;
+    const offenders = domApiOffenders(src, 'public/js/app.js');
+    expect(offenders, 'the #fff after the allowed fallback must still be caught').not.toEqual([]);
+    expect(offenders.some(o => o.includes('#fff'))).toBe(true);
+  });
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -164,14 +257,34 @@ describe('gdx-4 AC2 - no inline style attribute carries a colour', () => {
    *
    *   grep -rnoE "style=\"[^\"]*(#[0-9A-Fa-f]{3,6}|rgba?\()" public/js/
    *
-   * Widened two ways, both measured against the tree first: to 8 hex digits, and
-   * to single-quoted attributes. The single-quote form returned zero hits at
-   * gdx-4 time, so closing it costs nothing today and shuts a bypass that would
-   * otherwise be one keystroke wide.
+   * Widened beyond that grep - see the file header's "Codex review hardening"
+   * section for the two live bypasses this closes: an opposite quote inside
+   * the value truncating the scan early, and whitespace around `=` that the
+   * shell grep's literal `style=\"` cannot see at all.
    */
-  const ATTR = /style=(["'])[^"']*(?:#[0-9A-Fa-f]{3,8}|rgba?\()/g;
+  const ATTR = /style\s*=\s*(["'])((?:(?!\1)[\s\S])*)\1/g;
+  const COLOUR = /#[0-9A-Fa-f]{3,8}(?![0-9A-Za-z_-])|rgba?\(/;
 
-  it('has zero offenders, with no allowlist at all', () => {
+  /**
+   * NOT a compliant shape, unlike AC1's `ALLOWED` list - this is a genuine,
+   * pre-existing violation the Codex-hardened regex surfaced for the first
+   * time. The original ATTR regex's `[^"']*` value scan stopped at the FIRST
+   * quote of either kind, which was zero characters into this exact source
+   * (`style="color:' + (att ? '...` - a literal `'` sits immediately after
+   * `color:`), so it was always invisible; it has nothing to do with gdx-4's
+   * own diff. Deferred rather than fixed here because `sheet.js`'s Touchstones
+   * panel is entirely outside this story's file list and any colour change
+   * needs Angelus's own deployed-environment look before shipping, per this
+   * repo's own testing discipline. See `deferred-work.md` carve-out 6 for the
+   * full evidence, including the exact-match dark-theme token this could
+   * probably use. This list existing at all is a deliberate, logged
+   * concession - do not add a second entry without the same evidence trail.
+   */
+  const DEFERRED_VIOLATIONS = [
+    { file: 'public/js/editor/sheet.js', snippet: "att ? 'rgba(140,200,140,.9)'" },
+  ];
+
+  it('has zero offenders outside the one deferred, pre-existing violation', () => {
     // `print.js` passes this only because gdx-4 Task 4 moved its five
     // Category-A literals into the document's own embedded `<style>` block.
     // The exemption is for that stylesheet, NOT for the file: if a future
@@ -180,9 +293,19 @@ describe('gdx-4 AC2 - no inline style attribute carries a colour', () => {
     const offenders = [];
     for (const f of JS_FILES) {
       const src = code(f);
-      for (const m of src.matchAll(ATTR)) offenders.push(`${f}:${lineOf(src, m.index)} ${m[0].trim()}`);
+      for (const m of src.matchAll(ATTR)) {
+        if (!COLOUR.test(m[2])) continue;
+        const deferred = DEFERRED_VIOLATIONS.some(d => d.file === f && m[2].includes(d.snippet));
+        if (!deferred) offenders.push(`${f}:${lineOf(src, m.index)} ${m[0].trim().slice(0, 100)}`);
+      }
     }
     expect(offenders, 'apply a class declared in a stylesheet instead').toEqual([]);
+  });
+
+  it('the one deferred violation is still really there, so the carve-out cannot rot', () => {
+    for (const d of DEFERRED_VIOLATIONS) {
+      expect(code(d.file), `${d.file} no longer contains ${d.snippet}`).toContain(d.snippet);
+    }
   });
 
   it('print.js still keeps its print colour in the embedded stylesheet', () => {
@@ -204,52 +327,85 @@ describe('gdx-4 AC2 - no inline style attribute carries a colour', () => {
     // The class the markup already referenced is now declared for real.
     expect(read('public/css/components.css')).toMatch(/\.dt-equipment-tweak-warn\s*\{/);
   });
+
+  it('catches the two shapes the Codex review found as a live bypass', () => {
+    const shapes = [
+      `style="background:url('x');color:#fff"`,
+      `style = "color:#fff"`,
+    ];
+    for (const src of shapes) {
+      const offenders = [];
+      for (const m of src.matchAll(ATTR)) {
+        if (COLOUR.test(m[2])) offenders.push(m[0]);
+      }
+      expect(offenders, `expected an offender for: ${src}`).not.toEqual([]);
+    }
+  });
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
-// AC3 - no bare hex in a suite.css rule body
+// AC3 - no bare hex in a CSS rule body
 // ─────────────────────────────────────────────────────────────────────────────
 
-describe('gdx-4 AC3 - suite.css declarations resolve through tokens', () => {
-  /**
-   * "Bare" is the whole difficulty here. A naive `/#[0-9A-Fa-f]{3,6}/` over the
-   * file matches three things this story must NOT touch:
-   *
-   *   • the eleven compliant `var(--token, #hex)` fallbacks,
-   *   • ID selectors made entirely of hex digits, of which `#feed-chev` is a
-   *     real live example in this file,
-   *   • hexes quoted inside comments.
-   *
-   * So the predicate strips comments, then repeatedly strips `var(...)` from the
-   * inside out (which handles a nested fallback), then looks only INSIDE
-   * declaration values - text after a `:` that follows a `{` or a `;`. A
-   * selector is never in that position.
-   *
-   * `theme.css` is deliberately not scanned: it is the declared hex SSOT and is
-   * where every one of these values is supposed to live.
-   */
-  const blank = m => m.replace(/[^\n]/g, ' ');
-
-  function declarationValues(css) {
-    let t = css.replace(/\/\*[\s\S]*?\*\//g, blank);
-    let prev;
-    do { prev = t; t = t.replace(/var\(\s*--[^()]*\)/g, blank); } while (t !== prev);
-    const out = [];
-    for (const m of t.matchAll(/(?:^|[{;])([^{};:]*):([^;{}]*)/g)) {
-      out.push({ prop: m[1].trim(), value: m[2], line: lineOf(t, m.index) });
-    }
-    return out;
+/**
+ * "Bare" is the whole difficulty here. A naive `/#[0-9A-Fa-f]{3,6}/` over the
+ * file matches three things this story must NOT touch:
+ *
+ *   • the eleven compliant `var(--token, #hex)` fallbacks,
+ *   • ID selectors made entirely of hex digits, of which `#feed-chev` is a
+ *     real live example in this file,
+ *   • hexes quoted inside comments.
+ *
+ * So the predicate strips comments, then repeatedly strips `var(...)` from the
+ * inside out (which handles a nested fallback), then looks only INSIDE
+ * declaration values - text after a `:` that follows a `{` or a `;`. A
+ * selector is never in that position. The value scanner treats a quoted
+ * string as one atomic unit it steps over, so a `;` inside e.g. a data-URI
+ * cannot truncate the scan before a real bare hex sitting later in the same
+ * declaration (Codex review, 2026-08-20 - see the file header).
+ *
+ * `theme.css` is deliberately not scanned: it is the declared hex SSOT and is
+ * where every one of these values is supposed to live.
+ */
+function declarationValues(css) {
+  let t = css.replace(/\/\*[\s\S]*?\*\//g, blank);
+  let prev;
+  do { prev = t; t = t.replace(/var\(\s*--[^()]*\)/g, blank); } while (t !== prev);
+  const QUOTED = String.raw`'(?:[^'\\]|\\.)*'|"(?:[^"\\]|\\.)*"`;
+  const VALUE = `(?:${QUOTED}|[^;{}])*`;
+  const DECL = new RegExp(`(?:^|[{;])([^{};:]*):(${VALUE})`, 'g');
+  const out = [];
+  for (const m of t.matchAll(DECL)) {
+    out.push({ prop: m[1].trim(), value: m[2], line: lineOf(t, m.index) });
   }
+  return out;
+}
 
-  const BARE_HEX = /#[0-9A-Fa-f]{3,8}(?![0-9A-Za-z_-])/g;
+const BARE_HEX = /#[0-9A-Fa-f]{3,8}(?![0-9A-Za-z_-])/g;
 
+/** All bare-hex offenders in one CSS file's declaration values. */
+function bareHexOffenders(cssPath) {
+  const offenders = [];
+  for (const d of declarationValues(read(cssPath))) {
+    const hits = d.value.match(BARE_HEX);
+    if (hits) offenders.push(`${cssPath}:${d.line} ${d.prop}: ${hits.join(', ')}`);
+  }
+  return offenders;
+}
+
+describe('gdx-4 AC3 - suite.css declarations resolve through tokens', () => {
   it('has none left', () => {
-    const offenders = [];
-    for (const d of declarationValues(read('public/css/suite.css'))) {
-      const hits = d.value.match(BARE_HEX);
-      if (hits) offenders.push(`public/css/suite.css:${d.line} ${d.prop}: ${hits.join(', ')}`);
-    }
-    expect(offenders, 'use a theme.css token; mint one there if none fits').toEqual([]);
+    expect(bareHexOffenders('public/css/suite.css'), 'use a theme.css token; mint one there if none fits').toEqual([]);
+  });
+
+  it('catches a bare hex sitting after a quoted semicolon in the same declaration', () => {
+    // The exact shape the Codex review demonstrated as a live bypass: a data
+    // URI's own embedded `;` used to truncate the value scan before ever
+    // reaching a real bare hex declared later in the same rule body.
+    const css = `.a { background: url("data:image/svg+xml;charset=utf8,<svg fill='x'/>"), #fff; }`;
+    const values = declarationValues(css);
+    const hit = values.some(d => BARE_HEX.test(d.value));
+    expect(hit, 'the bare #fff after the quoted data URI must still be found').toBe(true);
   });
 
   it('the three gdx-4 sites resolve through the tokens the story chose', () => {
@@ -284,6 +440,116 @@ describe('gdx-4 AC3 - suite.css declarations resolve through tokens', () => {
     const css = read('public/css/suite.css');
     const bare = (css.match(/(?<!var\([^()]{0,80})rgba?\(/g) || []).length;
     expect(bare).toBeGreaterThan(10);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// AC7 - the ratchet extends to the rest of public/css, honestly scoped
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('gdx-4 AC7 - the other public/css stylesheets cannot grow new bare hex either', () => {
+  /**
+   * AC7 says this ratchet must catch a reintroduction "over the whole of
+   * public/js and public/css, not only over the files this story touched."
+   * The Codex review (2026-08-20) found that AC3's implementation only ever
+   * scanned `suite.css`, which is the one stylesheet this story's Bullet 3
+   * actually swept.
+   *
+   * Measured with the same `declarationValues()`/`BARE_HEX` predicate used
+   * above (not a naive grep, which mostly matches ID selectors like
+   * `#feed-toggle` and GitHub-issue references like `#1155` inside comments -
+   * neither is a colour), four of the five other stylesheets already have
+   * ZERO bare-hex declaration values and are held to the same standard as
+   * `suite.css`. `admin-layout.css` has four genuine, pre-existing ones,
+   * entirely unrelated to anything gdx-4 touched:
+   *
+   *   admin-layout.css:5712  .proc-ambience-dir-decrease { color: #c06060 }
+   *   admin-layout.css:9155  .npcr-rels-row.disp-positive { border-left: ... #5a7d3a }
+   *   admin-layout.css:9983  .hd-btn-delete { ... color: #fff }
+   *   admin-layout.css:9985  .hd-btn-delete:not(:disabled):hover { background: #a00 }
+   *
+   * Sweeping those four to tokens is a per-site design judgement in two
+   * themes, exactly like carve-out 3's ~17 `rgba()` sites in `suite.css` -
+   * it is not a mechanical substitution this test can silently assume, and
+   * bundling it into a review response rather than its own audited story is
+   * how a "quick fix" becomes the next `downtime-form.js:5498`. So this file
+   * is grandfathered at these four PINNED (property, hex) sites and fails on
+   * any offender outside that exact list - which is what actually protects
+   * against a silent regression without an unscoped mass migration.
+   *
+   * Pinned by site, not by count. A Codex adversarial review (2026-08-21)
+   * found the first version of this test grandfathered a bare COUNT
+   * (`offenders.length <= 4`), which a fix-one/add-one change could satisfy
+   * without ever being caught: tokenise one of the four listed sites while a
+   * genuinely NEW, unrelated bare hex appears elsewhere in the same file, and
+   * the count stays at four. Pinning the exact pairs closes that.
+   *
+   * See `gdx-17-css-hex-ratchet-full-coverage` in `specs/deferred-work.md`.
+   */
+  const ZERO_OFFENDER_FILES = [
+    'public/css/admin-shared.css',
+    'public/css/admin-spheres.css',
+    'public/css/components.css',
+    'public/css/layout.css',
+  ];
+
+  const GRANDFATHERED = {
+    'public/css/admin-layout.css': [
+      { prop: 'color', hex: '#c06060' },        // .proc-ambience-dir-decrease, line 5712
+      { prop: 'border-left', hex: '#5a7d3a' },   // .npcr-rels-row.disp-positive, line 9155
+      { prop: 'color', hex: '#fff' },            // .hd-btn-delete, line 9983
+      { prop: 'background', hex: '#a00' },       // .hd-btn-delete:not(:disabled):hover, line 9985
+    ],
+  };
+
+  it('has zero bare-hex declaration values in admin-shared.css, admin-spheres.css, components.css and layout.css', () => {
+    const offenders = ZERO_OFFENDER_FILES.flatMap(bareHexOffenders);
+    expect(offenders, 'use a theme.css token; mint one there if none fits').toEqual([]);
+  });
+
+  it('has no bare hex in admin-layout.css outside its four pinned pre-existing sites', () => {
+    for (const [cssPath, pinned] of Object.entries(GRANDFATHERED)) {
+      const offenders = [];
+      for (const d of declarationValues(read(cssPath))) {
+        const hits = d.value.match(BARE_HEX);
+        if (!hits) continue;
+        for (const hex of hits) {
+          const excused = pinned.some(p => p.prop === d.prop && p.hex === hex);
+          if (!excused) offenders.push(`${cssPath}:${d.line} ${d.prop}: ${hex}`);
+        }
+      }
+      expect(offenders, `${cssPath} has a bare hex outside its pinned baseline - see this file's own header before adding to the pinned list`).toEqual([]);
+    }
+  });
+
+  it('the pinned admin-layout.css sites are still really there, so the grandfather cannot quietly cover for something else', () => {
+    const values = declarationValues(read('public/css/admin-layout.css'));
+    for (const p of GRANDFATHERED['public/css/admin-layout.css']) {
+      const found = values.some(d => d.prop === p.prop && (d.value.match(BARE_HEX) || []).includes(p.hex));
+      expect(found, `${p.prop}: ${p.hex} is no longer in admin-layout.css - update the pinned list instead of leaving it stale`).toBe(true);
+    }
+  });
+
+  it('catches a fix-one/add-one swap that a count-only grandfather would have missed', () => {
+    // Prove-discriminate the exact shape the Codex review demonstrated: tokenise
+    // one pinned site while a NEW, unrelated bare hex appears elsewhere. The
+    // count stays at four either way; only the pinned-pair check can tell.
+    const css = read('public/css/admin-layout.css')
+      .replace('color: #c06060', 'color: var(--crim, #c06060)') // pretend-fixed
+      + '\n.synthetic-new-offender { color: #123456; }\n';       // brand-new violation
+    const offenders = [];
+    for (const d of declarationValues(css)) {
+      const hits = d.value.match(BARE_HEX);
+      if (!hits) continue;
+      for (const hex of hits) {
+        const excused = GRANDFATHERED['public/css/admin-layout.css'].some(p => p.prop === d.prop && p.hex === hex);
+        if (!excused) offenders.push(`${d.line} ${d.prop}: ${hex}`);
+      }
+    }
+    // Total count is still 4 (lost #c06060 as a bare literal - it is now a var()
+    // fallback and stepped over - gained #123456), which is exactly why a
+    // count-only check would have passed this. The pinned check must not.
+    expect(offenders, 'the new synthetic offender must be caught even though the total count did not grow').not.toEqual([]);
   });
 });
 
@@ -376,6 +642,17 @@ describe('gdx-4 AC5 - the standards documents say all of this out loud', () => {
     expect(doc).toMatch(/%c/);
   });
 
+  it('and discloses that the checked-in ratchet is a superset of the published greps', () => {
+    // The Codex review (2026-08-20) found the doc's own "Enforcement" text
+    // implied the published shell greps and the checked-in vitest suite were
+    // the same check. They are not (wider hex-digit count, both quote styles,
+    // more DOM-API syntax forms) - a human who copy-pastes the shell command
+    // gets a WEAKER check than what actually gates the repo, so the doc must
+    // say so rather than imply equivalence.
+    const doc = read('specs/architecture/coding-standards.md');
+    expect(doc).toMatch(/superset|wider|stricter/i);
+  });
+
   it('project-context.md carries the short cross-reference', () => {
     // That file's own header says "keep it short and high-signal", so it gets a
     // sentence and a pointer, not a copy of the block above.
@@ -389,5 +666,11 @@ describe('gdx-4 AC5 - the standards documents say all of this out loud', () => {
     expect(doc).toMatch(/gdx-14-inline-font-size-sweep/);
     expect(doc).toMatch(/gdx-15-rgba-literal-tokenisation/);
     expect(doc).toMatch(/--fh2/);
+  });
+
+  it('and records the fifth and sixth carve-outs the Codex review surfaced', () => {
+    const doc = read('specs/deferred-work.md');
+    expect(doc).toMatch(/gdx-17-css-hex-ratchet-full-coverage/);
+    expect(doc).toMatch(/gdx-18-sheet-touchstone-attached-colour-token/);
   });
 });

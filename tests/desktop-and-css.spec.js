@@ -1717,49 +1717,65 @@ async function gdx4Resolve(page, value) {
   }, value);
 }
 
-test('css-audit — .story-split keeps gap:16px at 390px after the duplicate-block merge (gdx-4 AC4)', async ({ page }) => {
+test('css-audit — .story-split keeps gap:16px below the 900px breakpoint, at both 360-class widths (gdx-4 AC4)', async ({ page }) => {
   // The highest-value assertion in the story. `.story-split` was declared TWICE,
   // thirty lines apart: block one with `gap: 20px`, block two with `gap: 16px`
   // and `!important`. Block two won, so 16px is the shipped value. A merge that
   // keeps block one's 20px is a silent 4px shift on every phone downtime report
   // and nothing else in the suite would catch it.
-  await page.setViewportSize({ width: 390, height: 844 });
-  await page.goto('/');
-  const m = await gdx4Probe(page, 'story-split', ['display', 'flexDirection', 'rowGap', 'columnGap']);
-  expect(m.display).toBe('flex');
-  expect(m.flexDirection).toBe('column');
-  expect(m.rowGap, 'the merge picked up the losing block 20px value').toBe('16px');
-  expect(m.columnGap).toBe('16px');
+  //
+  // AC4 names 360px and 768px as two of its four required widths. Both sit
+  // below `.story-split`'s one breakpoint (`min-width:900px`), so both must
+  // behave identically - checked directly rather than assumed, per the Codex
+  // review (2026-08-20) finding that the checked-in matrix had only ever
+  // exercised one width per side of the breakpoint.
+  for (const width of [390, 768]) {
+    await page.setViewportSize({ width, height: 844 });
+    await page.goto('/');
+    const m = await gdx4Probe(page, 'story-split', ['display', 'flexDirection', 'rowGap', 'columnGap']);
+    expect(m.display, `width=${width}`).toBe('flex');
+    expect(m.flexDirection, `width=${width}`).toBe('column');
+    expect(m.rowGap, `width=${width}, the merge picked up the losing block 20px value`).toBe('16px');
+    expect(m.columnGap, `width=${width}`).toBe('16px');
+  }
 });
 
-test('css-audit — .story-split is a two-track grid with a 28px gutter at 900px (gdx-4 AC4)', async ({ page }) => {
+test('css-audit — .story-split is a two-track grid with a 28px gutter at and above the 900px breakpoint (gdx-4 AC4)', async ({ page }) => {
   // The desktop half of the merge, and the assertion that proves dropping
   // `!important` from the media block did not drop the media block with it.
-  await page.setViewportSize({ width: 900, height: 900 });
-  await page.goto('/');
-  const m = await gdx4Probe(page, 'story-split', ['display', 'gridTemplateColumns', 'columnGap', 'alignItems']);
-  expect(m.display).toBe('grid');
-  expect(m.columnGap).toBe('28px');
-  expect(m.alignItems).toBe('start');
-  // Two tracks, equal to each other. Compared rather than pinned, because the
-  // resolved px depends on the probe's own width.
-  const tracks = m.gridTemplateColumns.split(/\s+/).filter(Boolean).map(parseFloat);
-  expect(tracks, 'not two tracks').toHaveLength(2);
-  expect(tracks[0]).toBeCloseTo(tracks[1], 1);
+  //
+  // AC4 names 900px and 1280px as its two above-breakpoint widths; both must
+  // behave identically since there is no second breakpoint between them
+  // (Codex review, 2026-08-20).
+  for (const width of [900, 1280]) {
+    await page.setViewportSize({ width, height: 900 });
+    await page.goto('/');
+    const m = await gdx4Probe(page, 'story-split', ['display', 'gridTemplateColumns', 'columnGap', 'alignItems']);
+    expect(m.display, `width=${width}`).toBe('grid');
+    expect(m.columnGap, `width=${width}`).toBe('28px');
+    expect(m.alignItems, `width=${width}`).toBe('start');
+    // Two tracks, equal to each other. Compared rather than pinned, because the
+    // resolved px depends on the probe's own width.
+    const tracks = m.gridTemplateColumns.split(/\s+/).filter(Boolean).map(parseFloat);
+    expect(tracks, `width=${width}, not two tracks`).toHaveLength(2);
+    expect(tracks[0]).toBeCloseTo(tracks[1], 1);
+  }
 });
 
-test('css-audit — .sh-attr-grid and .skill-grid are single-track at 390px without !important (gdx-4 AC4)', async ({ page }) => {
+test('css-audit — .sh-attr-grid and .skill-grid are single-track below the 900px breakpoint, at both 360-class widths (gdx-4 AC4)', async ({ page }) => {
   // Both rules dropped a redundant `!important` that only ever beat a
   // components.css rule of identical specificity which index.html already loads
   // first. If source order were not in fact deciding it, these go to three
   // tracks (`.sh-attr-grid`) or two (`.skill-grid`).
-  await page.setViewportSize({ width: 390, height: 844 });
-  await page.goto('/');
-  for (const cls of ['sh-attr-grid', 'skill-grid']) {
-    const m = await gdx4Probe(page, cls, ['gridTemplateColumns', 'rowGap']);
-    const tracks = m.gridTemplateColumns.split(/\s+/).filter(Boolean);
-    expect(tracks, `.${cls} is no longer single-column at 390px`).toHaveLength(1);
-    expect(m.rowGap, `.${cls} lost its 12px gap`).toBe('12px');
+  for (const width of [390, 768]) {
+    await page.setViewportSize({ width, height: 844 });
+    await page.goto('/');
+    for (const cls of ['sh-attr-grid', 'skill-grid']) {
+      const m = await gdx4Probe(page, cls, ['gridTemplateColumns', 'rowGap']);
+      const tracks = m.gridTemplateColumns.split(/\s+/).filter(Boolean);
+      expect(tracks, `.${cls} is no longer single-column at width=${width}`).toHaveLength(1);
+      expect(m.rowGap, `.${cls} lost its 12px gap at width=${width}`).toBe('12px');
+    }
   }
 });
 
