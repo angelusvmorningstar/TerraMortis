@@ -28,6 +28,7 @@ services:
     name: tm-game-api
     runtime: node
     plan: free
+    region: singapore
     rootDir: server
     buildCommand: npm ci
     startCommand: npm start
