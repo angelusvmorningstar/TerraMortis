@@ -38,6 +38,11 @@ router.post('/discord/callback', async (req, res) => {
 
   if (!tokenRes.ok) {
     const err = await tokenRes.json().catch(() => ({}));
+    // Temporary diagnostic logging (2026-08-21 rebrand cutover) -- this route previously returned
+    // the generic fallback with no server-side trace of Discord's actual error, making a failed
+    // token exchange unfalsifiable between "wrong secret" and "redirect_uri mismatch" without this.
+    // Remove once the login flow is confirmed working post-cutover.
+    console.error('[auth] Discord token exchange failed:', tokenRes.status, JSON.stringify(err), 'redirect_uri sent:', redirect_uri || config.DISCORD_REDIRECT_URI);
     return res.status(401).json({ error: 'AUTH_ERROR', message: err.error_description || 'Token exchange failed' });
   }
 
