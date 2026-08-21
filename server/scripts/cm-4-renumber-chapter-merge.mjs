@@ -2348,7 +2348,7 @@ export function parseArgs(argv, { dbName } = {}) {
 }
 
 export async function main(argv = process.argv) {
-  const dbName = process.env.MONGODB_DB || 'tm_suite';
+  const dbName = process.env.MONGODB_DB || 'tm_game';
   const args = parseArgs(argv, { dbName });
   const { apply, invert, json, force, overwritePlan, outFile, planFile } = args;
 

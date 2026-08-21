@@ -43,7 +43,7 @@
 import 'dotenv/config';
 import { MongoClient } from 'mongodb';
 
-const DB_NAME = process.env.MONGODB_DB || 'tm_suite';
+const DB_NAME = process.env.MONGODB_DB || 'tm_game';
 
 // 14 legacy free_<slug> fields (matches LEGACY_FREE_SLUGS in
 // public/js/data/rules-helpers.js — kept in parallel until Phase 4

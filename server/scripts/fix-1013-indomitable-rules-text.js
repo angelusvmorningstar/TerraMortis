@@ -23,7 +23,7 @@ import { loadAllBlocks, normalizeName } from './uplift-power-rules-text.js';
 const APPLY = process.argv.includes('--apply');
 const DRY_RUN = !APPLY;
 const MONGODB_URI = process.env.MONGODB_URI;
-const DB_NAME = process.env.MONGODB_DB || 'tm_suite';
+const DB_NAME = process.env.MONGODB_DB || 'tm_game';
 
 const TARGET_KEY = 'indomitable';
 const PREFERRED_BOOK = 'VtR 2e Rulebook';

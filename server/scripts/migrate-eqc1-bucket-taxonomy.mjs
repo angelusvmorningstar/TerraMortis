@@ -170,7 +170,7 @@ export function logSummary(totals, dryRun) {
 export async function main(argv = process.argv) {
   const dryRun = !argv.includes('--apply');
   console.log(`Mode: ${dryRun ? 'DRY RUN (read only; pass --apply to write)' : 'APPLY (will write)'}`);
-  console.log(`Target DB: ${process.env.MONGODB_DB || 'tm_suite'}`);
+  console.log(`Target DB: ${process.env.MONGODB_DB || 'tm_game'}`);
   console.log('');
 
   await connectDb();

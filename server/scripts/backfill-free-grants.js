@@ -217,7 +217,7 @@ export async function main(argv = process.argv) {
   const characterId = cidIdx >= 0 ? argv[cidIdx + 1] : null;
 
   console.log(`Mode: ${dryRun ? 'DRY RUN (read only; pass --apply to write)' : 'APPLY (will write)'}`);
-  console.log(`Target DB: ${process.env.MONGODB_DB || 'tm_suite'}`);
+  console.log(`Target DB: ${process.env.MONGODB_DB || 'tm_game'}`);
   if (characterId) console.log(`Scoped to character: ${characterId}`);
   console.log('');
 

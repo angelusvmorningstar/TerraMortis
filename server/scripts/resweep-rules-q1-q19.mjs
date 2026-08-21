@@ -85,7 +85,7 @@ function alignOrdeal(submission, rubric) {
 const client = new MongoClient(URI, { serverSelectionTimeoutMS: 15000 });
 try {
   await client.connect();
-  const db = client.db('tm_suite');
+  const db = client.db(process.env.MONGODB_DB || 'tm_game');
 
   const rubric = await db.collection('ordeal_rubrics').findOne({ ordeal_type: 'rules_mastery' });
   if (!rubric) { console.error('No rules_mastery rubric found.'); process.exit(1); }

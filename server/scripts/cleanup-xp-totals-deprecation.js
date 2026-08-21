@@ -29,7 +29,7 @@
 import 'dotenv/config';
 import { MongoClient } from 'mongodb';
 
-const DB_NAME = process.env.MONGODB_DB || 'tm_suite';
+const DB_NAME = process.env.MONGODB_DB || 'tm_game';
 
 export async function main() {
   // Issue #826 lesson: compute APPLY / DRY_RUN inside main so integration

@@ -23,7 +23,7 @@ import 'dotenv/config';
 import { MongoClient } from 'mongodb';
 import { pathToFileURL } from 'node:url';
 
-const DB_NAME = process.env.MONGODB_DB || 'tm_suite';
+const DB_NAME = process.env.MONGODB_DB || 'tm_game';
 
 export async function main() {
   const APPLY = process.argv.includes('--apply');

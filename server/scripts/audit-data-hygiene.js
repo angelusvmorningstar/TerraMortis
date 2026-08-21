@@ -1,7 +1,7 @@
 /**
  * audit-data-hygiene.js — READ ONLY.
  *
- * Comprehensive data-hygiene sweep across every collection in tm_suite.
+ * Comprehensive data-hygiene sweep across every collection in tm_game.
  * Goal: find FRAGMENTATION — the same logical value stored in inconsistent
  * shapes — which is the root cause behind the territory-key (#496), cycle_id
  * (#497), attendance (#551/#552) and payment_method (#547/#550) bug classes.
@@ -37,7 +37,7 @@ try { await import('dotenv/config'); } catch { /* env already set by caller */ }
 
 const MONGO_URI = process.env.MONGO_URI || process.env.MONGODB_URI;
 if (!MONGO_URI) { console.error('MONGO_URI / MONGODB_URI not set'); process.exit(1); }
-const DB_NAME = 'tm_suite';
+const DB_NAME = process.env.MONGODB_DB || 'tm_game';
 
 // Scan all docs for collections at/under this size; sample for larger ones.
 const FULL_SCAN_LIMIT = 5000;

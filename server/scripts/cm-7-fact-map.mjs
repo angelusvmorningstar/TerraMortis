@@ -383,7 +383,7 @@ export async function main(argv = process.argv) {
   const snapshotPath = snapshotIdx !== -1 ? argv[snapshotIdx + 1] : null;
   const againstIdx = argv.indexOf('--against');
   const againstPath = againstIdx !== -1 ? argv[againstIdx + 1] : null;
-  const dbName = process.env.MONGODB_DB || 'tm_suite';
+  const dbName = process.env.MONGODB_DB || 'tm_game';
 
   console.log(`Target DB: ${dbName}`);
   console.log('Mode     : read-only always (this script never writes to any collection).');

@@ -79,7 +79,7 @@ export { formatMissingReport, formatPassReport, loadManifest };
 const isMain = process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1];
 if (isMain) {
   const uri = process.env.MONGODB_URI;
-  const dbName = process.env.MONGODB_DB || 'tm_suite';
+  const dbName = process.env.MONGODB_DB || 'tm_game';
   if (!uri) {
     console.error('[verify-rules-engine] MONGODB_URI not set');
     process.exit(2);

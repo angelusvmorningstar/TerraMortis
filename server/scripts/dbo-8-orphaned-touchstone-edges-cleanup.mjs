@@ -138,7 +138,7 @@ export async function applyCleanup(collection, rows, { apply = false, log = () =
 
 export async function main(argv = process.argv) {
   const apply = argv.includes('--apply');
-  const dbName = process.env.MONGODB_DB || 'tm_suite';
+  const dbName = process.env.MONGODB_DB || 'tm_game';
 
   console.log(`Mode     : ${apply ? 'APPLY (will backup + write)' : 'DRY RUN (read only; pass --apply to write)'}`);
   console.log(`Target DB: ${dbName}`);

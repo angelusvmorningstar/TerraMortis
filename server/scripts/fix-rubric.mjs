@@ -51,7 +51,7 @@ const client = new MongoClient(URI, { serverSelectionTimeoutMS: 10000 });
 let nChanged = 0, nAlready = 0, nMissing = 0, nSyncReminders = 0;
 try {
   await client.connect();
-  const col = client.db('tm_suite').collection('ordeal_rubrics');
+  const col = client.db(process.env.MONGODB_DB || 'tm_game').collection('ordeal_rubrics');
   console.log(`\n=== Rubric corrections — ${APPLY ? 'APPLY (writing)' : 'DRY RUN (no writes)'} ===`);
   console.log(`corrections in scope: ${corrections.length}\n`);
 

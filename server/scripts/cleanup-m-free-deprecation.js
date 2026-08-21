@@ -41,7 +41,7 @@
 import 'dotenv/config';
 import { MongoClient } from 'mongodb';
 
-const DB_NAME = process.env.MONGODB_DB || 'tm_suite';
+const DB_NAME = process.env.MONGODB_DB || 'tm_game';
 
 /**
  * Classify and clean a single merit. Mutates in place. Returns a diagnostics
