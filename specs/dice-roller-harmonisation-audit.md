@@ -1,0 +1,202 @@
+# Dice roller harmonisation — research audit (no code changed)
+
+**Status: RESEARCH/AUDIT ONLY.** Nothing in this repo has been edited as part of this doc. Written to
+reconcile issue #1039 ("Roller redesign") against what's actually in the codebase, before anyone
+shards it into stories — the gap John's own review below flags explicitly. Companion to (not a
+replacement for) #1039 itself; read both before scoping.
+
+## Why this exists
+
+TM Game has **five** independent, mostly non-communicating dice-resolution touchpoints that grew
+without ever being reconciled against each other. Angelus asked for a full audit — existing roller,
+alternate (Piatra) roller, the planned redesign epic's scope, a BMAD party-mode roundtable to weigh
+in on harmonising them, then a Phase 0 (audit-only) pass to de-risk the plan before any code moves.
+This doc is the output of all four passes.
+
+---
+
+## 1. The five implementations, mapped
+
+| # | File | Used where | Pool-building | Dice math | Spend | Notes |
+|---|---|---|---|---|---|---|
+| 1 | `public/js/suite/roll.js` (482 lines) | Player suite, **live by default** | Receives a pre-built pool from upstream (`char-pools.js`); no builder of its own | `shared/dice.js` | **None** — WP/Rote costs are honour-system UI toggles, no real deduction | Extracted from a larger monolith (comments reference imports "that will exist once extracted") |
+| 2 | `public/js/suite/roll-v2.js` (775 lines) | Player suite, **opt-in only** via a buried per-device Settings flag (`tm-use-new-dice-roller`) | Identical to #1 | `shared/dice.js` (same import) | **Real** — gdx-7's vitae/willpower auto-deduct, gated on `game_in_progress`, reviewed (Blind Hunter/Edge Case Hunter/Acceptance Auditor citations in code), re-entrancy guarded | Strict superset of #1: same pool math **confirmed byte-identical** (see §4), plus spend automation + an "effective pool" anchor UI + a segmented Again pill (#1024 slice A+D) |
+| 3 | `public/js/admin/dice-engine.js` (495 lines) | ST/admin app only (`admin.js`) | **Real attr+skill+discipline+power builder** — dropdowns, auto power-cost/action/duration/resistance info banner, auto unskilled penalty | **Own, independent** dice math (does not import `shared/dice.js`) | None | Never ported to the player app. A story (epc-1) claims it was — false for the builder UI; true only for an unrelated tap-to-load piece that actually shipped via `char-pools.js` |
+| 4 | `public/js/game/char-pools.js` (176 lines) | Feeds rollers #1 and #2 (not #3) | Tap-to-load "smart pools" — already collapsible, sectioned (Skill/Discipline), badge-annotated (9-Again, Rote-eligible, formula sub-label), persisted collapse state | — (delegates to whichever roller is active) | — | This already does a version of #1039's "collapsible sections" ask; nobody scoping #1039 appears to have looked at it |
+| 5 | `public/js/game/contested-roll.js` | Contested/opposed rolls (its own UI, separate from #1/#2's inline opposed-roll path inside `doRoll()`) | **Own, hardcoded** pool-building model — a `TYPES` table (Territory Bid, Social Manoeuvre, Resistance Check) computing pools directly from character data, bypassing `char-pools.js`/`dice-engine.js` entirely | **Own, independent, deliberately simplified** — its own header says *"always 10-again, ignores Roll tab state"*: no 8/9-again choice, no chance-die handling, no Rote | — | Logs every roll to `/api/session_logs` — a real, working server-side roll log, narrowly scoped to contested rolls (relevant to gdx-8/#989, "roll history," still backlog). One pool type reads the active roller's live state directly (`suiteState.PS`) — undocumented, fragile coupling |
+
+**Two more touchpoints, adjacent but not full engines:**
+- `game/combat-tab.js` has its own inline `d10()` for initiative (`initBase + d10()`) — crude, but a working precedent for #1039's planned "initiative = single die + composure" special pool.
+- `game/challenge-notification.js` doesn't roll client-side at all — results are computed **server-side** and displayed. A sixth resolution point in effect, not audited here (a server route, out of this pass's file scope).
+
+---
+
+## 2. Issue #1039 scope, cross-mapped against reality
+
+| #1039 item | Status |
+|---|---|
+| Collapsible sections (Combat/Disciplines/Skills/General) + floating pool badge | **Partial** — `char-pools.js` already does 2-section collapsible pool grids; no floating badge; it's a *picker*, not the roller's own input UI |
+| Persistent remembered per-power mod chips | **Not built anywhere** |
+| Status-difference auto-mods (social manoeuvring) | **Not built anywhere** |
+| Spend automation | **Built — only in `roll-v2.js`**, which ~90% of players never see |
+| Special pools (initiative/frenzy/lashing-out) | **Not built anywhere** as a system — `combat-tab.js`'s crude initiative `d10()` is the closest precedent; breaking-point correctly stays manual everywhere |
+| WS targeted rolls / subtle-power routing / OOC-always-known | **Not built anywhere** |
+
+**Net**: of #1039's six items, only spend automation shipped, and only into one of five touchpoints.
+`dice-engine.js` already contains a real, working version of the pool-builder UX #1039 describes
+wanting — stranded in the wrong app.
+
+---
+
+## 3. Party-mode roundtable — synthesis
+
+Four BMAD personas (John/PM, Winston/Architect, Sally/UX, Amelia/Dev) reviewed the above
+independently, weighted toward #1039 as primary design intent per Angelus's instruction. Full
+transcripts are in the session history; synthesis below.
+
+**Near-total convergence on shape**, which is itself a signal:
+- **Converge on `roll-v2.js` as the base**, not a from-scratch design. It's the reviewed, shipped
+  superset with spend automation already proven.
+- **Retire `roll.js` outright** once parity is confirmed (it now is — see §4) — not left behind a flag,
+  since the flag mechanism is what caused the Game 7 incident in the first place.
+- **Port `dice-engine.js`'s UI/interaction pattern, not its dice math.** Its independent math should
+  be deleted once its UX ideas (power-picker + auto cost/duration/resistance info banner) are
+  absorbed into the shared roller — not carried forward as a second math engine.
+- **`char-pools.js` is the right home to extend**, not rebuild — it already ships collapsible
+  sectioned pools in production; grow it to carry dice-engine.js's auto-cost-info and
+  auto-unskilled-penalty behaviours as options, rather than reinventing the layout.
+- **Mechanics merge before any #1039 net-new UI.** Landing a beautiful redesign on top of five
+  still-separate engines makes the underlying fragmentation *harder* to spot, not safer.
+- **This is not one story.** Multiple agents independently proposed 3-5 phase/PR sequencing,
+  explicitly separating "which roller" from "how do consumers talk to it" from "the genuinely new
+  #1039 surface" — so a bad change in one phase doesn't hide inside a 2000-line unreviewable diff.
+
+**Specific contributions per voice:**
+- **John (PM)** — reframe #1039 from "build from scratch" to "assemble the parts bin + genuinely new
+  bits (mod chips, status-diff mods)." Flagged that #1039 itself is the one document nobody has
+  reconciled against the live codebase — everything else here can be read directly, #1039 can only be
+  read as *intent* (its source meeting note no longer exists anywhere in the repo).
+- **Winston (Architect)** — the shared-DOM-ID contract (`pval`, `mval`, `roll-btn`, etc.) was never a
+  feature, it was a workaround for not wanting to touch 5 call sites; fix it as an explicit interface
+  *after* the roller merge lands, not in the same change. Proposed a 4-PR sequence: merge with
+  existing IDs untouched → soak with a visible "which roller build is active" signal → flip default,
+  remove flag → separate story to delete `roll.js` and absorb `dice-engine.js`'s UI patterns.
+- **Sally (UX)** — concrete kill list (three separate Again buttons, the self-un-checking WP toggle,
+  the unexplained buried Settings checkbox) and survivor list (v2's anchor+disclosure pattern,
+  `char-pools.js`'s badges, dice-engine.js's power-info banner as the natural home for #1039's
+  per-power mod chips, folding standalone spend buttons into the power-picker flow rather than
+  leaving them as an accidental-tap foot-gun). Explicitly named the Settings checkbox itself as a UX
+  failure independent of the flag mechanism — a real feature with zero affordance.
+- **Amelia (Dev)** — pushed back hardest on assuming v2 is a safe drop-in ("strict superset by line
+  count" ≠ "proven safe replacement," since v2 has had near-zero production exposure vs v1). Named
+  the two real risks that turned out to be genuine: (1) the shared/dice.js-vs-dice-engine.js math
+  divergence, and (2) the state-model mismatch between push-based (`char-pools.js` tap-to-load) and
+  compositional (dice-engine.js dropdown-build) pool sourcing — the second is still open, unaudited.
+  Proposed the Phase 0 audit that produced §4 below.
+
+---
+
+## 4. Phase 0 audit findings (the follow-up Angelus commissioned)
+
+Three read-only passes, run after the roundtable, specifically to de-risk before any code moves.
+
+### 4a. `roll.js` vs `roll-v2.js` — CONFIRMED byte-identical on gameplay math
+Actual `diff` run (399-line unified diff), function by function. `effPool()`, `chgPool()`,
+`chgMod()`, `loadPool()`, `togSpec()`, `updWeaponRef()`, `mkDieEl()`, `mkColsEl()`, `addHist()`,
+`renderHist()`, `clrHist()`, `togEquipChip()` — all byte-identical, zero diff hunks. **`doRoll()`'s
+entire dice-resolution logic (chance-die branch, Rote roll-twice-keep-better, contested/opposed
+branch, exceptional threshold) is byte-identical** — the only insertion is the new spend block and
+the `async` keyword; everything from `if (eff <= 0)` onward is unchanged. **No live rules-divergence
+bug between v1 and v2** — players on either roller get identical outcomes for identical inputs. The
+risk here was UI/feature parity and the flag mechanism, not silent rule disagreement.
+
+### 4b. `shared/dice.js` vs `dice-engine.js` vs official rules text — one real bug found, shared not divergent
+Full 3-way comparison against `st-working/reference/Vampire the Requiem 2e Rulebook.md`:
+
+| Mechanic | Verdict |
+|---|---|
+| Success threshold (8/9/10) | All agree |
+| Again explosion (10-again baseline, overridable) | All agree, identical default and logic |
+| Chance die (pool ≤0, 10=success, 1=dramatic failure) | All agree |
+| Exceptional success (≥5 successes) | All agree |
+| Dramatic failure (not auto-applied to a normal 0-success roll) | All agree, correctly |
+| **Rote quality** | **⚠️ WRONG — but identically wrong everywhere, so no cross-engine divergence** |
+
+**The Rote bug**: official rule is *reroll only the individual dice that failed, once each, keeping
+original successes*. What's coded everywhere (`shared/dice.js`'s callers AND `dice-engine.js`
+independently) is *roll the entire pool a second, fully independent time, keep whichever complete
+pool has more successes*. These are not equivalent — the coded version is strictly worse for the
+player (a 5-die pool with 2 early successes and 3 failures should reroll just those 3 while banking
+the 2; instead the whole 5 dice get rerolled from scratch and the original successes aren't
+preserved). **Predates the roller fork entirely** — baked into whatever the original single-roller
+implementation was before `roll.js` was extracted. Has been resolving every Rote roll (PT dot 5)
+less favourably than the rules say, for as long as Rote has existed in this codebase, in every game
+played. **This is a standalone rules-correctness decision for Angelus, independent of the
+harmonisation work** — fixing it changes real outcomes going forward, and raises the (separate)
+question of whether past Rote rolls need any retroactive accounting.
+
+Not checked in this pass: whether `game/contested-roll.js`, `game/combat-tab.js`, or
+`game/challenge-notification.js` implement Rote at all, and if so whether they share the same bug —
+flagged for whoever does the fix to confirm before patching only one call site.
+
+### 4c. Real call graph of the five external consumers — confirms 3 engines is an undercount
+- **`app.js`** — the only file importing both rollers; boot-time DOM-subtree removal per the flag;
+  touches the full shared-ID surface.
+- **`shared/resist.js`** — no import from either roller at all; coupling is entirely via shared
+  `state` (`RESIST_CHAR`/`RESIST_MODE`/`RESIST_VAL`). No independent dice math.
+- **`game/contested-roll.js`** — imports only `mkDieEl`/`mkColsEl` (rendering helpers) from
+  `roll.js`. **Confirmed as a genuine third dice-resolution engine** — its own header says
+  *"always 10-again, ignores Roll tab state."* Also a fourth, hardcoded pool-building model (the
+  `TYPES` table), bypassing every other pool-building path in the app.
+- **`game/combat-tab.js`** — imports `loadPool, doRoll` from `roll.js` specifically, **never
+  roll-v2, never flag-aware**. `doRoll` is imported but never called (dead import).
+  **`loadPool()` IS called** by Quick Roll, then calls `goTab('dice')`.
+  **CONFIRMED LIVE BUG**: when the new-roller flag is ON, `#t-dice` was removed from the DOM at
+  boot (only `#t-roll` exists) — `goTab('dice')` silently finds nothing and no-ops. **Anyone on the
+  new roller who taps Quick Roll from the Combat tab today gets nothing, with no error.** Same
+  failure shape as the Game 7 incident (a silent per-device divergence nobody can diagnose by
+  looking at the screen). Also confirms `combat-tab.js`'s own inline `d10()` for initiative (§1).
+- **`game/challenge-notification.js`** — imports only `mkDieEl`/`mkColsEl` from `roll.js`
+  (defensively wrapped in try/catch — the author already distrusted this import). No client dice
+  math; results come from a server-side roll, per its own header comment. A fifth resolution point,
+  not audited here.
+
+**Bottom line**: not three independent dice-math implementations — **five**, once
+`contested-roll.js`'s engine and the server-side path behind `challenge-notification.js` are
+counted. The `mkDieEl`/`mkColsEl` imports into `contested-roll.js`/`challenge-notification.js` are
+safe today only because those functions are currently byte-identical between v1/v2 — any future
+divergence there would silently desync their visuals from whichever roller is actually active.
+
+---
+
+## 5. Open decisions for Angelus
+
+1. **Rote fix** — scope and timing, independent of the roller consolidation. Does it ship as its own
+   fix regardless of #1039's sequencing? Any retroactive-accounting question for past Rote rolls?
+2. **Chassis choice** — roundtable converged on `roll-v2.js` as the base; confirmed safe by §4a.
+3. **DOM-contract cleanup** — Winston's proposal (land with existing IDs first, convert to a real
+   `getPool()`/`onRollComplete()`/`mountInto()` interface as a *separate* follow-up) vs. doing it in
+   the same pass.
+4. **`combat-tab.js`'s Quick Roll bug** — worth an immediate, narrow fix (make it flag-aware, or route
+   through the active roller's real API) independent of the larger consolidation, given it's already
+   live and silent.
+5. **`contested-roll.js`'s scope** — stays a deliberately-simplified third engine (its own header
+   already says so), or gets folded into the unified roller's math with its own pool-building `TYPES`
+   table preserved as a distinct entry mode? Its working server-side roll log is relevant to gdx-8.
+6. **Staged-rollout mechanism** — reuse the existing (imperfect) flag infrastructure for one more
+   soak cycle with a visible "which build is active" signal (Winston's proposal), or a different
+   approach given the flag itself already caused one incident.
+7. **State-model reconciliation** (Amelia's still-open flag) — `char-pools.js`'s push-based
+   tap-to-load vs `dice-engine.js`'s compositional dropdown-build are different models of "what the
+   current pool is." Not resolved by this audit — needs its own small design pass before Phase 1
+   (chassis) work starts, since #1039's mod chips/status-diff mods likely need compositional state
+   regardless of which entry path triggers them.
+
+## Provenance
+
+Researched 2026-08-22 across four passes in one TM Game session: (1) independent parallel mapping of
+`roll.js`, `roll-v2.js`, and `dice-engine.js`/`char-pools.js` against issue #1039's stated scope; (2)
+a BMAD party-mode roundtable (John/Winston/Sally/Amelia) synthesising the harmonisation approach; (3)
+a Phase 0 read-only audit (byte-diff, rules cross-check, call-graph mapping) Amelia's own review
+proposed and Angelus commissioned. All passes read-only — no file in this repo was edited to produce
+this document.
