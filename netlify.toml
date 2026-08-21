@@ -20,18 +20,8 @@
   status = 200
   force = true
 
-# ═══════════════════════════════════════════════════════════════════════════
-# MAINTENANCE MODE — ecosystem rebrand in progress (2026-08-21). Comment out or
-# delete this block to restore normal service. Sits after the API proxy (so
-# /api/* still works, e.g. for verification during the rebrand) but before
-# every other route, so everything else shows the maintenance page. See
-# ../rebrand-game-story-admin.md for status.
-# ═══════════════════════════════════════════════════════════════════════════
-[[redirects]]
-  from = "/*"
-  to = "/maintenance.html"
-  status = 503
-  force = true
+# Maintenance mode was active here 2026-08-21 during the tm_suite->tm_game rebrand's Render
+# cutover -- removed once the cutover was verified end-to-end. See ../rebrand-game-story-admin.md.
 
 # Block dev-login in production — only meaningful locally
 [[redirects]]
