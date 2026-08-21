@@ -1344,3 +1344,31 @@ development_status:
   # Stage B, 5fdaa032, 2026-07-28), the same one that deleted player.html
   # while feat-6 was investigated this session. Tracker never caught up.
   gdx-10-legacy-retirement: done                                 # #991 closed — satisfied by #1047 (5fdaa032), 2026-08-18
+
+  # ============================================================
+  # EPIC RLV — DICE ROLLER HARMONISATION
+  # ============================================================
+  # Epic file: specs/epic-rlv-roller-harmonisation.md. Sources issue #1039
+  # ("Roller redesign", 2026-07-25 meeting intake, never sharded, sat
+  # untouched since Piatra stepped back 2026-08-09) — folds in per #1039's
+  # own text as new GDX-adjacent slices, tracked here under its own "rlv"
+  # prefix rather than continued gdx-N numbering to keep this substantial a
+  # scope legible as its own epic, matching the epic-rlog precedent. Scoped
+  # 2026-08-22 via a full 5-implementation functional audit, a bmad-party-mode
+  # roundtable (John/Winston/Sally/Amelia), and a Phase 0 read-only technical
+  # audit — all recorded in specs/dice-roller-harmonisation-audit.md. Orthogonal
+  # to Epic USF (#1047, not yet its own tracked row here) — roller code never
+  # lived in the now-deleted player.html, so no sequencing dependency either
+  # direction.
+  epic-rlv: in-progress                                          # rlv.1/rlv.2 ready-for-dev; rlv.3-9 backlog pending Angelus decisions D1-D5 named in the epic file. No code written yet.
+  rlv-1-fix-combat-tab-quick-roll-silent-failure: ready-for-dev  # Confirmed live silent bug (Phase 0 audit): combat-tab.js's Quick Roll hardcodes roll.js and calls goTab('dice'), which no-ops when the new-roller flag has removed #t-dice from the DOM. Independent of the rest of the epic. Story: rlv-1-fix-combat-tab-quick-roll-silent-failure.md.
+  rlv-2-promote-roll-v2-retire-roll-v1: ready-for-dev            # Draft proceeds with roundtable-recommended defaults for open decisions D2 (DOM-contract cleanup deferred to rlv.5) and D3 (staged soak-then-flip vs direct cutover) — confirm with Angelus before dev-story starts. Safe per Phase 0 audit: roll.js/roll-v2.js confirmed byte-identical on every gameplay-critical function. Story: rlv-2-promote-roll-v2-retire-roll-v1.md.
+  rlv-3-pool-state-model-reconciliation: backlog                 # Design pass, not yet storied. Blocked on D5 (Amelia's still-open flag): char-pools.js's push-based tap-to-load vs dice-engine.js's compositional dropdown-build are different models of "what the current pool is" — #1039's mod chips/status-diff mods likely need compositional state regardless of entry path.
+  rlv-4-port-builder-ux-into-unified-roller: backlog             # Not yet storied. Blocked on rlv.2, rlv.3.
+  rlv-5-repoint-external-consumers: backlog                      # Not yet storied. Blocked on rlv.2 (D2), D4 (contested-roll.js's own deliberately-simplified engine — fold in or leave as-is).
+  rlv-6-delete-legacy-roller-and-flag: backlog                   # Not yet storied. Blocked on rlv.2's soak period (D3), rlv.5.
+  rlv-7-persistent-per-power-mod-chips: backlog                  # #1039 net-new feature. Not yet storied. Blocked on rlv.4.
+  rlv-8-status-diff-social-manoeuvring-mods: backlog             # #1039 net-new feature. Not yet storied. Blocked on rlv.4.
+  rlv-9-rote-rules-fix: backlog                                  # Standalone rules-correctness bug, NOT caused by this epic — found during the Phase 0 audit, predates the roll.js/roll-v2.js fork entirely. Wrong identically in all five engines (shared/dice.js's callers AND dice-engine.js): official rule rerolls only failed dice once each keeping original successes; coded version rerolls the whole pool independently and keeps the better result, a strictly worse expected outcome. Blocked on D1 (Angelus: fix scope/timing, any retroactive question for past Rote rolls).
+  # Special pools (initiative/frenzy/lashing-out) and websocket targeted rolls: explicitly out of
+  # this epic per #1039's own text — separate, later slices, not tracked here.
