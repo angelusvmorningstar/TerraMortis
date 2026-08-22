@@ -727,3 +727,64 @@ defender-resolution fields). The three below were **not** patched and each wants
   Related precedent worth reading first: the otc-2 entry above, where `game_session_id` on
   `office_actions` is already logged as a caller-supplied, unvalidated, spoofable string — this epic
   should not reproduce that shape.
+
+## Deferred from: code review of crd-2-player-facing-pending-queue (2026-08-22, external Codex review)
+
+External Codex review (3-pass blinded adversarial protocol) of the Epic CRD player-facing pending
+queue. Full findings, unedited: `specs/stories/code-review/crd-2-codex-findings.md`; triage and patch
+record: the story's own Senior Developer Review section. **No High findings.** Three code findings
+were patched in that round (the shared More badge never recomputing after the queue's own poll, a
+failed poll holding a stale "Resolved" row indefinitely, and phone-width row clipping); the four
+below were verified as real and deliberately NOT patched.
+
+- **`renderDesktopSidebar()` never evaluates `app.badge` for ANY `MORE_APPS` entry** (Medium) —
+  `public/js/app.js`. Mobile's `renderMoreGrid()`/`appIcon()` truth-tests each app's `badge` callback
+  and emits a `.nav-badge` dot; the desktop sidebar iterates the same `MORE_APPS` array and never
+  touches `.badge` at all, while desktop CSS hides the bottom nav that carries `#more-badge`. A
+  desktop player therefore sees no pending-challenge signal anywhere. **Pre-existing and
+  cross-cutting, not introduced by crd.2**: the Downtime tile has been badge-less in desktop mode
+  since it was written, and the crd.2 dev pass found this independently and correctly declined to fix
+  it for the same reason. Fixing it changes live behaviour for an existing tile outside crd.2's
+  scope, so it wants its own small story covering every badged `MORE_APPS` entry at once, not a
+  one-off for the newest one.
+- **A player who never opens the Challenges tab only gets a fresh badge signal at boot** (Medium as
+  filed; **deliberate design trade-off, not a defect**) — `public/js/app.js`'s boot path calls
+  `refreshPendingQueueBadge()` once for a non-ST viewer, and `pending-queue.js`'s 10s poll is gated
+  on the containing tab actually being `.active`. A challenge created after boot therefore does not
+  light the tile until the player opens the queue or reloads. This is the direct consequence of the
+  epic's own resource-conscious principle, established during Epic CRD's scoping: **do not poll while
+  nobody is looking at the surface.** Logged here so it is a known, chosen boundary rather than an
+  unnoticed gap. **Do not "fix" it by adding a global always-on poll.** If a live signal for an
+  unopened tab is ever genuinely wanted, the right shape is this app's existing WebSocket broadcast
+  channel (the pattern `equipment_catalogue` and `bloodlines` already use), not a second timer.
+- **The boot badge refresh can overwrite a newer queue fetch** (Medium; narrow race, low real-world
+  reachability) — `public/js/game/pending-queue.js`. `refreshPendingQueueBadge()` writes `state.rows`
+  without joining `_fetchGen`, the generation guard that `_refetchAndRender()` uses. If the
+  fire-and-forget boot request resolves AFTER a tab-open fetch has already landed, the older snapshot
+  wins and the next poll's diff can fabricate a resolved row or resurrect a departed one. Reaching it
+  requires the player to navigate into Challenges and complete a second round trip before the boot
+  request settles. Not patched in this round because the fix (extending `_fetchGen` to cover the
+  badge path) touches the same generation discipline crd.3b will be editing anyway; fold it into
+  crd.3b or a small hardening story rather than a one-line change now.
+- **Three assertions in `server/tests/crd-2-pending-queue.test.js` are source-text checks labelled as
+  behavioural proofs** (Low) — the "goTab() accepts and forwards a context payload" test (~:313), and
+  two of the design-system compliance tests (~:497, ~:508). Each can stay green while the thing its
+  name claims is broken: `goTab()` could stop forwarding `ctx` with the tokens still present, a `cq-`
+  class could appear only in a comment, or a colour literal could move into a multiline rule body the
+  line-based filter never selects. **Not rewritten in this round** — deliberately, because the honest
+  fix is a real DOM harness for these three, and this repo has no jsdom (adding one is a new
+  dependency, a HALT condition). Note for whoever next touches this file: the suite's own header
+  already states this limitation, and the newly-added phone-breakpoint test carries an explicit
+  comment saying it is a regression tripwire rather than proof. Treat the labels as aspirational
+  until there is a harness that can earn them.
+
+**Reviewed and non-actionable** (recorded so they are not re-derived as open work): Codex's two
+Pass-3b evidence-gap findings — that the story's claimed red-first test chronology is not
+reproducible from the committed range, and that the "zero live writes anywhere" attestation cannot be
+established from a client-side fetch shim — are about the completeness of the historical record, not
+about defects in the current code. Nothing to patch; the narrower claim (this feature's browser
+session created no `contested_roll_requests` document) is supported by the code itself, since the
+queue imports only `apiGet` and the placeholder has no write API. Codex's "the test record reports
+Mongo-skipped gates as fully passed" finding was **not reproducible**: the crd.2 suite passes with
+real MongoDB access (re-run independently, 50/50 pre-patch and 59/59 post-patch); the 48/50 Codex saw
+was its own sandbox failing to reach MongoDB (`EACCES` to port 27017), not a code defect.

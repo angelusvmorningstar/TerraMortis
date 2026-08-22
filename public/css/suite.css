@@ -2395,6 +2395,21 @@ body.desktop-mode.sidebar-collapsed .sb-collapse-btn { width: 100%; justify-cont
    as a standalone line here that reads as a stray indent. */
 .cq-ref { margin: 0; padding-left: 0; padding-right: 0; }
 .cq-actions { margin-top: 4px; }
+/* Phone (≤599px, the same breakpoint #bnav and the Status ranking drawer use).
+   Measured defect, not a guess: at 390px the non-shrinking .oaq-queue-actions
+   cluster (roll badge + nowrap "Defending as ..." + a 19-character timestamp)
+   is wider than the row on its own, so the flexible .oaq-queue-name collapsed
+   to 0px and the trailing metadata was clipped by .tab's overflow-x:hidden —
+   the player lost the challenger's identity, which is the one thing the row
+   exists to tell them. Fixed by giving the cluster its own line under the name
+   instead of shrinking either of them: the name keeps a real column, and the
+   metadata wraps rather than running off the edge. */
+@media (max-width: 599px) {
+  .cq-row { flex-wrap: wrap; row-gap: 4px; }
+  .cq-row .oaq-queue-name { flex: 1 1 auto; }
+  .cq-row .oaq-queue-actions { flex: 1 0 100%; flex-wrap: wrap; justify-content: flex-start; min-width: 0; padding-left: 26px; }
+  .cq-row .cq-target { white-space: normal; }
+}
 
 /* HoS interactive actions */
 .office-budget-line { font-family: var(--fb); font-size: 14px; color: var(--txt); margin-bottom: 12px; }

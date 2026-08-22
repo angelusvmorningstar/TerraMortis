@@ -2,11 +2,11 @@
 id: crd.2
 epic: crd
 epic_file: specs/epic-crd-contested-roll-defence.md
-status: review
+status: done
 priority: high
 type: feature
 depends_on: [crd.1]
-branch: ms/crd-1-data-lock-schema-hardening-wp-spike
+branch: ms/crd-2-player-facing-pending-queue
 ---
 
 # Story CRD.2: Player-facing pending queue (standalone)
@@ -482,9 +482,145 @@ no crd.4 formula work, no new dependency.
 - `specs/stories/crd-2-player-facing-pending-queue.md` — this file (Dev Agent Record, File List,
   Change Log, Status, task checkboxes)
 
+## Senior Developer Review
+
+**Round: EXTERNAL Codex review (3-pass blinded adversarial protocol), 2026-08-22.** Findings
+persisted unedited at `specs/stories/code-review/crd-2-codex-findings.md`. **No High findings this
+time** (crd.1's round had two). Nothing below was found by this story's own dev pass.
+
+### Independent verification before any patch was written
+
+Codex's findings were **not** accepted on the reviewer's authority. The orchestrating session
+re-derived each one against the real code first, and two of them changed shape as a result:
+
+- **Every `checkMoreBadge()` call site in `public/js/app.js` was grepped directly.** There are exactly
+  four: after visiting Feeding (~:550), at boot (~:1543), the definition itself, and one internal
+  self-call from `_markSubViewed()`. **None** is reachable from `pending-queue.js`'s own poll tick.
+  Codex's Pass 2 finding is real in both directions.
+- **`renderDesktopSidebar()` was read directly** and confirmed never to reference `app.badge` for ANY
+  `MORE_APPS` entry. Real, but **pre-existing and cross-cutting** - the existing Downtime tile has
+  never had a visible desktop badge either - so this story's dev pass was right to decline it, and
+  this review round declines it again for the same reason. Deferred, not patched.
+- **The phone clipping was confirmed empirically**, by Codex's own temporary 390px Chromium probe
+  (`row.scrollWidth > row.clientWidth`), and independently re-measured in this round before and after
+  the fix (numbers below).
+- **Codex's "the test record reports Mongo-skipped gates as fully passed" finding did NOT reproduce.**
+  The crd.2 suite passes 50/50 with real MongoDB access, re-run independently. The `48 passed |
+  2 skipped` Codex reported was its own sandbox unable to reach MongoDB (`EACCES` to port 27017), not
+  a code defect. **No action taken; the story's original 50/50 record stands as written.**
+
+### Patches applied (4), each prove-discriminated ALONE
+
+Every code patch was reverted on its own, the specific new test confirmed to fail for the expected
+reason, then restored and re-confirmed green. Never combined.
+
+**Patch 1 - the shared More badge now recomputes after the queue's own poll.**
+`initPendingQueue(rootEl, chars, onQueueChange)` takes an OPTIONAL callback, fired after any poll
+that actually changes the pending set (membership by `_id`, in either direction). `app.js`'s `goTab`
+injects `checkMoreBadge` at the mount site. **Injection rather than import, deliberately:** `app.js`
+already imports FROM `pending-queue.js`, so reaching back the other way would make the dependency
+circular; a callback keeps the arrow pointing one way and leaves the module testable with no `app.js`
+in the picture. Gated on a real change rather than firing every tick, which respects the same
+resource-conscious principle the poll gate itself exists for. A throwing callback is caught and
+logged so a badge failure can never take the poll loop down. *Revert-alone result: 3 failed / 56
+passed - exactly the three new badge tests, with the failed-poll tests still green.*
+
+**Patch 2 - a failed poll no longer holds a stale "Resolved" row.** `_refetchAndRender()`'s failure
+branch now clears `state.resolved`. The module's own "one tick" promise is specifically about the
+tick immediately following the **successful** fetch that spotted the departure; a failing fetch is
+not that tick, and the old code carried a dimmed, untappable row forward through any number of
+consecutive failures. `state.rows` (the real pending work) is what must survive a blip, and it still
+does - the existing "a failed poll does not fabricate resolutions" test is unchanged and still green.
+*Revert-alone result: 1 failed / 58 passed - exactly the new stale-resolved-row test.*
+
+**Patch 3 - phone-width row clipping.** A `@media (max-width: 599px)` block for `.cq-row` in
+`public/css/suite.css`, using the same breakpoint `#bnav` and the Status ranking drawer already use.
+The action cluster gets its own line under the challenger name rather than either being shrunk, so
+the name keeps a real column and the metadata wraps instead of running off the edge. Tokens only, no
+literal colour, no inline style. *Measured at 390px in real Chromium, via a temporary Playwright spec
+that was deleted afterwards (matching how Codex cleaned up after its own probes):*
+
+| | before | after |
+|---|---|---|
+| `row.scrollWidth` vs `clientWidth` | 450-477 vs 342 (overflowing) | 342 vs 342 |
+| challenger-name column width | **0px (fully collapsed)** | 288px |
+| action cluster right edge vs row right edge | 501 vs 366 (135px past) | 352 vs 366 |
+
+*Revert-alone result: the probe failed on the first assertion with exactly Codex's numbers, and the
+permanent source-level tripwire in the vitest suite failed too (1 failed / 58 passed).*
+
+**Patch 4 - story metadata.** Frontmatter `branch:` corrected from
+`ms/crd-1-data-lock-schema-hardening-wp-spike` to `ms/crd-2-player-facing-pending-queue`, the branch
+this story was actually implemented and reviewed on.
+
+### Findings deferred, each named against its Codex finding
+
+All four are logged in `specs/deferred-work.md` under this story's own block, with fuller reasoning.
+
+- **[Pass 2] "Desktop players have no visible Challenges badge"** - pre-existing and cross-cutting,
+  identical for the existing Downtime tile. Patching it here would change live behaviour for a tile
+  outside this story's scope. Wants its own story covering every badged `MORE_APPS` entry at once.
+- **[Pass 1] "Challenges arriving after boot never refresh the inactive queue badge"** - **not a bug,
+  a deliberate trade-off.** It is the direct consequence of Epic CRD's own resource-conscious
+  principle, settled during this epic's scoping: do not poll while nobody is looking at the surface.
+  Logged so it is a chosen boundary rather than an unnoticed gap. Explicitly **not** to be worked
+  around with a global always-on poll; if a live signal is ever wanted for an unopened tab, the right
+  shape is this app's existing WebSocket broadcast channel.
+- **[Pass 1] "Boot badge refresh can overwrite a newer queue fetch"** - real, but a narrow race with
+  low real-world reachability (the player must complete a tab-open round trip before the
+  fire-and-forget boot request settles). The fix extends `_fetchGen` across the badge path, which is
+  the same generation discipline crd.3b will be editing; fold it in there rather than a one-liner now.
+- **[Pass 1] "Source-text assertions overstate routing and CSS coverage"** - the three named
+  assertions genuinely are weaker than their labels. **Not rewritten**, because the honest fix is a
+  real DOM harness and this repo has no jsdom (a new dependency is a HALT condition). Noted for
+  whoever next touches the file; the newly-added phone-breakpoint test carries an explicit comment
+  saying it is a regression tripwire, not proof.
+
+**Reviewed and non-actionable** (recorded so nobody re-derives them as open work): the two Pass-3b
+evidence-gap findings - the unreproducible red-first chronology, and the unprovable absolute
+"zero live writes anywhere" attestation - are about the completeness of the historical record, not
+about defects in the current code. No retroactive proof was attempted; the narrower claim (this
+feature's browser session created no `contested_roll_requests` document) is supported by the code
+itself, since the queue imports only `apiGet` and the placeholder has no write API. Codex's
+[Pass 3b] "claimed Playwright set does not directly cover the new route or badge" is accurate as a
+scoping observation and is answered by the regression numbers below rather than by adding E2E
+coverage crd.3b will need to rewrite anyway.
+
+**Not done, deliberately:** no part of crd.3a/3b's resolution screen, no change to
+`renderDesktopSidebar()`, no global poll, no rewrite of the three source-text tests, no edit to
+`specs/stories/code-review/crd-2-codex-findings.md` (kept unedited as the review record).
+
+### Review-round test results
+
+- **New suite** `server/tests/crd-2-pending-queue.test.js`: **59 passed / 0 failed** (50 pre-patch +
+  9 new: 6 for Patch 1, 2 for Patch 2, 1 source-level tripwire for Patch 3). Confirmed RED first;
+  5 of the 9 failed on the pre-patch code and the other 4 are additional assertions around them. The
+  two Mongo-backed AC6 tests **ran** (not skipped) in this environment.
+- **Changed-area regression, the same 16 suites the dev pass used**: **16 files passed, 488 passed /
+  0 failed** - exactly +9 over the 479 pre-patch baseline, no new failures.
+- **Playwright**, the two specs that touch `MORE_APPS`/the More grid
+  (`issue-1015-hide-challenge-rename-ordeals-xp.spec.js`, `issue-1135-deleted-tabs.spec.js`):
+  **15 passed / 0 failed**, single invocation. Unchanged from baseline.
+- **Temporary 390px probe** written, measured, and deleted. `tests/` contains no leftover `.tmp-*`
+  spec.
+- Parse-check (`node --check`) on both modified JS files.
+- **NOT committed, NOT pushed, NOT merged.** Working tree left uncommitted.
+
+### Review-round file list
+
+- `public/js/game/pending-queue.js` - modified (Patches 1, 2)
+- `public/js/app.js` - modified (Patch 1: the `initPendingQueue` call site in `goTab`)
+- `public/css/suite.css` - modified (Patch 3: the <=599px `.cq-row` block)
+- `server/tests/crd-2-pending-queue.test.js` - modified (9 new tests)
+- `specs/stories/crd-2-player-facing-pending-queue.md` - this file (frontmatter `branch` + `status`,
+  this section, Change Log)
+- `specs/deferred-work.md` - modified (four deferred findings)
+- `specs/stories/sprint-status.yaml` - modified (status + narrative)
+
 ## Change Log
 
 | Date | Change |
 |------|--------|
+| 2026-08-22 | **CODE REVIEW CLOSED, `review` -> `done`.** External Codex review (3-pass blinded adversarial protocol; findings persisted unedited at `specs/stories/code-review/crd-2-codex-findings.md`), **no High findings**. Every finding was independently re-verified against the real code before any patch was written, and two changed shape as a result: the `checkMoreBadge()` call-site grep confirmed none of its four call sites is reachable from the queue's own poll tick, and Codex's "the test record reports Mongo-skipped gates as fully passed" finding did NOT reproduce (the suite really is 50/50 with MongoDB reachable; Codex's 48/50 was its own sandbox `EACCES` to port 27017, so the original record stands). FOUR PATCHES, each prove-discriminated ALONE: (1) `initPendingQueue` takes an optional `onQueueChange` callback fired after any poll that changes the pending set, injected by `goTab` as `checkMoreBadge` - injection not import, because `app.js` already imports FROM this module and the reverse would be circular; without it the shared `#more-badge` went stale in BOTH directions while the tab was open (revert-alone: 3 failed/56 passed). (2) A failed poll now clears `state.resolved` instead of holding a dimmed "Resolved" row through any number of consecutive failures - the "one tick" promise is about the tick after a SUCCESSFUL fetch, and `state.rows` is still what survives a blip (revert-alone: 1 failed/58 passed). (3) A `@media (max-width: 599px)` block for `.cq-row` in `suite.css`, the same breakpoint `#bnav` already uses: at 390px the row was overflowing 450-477px into a 342px box with the challenger-name column collapsed to **0px** and the action cluster 135px past the row's right edge; after, 342/342 with a 288px name column. Measured in real Chromium via a temporary Playwright spec, deleted afterwards. (4) Frontmatter `branch` corrected to `ms/crd-2-player-facing-pending-queue`. FOUR FINDINGS DEFERRED to `specs/deferred-work.md`, each named against its Codex finding: the desktop-sidebar badge gap (pre-existing and cross-cutting - `renderDesktopSidebar()` never evaluates `app.badge` for ANY `MORE_APPS` entry, so the Downtime tile has always been badge-less on desktop too; wants its own story, not a one-off here); the boot-only badge refresh window (**a deliberate trade-off, not a bug** - it falls straight out of this epic's own "don't poll unless the tab is visible" principle, and must NOT be worked around with a global always-on poll; WebSocket is the right shape if a live signal is ever wanted); the boot-badge-vs-tab-open race (real but narrow, and its fix extends the same `_fetchGen` discipline crd.3b will be editing); and the three source-text-only test assertions (genuinely weaker than their labels, but the honest fix needs a DOM harness and adding jsdom is a HALT condition). Codex's two Pass-3b evidence-gap findings (unreproducible red-first chronology, unprovable absolute zero-live-write claim) reviewed and recorded as non-actionable - they are about the historical record's completeness, not current-code defects. Suite 50 -> 59 passed/0 failed; changed-area regression 16 suites 488 passed/0 failed (exactly +9 over the 479 baseline, no new failures); Playwright pair 15/15 unchanged. NOT committed, NOT pushed, NOT merged. |
 | 2026-08-22 | `bmad-dev-story`: Tasks 1-6 implemented. New standalone `public/js/game/pending-queue.js` (NOT `public/js/player/` — that directory does not exist on disk; followed the real `game/` precedent) with a tab-active-gated 10s poll, multi-character-safe per-row "Defending as" labels, and a resolved-but-recent state driven by departure from the pending set rather than a local mutation (the queue deliberately carries no Accept/Decline button — those belong beside crd.3b's pool). `public/js/game/contested-resolve.js` added as an honestly-labelled placeholder behind a real routing contract: `goTab()` extended additively to `goTab(t, ctx)` and dispatches `contested-resolve` with `{ challengeId }`. `challenge-notification.js` DELETED, matching this project's unbroken precedent for retiring superseded client modules (checked against `git log --diff-filter=D`, not guessed); its single live call site (`app.js:1520`) replaced by a boot-time badge refresh, and its never-called `stopChallengePoller` import removed with it. `MORE_APPS` 'player'-section entry with a live badge following the `downtime` entry's cache-read shape; `#more-badge` keeps reflecting pending challenges via `checkMoreBadge`, which also removes a real pre-existing clash between the old poller's inline `style.display` writes and `checkMoreBadge`'s class toggle. Three Task-1 confirmations all came back different from what the story assumed (one call site not several, `goTab` had no context arg at all, `badge` is truth-tested by exactly one renderer and ignored by the desktop sidebar entirely). New suite 50/50; changed-area regression 16 suites, 479/479; two nav-related Playwright specs 15/15. Browser-verified end to end with no live-data writes (populated states via a client-side fetch shim); two real spacing defects found only in the browser and fixed. Status `ready-for-dev` → `review`. NOT committed, NOT pushed, NOT merged. |
 | 2026-08-22 | Story created (`bmad-create-story`), `ready-for-dev`. Investigation found two things the epic doc didn't anticipate: `challenge-notification.js`'s existing modal is already broken by crd.1's own schema change (Finding 1), and contested rolls currently have no reachable creation path in any live UI at all (Finding 2) — softens this story's urgency framing without changing its scope. |

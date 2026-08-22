@@ -588,9 +588,14 @@ function goTab(t, ctx) {
   // The queue is handed the viewer's own characters so each row can name WHICH
   // of them is being challenged; it never filters on them (the server's
   // GET /mine is the only authority on what belongs in this queue).
+  // `checkMoreBadge` is injected rather than imported by the queue: app.js
+  // already imports FROM pending-queue.js, so an import the other way would be
+  // circular. Without it the shared #more-badge went stale in both directions
+  // while this tab was open (lit after the queue emptied, dark after a poll
+  // found new work) — the queue's own poll had no path to the badge's one owner.
   if (t === 'contested-queue') {
     const el = document.getElementById('t-contested-queue');
-    if (el) initPendingQueue(el, suiteState.chars || []);
+    if (el) initPendingQueue(el, suiteState.chars || [], checkMoreBadge);
   }
   if (t === 'contested-resolve') {
     const el = document.getElementById('t-contested-resolve');

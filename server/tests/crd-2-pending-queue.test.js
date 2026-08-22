@@ -129,9 +129,9 @@ afterEach(() => {
 });
 
 /** Drive one full init + first fetch to completion. */
-async function mount(rows, chars = [CHAR_A]) {
+async function mount(rows, chars = [CHAR_A], onQueueChange) {
   apiModule.apiGet.mockResolvedValue(rows);
-  await queue.initPendingQueue(root, chars);
+  await queue.initPendingQueue(root, chars, onQueueChange);
 }
 
 /** Advance one poll interval and let the fetch settle. */
@@ -284,6 +284,107 @@ describe('crd.2 AC3 — resolved-but-recent row', () => {
     await tick();
     expect(root.body.innerHTML).toContain('Mammon');
     expect(root.body.innerHTML).not.toMatch(/cq-row-resolved/);
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Code-review round (2026-08-22, external Codex review)
+// specs/stories/code-review/crd-2-codex-findings.md
+//
+// Two Medium/Low findings that are real defects in THIS module, patched here:
+//   [Pass 2] "Queue poll results never recompute the shared More badge"
+//   [Pass 1] "A failed poll extends a resolved row beyond the promised one tick"
+// ═══════════════════════════════════════════════════════════════════════════
+
+describe('crd.2 review — the shared More badge is recomputed after the queue\'s own poll', () => {
+  it('invokes the injected badge-refresh callback when a poll EMPTIES the pending set', async () => {
+    const onQueueChange = vi.fn();
+    await mount([pendingDoc({ _id: 'c1' })], [CHAR_A], onQueueChange);
+    onQueueChange.mockClear();
+
+    await tick([]);
+
+    // Without this the shared #more-badge stays visibly lit after the queue
+    // empties: checkMoreBadge() has no call site the queue's own poll reaches.
+    expect(onQueueChange, 'the queue emptied while the player watched; the shared badge must be told').toHaveBeenCalled();
+    expect(queue.hasPendingChallenges()).toBe(false);
+  });
+
+  it('invokes it in the other direction too — a poll that DISCOVERS new pending work', async () => {
+    const onQueueChange = vi.fn();
+    await mount([], [CHAR_A], onQueueChange);
+    onQueueChange.mockClear();
+
+    await tick([pendingDoc({ _id: 'c9' })]);
+
+    expect(onQueueChange, 'new pending work arrived; the shared badge must be told').toHaveBeenCalled();
+    expect(queue.hasPendingChallenges()).toBe(true);
+  });
+
+  it('does NOT churn the badge on a poll that changed nothing (the epic\'s resource-conscious principle)', async () => {
+    const onQueueChange = vi.fn();
+    await mount([pendingDoc({ _id: 'c1' })], [CHAR_A], onQueueChange);
+    onQueueChange.mockClear();
+
+    await tick([pendingDoc({ _id: 'c1' })]);
+
+    expect(onQueueChange).not.toHaveBeenCalled();
+  });
+
+  it('does NOT fire on a FAILED poll — a network blip is not a change to the pending set', async () => {
+    const onQueueChange = vi.fn();
+    await mount([pendingDoc({ _id: 'c1' })], [CHAR_A], onQueueChange);
+    onQueueChange.mockClear();
+
+    apiModule.apiGet.mockRejectedValue(new Error('network down'));
+    await tick();
+
+    expect(onQueueChange).not.toHaveBeenCalled();
+  });
+
+  it('a throwing callback never breaks the poll loop', async () => {
+    const onQueueChange = vi.fn(() => { throw new Error('badge blew up'); });
+    await mount([], [CHAR_A], onQueueChange);
+    await tick([pendingDoc({ _id: 'c1' })]);
+    await tick([]);
+    expect(root.body.innerHTML).toMatch(/cq-row-resolved/);
+  });
+
+  it('app.js wires checkMoreBadge() in as the queue\'s badge-refresh callback at the goTab call site', () => {
+    const src = readFile('public/js/app.js');
+    expect(src).toMatch(/initPendingQueue\([^)]*checkMoreBadge[^)]*\)/);
+  });
+});
+
+describe('crd.2 review — a failed poll does not hold a stale Resolved row', () => {
+  it('drops the one-tick Resolved row when the NEXT poll fails, rather than holding it indefinitely', async () => {
+    await mount([pendingDoc({ _id: 'c1' }), pendingDoc({ _id: 'c2', challenger_character_name: 'Ludica' })]);
+    await tick([pendingDoc({ _id: 'c2', challenger_character_name: 'Ludica' })]);
+    expect(root.body.innerHTML, 'precondition: the departed row is showing its one tick').toMatch(/cq-row-resolved/);
+
+    apiModule.apiGet.mockRejectedValue(new Error('network down'));
+    await tick();
+
+    // The "one tick" promise is about the tick immediately following the
+    // successful fetch that detected the departure. A failing fetch is not that
+    // tick, and holding the row through any number of consecutive failures is
+    // stale UI the module's own comment says it does not do.
+    expect(root.body.innerHTML, 'the resolved row must not survive a failed poll').not.toMatch(/cq-row-resolved/);
+    expect(root.body.innerHTML, 'still-pending rows survive the blip, as before').toContain('Ludica');
+  });
+
+  it('holds nothing across a RUN of consecutive failures either', async () => {
+    await mount([pendingDoc({ _id: 'c1' })]);
+    await tick([]);
+    expect(root.body.innerHTML).toMatch(/cq-row-resolved/);
+
+    apiModule.apiGet.mockRejectedValue(new Error('still down'));
+    await tick();
+    await tick();
+    await tick();
+
+    expect(root.body.innerHTML).not.toMatch(/cq-row-resolved/);
+    expect(root.body.innerHTML).toMatch(/could not load/i);
   });
 });
 
@@ -591,6 +692,19 @@ describe('crd.2 — design-system compliance', () => {
       expect(line, line).not.toMatch(/#[0-9a-fA-F]{3,8}\b/);
       expect(line, line).not.toMatch(/rgba?\(/);
     }
+  });
+
+  /* Code-review round: the ONLY thing this can honestly assert is the source
+     fact that a phone breakpoint for these rows exists at all. The real proof
+     that it stops the clipping is a measured one (row.scrollWidth vs
+     row.clientWidth at 390px in a real Chromium), which this runner has no
+     browser to do — that measurement was run against a temporary Playwright
+     spec and is recorded in the story's Senior Developer Review. This test is
+     the regression tripwire, not the proof. */
+  it('a phone-width breakpoint for the queue row exists (Codex "row metadata is clipped on phone widths")', () => {
+    const css = readFile('public/css/suite.css');
+    const phoneBlocks = css.match(/@media\s*\(max-width:\s*599px\)\s*\{[\s\S]*?\n\}/g) || [];
+    expect(phoneBlocks.some(b => b.includes('.cq-row')), 'no ≤599px rule for .cq-row in suite.css').toBe(true);
   });
 
   it('reuses the existing queue chrome rather than forking a second row style', () => {

@@ -73,13 +73,28 @@ let _rootEl    = null;
 let _pollTimer = null;
 let _fetchGen  = 0;   // guards a slow in-flight response landing after a newer one
 
+/* Injected by the mount site (app.js's goTab), never imported. app.js already
+   imports FROM this module, so reaching back for `checkMoreBadge` directly would
+   make the dependency circular; a callback keeps the arrow pointing one way and
+   leaves this module testable with no app.js in the picture at all. */
+let _onQueueChange = null;
+
 // ── Public API ───────────────────────────────────────────────────────────────
 
 /** Mount the queue into a `.tab` container and start its gated poll.
  *  Idempotent for the same container (app.js's goTab re-activates a tab rather
  *  than remounting it). A DIFFERENT container means a genuine remount, so the
- *  transient state is cleared rather than carried across. */
-export async function initPendingQueue(rootEl, chars) {
+ *  transient state is cleared rather than carried across.
+ *
+ *  `onQueueChange` is an OPTIONAL callback fired after any poll that actually
+ *  changes the pending set, in either direction. It exists because
+ *  `hasPendingChallenges()` backs the shared `#more-badge`, whose only owner is
+ *  app.js's `checkMoreBadge()` — and nothing in this module's poll path could
+ *  reach that function before. Without it the badge goes stale in both
+ *  directions while the player has this tab open: it stays lit after the queue
+ *  empties, and stays dark after a poll discovers new pending work, until some
+ *  unrelated action (visiting Feeding, a reload) happens to re-trigger it. */
+export async function initPendingQueue(rootEl, chars, onQueueChange) {
   if (!rootEl) return;
 
   if (rootEl !== _rootEl) {
@@ -88,6 +103,7 @@ export async function initPendingQueue(rootEl, chars) {
     _rootEl.innerHTML = _scaffoldHtml();
     _attachDelegatedHandler(_rootEl);
   }
+  if (typeof onQueueChange === 'function') _onQueueChange = onQueueChange;
   state.chars = Array.isArray(chars) ? chars : [];
 
   await _refetchAndRender();
@@ -108,6 +124,7 @@ export async function initPendingQueue(rootEl, chars) {
 export function stopPendingQueue() {
   if (_pollTimer) { clearInterval(_pollTimer); _pollTimer = null; }
   _rootEl = null;
+  _onQueueChange = null;
   _resetState();
 }
 
@@ -215,15 +232,44 @@ async function _refetchAndRender() {
     // Deliberately do NOT diff against an empty list here: a network blip must
     // never look like every outstanding challenge suddenly resolving.
     state.fetchFailed = true;
+    // ...but the resolved row's "one tick" promise is specifically about the
+    // tick immediately following the successful fetch that spotted the
+    // departure. A failing fetch is not that tick, and carrying the entry
+    // forward would hold a dimmed, untappable row through any number of
+    // consecutive failures. Drop it; `state.rows` (the real pending work) is
+    // what must survive a blip, and it does.
+    state.resolved = [];
   } else {
     const next = Array.isArray(rows) ? rows : [];
+    const changed = _pendingSetChanged(state.rows, next);
     state.resolved = _departedRows(state.rows, next);
     state.rows = next;
     state.fetchFailed = false;
+    if (changed) _notifyQueueChanged();
   }
 
   state.loading = false;
   _renderBody();
+}
+
+/** True when the SET of pending ids differs, in either direction. Deliberately
+ *  not "did anything about the response differ": the shared badge is a boolean
+ *  over membership, so an unchanged set must not churn it on every 10s tick. */
+function _pendingSetChanged(prev, next) {
+  if (prev.length !== next.length) return true;
+  const before = new Set(prev.map(r => String(r._id)));
+  return next.some(r => !before.has(String(r._id)));
+}
+
+function _notifyQueueChanged() {
+  if (typeof _onQueueChange !== 'function') return;
+  try {
+    _onQueueChange();
+  } catch (err) {
+    // A badge is a nicety; the queue itself is the feature. A throwing consumer
+    // must never take the poll loop down with it.
+    console.error('[pending-queue] queue-change callback failed:', err);
+  }
 }
 
 /** AC3. Rows present last tick and absent now have left the pending set, by
