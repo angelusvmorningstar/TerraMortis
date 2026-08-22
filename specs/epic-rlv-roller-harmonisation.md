@@ -69,6 +69,19 @@ briefly here so this table's own "blocked on" column is legible without cross-re
 
 ---
 
+## Design-token guidance for stories that touch dice UI (rlv.2, rlv.4, rlv.7, rlv.8)
+
+From TM Admin (`tm-admin-02`, cross-session, post-port review), applies to every RLV story that
+touches roller CSS, not just rlv.2 (which already has this folded into its own Dev Notes in full):
+`.rv2-eff` is locked to Cinzel Bold / `--type-size-display-hero: 64px` (Angelus-confirmed, don't
+reintroduce a literal size); any new build/status-indicator chrome uses the existing
+`.status-pill`/`.dt-status-badge` vocabulary, never Cinzel; Cinzel is app/page-level display
+headings only (login screen, sidebar brand title) — everything else, including modal titles and
+per-item numerals, is Lato/`--type-heading` or Libre Baskerville/`--type-body`; any new CSS should
+target the ported token names (`--space-*`, `--radius-*`, `--type-size-*`, `--control-height-*`)
+directly. Whoever storys rlv.4/rlv.7/rlv.8 should re-confirm this is still current against
+`design-token-port.md` at that time rather than trusting this summary indefinitely.
+
 ## Sequencing notes
 
 Per the roundtable's near-total convergence (full detail in the audit doc §3): mechanics merge

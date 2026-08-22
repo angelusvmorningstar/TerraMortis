@@ -105,6 +105,32 @@ week this flag exists is another week either kind of silent-mismatch bug can rec
 - This story does NOT touch `shared/dice.js`, `dice-engine.js`, or `contested-roll.js` — those are
   rlv.4/rlv.5/rlv.9 territory.
 
+### Design-token guidance (TM Admin, post-port — read before writing any CSS in this story)
+
+The shared design-token port (`design-token-port.md`, umbrella root) lands in this same file
+(`suite.css`) before this story's dev-story starts (see "What this story is NOT" — this story
+deliberately waited on that port for exactly this reason). Once it has:
+
+1. **`.rv2-eff` is locked**: Cinzel Bold, `--type-size-display-hero: 64px` (Angelus-confirmed over
+   the old roll.js implementation's 48px — settled, don't re-litigate). If AC1/AC3's dead-code-fencing
+   of `roll.js` touches any CSS around `.rv2-eff` — unhiding it by default, removing a flag-gated
+   wrapper, whatever — preserve the token reference; don't reintroduce a literal size or the old 48px.
+2. **AC2's "active roller build" badge**: build it off the existing status/badge vocabulary
+   (`.status-pill`, `.dt-status-badge` family — small, Lato, uppercase, letter-spaced, semantic
+   colour + label, never colour alone). Don't invent a new visual language for it, and don't reach for
+   Cinzel — this is exactly the small-UI-chrome case the standing display-only rule excludes.
+3. **The standing type rule (fully confirmed, not just the port's opinion)**: Cinzel is ONLY for
+   genuine app/page-level display headings (login screen, sidebar brand title). Everything else —
+   badges, modal titles, per-item numerals, names — is Lato (`--fl`/`--type-heading`) for
+   anything heading-shaped, Libre Baskerville (`--ft`/`--type-body`) for prose. Apply this test to any
+   CSS this story's dead-code-fencing touches that isn't already covered by rule 1 above.
+4. **Any new CSS this story writes should target the ported token names directly**
+   (`--space-*`, `--radius-*`, `--type-size-*`, `--control-height-*`) rather than literal px —
+   otherwise it's new code that immediately needs its own normalisation pass.
+
+None of the above changes this story's actual scope — AC4's "no gameplay/feature changes" still
+stands. This is "if you touch CSS, touch it with the current vocabulary and rules," not new UI work.
+
 ### References
 - [Source: specs/dice-roller-harmonisation-audit.md §3, §4a]
 - [Source: public/js/suite/roll.js]
