@@ -1772,7 +1772,7 @@ body.desktop-mode.sidebar-collapsed .sb-collapse-btn { width: 100%; justify-cont
 }
 #desktop-sidebar .sidebar-header-text { flex: 1; }
 #desktop-sidebar .sidebar-title { font-family: var(--type-display); font-weight: var(--type-weight-strong); font-size: var(--type-size-display-sm); color: var(--accent); letter-spacing: .02em; }
-#desktop-sidebar .sidebar-sub { font-family: var(--fl); font-size: 10px; color: var(--txt3); text-transform: uppercase; letter-spacing: .14em; margin-top: 3px; }
+#desktop-sidebar .sidebar-sub { font-family: var(--fl); font-size: 10px; font-weight: var(--type-weight-strong); color: var(--txt3); text-transform: uppercase; letter-spacing: .1em; margin-top: 2px; }
 /* Sidebar character selector dropdown */
 .sidebar-char-sel {
   margin-top: 10px;
@@ -1845,9 +1845,6 @@ body.desktop-mode.sidebar-collapsed .sb-collapse-btn { width: 100%; justify-cont
   text-align: center; line-height: 1.1;
 }
 .sidebar-app-tile.on .sidebar-app-tile-label { color: var(--accent); }
-
-/* User area */
-#desktop-sidebar .sidebar-user { padding: 10px 14px; border-top: 1px solid var(--bdr); flex-shrink: 0; }
 
 /* Desktop/phablet toggle button — visible in header so STs can override autodetect */
 

@@ -2199,11 +2199,6 @@ function renderDesktopSidebar() {
     fh += `<span class="sidebar-app-tile-label">Settings</span></button>`;
     footer.innerHTML = fh;
   }
-
-  // Mirror user info
-  const userEl = document.getElementById('sidebar-user');
-  const desktopUserEl = document.getElementById('desktop-sidebar-user');
-  if (userEl && desktopUserEl) desktopUserEl.innerHTML = userEl.innerHTML;
 }
 
 // ── Theme toggle (nav-3-2) ────────────────────────────────────────────────────
