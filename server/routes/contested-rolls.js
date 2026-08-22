@@ -19,8 +19,15 @@ router.post('/', validate(contestedRollRequestSchema), async (req, res) => {
     return res.status(403).json({ error: 'FORBIDDEN', message: 'Character does not belong to you' });
   }
 
+  // crd.1: request_type is set explicitly, AFTER the req.body spread, so the
+  // route is always the authority on it. Before this story a plain contested
+  // roll carried NO request_type at all, and every guard against Status
+  // Actions sharing this collection worked only because absence happens to
+  // satisfy `$ne: 'status_action'` — the same implicit-discriminator
+  // fragility that produced the oaq.3 void-orphaning bug (see PUT /:id/void).
   const doc = {
     ...req.body,
+    request_type: 'contested_roll',
     status:     'pending',
     outcome:    null,
     created_at: new Date().toISOString(),
@@ -37,8 +44,21 @@ router.get('/mine', async (req, res) => {
   const charIds = (req.user.character_ids || []).map(id => String(id));
   if (!charIds.length) return res.json([]);
 
+  // crd.1 route audit: this query had NO request_type clause at all. It was
+  // safe only by accident — office-actions.js writes `target_id`, not
+  // `target_character_id`, so a Status Action simply never matched the field
+  // name. Any future writer adding a target_character_id to a status_action
+  // (or a fourth request_type sharing this collection) would have leaked
+  // straight into a player's own queue. Scoped positively rather than as
+  // `$ne: 'status_action'`: `$in: [null, 'contested_roll']` matches legacy
+  // documents (request_type absent — everything written before crd.1) and new
+  // explicit ones, and nothing else.
   const docs = await col()
-    .find({ target_character_id: { $in: charIds }, status: 'pending' })
+    .find({
+      target_character_id: { $in: charIds },
+      status: 'pending',
+      request_type: { $in: [null, 'contested_roll'] },
+    })
     .sort({ created_at: -1 })
     .toArray();
 
