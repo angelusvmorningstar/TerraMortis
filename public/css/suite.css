@@ -1812,7 +1812,7 @@ body.desktop-mode.sidebar-collapsed .sb-collapse-btn { width: 100%; justify-cont
 /* Section labels */
 #desktop-sidebar .sidebar-section-label {
   font-family: var(--fl); font-size: 9px; font-weight: 700;
-  letter-spacing: .16em; text-transform: uppercase; color: var(--label-secondary);
+  letter-spacing: .16em; text-transform: uppercase; color: var(--gdim);
   padding: 10px 16px 4px; border-top: 1px solid var(--bdr); margin-top: 2px;
 }
 
@@ -1826,7 +1826,7 @@ body.desktop-mode.sidebar-collapsed .sb-collapse-btn { width: 100%; justify-cont
 .sidebar-app-tile {
   display: flex; flex-direction: column; align-items: center; justify-content: center;
   gap: 4px; padding: 8px 4px; aspect-ratio: 1;
-  background: var(--surf); border: 1px solid var(--bdr); border-radius: var(--radius-md);
+  background: var(--surf2); border: 1px solid var(--bdr); border-radius: var(--radius-md);
   cursor: pointer; transition: background .15s, border-color .15s; width: 100%;
   position: relative; min-width: 0; overflow: hidden;
 }
@@ -1861,28 +1861,40 @@ body.desktop-mode.sidebar-collapsed .sb-collapse-btn { width: 100%; justify-cont
   flex-shrink: 0;
 }
 /* 32px, matching .sidebar-app-btn/.sidebar-util-btn exactly -- was its own 40px size,
-   a real inconsistency fixed in the same pass. */
-.sidebar-settings-btn { width: 32px; height: 32px; padding: 0; display: flex; align-items: center; justify-content: center; }
-.sidebar-settings-btn .sidebar-app-tile-icon svg { width: 16px; height: 16px; }
+   a real inconsistency fixed in the same pass. Colour comes from .sidebar-app-tile
+   below via the shared red/white footer-button rule, not from here. */
+.sidebar-settings-btn {
+  width: 32px; height: 32px; padding: 0; display: flex; align-items: center; justify-content: center;
+  background: var(--crim); border: none;
+}
+.sidebar-settings-btn:hover { background: var(--crim-hover); }
+.sidebar-settings-btn.on { background: var(--crim-active); }
+.sidebar-settings-btn .sidebar-app-tile-icon svg,
+.sidebar-settings-btn.on .sidebar-app-tile-icon svg { width: 16px; height: 16px; stroke: var(--txt-on-dark); }
 .sidebar-settings-btn .sidebar-app-tile-label { display: none; }
 
-/* Cross-app switcher row (GA/ST/AD) + utility buttons — same shape as TM Admin's
-   .icon-nav__app-btn/.icon-nav__util-btn, same tokens now both apps share the port. */
-.sidebar-app-row { display: flex; gap: 6px; justify-content: center; }
+/* Red/white -- the historical treatment this exact class used before the rail got
+   neutralised to the outlined tile look (Angelus, 2026-08-22: "historically those
+   buttons were red with white font"). Applied to EVERY footer button uniformly now,
+   not just the one that used to link to /admin. radius-md, not radius-sm -- that was
+   "normalised to the settings button": .sidebar-settings-btn had silently kept the
+   historical radius via .sidebar-app-tile inheritance while these had drifted to
+   radius-sm; settings was the one still correct. Flat siblings of .sidebar-footer,
+   not wrapped in their own row div (2026-08-22's earlier fix). */
 .sidebar-app-btn, .sidebar-util-btn {
   display: inline-flex; align-items: center; justify-content: center;
-  width: 32px; height: 32px; border-radius: var(--radius-sm);
-  border: 1px solid var(--bdr); background: var(--surf);
+  width: 32px; height: 32px; border-radius: var(--radius-md);
+  border: none; background: var(--crim);
   cursor: pointer; text-decoration: none;
-  transition: border-color .15s, background .15s, color .15s;
+  transition: background .15s;
 }
 .sidebar-app-btn {
   font-family: var(--fl); font-size: var(--type-size-micro);
-  font-weight: var(--type-weight-strong); letter-spacing: .04em; color: var(--txt3);
+  font-weight: var(--type-weight-strong); letter-spacing: .04em; color: var(--txt-on-dark);
 }
-.sidebar-util-btn { color: var(--txt3); }
-.sidebar-app-btn:hover, .sidebar-util-btn:hover { border-color: var(--bdr3); background: var(--surf2); color: var(--txt2); }
-.sidebar-app-btn.on { border-color: var(--accent-a40); background: var(--accent-a8); color: var(--accent); cursor: default; }
+.sidebar-util-btn { color: var(--txt-on-dark); }
+.sidebar-app-btn:hover, .sidebar-util-btn:hover { background: var(--crim-hover); }
+.sidebar-app-btn.on { background: var(--crim-active); cursor: default; }
 
 /* Sidebar collapse button */
 .sidebar-collapse-btn {
