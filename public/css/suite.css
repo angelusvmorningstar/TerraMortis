@@ -1833,12 +1833,15 @@ body.desktop-mode.sidebar-collapsed .sb-collapse-btn { width: 100%; justify-cont
 .sidebar-app-tile:hover { background: var(--surf3); border-color: var(--bdr2); }
 .sidebar-app-tile.on { background: var(--accent-a8); border-color: var(--accent-a40); }
 .sidebar-app-tile-icon { display: flex; align-items: center; justify-content: center; }
-.sidebar-app-tile-icon svg { width: 22px; height: 22px; stroke: var(--txt2); fill: none; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
+/* 18px icon, 8px/700/.04em label -- matches TM Story's own .site-rail__icon/.site-rail__label
+   exactly (measured against the real thing, not the --type-size-micro token, which is 10px
+   and was never actually what TM Story ships). */
+.sidebar-app-tile-icon svg { width: 18px; height: 18px; stroke: var(--txt2); fill: none; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
 .sidebar-app-tile.on .sidebar-app-tile-icon svg { stroke: var(--accent); }
 .sidebar-app-tile:hover .sidebar-app-tile-icon svg { stroke: var(--txt); }
 .sidebar-app-tile-label {
-  font-family: var(--fl); font-size: var(--type-size-micro); font-weight: var(--type-weight-strong);
-  letter-spacing: var(--type-letter-spacing-label); text-transform: uppercase; color: var(--txt3);
+  font-family: var(--fl); font-size: 8px; font-weight: 700;
+  letter-spacing: .04em; text-transform: uppercase; color: var(--txt3);
   text-align: center; line-height: 1.1;
 }
 .sidebar-app-tile.on .sidebar-app-tile-label { color: var(--accent); }
@@ -1849,14 +1852,18 @@ body.desktop-mode.sidebar-collapsed .sb-collapse-btn { width: 100%; justify-cont
 /* Desktop/phablet toggle button — visible in header so STs can override autodetect */
 
 /* Sidebar footer — pinned to bottom */
+/* ONE row, no wrap -- was flex-wrap:wrap, which silently split into two rows the moment
+   the rail sat near its clamp() floor width. Never asked for; fixed 2026-08-22. */
 .sidebar-footer {
   margin-top: auto; padding: 10px 14px; border-top: 1px solid var(--bdr);
-  display: flex; align-items: center; justify-content: center; gap: 8px;
-  flex-wrap: wrap; row-gap: 6px;
+  display: flex; align-items: center; justify-content: center; gap: 6px;
+  flex-wrap: nowrap;
   flex-shrink: 0;
 }
-.sidebar-settings-btn { width: 40px; height: 40px; padding: 0; display: flex; align-items: center; justify-content: center; }
-.sidebar-settings-btn .sidebar-app-tile-icon { width: 22px; height: 22px; }
+/* 32px, matching .sidebar-app-btn/.sidebar-util-btn exactly -- was its own 40px size,
+   a real inconsistency fixed in the same pass. */
+.sidebar-settings-btn { width: 32px; height: 32px; padding: 0; display: flex; align-items: center; justify-content: center; }
+.sidebar-settings-btn .sidebar-app-tile-icon svg { width: 16px; height: 16px; }
 .sidebar-settings-btn .sidebar-app-tile-label { display: none; }
 
 /* Cross-app switcher row (GA/ST/AD) + utility buttons — same shape as TM Admin's

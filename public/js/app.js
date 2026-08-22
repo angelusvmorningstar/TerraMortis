@@ -2179,13 +2179,12 @@ function renderDesktopSidebar() {
     // OTHER apps render here, never this app's own entry (Angelus, 2026-08-22: "the GA
     // button does not need to be shown in the game app"). AD -> TM Admin was the old
     // "ST Admin" -> /admin shortcut, repointed now that admin function lives there
-    // instead, and correctly ST-gated the way that old link already was.
-    fh += `<div class="sidebar-app-row">`;
+    // instead, and correctly ST-gated the way that old link already was. Flat siblings,
+    // not wrapped in their own row div -- the whole footer is ONE row (2026-08-22 fix).
     fh += `<a class="sidebar-app-btn" href="https://terramortisstory.netlify.app/" title="TM Story">ST</a>`;
     if (isRealST) {
       fh += `<a class="sidebar-app-btn" href="https://terramortisadmin.netlify.app/" title="TM Admin">AD</a>`;
     }
-    fh += `</div>`;
 
     if (isRealST) {
       const isDesktopNow = document.body.classList.contains('desktop-mode');
