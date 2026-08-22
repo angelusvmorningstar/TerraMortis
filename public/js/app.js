@@ -2175,12 +2175,12 @@ function renderDesktopSidebar() {
     let fh = '';
     const isRealST = getRole() === 'st' || getRole() === 'dev';
 
-    // Cross-app switcher (shared shape with TM Story's/TM Admin's own footers): GA is this
-    // app (current, not a link), ST is TM Story (open to every player), AD is TM Admin — was
-    // the old "ST Admin" -> /admin shortcut, repointed now that admin function lives there
+    // Cross-app switcher (shared shape with TM Story's/TM Admin's own footers): only the
+    // OTHER apps render here, never this app's own entry (Angelus, 2026-08-22: "the GA
+    // button does not need to be shown in the game app"). AD -> TM Admin was the old
+    // "ST Admin" -> /admin shortcut, repointed now that admin function lives there
     // instead, and correctly ST-gated the way that old link already was.
     fh += `<div class="sidebar-app-row">`;
-    fh += `<span class="sidebar-app-btn on" title="TM Game (current)" aria-current="true">GA</span>`;
     fh += `<a class="sidebar-app-btn" href="https://terramortisstory.netlify.app/" title="TM Story">ST</a>`;
     if (isRealST) {
       fh += `<a class="sidebar-app-btn" href="https://terramortisadmin.netlify.app/" title="TM Admin">AD</a>`;
