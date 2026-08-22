@@ -186,7 +186,7 @@ The static enums above qualify because they encode rule-system facts (the five c
 - **No em-dashes** in output text
 - **Dots display**: `'●'.repeat(n)` using U+25CF filled circle
 - **Gold accent**: CSS var `--gold2` (value differs per theme; never hardcode the hex)
-- **Font stack**: Cinzel / Cinzel Decorative for headings, Lora for body (Google Fonts CDN)
+- **Font stack**: Cinzel is DISPLAY-ONLY and bold (`--fh`; two sizes, `--type-size-display-lg`/`-sm`, plus this app's own `--type-size-display-hero` for the roll-calculator's numeral) — never for names, labels, sub-headings or buttons, no matter how prominent. Lato (`--fl`, aliased `--type-heading`/`--type-label`) is headings and labels, including character/entity names. Libre Baskerville (`--ft`, `--type-body`) is body prose. This corrects a stale "Lora for body" claim (Lora was never the real body font in this codebase's own `theme.css`) — caught during the 2026-08-22 design-token port, see `../design-token-port.md` and `../design-normalisation-tm-game-audit.md`.
 - **CSS custom properties** defined on `:root` in `public/css/theme.css`. Default theme is **Parchment** (warm light); `[data-theme="dark"]` is the override. Tokens flip between themes; rule bodies stay theme-agnostic.
 - **Normalised CSS (MANDATORY)**: all styling uses the design-system tokens in `theme.css`. Reuse an existing component class from `public/css/components.css` (or the app sheet `suite.css` / `admin-layout.css`) before inventing one. Never write a bare hex, `rgba()`, or inline `style="..."` in markup or JS-rendered HTML. Full guidance: `specs/architecture/coding-standards.md` → "CSS Standards"; the critical-standards summary auto-read by the BMAD dev/story agents lives in `specs/project-context.md`.
 

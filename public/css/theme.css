@@ -48,8 +48,87 @@
   --fh:'Cinzel',serif;--fl:'Lato',sans-serif;--ft:'Libre Baskerville',serif;
   /* Display variant — used for reading-pane h1/h2 in rules/lore documents */
   --fh-decorative:'Cinzel Decorative','Cinzel',serif;
-  /* Transition aliases — kept until DS-02 through DS-12 sweep removes all usages */
+  /* Transition aliases — kept until DS-02 through DS-12 sweep removes all usages.
+     Checked 2026-08-22 during the token-port audit: no tracker for a "DS-02..DS-12
+     sweep" exists in sprint-status.yaml or specs/. Not the same initiative as this
+     token port under an old name — this port uses --type-* names throughout, never
+     DS-NN. Whatever DS-02..DS-12 was, it is untracked and orthogonal; --fhd/--fb stay
+     as they are, unresolved, flagged for whoever next has reason to chase it. */
   --fhd:var(--fh);--fb:var(--ft);
+
+  /* ── SHARED ECOSYSTEM LAYER (2026-08-22) ───────────────────────────────
+     Ported from TM Design System after Angelus approved it rendered; TM Admin
+     absorbed it first (2026-08-21), then TM Story, now TM Game — the third and
+     last of the three apps. Keep this block identical across the three apps —
+     that is the whole point. Rationale and measured before/after live in
+     TM Design System/.design-sync/NOTES.md; port status in
+     ../../design-token-port.md; the TM-Game-specific audit that drove this
+     pass's exact per-selector calls lives in
+     ../../design-normalisation-tm-game-audit.md.
+
+     Declared in :root ONLY, with no [data-theme="dark"] override. TM Game has
+     4 dark-carrying stylesheets (this file, suite.css, components.css, plus
+     admin-*.css which is out of scope), but a sweep for sizing declarations
+     inside theme-scoped rules found none in the in-scope files — TM Game's
+     dark mode is colour-only, same finding TM Story's own port made
+     independently. --accent itself IS theme-dependent here (crimson light /
+     gold dark) but that is a colour token, unaffected by this layer.
+
+     No --space-* scale exists in TM Game and none is added here: unlike TM
+     Admin/TM Story, nothing in this port's scope (components.css, suite.css,
+     theme.css) needed one, and inventing an unused scale is dead weight, not
+     parity. Add it if a future story actually reaches for it.
+
+     RADIUS: --radius-none/sm/md/lg/pill, matching TM Admin/TM Story exactly. */
+  --radius-none:0px; --radius-sm:4px; --radius-md:8px; --radius-lg:12px; --radius-pill:999px;
+
+  /* CINZEL IS DISPLAY-ONLY AND BOLD (Angelus, ruled 2026-08-21, restated
+     2026-08-22 for this port: "Cinzel is ONLY Display. Lato is header and
+     label, libre baskerville is text."). Display tier only, always
+     --type-weight-strong. Character/entity names are NOT an exception, no
+     matter how prominent — they take --type-heading (Lato), never --fh. */
+  --type-size-display-lg:24px; --type-size-display-sm:18px;
+  /* --type-size-display-hero: TM-Game-specific extension, same pattern as TM
+     Admin's own --type-size-display-xl (28px) for its oversized dashboard
+     numerals. TM Game's .rv2-eff roll-effect "hero numeral" runs to 64px, far
+     outside the shared 8-value scale's own design-system scope, and folding
+     it down would shrink a real hero display to fit a scale that never saw
+     it. Angelus's call, 2026-08-22. */
+  --type-size-display-hero:64px;
+  --type-size-heading:16px;    --type-size-subheading:14px;
+  --type-size-body:13px;       --type-size-caption:12px;
+  --type-size-label:11px;      --type-size-micro:10px;
+  --type-display:var(--fh); --type-heading:var(--fl);
+  --type-label:var(--fl);   --type-body:var(--ft);
+
+  /* One tracking rule for uppercase labels, em so it scales with type size.
+     CONVENTION for new/touched CSS only — do NOT retrofit existing
+     letter-spacing. Made and reverted twice already on the other two ports:
+     wide tracking on small caps is a deliberate typographic choice in this
+     codebase, not drift. */
+  --type-letter-spacing-label:0.06em;
+
+  --type-weight-body:400; --type-weight-label:600;
+  --type-weight-strong:700; --type-weight-shout:900;
+
+  /* Chip tiers — FIXED heights, convention for new/touched chip components.
+     TM Game's existing ~15 ad hoc ".*chip*" classes are NOT retrofitted onto
+     these wholesale (no single generic Tag/Status chip component exists here
+     the way TM Admin/TM Story have one) — that would be its own pass. The one
+     concrete fix this port DOES make is the undersized .dt-feed-chip tap
+     target (see components.css), via --control-height-sm, not these. */
+  --chip-tag-height:20px; --chip-status-height:30px;
+
+  --breakpoint-phablet-max:640px; --breakpoint-tablet-max:900px;
+
+  /* ── CONTROL HEIGHT ────────────────────────────────────────────────────
+     TM Game is PHABLET-FIRST for everything in this port's scope (index.html,
+     the player/ST game app) — same ruling as TM Story. No data-density
+     opt-out is declared: admin.html's own desktop density concerns live
+     entirely in admin-layout.css, which is out of scope for this pass (that
+     panel is being shed to TM Admin). Roles: sm = compact/icon-only,
+     md = default control, lg = primary CTA. */
+  --control-height-sm:36px; --control-height-md:44px; --control-height-lg:52px;
 
   /* Status: success / green */
   --green:#1E6A1E;--green2:#2A7A4A;--green3:#1A5A30;--green4:#2A8A4A;
@@ -284,5 +363,5 @@
 }
 
 /* ── Cross-app navigation buttons ── */
-.app-nav-btn{display:inline-block;padding:6px 14px;background:var(--crim,#8B0000);color:var(--txt-on-dark);border:1px solid var(--crim-a70);border-radius:4px;font-family:var(--fh);font-size:12px;font-weight:700;text-decoration:none;text-transform:uppercase;letter-spacing:.5px;white-space:nowrap;cursor:pointer;}
+.app-nav-btn{display:inline-block;padding:6px 14px;background:var(--crim,#8B0000);color:var(--txt-on-dark);border:1px solid var(--crim-a70);border-radius:var(--radius-sm);font-family:var(--fl);font-size:12px;font-weight:700;text-decoration:none;text-transform:uppercase;letter-spacing:.5px;white-space:nowrap;cursor:pointer;}
 .app-nav-btn:hover{filter:brightness(1.15);}

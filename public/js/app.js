@@ -2169,18 +2169,29 @@ function renderDesktopSidebar() {
 
   nav.innerHTML = h;
 
-  // ── Footer: Settings + ST Admin pinned to bottom ──
+  // ── Footer: cross-app switcher + density toggle + Settings, pinned to bottom ──
   const footer = document.getElementById('desktop-sidebar-footer');
   if (footer) {
     let fh = '';
-    // ST Admin button — only for real STs (not player-view mode)
     const isRealST = getRole() === 'st' || getRole() === 'dev';
+
+    // Cross-app switcher (shared shape with TM Story's/TM Admin's own footers): GA is this
+    // app (current, not a link), ST is TM Story (open to every player), AD is TM Admin — was
+    // the old "ST Admin" -> /admin shortcut, repointed now that admin function lives there
+    // instead, and correctly ST-gated the way that old link already was.
+    fh += `<div class="sidebar-app-row">`;
+    fh += `<span class="sidebar-app-btn on" title="TM Game (current)" aria-current="true">GA</span>`;
+    fh += `<a class="sidebar-app-btn" href="https://terramortisstory.netlify.app/" title="TM Story">ST</a>`;
     if (isRealST) {
-      fh += `<a href="/admin" class="sidebar-st-btn" title="ST Admin">ST</a>`;
+      fh += `<a class="sidebar-app-btn" href="https://terramortisadmin.netlify.app/" title="TM Admin">AD</a>`;
+    }
+    fh += `</div>`;
+
+    if (isRealST) {
       const isDesktopNow = document.body.classList.contains('desktop-mode');
       const phoneIcon = `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="20" rx="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg>`;
       const monitorIcon = `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>`;
-      fh += `<button class="sidebar-st-btn" onclick="toggleDesktopMode()" title="${isDesktopNow ? 'Switch to phablet view' : 'Switch to desktop view'}">${isDesktopNow ? phoneIcon : monitorIcon}</button>`;
+      fh += `<button class="sidebar-util-btn" onclick="toggleDesktopMode()" title="${isDesktopNow ? 'Switch to phablet view' : 'Switch to desktop view'}">${isDesktopNow ? phoneIcon : monitorIcon}</button>`;
     }
     // Settings
     const settingsOn = isActive('settings') ? ' on' : '';
