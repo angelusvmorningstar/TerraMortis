@@ -148,16 +148,61 @@ describe.skipIf(!dbAvailable)('crd.1 AC2/AC4 — request_type is an explicit, kn
 });
 
 describe.skipIf(!dbAvailable)('crd.1 AC3 — the defender-resolution fields exist and are correctly typed', () => {
-  it('accepts all three new fields together, correctly shaped', async () => {
+  it('accepts all three new fields as SCHEMA-VALID shapes (additionalProperties: false must not reject them)', async () => {
     const res = await post(validBody({
       defender_aspect:    'mental',
       defender_wp_spent:  true,
       defender_merit_ids: ['indomitable', 'closed-book'],
     }));
     expect(res.status, JSON.stringify(res.body)).toBe(201);
-    expect(res.body.defender_aspect).toBe('mental');
-    expect(res.body.defender_wp_spent).toBe(true);
-    expect(res.body.defender_merit_ids).toEqual(['indomitable', 'closed-book']);
+  });
+
+  // ── Code-review patch 2 (external Codex review, Pass 3a Medium) ────────────
+  // These three are the DEFENDER's own submitted resolution choices, written
+  // later by crd.3a's resolve endpoint. AC3 says literally that they "only ever
+  // get populated later, by crd.3a, not by this story or by POST /" — but the
+  // `...req.body` spread let the ATTACKER assert all three at creation time,
+  // the same shape of injury as the original attacker-writable defender_pool
+  // this whole epic exists to fix. Stripped after the spread, exactly the way
+  // request_type is force-set after it.
+  it('POST / never PERSISTS attacker-supplied defender-resolution fields (AC3\'s literal provenance rule)', async () => {
+    const res = await post(validBody({
+      defender_aspect:    'mental',
+      defender_wp_spent:  true,
+      defender_merit_ids: ['indomitable', 'closed-book'],
+    }));
+    expect(res.status, JSON.stringify(res.body)).toBe(201);
+
+    const stored = await getCollection('contested_roll_requests').findOne({ _id: new ObjectId(res.body._id) });
+    for (const field of ['defender_aspect', 'defender_wp_spent', 'defender_merit_ids']) {
+      expect(stored[field], `${field} must not survive from the attacker's creation body into the stored document`).toBeUndefined();
+      expect(Object.prototype.hasOwnProperty.call(stored, field), `${field} must not be present at all, not even as null`).toBe(false);
+      expect(res.body[field], `${field} must not be echoed back either`).toBeUndefined();
+    }
+  });
+
+  it('each of the three is stripped INDEPENDENTLY, not only when all three arrive together', async () => {
+    for (const [field, value] of [['defender_aspect', 'social'], ['defender_wp_spent', true], ['defender_merit_ids', ['indomitable']]]) {
+      const res = await post(validBody({ [field]: value }));
+      expect(res.status, JSON.stringify(res.body)).toBe(201);
+      const stored = await getCollection('contested_roll_requests').findOne({ _id: new ObjectId(res.body._id) });
+      expect(Object.prototype.hasOwnProperty.call(stored, field), `${field} alone must still be stripped`).toBe(false);
+    }
+  });
+
+  it('stripping the three does not disturb the fields POST / legitimately stores', async () => {
+    const res = await post(validBody({
+      defender_aspect: 'physical',
+      power_name:      'Awe',
+      defender_pool:   4,
+    }));
+    expect(res.status, JSON.stringify(res.body)).toBe(201);
+    const stored = await getCollection('contested_roll_requests').findOne({ _id: new ObjectId(res.body._id) });
+    expect(stored.power_name).toBe('Awe');
+    expect(stored.defender_pool).toBe(4);
+    expect(stored.challenger_pool).toBe(7);
+    expect(stored.request_type).toBe('contested_roll');
+    expect(Object.prototype.hasOwnProperty.call(stored, 'defender_aspect')).toBe(false);
   });
 
   it('all three are OPTIONAL — a challenge created without them is still valid', async () => {
@@ -168,10 +213,9 @@ describe.skipIf(!dbAvailable)('crd.1 AC3 — the defender-resolution fields exis
     expect(res.body.defender_merit_ids).toBeUndefined();
   });
 
-  it.each(['mental', 'social', 'physical'])('accepts defender_aspect: %s', async (aspect) => {
+  it.each(['mental', 'social', 'physical'])('the schema accepts defender_aspect: %s (POST / then strips it — see patch 2 below)', async (aspect) => {
     const res = await post(validBody({ defender_aspect: aspect }));
     expect(res.status, JSON.stringify(res.body)).toBe(201);
-    expect(res.body.defender_aspect).toBe(aspect);
   });
 
   it('rejects an off-enum defender_aspect', async () => {
@@ -277,6 +321,79 @@ describe.skipIf(!dbAvailable)('crd.1 AC5 — _findChallenge and PUT /:id/void ac
       const stored = await getCollection('contested_roll_requests').findOne({ _id: new ObjectId(id) });
       expect(stored.status, `${verb} must leave the status_action record pending`).toBe('pending');
     }
+  });
+});
+
+// ── Code-review patch 1 (external Codex review, Pass 2/Pass 3a High) ─────────
+// AC1 made `defender_pool` optional at creation, but `PUT /:id/accept` was left
+// unchanged. The two halves were each covered in isolation and their
+// integration was not: creating WITHOUT a pool and then accepting was never
+// composed in a test. Live reproduction confirmed the consequence —
+// `_roll(undefined)` returns `[]` (because `Math.max(0, undefined)` is `NaN`),
+// so the request resolved 200 with `defender: { pool: null, successes: 0,
+// rolls: [] }` and `outcome: 'attacker'`: the defender silently lost on zero
+// dice. These tests compose the two halves.
+describe.skipIf(!dbAvailable)('crd.1 review patch — /accept refuses a challenge with no defender pool yet', () => {
+  it('the exact live repro: POST with NO defender_pool, then accept — must NOT resolve as a zero-die defence', async () => {
+    const created = await post(validBody());
+    expect(created.status, JSON.stringify(created.body)).toBe(201);
+    expect(created.body.defender_pool).toBeUndefined();
+
+    const res = await request(app)
+      .put(`/api/contested_roll_requests/${created.body._id}/accept`)
+      .set('X-Test-User', defenderUser());
+
+    expect(res.status, JSON.stringify(res.body)).toBe(409);
+    expect(res.body.error).toBe('CONFLICT');
+    expect(String(res.body.message)).toMatch(/defender pool/i);
+
+    // And the record must be left exactly as it was — not resolved, no outcome,
+    // and no session_logs entry written on its behalf.
+    const stored = await getCollection('contested_roll_requests').findOne({ _id: new ObjectId(created.body._id) });
+    expect(stored.status, 'a blocked accept must leave the challenge pending').toBe('pending');
+    expect(stored.outcome).toBeNull();
+    const logs = await getCollection('session_logs')
+      .countDocuments({ challenge_id: String(created.body._id) });
+    expect(logs, 'no session log may be written for a refused accept').toBe(0);
+  });
+
+  it('an explicit defender_pool of 0 is a RESOLVED pool, not a missing one — it still accepts and rolls', async () => {
+    // Discriminates a correct null/undefined check from a falsy `!pool` check:
+    // zero dice deliberately assigned by crd.3a is a legitimate resolved state.
+    const id = await seedShape('new', { defender_pool: 0 });
+    const res = await request(app).put(`/api/contested_roll_requests/${id}/accept`).set('X-Test-User', defenderUser());
+    expect(res.status, JSON.stringify(res.body)).toBe(200);
+    expect(res.body.status).toBe('resolved');
+    expect(res.body.outcome.defender.pool).toBe(0);
+  });
+
+  it('REGRESSION: the pre-existing accept path (defender_pool supplied) is unaffected and still rolls', async () => {
+    const id = await seedShape('new'); // seedShape always supplies defender_pool: 3
+    const res = await request(app).put(`/api/contested_roll_requests/${id}/accept`).set('X-Test-User', defenderUser());
+    expect(res.status, JSON.stringify(res.body)).toBe(200);
+    expect(res.body.status).toBe('resolved');
+    expect(res.body.outcome.defender.pool).toBe(3);
+    expect(res.body.outcome.defender.rolls.length, 'three real dice, not an empty degenerate roll').toBe(3);
+    expect(res.body.outcome.attacker.rolls.length).toBe(5);
+  });
+
+  it('the pool guard runs AFTER the ownership check — a non-target still gets 403, not the pool 409', async () => {
+    const created = await post(validBody());
+    const res = await request(app)
+      .put(`/api/contested_roll_requests/${created.body._id}/accept`)
+      .set('X-Test-User', playerUser(['000000000000000000000d99']));
+    expect(res.status).toBe(403);
+    expect(res.body.error).toBe('FORBIDDEN');
+  });
+
+  it('decline is NOT blocked by a missing defender pool — a defender may always refuse a challenge', async () => {
+    const created = await post(validBody());
+    const res = await request(app)
+      .put(`/api/contested_roll_requests/${created.body._id}/decline`)
+      .set('X-Test-User', defenderUser());
+    expect(res.status, JSON.stringify(res.body)).toBe(200);
+    const stored = await getCollection('contested_roll_requests').findOne({ _id: new ObjectId(created.body._id) });
+    expect(stored.status).toBe('declined');
   });
 });
 

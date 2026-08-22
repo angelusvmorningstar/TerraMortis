@@ -2,7 +2,7 @@
 id: crd.1
 epic: crd
 epic_file: specs/epic-crd-contested-roll-defence.md
-status: review
+status: done
 priority: high
 type: data-lock
 depends_on: []
@@ -456,9 +456,123 @@ client-side change of any kind.
 - `specs/stories/crd-1-data-lock-schema-hardening-wp-spike.md` — this file (Dev Agent Record, File
   List, Change Log, Status, task checkboxes)
 
+## Senior Developer Review
+
+**Date:** 2026-08-22. **Status:** review → done. **Reviewer:** external Codex review, verified and
+patched in-session. **NOT committed, NOT pushed, NOT merged** — Angelus's call.
+
+### Provenance of the findings — what came from OUTSIDE this story's own work
+
+Every finding triaged below came from an **EXTERNAL adversarial review run in Codex** (3-pass
+blinded protocol), not from this story's own dev pass and not from anything found while writing
+these patches. The full, unedited findings file is persisted at
+**`specs/stories/code-review/crd-1-codex-findings.md`** — read it there rather than here; it is not
+duplicated inline, and it was not edited when these patches were applied.
+
+Nothing new was discovered during this patch pass itself. The only in-pass observations were
+mechanical: two pre-existing tests in this story's own suite had codified the very behaviour the
+patches remove (`accepts all three new fields together` and the `defender_aspect` `it.each` both
+asserted that attacker-supplied resolution fields are echoed back), so both were rewritten to assert
+schema-acceptance only. That is a consequence of patch 2, not a separate finding.
+
+### Independent verification before any patch was written
+
+Both High findings were **reproduced live against the real running route before a line was changed**,
+rather than accepted on the reviewer's authority:
+
+- A `contested_roll_requests` document was created through `POST /api/contested_roll_requests` with
+  **no `defender_pool`** (valid per this story's own AC1 schema change), then `PUT /:id/accept` was
+  called. Real result: **HTTP 200**, `defender: { pool: null, successes: 0, rolls: [] }`,
+  `outcome: 'attacker'`. The defender silently lost the contest on zero dice. Root cause confirmed in
+  `_roll(n)`: `Math.max(0, undefined)` is `NaN`, so the roll loop never executes and returns `[]`.
+  That exact response body was reproduced again by the new red test before the guard landed.
+- The three defender-resolution fields were confirmed by direct code read to survive `POST /`'s
+  `...req.body` spread into the stored document, contradicting AC3's own literal wording.
+
+### Patched (2)
+
+1. **`PUT /:id/accept` now refuses a challenge with no resolved defender pool** (Codex Pass 2 High,
+   restated by Pass 3a's "never makes the intermediate release safe" and "`defender_pool` remains
+   attacker-writable"). Returns **409 `CONFLICT`** with an explicit message, matching this route's
+   own existing 409 "no longer pending" convention, and leaves the record pending with no
+   `session_logs` entry. Deliberately an **interim block, not resolution logic** — crd.3a's resolve
+   endpoint is what will ever populate `defender_pool` for real; until then an unresolved request
+   cannot be accepted at all, which is safe, rather than silently rolling zero dice, which is not.
+   The guard is `== null`, not falsy, so an explicit `defender_pool: 0` (a legitimately
+   crd.3a-computed zero) still accepts. It runs AFTER the ownership check, so a non-target still
+   gets 403. `PUT /:id/decline` is deliberately NOT guarded — a defender may always refuse.
+2. **`POST /` no longer persists attacker-supplied `defender_aspect`, `defender_wp_spent` or
+   `defender_merit_ids`** (Codex Pass 3a Medium, "AC3 says resolution choices are never populated by
+   POST, but POST persists all three"). All three are stripped **after** the `...req.body` spread,
+   the same way `request_type` is force-set after it, so the route is always the authority. These are
+   the defender's own submitted choices; letting the attacker assert them at creation is the same
+   shape of injury as the attacker-writable `defender_pool` this epic exists to remove. The schema
+   still lists all three (`additionalProperties: false` still holds, and crd.3a's resolve endpoint
+   writes them) — they are simply never honoured at creation. **AC3's literal wording is now true as
+   written and needed no amendment.**
+
+**Prove-discrimination, run per patch, never combined.** Each patch was reverted alone, the suite
+re-run, and the fix restored (the route file was byte-compared against a pre-revert copy after each
+restore, `RESTORED IDENTICAL` both times):
+
+- Patch 1 reverted alone → **1 failed / 41 passed**, the failure being exactly the live repro
+  (`expected 200 to be 409`, response body carrying `defender: { pool: null, successes: 0,
+  rolls: [] }` and `outcome: 'attacker'`). No patch-2 test moved.
+- Patch 2 reverted alone → **3 failed / 39 passed**, all three the new provenance tests
+  (`expected 'mental' to be undefined` etc.). No patch-1 test moved.
+
+### Deferred, NOT patched here — each needs its own story
+
+Named explicitly so they are not silently inherited by crd.3a. All three are logged in
+`specs/deferred-work.md` under this story's own block.
+
+1. **Un-awaited `createIndex()` promises in `server/index.js`** (Codex Medium, Pass 1 + Pass 3b) —
+   both new crd.1 indexes (`crd1_defender_queue`, `crd1_terminal_status_ttl`) discard their promise
+   with no `.catch()`. Independently confirmed by direct code read here. The Dev Agent Record's claim
+   that a non-unique index "cannot reject at build time" is genuinely wrong: option conflicts,
+   permissions and dropped connections all reject. Deliberately out of scope for this patch round —
+   it is a boot-path convention shared with the pre-existing oaq.2 index and wants a single
+   consistent fix across all of them.
+2. **`$ne`-vs-positive-scoping inconsistency on `_findChallenge` and `PUT /:id/void`** (Codex Medium,
+   Pass 3a) — `GET /mine` was upgraded to `request_type: { $in: [null, 'contested_roll'] }` but the
+   two mutation guards still use `{ $ne: 'status_action' }`, so any future fourth request family in
+   this shared collection is default-allowed into contested-roll lifecycle routes. Confirmed by
+   direct code read. Real inconsistency, no current exploit (no third explicit request family
+   writes production records today).
+3. **The parent epic's server-derived `game_session_id` was never added** (Codex Medium, Pass 3a) —
+   `specs/epic-crd-contested-roll-defence.md` (~line 100) puts a server-derived `game_session_id` in
+   crd.1's creation shape and explicitly forbids a client-supplied one; `POST /` adds no such field
+   and no AC in this story ever mentioned it. **NOT resolved here, and deliberately not implemented:
+   this is a scope decision for Angelus** — does it belong retroactively in crd.1, or in crd.2/crd.3a
+   where the queue and resolution actually need session provenance? Note that whichever way it goes,
+   crd.1-created documents will not carry it.
+
+### Regression after both patches
+
+- **New/updated suite** `server/tests/crd-1-contested-roll-request-shape.test.js`: **42 passed /
+  0 failed** (was 34; +5 patch-1 tests, +3 patch-2 tests, 2 pre-existing tests rewritten).
+- **Changed-area regression, 11 suites** (the 10 the dev pass used, plus
+  `cm-2b-chapters-route-and-dual-read` which Codex correctly pointed out reads `server/index.js` and
+  was missing from that list): **11 files passed, 377 passed / 0 failed**. Pre-patch baseline on the
+  same 11 suites is 369, i.e. **+8 = exactly the eight new tests, no new failures**.
+- The `cm-4-renumber-chapter-merge.test.js` failure the dev pass recorded did not reproduce this run;
+  it is a 5s-per-test timeout racing remote-Atlas latency, not a deterministic failure, and it is
+  unrelated to any collection or code path this story touches.
+- No Playwright run: still no client code in this story.
+
+### Files changed by this review round
+
+- `server/routes/contested-rolls.js` — both patches.
+- `server/tests/crd-1-contested-roll-request-shape.test.js` — 8 new tests, 2 rewritten.
+- `specs/stories/crd-1-data-lock-schema-hardening-wp-spike.md` — this section, Status, Change Log.
+- `specs/stories/sprint-status.yaml` — crd.1 row + narrative.
+- `specs/deferred-work.md` — the three deferred items above.
+- `specs/stories/code-review/crd-1-codex-findings.md` — persisted external findings, **unedited**.
+
 ## Change Log
 
 | Date | Change |
 |------|--------|
 | 2026-08-22 | Story created (`bmad-create-story`), `ready-for-dev`. |
+| 2026-08-22 | External Codex review closed. Both High findings reproduced live before patching, then patched with per-patch prove-discrimination: `PUT /:id/accept` now returns 409 rather than silently resolving a pool-less challenge as a zero-die defence, and `POST /` strips attacker-supplied `defender_aspect`/`defender_wp_spent`/`defender_merit_ids` after the body spread (AC3's literal wording is now true as written, unamended). Three findings deferred to `specs/deferred-work.md` and named for follow-up stories: un-awaited `createIndex` promises, the `$ne`-vs-positive-scoping inconsistency on `_findChallenge`/`void`, and the epic-vs-story `game_session_id` gap (needs Angelus's own scope decision). Suite 34 → 42 passed; 11-suite changed-area regression 377/377. Status `review` → `done`. NOT committed, NOT pushed, NOT merged. |
 | 2026-08-22 | `bmad-dev-story`: Tasks 1-7 implemented. `defender_pool` dropped from the schema's `required` array; `request_type`, `defender_aspect`, `defender_wp_spent`, `defender_merit_ids` added to `properties` under the existing `additionalProperties: false`. `POST /` now sets `request_type: 'contested_roll'` explicitly, after the body spread. `GET /mine` scoped with `request_type: { $in: [null, 'contested_roll'] }` — a real gap, previously safe only by a `target_id`/`target_character_id` field-name coincidence. `_findChallenge` and `PUT /:id/void` proved correct across all three document shapes and left unchanged. Compound defender-queue index and 30-day terminal-status TTL index added to `server/index.js`. Live read-only spot-check confirmed `merits[].rating` (0 of 43 characters use `.dots`) and all three Resistance Attributes present on all 43. WP spike concluded: `roll-v2.js:207`'s shared `wpBonus = 3` must not be branched by crd.3a/3b. Status `ready-for-dev` → `review`. |

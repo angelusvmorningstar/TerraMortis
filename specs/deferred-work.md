@@ -685,3 +685,45 @@ deferred as pre-existing, not caused by this diff:
   repo (`migrate-office-purchases-to-seats.mjs` is the closest precedent) has the identical class of
   non-atomic guard, mitigated only by "a human runs this once, by hand," not by code. Revisit if this
   project ever moves to a pattern where migration scripts can run concurrently or unattended.
+
+## Deferred from: code review of crd-1-data-lock-schema-hardening-wp-spike (2026-08-22, external Codex review)
+
+External Codex review (3-pass blinded adversarial protocol) of the Epic CRD data-lock story. Full
+findings: `specs/stories/code-review/crd-1-codex-findings.md`; triage and patch record: the story's
+own Senior Developer Review section. Both **High** findings were reproduced live and **patched** in
+that round (the `/accept` zero-die defence, and `POST /` persisting attacker-supplied
+defender-resolution fields). The three below were **not** patched and each wants its own story.
+
+- **Both new boot-time `createIndex()` promises are discarded** (Medium) — `server/index.js`, the
+  `crd1_defender_queue` and `crd1_terminal_status_ttl` calls. Neither is awaited and neither has a
+  `.catch()`, so the surrounding startup `try/catch` cannot see a rejection: the server can report
+  ready without the index, or die on an unhandled rejection depending on the Node policy. crd.1's own
+  Dev Agent Record justified this as safe because a non-unique index "cannot reject at build time" —
+  that is wrong, and the reasoning conflates one failure mode (duplicate-key on a unique build) with
+  all of them; option conflicts against an existing same-named index, an unsupported
+  option/partial-filter combination, insufficient permissions, and a dropped connection all reject.
+  Not fixed inside crd.1's patch round because this is a shared boot-path convention — the
+  pre-existing oaq.2 index on the same collection is written the same way, so the fix wants to be one
+  consistent pass over all of them rather than a one-off on the two newest.
+- **`_findChallenge` and `PUT /:id/void` still scope by `$ne`, while `GET /mine` was upgraded to a
+  positive filter** (Medium) — `server/routes/contested-rolls.js`. crd.1's own stated decision was to
+  stop identifying contested rolls by the ABSENCE of a discriminator, and `GET /mine` duly became
+  `request_type: { $in: [null, 'contested_roll'] }`. The two mutation guards kept
+  `{ request_type: { $ne: 'status_action' } }`, which is **default-allow**: any future fourth request
+  family sharing this collection is treated as a contested roll, so contested-roll lifecycle routes
+  could resolve, decline or void another feature's record. No current exploit — `status_action` is
+  still the only other explicit type that writes production records — but it is the exact
+  implicit-discriminator fragility that produced the oaq.3 void-orphaning bug, left half-fixed.
+  Task 3's own wording explicitly permitted keeping `$ne`, so this is a spec-vs-spec inconsistency
+  inside crd.1 rather than a deviation from it.
+- **The parent epic's server-derived `game_session_id` was never added to the creation shape**
+  (Medium) — `specs/epic-crd-contested-roll-defence.md` (~line 100) puts a server-derived
+  `game_session_id` in crd.1's creation shape and explicitly forbids a client-supplied one;
+  `contested-rolls.js`'s `POST /` adds no such field, no AC in crd.1 ever mentioned it, and the
+  schema does not declare it. **NEEDS ANGELUS'S OWN SCOPE DECISION, deliberately not resolved:** does
+  this belong retroactively in crd.1, or in crd.2/crd.3a where the queue and the resolve endpoint
+  actually need session provenance? Either way, every document crd.1 creates will lack it, so
+  whichever story takes it on must decide separately whether pre-existing pending documents matter.
+  Related precedent worth reading first: the otc-2 entry above, where `game_session_id` on
+  `office_actions` is already logged as a caller-supplied, unvalidated, spoofable string — this epic
+  should not reproduce that shape.

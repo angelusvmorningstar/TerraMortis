@@ -34,6 +34,19 @@ router.post('/', validate(contestedRollRequestSchema), async (req, res) => {
     updated_at: new Date().toISOString(),
   };
 
+  // crd.1 (external code review). `defender_aspect`, `defender_wp_spent` and
+  // `defender_merit_ids` are the DEFENDER's own submitted resolution choices —
+  // AC3's literal rule is that they "only ever get populated later, by crd.3a,
+  // not by this story or by POST /". The `...req.body` spread above let the
+  // ATTACKER assert all three at creation, which is the same injury as the
+  // attacker-writable `defender_pool` this whole epic exists to remove: an
+  // attacker-authored value would sit in stored pending data looking like the
+  // defender's own choice. Stripped AFTER the spread, the same way
+  // `request_type` is force-set after it, so the route is always the authority.
+  // The schema still LISTS them (additionalProperties: false, and crd.3a's
+  // resolve endpoint writes them) — they are simply never honoured here.
+  for (const f of ['defender_aspect', 'defender_wp_spent', 'defender_merit_ids']) delete doc[f];
+
   const result  = await col().insertOne(doc);
   const created = await col().findOne({ _id: result.insertedId });
   res.status(201).json(created);
@@ -73,6 +86,29 @@ router.put('/:id/accept', async (req, res) => {
   const charIds = (req.user.character_ids || []).map(id => String(id));
   if (!charIds.includes(challenge.target_character_id)) {
     return res.status(403).json({ error: 'FORBIDDEN', message: 'You are not the target of this challenge' });
+  }
+
+  // crd.1 INTERIM GUARD (external code review). crd.1 made `defender_pool`
+  // optional at creation, which made a pending challenge with no pool at all a
+  // newly reachable state — but left this route unchanged. `_roll(undefined)`
+  // returns `[]` (Math.max(0, undefined) is NaN, so its loop never runs), so
+  // accepting one silently resolved the challenge with the defender on ZERO
+  // dice and handed the attacker the win.
+  //
+  // crd.3a's resolve endpoint is what will ever populate `defender_pool` for
+  // real. Until then, an unresolved request cannot be accepted at all, which is
+  // safe; silently rolling zero dice, which is not. This is deliberately a
+  // block and NOT a pool computation — do not grow resolution logic here, it
+  // belongs in crd.3a. Delete this guard when crd.3a lands and every pending
+  // challenge reaches accept with a server-computed pool.
+  //
+  // `== null` on purpose: an explicit `defender_pool: 0` is a RESOLVED pool
+  // (crd.3a may legitimately compute zero dice) and must still be accepted.
+  if (challenge.defender_pool == null) {
+    return res.status(409).json({
+      error: 'CONFLICT',
+      message: 'This challenge has no defender pool yet and cannot be accepted. The defender must resolve their own pool first.',
+    });
   }
 
   // Roll dice server-side for both sides
