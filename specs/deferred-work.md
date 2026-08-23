@@ -788,3 +788,54 @@ queue imports only `apiGet` and the placeholder has no write API. Codex's "the t
 Mongo-skipped gates as fully passed" finding was **not reproducible**: the crd.2 suite passes with
 real MongoDB access (re-run independently, 50/50 pre-patch and 59/59 post-patch); the 48/50 Codex saw
 was its own sandbox failing to reach MongoDB (`EACCES` to port 27017), not a code defect.
+
+---
+
+## Deferred from: code review of crd-3a-server-resolve-endpoint (2026-08-23)
+
+External Codex CLI review (3-pass blinded adversarial protocol, `model_reasoning_effort=high`) of the
+server-side contested-roll resolve endpoint found one real, verified finding that predates this story
+and is cross-cutting rather than specific to it — deferred rather than patched here, matching the same
+reasoning this file already applies elsewhere to pre-existing patterns surfaced incidentally by a
+narrower story.
+
+- **`PUT /:id/resolve`, `PUT /:id/accept`, `PUT /:id/decline` and `PUT /:id/void` (all in
+  `server/routes/contested-rolls.js`) share a check-then-blind-write TOCTOU race.** Each route calls
+  `_findChallenge` (which asserts `status: 'pending'`), does its own work, then issues a final
+  `updateOne` filtered on `{ _id: challenge._id }` alone — with no re-check that `status` is still
+  `'pending'` at write time. Two of these routes racing the SAME document (confirmed reachable in
+  principle: a re-resolve racing `/accept`, or a first resolve racing `/decline`) can both pass their
+  own `_findChallenge` check before either writes, then both writes succeed — the later write can
+  silently overwrite fields on a document that has already gone terminal (`resolved`/`declined`/
+  `voided`) via the other route. In the accept race specifically, the stored `defender_pool` and
+  resolution choices could end up describing a LATER resolve while `outcome.defender.pool` and the
+  actual rolled dice were generated from an EARLIER pool — internally contradictory audit data on a
+  record that has already been rolled and can never be re-rolled.
+  - **Read directly and confirmed pre-existing**: `/accept`'s own `updateOne({ _id: challenge._id },
+    { $set: { status: 'resolved', ... } })` (unmodified since crd.1) has the identical shape — no
+    `status` re-check in its own filter — and so do `/decline` and `/void`. This is not something
+    crd.3a introduced, and not something crd.3a made measurably worse; crd.3a's own AC7 already
+    addresses the NARROWER "two concurrent resolves" case correctly (full recompute-and-overwrite,
+    genuinely idempotent, no partial-merge risk) — this finding is about resolve racing a DIFFERENT,
+    terminal-transitioning verb, which is a different race class entirely.
+  - **Why deferred rather than patched here**: the correct, honest fix is adding a `status`-scoped
+    filter (e.g. `{ _id: challenge._id, status: 'pending' }`, checking `result.matchedCount` and
+    409ing on zero) to ALL FOUR routes uniformly — patching only the newest route while leaving the
+    other three inconsistent would be worse than leaving all four consistently exposed, since it
+    invites the next reader to assume `/resolve` is somehow the risky one. This is real, scoped,
+    cross-cutting hardening work across the whole file — its own story, not a drive-by fix.
+  - **Reachability note**: exploiting this needs two requests racing within the same narrow window on
+    one document; not a click a human is likely to reproduce by accident, but a plausible outcome of
+    a double-submit, a retried request, or a defender resolving right as an ST or the attacker's own
+    client hits accept/decline. Cheap to fix once scoped as its own story.
+
+**Reviewed and dismissed with evidence** (recorded so they are not re-derived as open work): "awaited
+database failures have no local error translation" — true of `/resolve`, but Codex's own Pass 2
+investigation confirmed `/accept`, `/decline` and `/void` all share the same no-local-`try/catch`
+convention, relying on Express 5.2.1's built-in async-handler rejection catching; established
+application-wide behaviour, not a crd.3a-specific defect. "Claimed real-Mongo green gates... are
+unverifiable in this review environment" — re-run independently in this session immediately after the
+review returned: 172/172 (pre-patch) and 182/182 (post-patch) both reproduced exactly. The reviewer's
+own sandbox was denied network access to MongoDB entirely (`EACCES` to the configured host), the same
+reviewer-sandbox limitation crd-1's and crd-2's own external reviews hit on port 27017 — not a defect
+in the record.

@@ -78,6 +78,142 @@ router.get('/mine', async (req, res) => {
   res.json(docs);
 });
 
+// crd.3a: Resistance Attribute for each defensive aspect. Effective rating is
+// read as dots + bonus directly off the live character document (this
+// project's "effective ratings" convention, CLAUDE.md) — no client accessor
+// is imported here, since public/js/data/accessors.js is browser-coupled
+// (bloodlines cache, rule-engine cache) and unsuitable for server-side use.
+//
+// crd.3a code review (external Codex, Pass 2/3a): a plain object's truthy
+// lookup accepts inherited Object.prototype keys ('toString', 'constructor',
+// '__proto__' all resolve truthily) as if they were valid aspects. ASPECT_KEYS
+// is checked with .includes() below rather than indexed directly, so an
+// off-enum value — inherited or not — always 400s before ASPECT_ATTR is ever
+// touched.
+const ASPECT_KEYS = ['mental', 'social', 'physical'];
+const ASPECT_ATTR = { mental: 'Resolve', social: 'Composure', physical: 'Stamina' };
+
+function _attrEffective(character, attrName) {
+  const a = character.attributes?.[attrName];
+  return (a?.dots || 0) + (a?.bonus || 0);
+}
+
+function _willpowerMax(character) {
+  return _attrEffective(character, 'Resolve') + _attrEffective(character, 'Composure');
+}
+
+// crd.3a AC5: narrow, explicitly-named 2-merit bonus lookup — Indomitable and
+// Closed Book, the two merits the disposable mockup already proved correct.
+// No generic merit-bonus-value field exists anywhere on the character
+// document (see this story's own Dev Notes for the full gap analysis); a
+// third merit needing a contest bonus is real future work for a new
+// server/schemas/rules/ type, not an extension of this lookup.
+function _meritBonus(merit) {
+  if (merit.rule_key === 'indomitable') return 2;
+  if (merit.rule_key === 'closed-book') return merit.rating || 0;
+  return 0;
+}
+
+// PUT /api/contested_roll_requests/:id/resolve — defender computes their own
+// server-verified pool from live character state; does not roll dice or
+// change status (see this story's own "resolving is not accepting" decision).
+router.put('/:id/resolve', async (req, res) => {
+  const challenge = await _findChallenge(req, res);
+  if (!challenge) return;
+
+  const charIds = (req.user.character_ids || []).map(id => String(id));
+  if (!charIds.includes(challenge.target_character_id)) {
+    return res.status(403).json({ error: 'FORBIDDEN', message: 'You are not the target of this challenge' });
+  }
+
+  const { defender_aspect, defender_wp_spent, defender_merit_ids } = req.body || {};
+  if (!ASPECT_KEYS.includes(defender_aspect)) {
+    return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'defender_aspect must be one of mental, social, physical' });
+  }
+  const attrName = ASPECT_ATTR[defender_aspect];
+
+  // AC9's literal wording ("do not accept defender_wp_spent as anything other
+  // than a boolean") is enforced here explicitly — this route has no
+  // validate() middleware (that's POST-only), so a non-boolean would
+  // otherwise be silently coerced rather than rejected (crd.3a code review,
+  // external Codex, Pass 3a).
+  if (defender_wp_spent !== undefined && typeof defender_wp_spent !== 'boolean') {
+    return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'defender_wp_spent must be a boolean' });
+  }
+
+  let defenderOid;
+  try { defenderOid = new ObjectId(challenge.target_character_id); } catch {
+    return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'Invalid target_character_id' });
+  }
+  const character = await getCollection('characters').findOne({ _id: defenderOid });
+  if (!character) return res.status(404).json({ error: 'NOT_FOUND', message: 'Defender character not found' });
+
+  let pool = _attrEffective(character, attrName);
+
+  const spendWp = defender_wp_spent === true;
+  if (spendWp) {
+    // Live re-check, never a value cached or submitted earlier (this story's
+    // own trust-boundary purpose). No tracker_state document at all means the
+    // defender has never touched the live tracker — full, undamaged
+    // Willpower, mirroring the client's own defaults() fallback.
+    const trackerDoc = await getCollection('tracker_state').findOne({
+      character_id: { $in: [defenderOid, challenge.target_character_id] },
+    });
+    // `?? ` (not a doc-existence ternary): tracker_state's own PUT route is an
+    // unvalidated partial upsert, so a real document can exist with no
+    // `willpower` field at all. Falling through to the full-WP default on a
+    // missing FIELD, not just a missing DOCUMENT, is what actually re-checks
+    // something (crd.3a code review, external Codex, Pass 2/3a) — `?? ` also
+    // preserves a genuine, legitimately-tracked `willpower: 0` correctly.
+    const currentWp = trackerDoc?.willpower ?? _willpowerMax(character);
+    if (currentWp <= 0) {
+      return res.status(409).json({ error: 'CONFLICT', message: 'Not enough Willpower to spend' });
+    }
+    // Resistance-trait roll: +2, not the usual +3 (Rulebook's general
+    // Willpower rule; see crd.1's Dev Notes for the full citation).
+    pool += 2;
+  }
+
+  // AC4: a submitted id the character does not actually have is silently
+  // dropped, not a hard validation failure.
+  const ownedRuleKeys = new Set((character.merits || []).map(m => m.rule_key).filter(Boolean));
+  const resolvedMeritIds = Array.from(new Set(
+    (Array.isArray(defender_merit_ids) ? defender_merit_ids : []).filter(id => ownedRuleKeys.has(id))
+  ));
+  // Bonuses are summed by looking up ONE merit per resolved rule_key (the
+  // first match), not by walking every character merit row — the character
+  // schema has no uniqueItems/cross-row rule_key constraint, so two merit
+  // entries sharing one rule_key (a data anomaly, not prevented anywhere) had
+  // been contributing the bonus twice (crd.3a code review, external Codex,
+  // Pass 1/2).
+  for (const ruleKey of resolvedMeritIds) {
+    const merit = (character.merits || []).find(m => m.rule_key === ruleKey);
+    if (merit) pool += _meritBonus(merit);
+  }
+
+  // Defensive clamp to the collection's own declared domain
+  // (contested_roll_request.schema.js: defender_pool is 0-30). This route has
+  // no validate() middleware, and a character's attribute `bonus` and a
+  // merit's `rating` both have NO declared maximum, so a schema-valid
+  // character can genuinely drive the computed total outside the range this
+  // collection's own schema promises everywhere else (crd.3a code review,
+  // external Codex, Pass 1/2).
+  pool = Math.max(0, Math.min(30, pool));
+
+  await col().updateOne(
+    { _id: challenge._id },
+    { $set: {
+        defender_pool:      pool,
+        defender_aspect,
+        defender_wp_spent:  spendWp,
+        defender_merit_ids: resolvedMeritIds,
+        updated_at:         new Date().toISOString(),
+      } }
+  );
+
+  res.json(await col().findOne({ _id: challenge._id }));
+});
+
 // PUT /api/contested_roll_requests/:id/accept — target accepts; dice rolled server-side
 router.put('/:id/accept', async (req, res) => {
   const challenge = await _findChallenge(req, res);
