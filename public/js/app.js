@@ -125,7 +125,9 @@ import { installStModPopover } from './editor/st-mod-popover.js';
 // like pickChar, shared/resist.js, contested-roll) target the visible tab.
 import * as rollV1 from './suite/roll.js';
 import * as rollV2 from './suite/roll-v2.js';
-const USE_NEW_ROLLER = localStorage.getItem('tm-use-new-dice-roller') === '1';
+// Exported so combat-tab.js's Quick Roll (rlv.1) can target whichever roller
+// tab actually exists in the DOM, rather than a second inline flag read.
+export const USE_NEW_ROLLER = localStorage.getItem('tm-use-new-dice-roller') === '1';
 const _roller = USE_NEW_ROLLER ? rollV2 : rollV1;
 const { loadPool, chgPool, chgMod, updPool, setAgain, togMod, togSpec, doRoll, clrHist, effPool, togEquipChip, updWeaponRef } = _roller;
 // setAgainSeg exists on rollV2 (slice A+D, #1024). Guarded so the tab

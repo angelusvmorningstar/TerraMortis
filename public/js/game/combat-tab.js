@@ -12,7 +12,9 @@ import { getAttrEffective, calcDefence, calcHealth } from '../data/accessors.js'
 import { defenceForDisplay } from '../data/equipment-derivation.js';
 import { esc } from '../data/helpers.js';
 import { trackerAdj, trackerRead } from './tracker.js';
-import { loadPool, doRoll } from '../suite/roll.js';
+import { loadPool as loadPoolV1, doRoll } from '../suite/roll.js';
+import { loadPool as loadPoolV2 } from '../suite/roll-v2.js';
+import { USE_NEW_ROLLER } from '../app.js';
 
 const SESSION_KEY = 'tm_combat_scene';
 const d10 = () => Math.floor(Math.random() * 10) + 1;
@@ -144,9 +146,13 @@ function quickRoll(charId, pool, label) {
   const c = (suiteState.chars || []).find(x => String(x._id) === charId);
   if (!c) return;
   suiteState.rollChar = c;
-  loadPool(pool, label, { total: pool });
-  // Navigate to dice tab to show the roll
-  if (window.goTab) window.goTab('dice');
+  // Both the pool write and the tab we navigate to must target the SAME
+  // roller — #t-dice is removed from the DOM at boot whenever the new
+  // roller is active, and #t-roll otherwise, so loading into the inactive
+  // roller's module state would be invisible either way (rlv.1).
+  const load = USE_NEW_ROLLER ? loadPoolV2 : loadPoolV1;
+  load(pool, label, { total: pool });
+  if (window.goTab) window.goTab(USE_NEW_ROLLER ? 'roll' : 'dice');
 }
 
 function _isIncap(cb) {
