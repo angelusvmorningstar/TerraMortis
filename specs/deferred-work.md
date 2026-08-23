@@ -839,3 +839,56 @@ review returned: 172/172 (pre-patch) and 182/182 (post-patch) both reproduced ex
 own sandbox was denied network access to MongoDB entirely (`EACCES` to the configured host), the same
 reviewer-sandbox limitation crd-1's and crd-2's own external reviews hit on port 27017 — not a defect
 in the record.
+
+---
+
+## Deferred from: crd.3b design-lock (bmad-agent-ux-designer, 2026-08-23)
+
+- **`.rv2-again-seg button.on` (suite.css/roll-v2.js) likely has a real light-theme contrast defect.**
+  Building crd.3b's own resolve-screen mockup (`public/mockups/crd-3b-resolve-screen-mockup.html`)
+  by mirroring this control's exact shape and token language surfaced that its `.on` state uses
+  `--gold2`/`--gold2-a25`, and in Parchment (light, the default theme) `--gold2` is a dark brownish
+  gold (`#7A5208`) that is nearly indistinguishable at 25% opacity against the equally-warm parchment
+  surface underneath it — measured directly via a Playwright screenshot comparison, not asserted from
+  the token value alone. In dark theme this is invisible as a problem because `--accent` already
+  equals `--gold2` there, so the two tokens produce identical output — the divergence is Parchment-
+  only. crd.3b's own new components (`.cr-aspect-seg`, `.cr-wp-toggle`, `.cr-merit-chip`) were built
+  using `--accent`/`--accent-a25`/`--accent-a40` instead specifically to avoid inheriting this defect,
+  confirmed via a before/after screenshot: dark theme is pixel-identical either way, light theme goes
+  from a near-invisible selected state to a bold, legible crimson one. `.rv2-again-seg` itself was NOT
+  touched — it is pre-existing, shared by the Again-rule control on the live dice roller, and outside
+  crd.3b's own scope. Wants its own small story: swap `.rv2-again-seg button.on`'s two `--gold2`
+  references to `--accent` equivalents and re-verify the Again-rule control still reads correctly in
+  both themes.
+
+---
+
+## Deferred from: code review of crd-3b-client-resolution-screen (2026-08-23)
+
+External Codex CLI review (3-pass blinded adversarial protocol) of the client resolution screen
+found one real, verified finding narrow enough to defer rather than patch — a display-only echo of a
+data-integrity gap crd-3a's own review already fixed the correctness-critical half of.
+
+- **Schema-valid duplicate character merit rows sharing one `rule_key` render as duplicate, visually-
+  linked chips in `public/js/game/contested-resolve.js`.** Selection is keyed on `rule_key` in a
+  `Set` (`state.meritIds`), so if a character has two merit rows both carrying, say, `rule_key:
+  'closed-book'` (possibly with different `rating` values — a real, reachable shape, since
+  `character.schema.js` still has no cross-row `rule_key` uniqueness constraint), toggling EITHER
+  chip visually selects both, and only one submitted id reaches the server. The two chips can even
+  advertise different bonus previews (each reads its own row's `rating`) while only one row's value
+  is what the server actually uses.
+  - **Not a correctness bug on the bonus itself**: crd-3a's own code review already fixed the
+    server-side double-counting this exact data shape used to cause (`server/routes/
+    contested-rolls.js`'s merit-bonus loop now looks up ONE row per resolved `rule_key` via
+    `.find()`, so the computed pool is correct regardless of how many chips the client shows). This
+    finding is purely about the CLIENT's display being confusing/contradictory for an anomalous
+    character, not about the pool number being wrong.
+  - **Why deferred**: the real fix is at the data-integrity layer (either enforce `rule_key`
+    uniqueness within a character's `merits[]` at the schema/write-path level, or have the client
+    dedupe by `rule_key` before rendering chips, keeping only one representative row) — genuinely
+    separate scoped work, not a one-off patch to this screen alone, and the underlying anomaly is
+    the same one already tracked from crd-3a's own review.
+  - **Reachability**: needs a character with two merit rows sharing a resolvable `rule_key`, which
+    nothing currently in this codebase's write paths prevents but which also isn't a shape any
+    known live character currently has (not checked against live `tm_game.characters` as part of
+    this review — a live data-integrity audit, if wanted, is separate work).

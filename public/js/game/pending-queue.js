@@ -160,6 +160,26 @@ export function getPendingChallenge(id) {
   return state.rows.find(r => String(r._id) === String(id)) || null;
 }
 
+/** crd.3b: called immediately after the resolution screen's own PUT .../accept
+ *  succeeds. Without this, `_renderBody`'s loading guard only hides stale rows
+ *  when `state.rows` is already empty, so the just-resolved challenge kept
+ *  rendering as a normal, tappable pending row (a real 409 waiting to happen)
+ *  until the next poll completed — and indefinitely on a failed poll, since a
+ *  failed `_refetchAndRender` deliberately leaves `state.rows` untouched.
+ *  Mirrors `_departedRows`'s own one-tick "resolved" treatment for a row that
+ *  leaves the pending set by any other route, rather than inventing a second
+ *  transition shape. This tab is never unmounted by `app.js`'s `goTab` (only
+ *  toggled inactive), so `_rootEl`/`state` are still the ones the player will
+ *  see on return even while this tab isn't the active one. */
+export function markChallengeResolved(id) {
+  const idx = state.rows.findIndex(r => String(r._id) === String(id));
+  if (idx === -1) return;
+  const [row] = state.rows.splice(idx, 1);
+  state.resolved.push(row);
+  _renderBody();
+  _notifyQueueChanged();
+}
+
 // ── Internals ────────────────────────────────────────────────────────────────
 
 function _resetState() {

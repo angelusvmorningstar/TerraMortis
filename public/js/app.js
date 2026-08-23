@@ -599,7 +599,11 @@ function goTab(t, ctx) {
   }
   if (t === 'contested-resolve') {
     const el = document.getElementById('t-contested-resolve');
-    if (el) initContestedResolve(el, ctx);
+    // crd.3b: additive third argument, mirroring goTab(t)'s own extension to
+    // goTab(t, ctx) — the defending character's real merits/attributes are
+    // already resident in suiteState.chars (initPendingQueue already receives
+    // it above), so no new fetch is added here.
+    if (el) initContestedResolve(el, ctx, suiteState.chars || []);
   }
   if (t === 'emergency') {
     const el = document.getElementById('t-emergency');
