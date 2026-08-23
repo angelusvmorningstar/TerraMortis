@@ -2395,6 +2395,99 @@ body.desktop-mode.sidebar-collapsed .sb-collapse-btn { width: 100%; justify-cont
    as a standalone line here that reads as a stray indent. */
 .cq-ref { margin: 0; padding-left: 0; padding-right: 0; }
 .cq-actions { margin-top: 4px; }
+
+/* crd.3b — the real resolution screen's own interactive controls. Everything
+   else it needs (.stm-audit-root/-head/-sub, .cq-resolve-body, .ch-pools/
+   .ch-pool-row, .form-section-title, .derived-note, .ch-btn, .rcnt/.rlbl/
+   .rverd, .rote-blk/.rote-lbl) already existed and is reused as-is. */
+
+/* "Defending as [Character]" — genuinely new vocabulary (crd.2's own research
+   found no existing pattern to borrow), shown only for multi-character
+   players. */
+.cr-identity-banner {
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 12px;
+  background: var(--accent-a8);
+  border: 1px solid var(--accent-a40);
+  border-radius: var(--radius-md);
+  font-size: 12px; color: var(--txt2);
+}
+.cr-identity-banner strong { font-family: var(--fl); font-weight: 700; color: var(--accent); }
+
+/* Aspect segmented control — same shape/tokens as .rv2-again-seg (suite.css),
+   scoped under its own class so a future change to the Again-rule control
+   cannot ripple into this one. --accent, not --gold2: --gold2 at 25% opacity
+   is nearly invisible in Parchment (light, the default theme) against the
+   equally-warm surface underneath it (measured via screenshot comparison
+   during this story's own design-lock) — --accent already equals --gold2 in
+   dark theme, so dark mode is unaffected either way. */
+.cr-aspect-seg {
+  display: flex; background: var(--surf2); border: 1px solid var(--bdr);
+  border-radius: var(--radius-md); padding: 3px; gap: 3px;
+}
+.cr-aspect-seg button {
+  flex: 1; padding: 10px 4px; min-height: 44px; border: none; background: transparent;
+  border-radius: var(--radius-md); color: var(--txt2);
+  font-family: var(--fl); font-size: 12px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: 0.04em; cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+.cr-aspect-attr {
+  display: block; font-size: 10px; font-weight: 400; text-transform: none;
+  letter-spacing: 0; color: var(--txt3); margin-top: 2px;
+}
+.cr-aspect-seg button:hover:not(.on) { background: var(--surf3); }
+.cr-aspect-seg button.on { background: var(--accent-a25); color: var(--accent); }
+.cr-aspect-seg button.on .cr-aspect-attr { color: var(--accent); opacity: .8; }
+
+/* Willpower toggle — a single wide chip, not a second segmented control (the
+   choice is binary), using the SAME .on token language as the aspect control
+   above so the two read as one family. */
+.cr-wp-toggle {
+  display: flex; align-items: center; justify-content: space-between;
+  width: 100%; min-height: 48px; padding: 10px 14px;
+  background: var(--surf2); border: 1px solid var(--bdr); border-radius: var(--radius-md);
+  color: var(--txt2); font-family: var(--fl); font-size: 13px; font-weight: 600;
+  cursor: pointer; transition: background .15s, color .15s, border-color .15s;
+}
+.cr-wp-toggle:hover:not(.on):not(.disabled) { background: var(--surf3); }
+.cr-wp-toggle.on { background: var(--accent-a25); color: var(--accent); border-color: var(--accent-a40); }
+.cr-wp-bonus {
+  font-family: var(--fl); font-size: 11px; font-weight: 700; letter-spacing: .04em;
+  padding: 2px 8px; border-radius: var(--radius-sm); background: var(--surf3); color: var(--txt3);
+}
+.cr-wp-toggle.on .cr-wp-bonus { background: var(--bg); color: var(--accent); }
+.cr-wp-toggle.disabled { opacity: .5; cursor: default; }
+
+/* Merit chips — extends .char-chip's 44px touch-target sizing (components.css
+   declares no selected state to build from) with the same .on treatment the
+   two controls above already use. */
+.cr-merit-row { display: flex; flex-wrap: wrap; gap: 8px; }
+.cr-merit-chip {
+  display: inline-flex; align-items: center; gap: 8px;
+  min-height: 44px; padding: 8px 14px;
+  background: var(--surf2); border: 1px solid var(--bdr); border-radius: var(--radius-md);
+  font-family: var(--fl); font-size: 13px; font-weight: 600; color: var(--txt);
+  cursor: pointer; transition: background .15s, border-color .15s, color .15s;
+}
+.cr-merit-chip:hover:not(.on) { border-color: var(--bdr2); background: var(--surf3); }
+.cr-merit-chip.on { background: var(--accent-a25); border-color: var(--accent); color: var(--accent); }
+.cr-merit-bonus { font-family: var(--fl); font-size: 11px; font-weight: 700; color: var(--txt3); }
+.cr-merit-chip.on .cr-merit-bonus { color: var(--accent); opacity: .85; }
+
+/* Live pool preview — always the server's own real computed value; nothing
+   here re-implements the merit/Willpower arithmetic client-side. */
+.cr-pool-preview {
+  display: flex; align-items: baseline; justify-content: space-between;
+  padding: 14px 16px; background: var(--surf); border: 1px solid var(--bdr2); border-radius: var(--radius-md);
+}
+.cr-pool-label {
+  font-family: var(--fl); font-size: 12px; font-weight: 700; letter-spacing: .04em;
+  text-transform: uppercase; color: var(--txt3);
+}
+.cr-pool-value { font-family: var(--fh); font-size: 32px; font-weight: 900; color: var(--accent); line-height: 1; }
+.cr-pool-unit { font-family: var(--fl); font-size: 12px; font-weight: 700; color: var(--txt3); margin-left: 4px; }
+.cr-pool-error { font-size: 13px; color: var(--err); }
 /* Phone (≤599px, the same breakpoint #bnav and the Status ranking drawer use).
    Measured defect, not a guess: at 390px the non-shrinking .oaq-queue-actions
    cluster (roll badge + nowrap "Defending as ..." + a 19-character timestamp)

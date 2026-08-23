@@ -54,12 +54,28 @@ vi.mock('../../public/js/data/api.js', () => ({
   apiPost: vi.fn().mockResolvedValue({}),
   apiPut: vi.fn().mockResolvedValue({}),
   apiPatch: vi.fn().mockResolvedValue({}),
+  apiRaw: vi.fn(), // crd.3b's own contested-resolve.js dependency
 }));
 
 vi.mock('../../public/js/data/helpers.js', () => ({
   esc: s => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'),
   displayName: c => c?.moniker || c?.name || '',
   redactCharName: s => s,
+}));
+
+// crd.3b: contested-resolve.js now imports these two — mocked here for the
+// same reason as api.js/helpers.js above. tracker.js reads `location` at
+// module scope, which crashes under plain Node; roll-v2.js's own direct
+// `document` uses are inside functions, not at module scope, but mocking it
+// here still isolates mkColsEl from the rest of that file's much larger
+// import graph. Neither module's own correctness is this file's concern —
+// see crd-3b-resolution-screen.test.js for that coverage.
+vi.mock('../../public/js/game/tracker.js', () => ({
+  ensureLoaded: vi.fn().mockResolvedValue({}),
+  trackerRead: vi.fn(() => ({ willpower: 3 })),
+}));
+vi.mock('../../public/js/suite/roll-v2.js', () => ({
+  mkColsEl: vi.fn(() => ({ appendChild: vi.fn() })),
 }));
 
 const queue = await import('../../public/js/game/pending-queue.js');
@@ -424,27 +440,15 @@ describe('crd.2 AC5 — routing contract', () => {
     expect(src).toMatch(/<div id="t-contested-resolve" class="tab">/);
   });
 
-  it('the placeholder destination is honestly labelled as incomplete and names the challenge it was opened for', () => {
-    const resolveRoot = makeRoot();
-    resolveScreen.initContestedResolve(resolveRoot, { challengeId: 'c9' });
-    expect(resolveRoot.innerHTML).toMatch(/coming soon/i);
-    expect(resolveRoot.innerHTML).toContain('c9');
-  });
-
-  it('the placeholder renders a real, honest state even with no context id at all', () => {
+  // The three tests that used to live here (the placeholder is honestly
+  // labelled "coming soon", renders a real state with no context id, and
+  // builds NO part of crd.3b's pool builder) were deliberately written to
+  // break the moment crd.3b landed — this IS that moment. The real screen's
+  // own behaviour is now covered by crd-3b-resolution-screen.test.js instead.
+  it('a missing context id still renders a real, non-crashing state (no chars passed either)', () => {
     const resolveRoot = makeRoot();
     resolveScreen.initContestedResolve(resolveRoot, undefined);
     expect(resolveRoot.innerHTML.length).toBeGreaterThan(0);
-    expect(resolveRoot.innerHTML).toMatch(/coming soon/i);
-  });
-
-  it('the placeholder builds NO part of crd.3b\'s pool builder (no aspect control, no Willpower toggle, no merit chips)', () => {
-    const src = readFile('public/js/game/contested-resolve.js');
-    expect(src).not.toMatch(/defender_aspect/);
-    expect(src).not.toMatch(/defender_wp_spent/);
-    expect(src).not.toMatch(/defender_merit_ids/);
-    expect(src).not.toMatch(/\/resolve/);
-    expect(src).not.toMatch(/apiPut|apiPost/);
   });
 });
 
