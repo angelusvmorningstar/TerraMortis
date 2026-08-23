@@ -510,7 +510,7 @@ export async function applyReconciliation(ledgerCollection, confirmedRows, { app
 
 export async function main(argv = process.argv) {
   const apply = argv.includes('--apply');
-  const dbName = process.env.MONGODB_DB || 'tm_suite';
+  const dbName = process.env.MONGODB_DB || 'tm_game';
 
   console.log(`Mode     : ${apply ? 'APPLY (will write)' : 'DRY RUN (read only; pass --apply to write)'}`);
   console.log(`Target DB: ${dbName}`);

@@ -37,7 +37,7 @@ body {
 .sidebar-title {
   font-family: var(--fh);
   font-size: 18px;
-  font-weight: 900;
+  font-weight: 700;
   color: var(--accent);
   letter-spacing: 1px;
 }
@@ -296,11 +296,32 @@ body {
   width: 100%;
 }
 
+.login-eyebrow {
+  font-family: var(--fl);
+  font-size: 12px;
+  color: var(--txt3);
+  text-transform: uppercase;
+  letter-spacing: 3px;
+  margin-bottom: 4px;
+}
+
 .login-title {
   font-family: var(--fh);
+  font-weight: 700;
   font-size: 26px;
   color: var(--accent);
   letter-spacing: 1px;
+}
+
+.login-cross {
+  font-family: var(--fl);
+  font-size: 12px;
+  color: var(--txt3);
+  margin-top: 20px;
+}
+
+.login-cross a {
+  color: var(--txt3);
 }
 
 .login-sub {

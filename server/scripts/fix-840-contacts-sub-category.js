@@ -21,7 +21,7 @@ import { MongoClient } from 'mongodb';
 const APPLY = process.argv.includes('--apply');
 const DRY_RUN = !APPLY;
 const MONGODB_URI = process.env.MONGODB_URI;
-const DB_NAME = process.env.MONGODB_DB || 'tm_suite';
+const DB_NAME = process.env.MONGODB_DB || 'tm_game';
 
 async function main() {
   console.log(`Mode: ${APPLY ? 'APPLY (will write)' : 'DRY RUN (read only; pass --apply to write)'}`);

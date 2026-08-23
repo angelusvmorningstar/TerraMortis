@@ -16,9 +16,12 @@
 # Update the 'to' URL when the Render service is deployed.
 [[redirects]]
   from = "/api/*"
-  to = "https://tm-suite-api.onrender.com/api/:splat"
+  to = "https://tm-game-api.onrender.com/api/:splat"
   status = 200
   force = true
+
+# Maintenance mode was active here 2026-08-21 during the tm_suite->tm_game rebrand's Render
+# cutover -- removed once the cutover was verified end-to-end. See ../rebrand-game-story-admin.md.
 
 # Block dev-login in production — only meaningful locally
 [[redirects]]

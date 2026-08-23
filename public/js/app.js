@@ -52,7 +52,12 @@ import { devotions, rites, setStatusTerritories } from './data/accessors.js';
 import { renderCharPools } from './game/char-pools.js';
 import { renderMapStageHtml } from './components/map-overlay.js';
 import { openContestedRoll, closeContestedRoll, crSetType, crSetChar, crAdjPool, crRoll } from './game/contested-roll.js';
-import { startChallengePoller, stopChallengePoller } from './game/challenge-notification.js';
+// crd.2: the blocking incoming-challenge modal that used to poll here is gone
+// (module deleted, not left dead in the tree). Its replacement is a calm,
+// always-present player queue with its own honest routing contract into the
+// resolution screen crd.3b will build.
+import { initPendingQueue, refreshPendingQueueBadge, hasPendingChallenges } from './game/pending-queue.js';
+import { initContestedResolve } from './game/contested-resolve.js';
 import { openChallengeModal } from './game/challenge-initiation.js';
 import { submitHumanityCheck, checkForResolvedHumanityCheck } from './game/humanity-check.js';
 import { loadDtLookup } from './game/dt-lookup.js';
@@ -86,7 +91,7 @@ import { initArchiveTab } from './tabs/archive-tab.js';
 import { renderFeedingTab } from './tabs/feeding-tab.js';
 import { findRegentTerritory } from './data/helpers.js';
 import { printSheet, printPDF, exportJSON } from './editor/print.js';
-import { handleCallback, isLoggedIn, validateToken, login, logout, getUser, getRole, getPlayerInfo } from './auth/discord.js';
+import { isLoggedIn, validateToken, login, logout, getUser, getRole, getPlayerInfo } from './auth/discord.js';
 
 // ══════════════════════════════════════════════
 //  SUITE IMPORTS
@@ -383,6 +388,8 @@ const TAB_SUBTITLES = {
   territory: 'Territory',
   more: 'More',
   settings: 'Settings',
+  'contested-queue': 'Challenges',
+  'contested-resolve': 'Resolve Challenge',
 };
 
 const EDITOR_TABS = new Set(['chars', 'editor', 'edit']);
@@ -465,7 +472,12 @@ function renderBottomNav() {
   }
 }
 
-function goTab(t) {
+// crd.2: `ctx` is an optional context payload for tabs that are opened ABOUT
+// something specific rather than just opened. Every existing call site passes
+// one argument and is unaffected; only the tabs that declare they want a
+// context read it. First (and currently only) consumer: 'contested-resolve',
+// which is meaningless without the id of the challenge being resolved.
+function goTab(t, ctx) {
   // Challenge tile opens modal rather than navigating to a tab
   if (t === 'challenge') {
     const activeChar = editorState.chars.find(c => c === editorState.chars[editorState.editIdx]) || editorState.chars[0];
@@ -581,6 +593,27 @@ function goTab(t) {
     const el = document.getElementById('t-ordeals');
     const char = _activeMoreChar();
     if (el && char) initOrdeals(char, suiteState.chars, el);
+  }
+  // crd.2 — pending contested-roll queue, and the destination it routes into.
+  // The queue is handed the viewer's own characters so each row can name WHICH
+  // of them is being challenged; it never filters on them (the server's
+  // GET /mine is the only authority on what belongs in this queue).
+  // `checkMoreBadge` is injected rather than imported by the queue: app.js
+  // already imports FROM pending-queue.js, so an import the other way would be
+  // circular. Without it the shared #more-badge went stale in both directions
+  // while this tab was open (lit after the queue emptied, dark after a poll
+  // found new work) — the queue's own poll had no path to the badge's one owner.
+  if (t === 'contested-queue') {
+    const el = document.getElementById('t-contested-queue');
+    if (el) initPendingQueue(el, suiteState.chars || [], checkMoreBadge);
+  }
+  if (t === 'contested-resolve') {
+    const el = document.getElementById('t-contested-resolve');
+    // crd.3b: additive third argument, mirroring goTab(t)'s own extension to
+    // goTab(t, ctx) — the defending character's real merits/attributes are
+    // already resident in suiteState.chars (initPendingQueue already receives
+    // it above), so no new fetch is added here.
+    if (el) initContestedResolve(el, ctx, suiteState.chars || []);
   }
   if (t === 'emergency') {
     const el = document.getElementById('t-emergency');
@@ -1685,12 +1718,6 @@ async function boot() {
   const app = document.getElementById('app');
   const errorEl = document.getElementById('login-error');
 
-  try {
-    await handleCallback();
-  } catch (err) {
-    if (errorEl) errorEl.textContent = err.message;
-  }
-
   // Close profile dropdown on outside click
   document.addEventListener('click', e => {
     if (!e.target.closest('#hdr-profile') && !e.target.closest('#hdr-profile-menu')) {
@@ -1765,7 +1792,10 @@ async function boot() {
 
         renderLifecycleCards(); // non-blocking
         checkMoreBadge();       // non-blocking
-        if (getRole() !== 'st') startChallengePoller(); // player-only polling
+        // crd.2: one boot-time read so the Challenges tile can carry a live
+        // badge before the player ever opens the queue. The 10s poll itself
+        // only runs while the queue tab is actually being looked at.
+        if (getRole() !== 'st') refreshPendingQueueBadge().then(checkMoreBadge);
 
         // Start WebSocket for live tracker sync
         initWS({
@@ -1933,6 +1963,16 @@ const MORE_APPS = [
     }
   },
   { id: 'ordeals',      label: 'Ordeals',     icon: _svg.ordeals,  section: 'player' },
+  // crd.2 — the defender's own pending contested-roll queue. Deliberately a
+  // More-grid tile and NOT a bottom-nav item: it is something a player checks
+  // on their own terms, which is the whole point of replacing the modal that
+  // used to interrupt them. Badge follows the Downtime entry's established
+  // shape exactly: a pure read of a cache the boot path primed, never a fetch
+  // from inside the badge callback (renderMoreGrid calls it on every render).
+  // A shield, not the Combat tab's crossed blades: this is the defence surface.
+  { id: 'contested-queue', label: 'Challenges', icon: '<svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>', section: 'player',
+    badge: () => hasPendingChallenges()
+  },
   // Challenge tile hidden (#1015). The click-handler + modal (openChallengeModal) remain wired for future programmatic use.
   // ── Storyteller section (ST role only) ──
   { id: 'tracker',      label: 'Tracker',     icon: _svg.tracker,  section: 'st', stOnly: true },
@@ -2249,6 +2289,13 @@ async function checkMoreBadge() {
     if (String(mySubmission._id) !== lastViewed) hasBadge = true;
   }
 
+  // crd.2: a pending contested-roll challenge still lights #more-badge. The
+  // retired modal module used to write this element directly (and clobbered the
+  // class-based toggle above with its own inline display, which is why the two
+  // signals fought each other). Reading the queue's cache here keeps the entry
+  // point players already have muscle memory for, with one owner of the element.
+  if (!hasBadge && hasPendingChallenges()) hasBadge = true;
+
   badge.classList.toggle('visible', hasBadge);
 }
 
@@ -2417,18 +2464,28 @@ function renderDesktopSidebar() {
 
   nav.innerHTML = h;
 
-  // ── Footer: Settings + ST Admin pinned to bottom ──
+  // ── Footer: cross-app switcher + density toggle + Settings, pinned to bottom ──
   const footer = document.getElementById('desktop-sidebar-footer');
   if (footer) {
     let fh = '';
-    // ST Admin button — only for real STs (not player-view mode)
     const isRealST = getRole() === 'st' || getRole() === 'dev';
+
+    // Cross-app switcher (shared shape with TM Story's/TM Admin's own footers): only the
+    // OTHER apps render here, never this app's own entry (Angelus, 2026-08-22: "the GA
+    // button does not need to be shown in the game app"). AD -> TM Admin was the old
+    // "ST Admin" -> /admin shortcut, repointed now that admin function lives there
+    // instead, and correctly ST-gated the way that old link already was. Flat siblings,
+    // not wrapped in their own row div -- the whole footer is ONE row (2026-08-22 fix).
+    fh += `<a class="sidebar-app-btn" href="https://terramortisstory.netlify.app/" title="TM Story">ST</a>`;
     if (isRealST) {
-      fh += `<a href="/admin" class="sidebar-st-btn" title="ST Admin">ST</a>`;
+      fh += `<a class="sidebar-app-btn" href="https://terramortisadmin.netlify.app/" title="TM Admin">AD</a>`;
+    }
+
+    if (isRealST) {
       const isDesktopNow = document.body.classList.contains('desktop-mode');
       const phoneIcon = `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="20" rx="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg>`;
       const monitorIcon = `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>`;
-      fh += `<button class="sidebar-st-btn" onclick="toggleDesktopMode()" title="${isDesktopNow ? 'Switch to phablet view' : 'Switch to desktop view'}">${isDesktopNow ? phoneIcon : monitorIcon}</button>`;
+      fh += `<button class="sidebar-util-btn" onclick="toggleDesktopMode()" title="${isDesktopNow ? 'Switch to phablet view' : 'Switch to desktop view'}">${isDesktopNow ? phoneIcon : monitorIcon}</button>`;
     }
     // Settings
     const settingsOn = isActive('settings') ? ' on' : '';
@@ -2437,11 +2494,6 @@ function renderDesktopSidebar() {
     fh += `<span class="sidebar-app-tile-label">Settings</span></button>`;
     footer.innerHTML = fh;
   }
-
-  // Mirror user info
-  const userEl = document.getElementById('sidebar-user');
-  const desktopUserEl = document.getElementById('desktop-sidebar-user');
-  if (userEl && desktopUserEl) desktopUserEl.innerHTML = userEl.innerHTML;
 }
 
 // ── Theme toggle (nav-3-2) ────────────────────────────────────────────────────

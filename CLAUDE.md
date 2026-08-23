@@ -14,7 +14,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Terra Mortis TM Suite is a browser-based character management system for a Vampire: The Requiem 2nd Edition campaign. Express API backend on Render, static frontend on Netlify, MongoDB Atlas for persistence, Discord OAuth for ST authentication.
+Terra Mortis TM Game is a browser-based character management system for a Vampire: The Requiem 2nd Edition campaign. Express API backend on Render, static frontend on Netlify, MongoDB Atlas for persistence, Discord OAuth for ST authentication.
 
 ## Running & Testing
 
@@ -29,7 +29,7 @@ running the affected suites because a change "looks safe".
 
 - **Unit / integration: vitest**, 171 suites in `server/tests/`. Run with `cd server && npm test`, or
   a single suite with `npx vitest run tests/<name>.test.js`.
-  - Tests are forced onto `tm_suite_test` by the vitest setup file. They never touch live data.
+  - Tests are forced onto `tm_game_test` by the vitest setup file. They never touch live data.
   - Several suites need a **local `mongod`**. Without one they **SKIP rather than fail** (#1117) —
     a skipped suite is not a passing suite, so read the summary line, not just the exit code.
 - **E2E: Playwright**, ~150 specs in `tests/`. Run with `npx playwright test tests/<name>.spec.js`.
@@ -67,9 +67,9 @@ running the affected suites because a change "looks safe".
 
 ## Deployment
 
-- **Frontend:** Netlify (`terramortissuite.netlify.app`), deploys from `main` branch
-- **API:** Render (`tm-suite-api.onrender.com`), deploys from `main` branch
-- **Database:** MongoDB Atlas (`tm_suite`)
+- **Frontend:** Netlify (`terramortisgame.netlify.app`), deploys from `main` branch
+- **API:** Render (`tm-game-api.onrender.com`), deploys from `main` branch
+- **Database:** MongoDB Atlas (`tm_game`)
 - **Staging:** Netlify (`terramortis-dev`), deploys from `dev`. Team-only. Note it proxies the
   **production** Render API — so a server-side change cannot be smoke-tested there; it has to reach
   `main` first.
@@ -94,7 +94,7 @@ Naming: `ms/issue-<n>-<slug>` for Angelus's work (e.g. `ms/issue-1137-collective
 - **There is no dev-sync protocol any more.** Do not run `git merge dev` at session start, and do not
   raise "dev is ahead/behind" as an action item unless asked. `dev` flows *from* `main` now, not into
   it. Direction reversed after #1128.
-- **`Piatra` is Peter's branch and he stepped back from TM Suite dev (2026-08-09).** Angelus owns
+- **`Piatra` is Peter's branch and he stepped back from TM Game dev (2026-08-09).** Angelus owns
   code and schema; treat `dev` as a deploy target rather than an integration stream.
 - `dev` is permanent. Never delete it.
 
@@ -102,7 +102,7 @@ Naming: `ms/issue-<n>-<slug>` for Angelus's work (e.g. `ms/issue-1137-collective
 
 ```
 Browser (Netlify)  →  Express API (Render)  →  MongoDB Atlas
-   public/              server/                  tm_suite DB
+   public/              server/                  tm_game DB
 ```
 
 ### Admin app (`public/admin.html`)
@@ -119,7 +119,7 @@ Express 5, ES modules. Routes: `/api/characters`, `/api/territories`, `/api/chap
 
 ## v2 Schema
 
-Source of truth: `schemas/schema_v2_proposal.md`. Live data in MongoDB `tm_suite.characters`.
+Source of truth: `schemas/schema_v2_proposal.md`. Live data in MongoDB `tm_game.characters`.
 
 Key design rules:
 - Attributes: always `{ dots, bonus }` objects
@@ -193,7 +193,7 @@ The static enums above qualify because they encode rule-system facts (the five c
 - **No em-dashes** in output text
 - **Dots display**: `'●'.repeat(n)` using U+25CF filled circle
 - **Gold accent**: CSS var `--gold2` (value differs per theme; never hardcode the hex)
-- **Font stack**: Cinzel / Cinzel Decorative for headings, Lora for body (Google Fonts CDN)
+- **Font stack**: Cinzel is DISPLAY-ONLY and bold (`--fh`; two sizes, `--type-size-display-lg`/`-sm`, plus this app's own `--type-size-display-hero` for the roll-calculator's numeral) — never for names, labels, sub-headings or buttons, no matter how prominent. Lato (`--fl`, aliased `--type-heading`/`--type-label`) is headings and labels, including character/entity names. Libre Baskerville (`--ft`, `--type-body`) is body prose. This corrects a stale "Lora for body" claim (Lora was never the real body font in this codebase's own `theme.css`) — caught during the 2026-08-22 design-token port, see `../design-token-port.md` and `../design-normalisation-tm-game-audit.md`.
 - **CSS custom properties** defined on `:root` in `public/css/theme.css`. Default theme is **Parchment** (warm light); `[data-theme="dark"]` is the override. Tokens flip between themes; rule bodies stay theme-agnostic.
 - **Normalised CSS (MANDATORY)**: all styling uses the design-system tokens in `theme.css`. Reuse an existing component class from `public/css/components.css` (or the app sheet `suite.css` / `admin-layout.css`) before inventing one. Never write a bare hex, `rgba()`, or inline `style="..."` in markup or JS-rendered HTML. Full guidance: `specs/architecture/coding-standards.md` → "CSS Standards"; the critical-standards summary auto-read by the BMAD dev/story agents lives in `specs/project-context.md`.
 
@@ -213,7 +213,7 @@ Key rules:
 
 | Location | Status | Purpose |
 |----------|--------|---------|
-| MongoDB `tm_suite` | **LIVE** | All character, territory, downtime, session data |
+| MongoDB `tm_game` | **LIVE** | All character, territory, downtime, session data |
 | `data/dev-fixtures/` | Dev seed | Downtime cycles, submissions, sessions for local dev |
 | `data/reference/` | Reference | Static rules reference (merit tables, vitae, offices) |
 | `st-working/` | ST ops | Downtime docs, prompt refs, retrospectives — not code |

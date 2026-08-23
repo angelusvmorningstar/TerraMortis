@@ -278,7 +278,7 @@ export async function seedOfficeSeats(collection, { apply = false, reneCreatedAt
 export async function main(argv = process.argv) {
   const apply = argv.includes('--apply');
   const reneArg = (argv.find(a => a.startsWith('--rene-created-at=')) || '').split('=')[1] || null;
-  const dbName = process.env.MONGODB_DB || 'tm_suite';
+  const dbName = process.env.MONGODB_DB || 'tm_game';
 
   console.log(`Mode     : ${apply ? 'APPLY (will write)' : 'DRY RUN (read only; pass --apply to write)'}`);
   console.log(`Target DB: ${dbName}`);

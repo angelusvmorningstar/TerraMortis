@@ -1,5 +1,5 @@
 {
-  "name": "tm-suite",
+  "name": "tm-game",
   "version": "1.0.0",
   "description": "A browser-based character management system for a **Vampire: The Requiem 2nd Edition** campaign. Two self-contained HTML applications — no backend, no build system, no dependencies.",
   "main": "index.js",

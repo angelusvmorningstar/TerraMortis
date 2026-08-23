@@ -705,7 +705,7 @@ export async function main(argv = process.argv) {
   const apply = argv.includes('--apply');
   const drop = argv.includes('--drop-source');
   const preferNew = argv.includes('--prefer-new');
-  const dbName = process.env.MONGODB_DB || 'tm_suite';
+  const dbName = process.env.MONGODB_DB || 'tm_game';
 
   console.log(`Mode     : ${apply ? 'APPLY (will write)' : 'DRY RUN (read only; pass --apply to write)'}`);
   console.log(`Step     : ${drop ? `DROP SOURCE (${SOURCE_COLLECTION})` : `RENAME (${SOURCE_COLLECTION} -> ${TARGET_COLLECTION})`}`);

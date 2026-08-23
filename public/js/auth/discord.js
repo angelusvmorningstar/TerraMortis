@@ -3,11 +3,15 @@
 // Role-aware: stores role, player_id, character_ids from the server response.
 
 const DISCORD_CLIENT_ID = '1488404820917223484';
-// All OAuth callbacks land on /admin (registered in Discord app settings).
-// Guarded so this module imports cleanly under Node (vitest); these
-// constants are only read inside browser-only login/fetch flows.
+// All OAuth callbacks land on /login.html (registered in Discord app settings), a
+// dedicated page that does nothing but process the callback and bounce back to
+// wherever login() was invoked from (see login()'s tm_auth_return, and public/js/login.js).
+// Changed from /admin 2026-08-21 as part of the ecosystem rebrand, to decouple the OAuth
+// landing role from the ST admin app shell — matches TM Story's existing /login.html
+// convention, and TM Admin adopting the same. Guarded so this module imports cleanly
+// under Node (vitest); these constants are only read inside browser-only login/fetch flows.
 const _LOC = typeof location === 'undefined' ? null : location;
-const REDIRECT_URI = _LOC ? _LOC.origin + '/admin' : '';
+const REDIRECT_URI = _LOC ? _LOC.origin + '/login.html' : '';
 const SCOPES = 'identify';
 
 const API_BASE = _LOC && _LOC.hostname === 'localhost'

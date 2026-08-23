@@ -9,7 +9,7 @@ import { readFileSync } from 'fs';
 const LIVE = process.argv.includes('--live');
 const envTxt = readFileSync(new URL('./.env', import.meta.url), 'utf8');
 const uri = (envTxt.match(/^MONGODB_URI=(.+)$/m) || [])[1]?.trim();
-const dbName = (envTxt.match(/^MONGODB_DB=(.+)$/m) || [])[1]?.trim() || 'tm_suite';
+const dbName = (envTxt.match(/^MONGODB_DB=(.+)$/m) || [])[1]?.trim() || 'tm_game';
 
 const PLAN = [
   { match: 'Brandy LaRoux', delta: 2, mod: true },

@@ -52,7 +52,7 @@ let nMarkingPatched = 0;
 
 try {
   await client.connect();
-  const db = client.db('tm_suite');
+  const db = client.db(process.env.MONGODB_DB || 'tm_game');
   const rubricCol = db.collection('ordeal_rubrics');
   const responsesCol = db.collection('ordeal_responses');
 

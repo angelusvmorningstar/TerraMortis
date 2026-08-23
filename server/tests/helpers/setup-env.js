@@ -1,8 +1,8 @@
 /**
  * Vitest global setup — forces test runs to use a separate Mongo database.
  *
- * Without this, integration tests hit `tm_suite` (the live DB) and any
- * seed/cleanup leak corrupts production data. Running against `tm_suite_test`
+ * Without this, integration tests hit `tm_game` (the live DB) and any
+ * seed/cleanup leak corrupts production data. Running against `tm_game_test`
  * isolates every insert/update/delete so the worst-case is a polluted
  * throwaway DB you can simply drop.
  *
@@ -12,6 +12,6 @@
 
 import 'dotenv/config';
 
-// Hard override — never let a test run touch tm_suite, even if a developer
-// sets MONGODB_DB=tm_suite in their local env. Tests always use tm_suite_test.
-process.env.MONGODB_DB = 'tm_suite_test';
+// Hard override — never let a test run touch tm_game, even if a developer
+// sets MONGODB_DB=tm_game in their local env. Tests always use tm_game_test.
+process.env.MONGODB_DB = 'tm_game_test';

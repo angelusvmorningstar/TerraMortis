@@ -37,7 +37,7 @@ async function render({ data, PDFDocument, fonts, assets, output }) {
     margins: { top: 0, bottom: 0, left: 0, right: 0 },
     info: {
       Title:   `VtR Sheet — ${data.identity.displayName || data.identity.name || 'Character'}`,
-      Author:  'Terra Mortis TM Suite',
+      Author:  'Terra Mortis TM Game',
       Creator: 'pdf_tool',
     },
   });

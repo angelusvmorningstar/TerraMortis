@@ -44,7 +44,7 @@ describe('issue-1143 AC5 — isDbAvailable() clean-skip contract', () => {
       connectDb: vi.fn().mockResolvedValue(undefined),
       closeDb: vi.fn(),
       getCollection: vi.fn(),
-      getDb: vi.fn(() => ({ databaseName: 'tm_suite_test' })),
+      getDb: vi.fn(() => ({ databaseName: 'tm_game_test' })),
     }));
 
     const { isDbAvailable } = await import('./helpers/db-setup.js');

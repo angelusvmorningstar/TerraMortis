@@ -1,7 +1,7 @@
 {
-  "name": "tm-suite-api",
+  "name": "tm-game-api",
   "version": "1.0.0",
-  "description": "Terra Mortis TM Suite API server — thin CRUD persistence layer",
+  "description": "Terra Mortis TM Game API server — thin CRUD persistence layer",
   "type": "module",
   "main": "index.js",
   "scripts": {

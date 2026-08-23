@@ -26,7 +26,7 @@ import { applyDerivedMerits, getPoolUsed, getMCIPoolUsed } from './editor/mci.js
 import { preloadRules } from './editor/rule_engine/load-rules.js';
 import { ATTR_CATS, SKILL_CATS, PRI_BUDGETS, SKILL_PRI_BUDGETS } from './data/constants.js';
 import { vmUsed, lorekeeperUsed, ohmUsed, investedUsed } from './editor/domain.js';
-import { handleCallback, isLoggedIn, validateToken, login, logout, getUser, getPlayerInfo, localTestLogin } from './auth/discord.js';
+import { isLoggedIn, validateToken, login, logout, getUser, getPlayerInfo, localTestLogin } from './auth/discord.js';
 import { initSessionLog } from './admin/session-log.js';
 import { initPlayersView } from './admin/players-view.js';
 import { initCityView } from './admin/city-views.js';
@@ -183,27 +183,10 @@ async function refreshCharacterOverlay(charId) {
 async function boot() {
   const loginScreen = document.getElementById('login-screen');
   const app = document.getElementById('admin-app');
-  const errorEl = document.getElementById('login-error');
-
-  try {
-    const wasCallback = await handleCallback();
-    if (wasCallback) { /* fall through */ }
-  } catch (err) {
-    errorEl.textContent = err.message;
-    return;
-  }
 
   if (isLoggedIn()) {
     const valid = await validateToken();
     if (valid) {
-      // Check if user was logging in from another page (index, player)
-      const returnTo = localStorage.getItem('tm_auth_return');
-      localStorage.removeItem('tm_auth_return');
-      if (returnTo && returnTo !== '/admin' && returnTo !== '/admin.html') {
-        window.location.replace(returnTo);
-        return;
-      }
-
       // Non-ST users get redirected to the game app — admin.html is ST/dev only.
       // Coordinators have their own tabs inside the game app; they never see this view.
       const info = getPlayerInfo();

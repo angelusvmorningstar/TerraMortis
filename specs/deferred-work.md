@@ -1007,3 +1007,209 @@ issues for them is Angelus's call.
   title: *`gdx-18-sheet-touchstone-attached-colour-token`: replace the Touchstones panel's inline
   `rgba(140,200,140,.9)`/`var(--txt3)` conditional with a class toggle backed by `--green2-a9`
   (or the nearest reviewed token), with a deployed before/after look.*
+## Deferred from: code review of crd-1-data-lock-schema-hardening-wp-spike (2026-08-22, external Codex review)
+
+External Codex review (3-pass blinded adversarial protocol) of the Epic CRD data-lock story. Full
+findings: `specs/stories/code-review/crd-1-codex-findings.md`; triage and patch record: the story's
+own Senior Developer Review section. Both **High** findings were reproduced live and **patched** in
+that round (the `/accept` zero-die defence, and `POST /` persisting attacker-supplied
+defender-resolution fields). The three below were **not** patched and each wants its own story.
+
+- **Both new boot-time `createIndex()` promises are discarded** (Medium) — `server/index.js`, the
+  `crd1_defender_queue` and `crd1_terminal_status_ttl` calls. Neither is awaited and neither has a
+  `.catch()`, so the surrounding startup `try/catch` cannot see a rejection: the server can report
+  ready without the index, or die on an unhandled rejection depending on the Node policy. crd.1's own
+  Dev Agent Record justified this as safe because a non-unique index "cannot reject at build time" —
+  that is wrong, and the reasoning conflates one failure mode (duplicate-key on a unique build) with
+  all of them; option conflicts against an existing same-named index, an unsupported
+  option/partial-filter combination, insufficient permissions, and a dropped connection all reject.
+  Not fixed inside crd.1's patch round because this is a shared boot-path convention — the
+  pre-existing oaq.2 index on the same collection is written the same way, so the fix wants to be one
+  consistent pass over all of them rather than a one-off on the two newest.
+- **`_findChallenge` and `PUT /:id/void` still scope by `$ne`, while `GET /mine` was upgraded to a
+  positive filter** (Medium) — `server/routes/contested-rolls.js`. crd.1's own stated decision was to
+  stop identifying contested rolls by the ABSENCE of a discriminator, and `GET /mine` duly became
+  `request_type: { $in: [null, 'contested_roll'] }`. The two mutation guards kept
+  `{ request_type: { $ne: 'status_action' } }`, which is **default-allow**: any future fourth request
+  family sharing this collection is treated as a contested roll, so contested-roll lifecycle routes
+  could resolve, decline or void another feature's record. No current exploit — `status_action` is
+  still the only other explicit type that writes production records — but it is the exact
+  implicit-discriminator fragility that produced the oaq.3 void-orphaning bug, left half-fixed.
+  Task 3's own wording explicitly permitted keeping `$ne`, so this is a spec-vs-spec inconsistency
+  inside crd.1 rather than a deviation from it.
+- **The parent epic's server-derived `game_session_id` was never added to the creation shape**
+  (Medium) — `specs/epic-crd-contested-roll-defence.md` (~line 100) puts a server-derived
+  `game_session_id` in crd.1's creation shape and explicitly forbids a client-supplied one;
+  `contested-rolls.js`'s `POST /` adds no such field, no AC in crd.1 ever mentioned it, and the
+  schema does not declare it. **NEEDS ANGELUS'S OWN SCOPE DECISION, deliberately not resolved:** does
+  this belong retroactively in crd.1, or in crd.2/crd.3a where the queue and the resolve endpoint
+  actually need session provenance? Either way, every document crd.1 creates will lack it, so
+  whichever story takes it on must decide separately whether pre-existing pending documents matter.
+  Related precedent worth reading first: the otc-2 entry above, where `game_session_id` on
+  `office_actions` is already logged as a caller-supplied, unvalidated, spoofable string — this epic
+  should not reproduce that shape.
+
+## Deferred from: code review of crd-2-player-facing-pending-queue (2026-08-22, external Codex review)
+
+External Codex review (3-pass blinded adversarial protocol) of the Epic CRD player-facing pending
+queue. Full findings, unedited: `specs/stories/code-review/crd-2-codex-findings.md`; triage and patch
+record: the story's own Senior Developer Review section. **No High findings.** Three code findings
+were patched in that round (the shared More badge never recomputing after the queue's own poll, a
+failed poll holding a stale "Resolved" row indefinitely, and phone-width row clipping); the four
+below were verified as real and deliberately NOT patched.
+
+- **`renderDesktopSidebar()` never evaluates `app.badge` for ANY `MORE_APPS` entry** (Medium) —
+  `public/js/app.js`. Mobile's `renderMoreGrid()`/`appIcon()` truth-tests each app's `badge` callback
+  and emits a `.nav-badge` dot; the desktop sidebar iterates the same `MORE_APPS` array and never
+  touches `.badge` at all, while desktop CSS hides the bottom nav that carries `#more-badge`. A
+  desktop player therefore sees no pending-challenge signal anywhere. **Pre-existing and
+  cross-cutting, not introduced by crd.2**: the Downtime tile has been badge-less in desktop mode
+  since it was written, and the crd.2 dev pass found this independently and correctly declined to fix
+  it for the same reason. Fixing it changes live behaviour for an existing tile outside crd.2's
+  scope, so it wants its own small story covering every badged `MORE_APPS` entry at once, not a
+  one-off for the newest one.
+- **A player who never opens the Challenges tab only gets a fresh badge signal at boot** (Medium as
+  filed; **deliberate design trade-off, not a defect**) — `public/js/app.js`'s boot path calls
+  `refreshPendingQueueBadge()` once for a non-ST viewer, and `pending-queue.js`'s 10s poll is gated
+  on the containing tab actually being `.active`. A challenge created after boot therefore does not
+  light the tile until the player opens the queue or reloads. This is the direct consequence of the
+  epic's own resource-conscious principle, established during Epic CRD's scoping: **do not poll while
+  nobody is looking at the surface.** Logged here so it is a known, chosen boundary rather than an
+  unnoticed gap. **Do not "fix" it by adding a global always-on poll.** If a live signal for an
+  unopened tab is ever genuinely wanted, the right shape is this app's existing WebSocket broadcast
+  channel (the pattern `equipment_catalogue` and `bloodlines` already use), not a second timer.
+- **The boot badge refresh can overwrite a newer queue fetch** (Medium; narrow race, low real-world
+  reachability) — `public/js/game/pending-queue.js`. `refreshPendingQueueBadge()` writes `state.rows`
+  without joining `_fetchGen`, the generation guard that `_refetchAndRender()` uses. If the
+  fire-and-forget boot request resolves AFTER a tab-open fetch has already landed, the older snapshot
+  wins and the next poll's diff can fabricate a resolved row or resurrect a departed one. Reaching it
+  requires the player to navigate into Challenges and complete a second round trip before the boot
+  request settles. Not patched in this round because the fix (extending `_fetchGen` to cover the
+  badge path) touches the same generation discipline crd.3b will be editing anyway; fold it into
+  crd.3b or a small hardening story rather than a one-line change now.
+- **Three assertions in `server/tests/crd-2-pending-queue.test.js` are source-text checks labelled as
+  behavioural proofs** (Low) — the "goTab() accepts and forwards a context payload" test (~:313), and
+  two of the design-system compliance tests (~:497, ~:508). Each can stay green while the thing its
+  name claims is broken: `goTab()` could stop forwarding `ctx` with the tokens still present, a `cq-`
+  class could appear only in a comment, or a colour literal could move into a multiline rule body the
+  line-based filter never selects. **Not rewritten in this round** — deliberately, because the honest
+  fix is a real DOM harness for these three, and this repo has no jsdom (adding one is a new
+  dependency, a HALT condition). Note for whoever next touches this file: the suite's own header
+  already states this limitation, and the newly-added phone-breakpoint test carries an explicit
+  comment saying it is a regression tripwire rather than proof. Treat the labels as aspirational
+  until there is a harness that can earn them.
+
+**Reviewed and non-actionable** (recorded so they are not re-derived as open work): Codex's two
+Pass-3b evidence-gap findings — that the story's claimed red-first test chronology is not
+reproducible from the committed range, and that the "zero live writes anywhere" attestation cannot be
+established from a client-side fetch shim — are about the completeness of the historical record, not
+about defects in the current code. Nothing to patch; the narrower claim (this feature's browser
+session created no `contested_roll_requests` document) is supported by the code itself, since the
+queue imports only `apiGet` and the placeholder has no write API. Codex's "the test record reports
+Mongo-skipped gates as fully passed" finding was **not reproducible**: the crd.2 suite passes with
+real MongoDB access (re-run independently, 50/50 pre-patch and 59/59 post-patch); the 48/50 Codex saw
+was its own sandbox failing to reach MongoDB (`EACCES` to port 27017), not a code defect.
+
+---
+
+## Deferred from: code review of crd-3a-server-resolve-endpoint (2026-08-23)
+
+External Codex CLI review (3-pass blinded adversarial protocol, `model_reasoning_effort=high`) of the
+server-side contested-roll resolve endpoint found one real, verified finding that predates this story
+and is cross-cutting rather than specific to it — deferred rather than patched here, matching the same
+reasoning this file already applies elsewhere to pre-existing patterns surfaced incidentally by a
+narrower story.
+
+- **`PUT /:id/resolve`, `PUT /:id/accept`, `PUT /:id/decline` and `PUT /:id/void` (all in
+  `server/routes/contested-rolls.js`) share a check-then-blind-write TOCTOU race.** Each route calls
+  `_findChallenge` (which asserts `status: 'pending'`), does its own work, then issues a final
+  `updateOne` filtered on `{ _id: challenge._id }` alone — with no re-check that `status` is still
+  `'pending'` at write time. Two of these routes racing the SAME document (confirmed reachable in
+  principle: a re-resolve racing `/accept`, or a first resolve racing `/decline`) can both pass their
+  own `_findChallenge` check before either writes, then both writes succeed — the later write can
+  silently overwrite fields on a document that has already gone terminal (`resolved`/`declined`/
+  `voided`) via the other route. In the accept race specifically, the stored `defender_pool` and
+  resolution choices could end up describing a LATER resolve while `outcome.defender.pool` and the
+  actual rolled dice were generated from an EARLIER pool — internally contradictory audit data on a
+  record that has already been rolled and can never be re-rolled.
+  - **Read directly and confirmed pre-existing**: `/accept`'s own `updateOne({ _id: challenge._id },
+    { $set: { status: 'resolved', ... } })` (unmodified since crd.1) has the identical shape — no
+    `status` re-check in its own filter — and so do `/decline` and `/void`. This is not something
+    crd.3a introduced, and not something crd.3a made measurably worse; crd.3a's own AC7 already
+    addresses the NARROWER "two concurrent resolves" case correctly (full recompute-and-overwrite,
+    genuinely idempotent, no partial-merge risk) — this finding is about resolve racing a DIFFERENT,
+    terminal-transitioning verb, which is a different race class entirely.
+  - **Why deferred rather than patched here**: the correct, honest fix is adding a `status`-scoped
+    filter (e.g. `{ _id: challenge._id, status: 'pending' }`, checking `result.matchedCount` and
+    409ing on zero) to ALL FOUR routes uniformly — patching only the newest route while leaving the
+    other three inconsistent would be worse than leaving all four consistently exposed, since it
+    invites the next reader to assume `/resolve` is somehow the risky one. This is real, scoped,
+    cross-cutting hardening work across the whole file — its own story, not a drive-by fix.
+  - **Reachability note**: exploiting this needs two requests racing within the same narrow window on
+    one document; not a click a human is likely to reproduce by accident, but a plausible outcome of
+    a double-submit, a retried request, or a defender resolving right as an ST or the attacker's own
+    client hits accept/decline. Cheap to fix once scoped as its own story.
+
+**Reviewed and dismissed with evidence** (recorded so they are not re-derived as open work): "awaited
+database failures have no local error translation" — true of `/resolve`, but Codex's own Pass 2
+investigation confirmed `/accept`, `/decline` and `/void` all share the same no-local-`try/catch`
+convention, relying on Express 5.2.1's built-in async-handler rejection catching; established
+application-wide behaviour, not a crd.3a-specific defect. "Claimed real-Mongo green gates... are
+unverifiable in this review environment" — re-run independently in this session immediately after the
+review returned: 172/172 (pre-patch) and 182/182 (post-patch) both reproduced exactly. The reviewer's
+own sandbox was denied network access to MongoDB entirely (`EACCES` to the configured host), the same
+reviewer-sandbox limitation crd-1's and crd-2's own external reviews hit on port 27017 — not a defect
+in the record.
+
+---
+
+## Deferred from: crd.3b design-lock (bmad-agent-ux-designer, 2026-08-23)
+
+- **`.rv2-again-seg button.on` (suite.css/roll-v2.js) likely has a real light-theme contrast defect.**
+  Building crd.3b's own resolve-screen mockup (`public/mockups/crd-3b-resolve-screen-mockup.html`)
+  by mirroring this control's exact shape and token language surfaced that its `.on` state uses
+  `--gold2`/`--gold2-a25`, and in Parchment (light, the default theme) `--gold2` is a dark brownish
+  gold (`#7A5208`) that is nearly indistinguishable at 25% opacity against the equally-warm parchment
+  surface underneath it — measured directly via a Playwright screenshot comparison, not asserted from
+  the token value alone. In dark theme this is invisible as a problem because `--accent` already
+  equals `--gold2` there, so the two tokens produce identical output — the divergence is Parchment-
+  only. crd.3b's own new components (`.cr-aspect-seg`, `.cr-wp-toggle`, `.cr-merit-chip`) were built
+  using `--accent`/`--accent-a25`/`--accent-a40` instead specifically to avoid inheriting this defect,
+  confirmed via a before/after screenshot: dark theme is pixel-identical either way, light theme goes
+  from a near-invisible selected state to a bold, legible crimson one. `.rv2-again-seg` itself was NOT
+  touched — it is pre-existing, shared by the Again-rule control on the live dice roller, and outside
+  crd.3b's own scope. Wants its own small story: swap `.rv2-again-seg button.on`'s two `--gold2`
+  references to `--accent` equivalents and re-verify the Again-rule control still reads correctly in
+  both themes.
+
+---
+
+## Deferred from: code review of crd-3b-client-resolution-screen (2026-08-23)
+
+External Codex CLI review (3-pass blinded adversarial protocol) of the client resolution screen
+found one real, verified finding narrow enough to defer rather than patch — a display-only echo of a
+data-integrity gap crd-3a's own review already fixed the correctness-critical half of.
+
+- **Schema-valid duplicate character merit rows sharing one `rule_key` render as duplicate, visually-
+  linked chips in `public/js/game/contested-resolve.js`.** Selection is keyed on `rule_key` in a
+  `Set` (`state.meritIds`), so if a character has two merit rows both carrying, say, `rule_key:
+  'closed-book'` (possibly with different `rating` values — a real, reachable shape, since
+  `character.schema.js` still has no cross-row `rule_key` uniqueness constraint), toggling EITHER
+  chip visually selects both, and only one submitted id reaches the server. The two chips can even
+  advertise different bonus previews (each reads its own row's `rating`) while only one row's value
+  is what the server actually uses.
+  - **Not a correctness bug on the bonus itself**: crd-3a's own code review already fixed the
+    server-side double-counting this exact data shape used to cause (`server/routes/
+    contested-rolls.js`'s merit-bonus loop now looks up ONE row per resolved `rule_key` via
+    `.find()`, so the computed pool is correct regardless of how many chips the client shows). This
+    finding is purely about the CLIENT's display being confusing/contradictory for an anomalous
+    character, not about the pool number being wrong.
+  - **Why deferred**: the real fix is at the data-integrity layer (either enforce `rule_key`
+    uniqueness within a character's `merits[]` at the schema/write-path level, or have the client
+    dedupe by `rule_key` before rendering chips, keeping only one representative row) — genuinely
+    separate scoped work, not a one-off patch to this screen alone, and the underlying anomaly is
+    the same one already tracked from crd-3a's own review.
+  - **Reachability**: needs a character with two merit rows sharing a resolvable `rule_key`, which
+    nothing currently in this codebase's write paths prevents but which also isn't a shape any
+    known live character currently has (not checked against live `tm_game.characters` as part of
+    this review — a live data-integrity audit, if wanted, is separate work).

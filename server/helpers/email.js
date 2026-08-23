@@ -22,7 +22,7 @@ const FEED_METHOD_NAMES = {
   other:        'Other (custom)',
 };
 
-const PORTAL_URL = process.env.PORTAL_URL || 'https://terramortissuite.netlify.app';
+const PORTAL_URL = process.env.PORTAL_URL || 'https://terramortisgame.netlify.app';
 
 function createTransporter() {
   const { EMAIL_FROM, SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS } = process.env;
