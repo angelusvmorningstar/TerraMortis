@@ -1,0 +1,241 @@
+diff --git a/public/js/app.js b/public/js/app.js
+index 41785024..ac78343d 100644
+--- a/public/js/app.js
++++ b/public/js/app.js
+@@ -125,7 +125,9 @@ import { installStModPopover } from './editor/st-mod-popover.js';
+ // like pickChar, shared/resist.js, contested-roll) target the visible tab.
+ import * as rollV1 from './suite/roll.js';
+ import * as rollV2 from './suite/roll-v2.js';
+-const USE_NEW_ROLLER = localStorage.getItem('tm-use-new-dice-roller') === '1';
++// Exported so combat-tab.js's Quick Roll (rlv.1) can target whichever roller
++// tab actually exists in the DOM, rather than a second inline flag read.
++export const USE_NEW_ROLLER = localStorage.getItem('tm-use-new-dice-roller') === '1';
+ const _roller = USE_NEW_ROLLER ? rollV2 : rollV1;
+ const { loadPool, chgPool, chgMod, updPool, setAgain, togMod, togSpec, doRoll, clrHist, effPool, togEquipChip, updWeaponRef } = _roller;
+ // setAgainSeg exists on rollV2 (slice A+D, #1024). Guarded so the tab
+diff --git a/public/js/game/combat-tab.js b/public/js/game/combat-tab.js
+index cd3a81d2..2755f5b2 100644
+--- a/public/js/game/combat-tab.js
++++ b/public/js/game/combat-tab.js
+@@ -12,7 +12,9 @@ import { getAttrEffective, calcDefence, calcHealth } from '../data/accessors.js'
+ import { defenceForDisplay } from '../data/equipment-derivation.js';
+ import { esc } from '../data/helpers.js';
+ import { trackerAdj, trackerRead } from './tracker.js';
+-import { loadPool, doRoll } from '../suite/roll.js';
++import { loadPool as loadPoolV1, doRoll } from '../suite/roll.js';
++import { loadPool as loadPoolV2 } from '../suite/roll-v2.js';
++import { USE_NEW_ROLLER } from '../app.js';
+ 
+ const SESSION_KEY = 'tm_combat_scene';
+ const d10 = () => Math.floor(Math.random() * 10) + 1;
+@@ -144,9 +146,13 @@ function quickRoll(charId, pool, label) {
+   const c = (suiteState.chars || []).find(x => String(x._id) === charId);
+   if (!c) return;
+   suiteState.rollChar = c;
+-  loadPool(pool, label, { total: pool });
+-  // Navigate to dice tab to show the roll
+-  if (window.goTab) window.goTab('dice');
++  // Both the pool write and the tab we navigate to must target the SAME
++  // roller — #t-dice is removed from the DOM at boot whenever the new
++  // roller is active, and #t-roll otherwise, so loading into the inactive
++  // roller's module state would be invisible either way (rlv.1).
++  const load = USE_NEW_ROLLER ? loadPoolV2 : loadPoolV1;
++  load(pool, label, { total: pool });
++  if (window.goTab) window.goTab(USE_NEW_ROLLER ? 'roll' : 'dice');
+ }
+ 
+ function _isIncap(cb) {
+diff --git a/server/tests/rlv-1-combat-tab-quick-roll.test.js b/server/tests/rlv-1-combat-tab-quick-roll.test.js
+new file mode 100644
+index 00000000..4ef81fd1
+--- /dev/null
++++ b/server/tests/rlv-1-combat-tab-quick-roll.test.js
+@@ -0,0 +1,115 @@
++/**
++ * rlv.1 — combat-tab.js's Quick Roll no longer silently no-ops when the new
++ * dice roller (`tm-use-new-dice-roller`) is active.
++ *
++ * Root cause (confirmed live, Phase 0 audit §4c, specs/dice-roller-harmonisation-audit.md):
++ * quickRoll() always called `loadPool` from roll.js and always navigated via
++ * `goTab('dice')`, which targets `#t-dice` — removed from the DOM at boot
++ * whenever the new roller is active (only `#t-roll` exists then), so the tap
++ * silently did nothing and the pool it loaded was invisible.
++ *
++ * combat-tab.js's other imports (accessors.js, equipment-derivation.js,
++ * tracker.js, data/helpers.js) are unrelated to quickRoll() itself and mocked
++ * outright to keep this test isolated to the function under test — the same
++ * approach crd-3b's own test takes with tracker.js/roll-v2.js. `../app.js` is
++ * mocked too rather than loaded for real: combat-tab.js importing FROM app.js
++ * (which already imports combat-tab.js) is this codebase's first circular
++ * module reference, and app.js's own import graph pulls in the entire
++ * admin/editor surface — mocking avoids ever evaluating any of it.
++ *
++ * `suite/data.js` (suiteState) has no imports of its own and is loaded for
++ * real; only its plain-object fields are exercised here.
++ */
++
++import { describe, it, expect, vi, beforeEach } from 'vitest';
++
++const loadPoolV1 = vi.fn();
++const loadPoolV2 = vi.fn();
++let mockUseNewRoller = false;
++
++vi.mock('../../public/js/suite/roll.js', () => ({
++  loadPool: loadPoolV1,
++  doRoll: vi.fn(),
++}));
++vi.mock('../../public/js/suite/roll-v2.js', () => ({
++  loadPool: loadPoolV2,
++}));
++vi.mock('../../public/js/app.js', () => ({
++  get USE_NEW_ROLLER() { return mockUseNewRoller; },
++}));
++vi.mock('../../public/js/data/accessors.js', () => ({
++  getAttrEffective: vi.fn(() => 0),
++  calcDefence: vi.fn(() => 0),
++  calcHealth: vi.fn(() => 0),
++}));
++vi.mock('../../public/js/data/equipment-derivation.js', () => ({
++  defenceForDisplay: vi.fn(() => 0),
++}));
++vi.mock('../../public/js/data/helpers.js', () => ({
++  esc: s => String(s ?? ''),
++}));
++vi.mock('../../public/js/game/tracker.js', () => ({
++  trackerAdj: vi.fn(),
++  trackerRead: vi.fn(() => null),
++}));
++
++// combat-tab.js attaches combatQuickRoll (and its siblings) onto `window` at
++// module-load time — `window` must exist before this import runs.
++globalThis.window = globalThis.window || {};
++
++await import('../../public/js/game/combat-tab.js');
++const suiteState = (await import('../../public/js/suite/data.js')).default;
++
++const CHAR = { _id: 'char-1', moniker: 'Test Char' };
++
++beforeEach(() => {
++  vi.clearAllMocks();
++  mockUseNewRoller = false;
++  suiteState.chars = [CHAR];
++  suiteState.rollChar = null;
++  window.goTab = vi.fn();
++});
++
++describe('rlv.1 AC1/AC2 — Quick Roll navigates to the tab that actually exists', () => {
++  it('flag OFF (legacy roller): navigates to goTab(\'dice\') — unchanged existing behaviour', () => {
++    mockUseNewRoller = false;
++    window.combatQuickRoll(String(CHAR._id), 7, 'Brawl');
++    expect(window.goTab).toHaveBeenCalledWith('dice');
++  });
++
++  it('flag ON (new roller): navigates to goTab(\'roll\'), the tab that actually exists in the DOM', () => {
++    mockUseNewRoller = true;
++    window.combatQuickRoll(String(CHAR._id), 7, 'Brawl');
++    expect(window.goTab).toHaveBeenCalledWith('roll');
++  });
++});
++
++describe('rlv.1 AC3/AC4 — the pool is loaded into whichever roller is actually active', () => {
++  it('flag OFF: loads the pool via roll.js, not roll-v2.js', () => {
++    mockUseNewRoller = false;
++    window.combatQuickRoll(String(CHAR._id), 7, 'Brawl');
++    expect(loadPoolV1).toHaveBeenCalledWith(7, 'Brawl', { total: 7 });
++    expect(loadPoolV2).not.toHaveBeenCalled();
++  });
++
++  it('flag ON: loads the pool via roll-v2.js, not roll.js — so the visible #t-roll tab shows it', () => {
++    mockUseNewRoller = true;
++    window.combatQuickRoll(String(CHAR._id), 7, 'Brawl');
++    expect(loadPoolV2).toHaveBeenCalledWith(7, 'Brawl', { total: 7 });
++    expect(loadPoolV1).not.toHaveBeenCalled();
++  });
++});
++
++describe('rlv.1 — regression: existing guards untouched', () => {
++  it('sets suiteState.rollChar to the resolved character before loading the pool', () => {
++    window.combatQuickRoll(String(CHAR._id), 7, 'Brawl');
++    expect(suiteState.rollChar).toBe(CHAR);
++  });
++
++  it('an unknown character id is a no-op — no navigation, no pool load', () => {
++    window.combatQuickRoll('does-not-exist', 7, 'Brawl');
++    expect(window.goTab).not.toHaveBeenCalled();
++    expect(loadPoolV1).not.toHaveBeenCalled();
++    expect(loadPoolV2).not.toHaveBeenCalled();
++  });
++});
+diff --git a/tests/rlv-1-quick-roll-tab-fix.spec.js b/tests/rlv-1-quick-roll-tab-fix.spec.js
+new file mode 100644
+index 00000000..e9885ab4
+--- /dev/null
++++ b/tests/rlv-1-quick-roll-tab-fix.spec.js
+@@ -0,0 +1,67 @@
++// rlv.1 — combat-tab.js's Quick Roll no longer silently no-ops when the new
++// dice roller (`tm-use-new-dice-roller`) is active.
++//
++// The Combat tab itself is behind Discord OAuth, so (matching issue-1018's
++// own established precedent for this exact area) this is a source-fetch
++// smoke plus a boot-time check, not a full interactive click-through.
++//
++// The boot-time part matters beyond "does the page still load": rlv.1 makes
++// combat-tab.js import `USE_NEW_ROLLER` from app.js, which already imports
++// combat-tab.js — this codebase's first circular module reference. The
++// import statement for combat-tab.js sits well before app.js's own
++// `export const USE_NEW_ROLLER = ...` line, so this proves in a real browser
++// (not just reasoned about) that the live binding resolves correctly rather
++// than throwing a temporal-dead-zone error at module-evaluation time.
++
++const { test, expect } = require('@playwright/test');
++
++test('rlv.1 — combat-tab.js reads the shared USE_NEW_ROLLER flag, not a second inline check', async ({ request }) => {
++  const res = await request.get('/js/game/combat-tab.js');
++  const src = await res.text();
++  expect(src).toMatch(/import\s*\{\s*USE_NEW_ROLLER\s*\}\s*from\s*['"]\.\.\/app\.js['"]/);
++  expect(src).not.toMatch(/localStorage\.getItem\(\s*['"]tm-use-new-dice-roller['"]\s*\)/);
++});
++
++test('rlv.1 — quickRoll() loads the pool into whichever roller is active and navigates there', async ({ request }) => {
++  const res = await request.get('/js/game/combat-tab.js');
++  const src = await res.text();
++  expect(src).toMatch(/import\s*\{\s*loadPool\s+as\s+loadPoolV1\s*,\s*doRoll\s*\}\s*from\s*['"]\.\.\/suite\/roll\.js['"]/);
++  expect(src).toMatch(/import\s*\{\s*loadPool\s+as\s+loadPoolV2\s*\}\s*from\s*['"]\.\.\/suite\/roll-v2\.js['"]/);
++  expect(src).toMatch(/USE_NEW_ROLLER\s*\?\s*loadPoolV2\s*:\s*loadPoolV1/);
++  expect(src).toMatch(/window\.goTab\(\s*USE_NEW_ROLLER\s*\?\s*['"]roll['"]\s*:\s*['"]dice['"]\s*\)/);
++});
++
++test('rlv.1 — app.js exports USE_NEW_ROLLER for this one call site', async ({ request }) => {
++  const res = await request.get('/js/app.js');
++  const src = await res.text();
++  expect(src).toMatch(/export\s+const\s+USE_NEW_ROLLER\s*=\s*localStorage\.getItem\(\s*['"]tm-use-new-dice-roller['"]\s*\)\s*===\s*['"]1['"]/);
++});
++
++// Boot-time smoke: the circular import (combat-tab.js -> app.js -> combat-tab.js)
++// must not throw at module-evaluation time in either flag state. Runs against
++// the login screen, same as issue-1018's own boot smoke — module-import phase
++// happens before the Discord auth gate.
++async function assertBootsCleanly(page, flagOn) {
++  await page.goto('/');
++  await page.evaluate((on) => {
++    if (on) localStorage.setItem('tm-use-new-dice-roller', '1');
++    else localStorage.removeItem('tm-use-new-dice-roller');
++  }, flagOn);
++  const errors = [];
++  page.on('pageerror', (e) => errors.push(String(e)));
++  page.on('console', (msg) => {
++    if (msg.type() === 'error') errors.push(msg.text());
++  });
++  await page.reload({ waitUntil: 'domcontentloaded' });
++  await page.waitForTimeout(400);
++  const modErrs = errors.filter((e) => /USE_NEW_ROLLER|combat-tab|Cannot access.*before initialization|circular/i.test(e));
++  expect(modErrs, `module errors: ${modErrs.join('\n')}`).toEqual([]);
++}
++
++test('rlv.1 — boots cleanly with the new roller OFF (no circular-import error)', async ({ page }) => {
++  await assertBootsCleanly(page, false);
++});
++
++test('rlv.1 — boots cleanly with the new roller ON (no circular-import error)', async ({ page }) => {
++  await assertBootsCleanly(page, true);
++});

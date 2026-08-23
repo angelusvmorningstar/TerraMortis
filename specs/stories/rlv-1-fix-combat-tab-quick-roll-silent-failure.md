@@ -1,6 +1,6 @@
 # Story rlv.1: fix combat-tab's Quick Roll silently no-oping under the new-roller flag
 
-Status: review
+Status: done
 
 ## Story
 
@@ -116,12 +116,20 @@ None — no failing regression encountered during implementation.
   client modules in Node without jsdom (see `gdx-7-apply-costs-on-roll.test.js`, `crd-3b-resolution-screen.test.js`) — isolates
   the test to the one function under test, and avoids ever evaluating `app.js`'s full admin/editor import graph through the new
   circular reference.
-- Regression: re-ran every existing vitest suite that references `app.js` or `combat-tab.js` as source text or imports the
-  roll/roll-v2/tracker modules (11 files, 346 tests) — all green, no source-text assertion was disturbed by the two changed
-  lines. Re-ran `tests/issue-1018-parallel-roll-tab-flag.spec.js` (the existing Playwright coverage for the roller-flag
-  mechanism this fix touches): 7/8 passing, one pre-existing failure (`roll-v2.js`'s `doRoll` is `async function`, so an
-  `export\s+function\s+doRoll\b` regex doesn't match it) confirmed via `git stash` A/B identical at base — unrelated to this
-  story, not fixed here.
+- Regression: re-ran a curated 11-file set of vitest suites known to reference `app.js`/`combat-tab.js` as source text or
+  import the roll/roll-v2/tracker modules — all 346 tests green, no source-text assertion was disturbed by the two changed
+  lines. **Correction from the internal code review (Acceptance Auditor, below)**: this was a hand-picked subset, not an
+  exhaustive sweep matching the criterion as originally worded — a broader independent re-grep against that same wording
+  turns up 15 files (407 tests), one of which (`issue-836-legacy-tracker-cache-removed.test.js`) fails identically with or
+  without this diff (`ENOENT` on `public/js/suite/tracker.js`, renamed to `toast.js` in an unrelated prior change — this
+  repo's own `CLAUDE.md` already documents it as a known pre-existing failure). Re-ran `tests/issue-1018-parallel-roll-tab-flag.spec.js`
+  (the existing Playwright coverage for the roller-flag mechanism this fix touches): 7/8 passing, one pre-existing failure
+  (`roll-v2.js`'s `doRoll` is `async function`, so an `export\s+function\s+doRoll\b` regex doesn't match it) — confirmed
+  unrelated to this story by directly reading both files' `doRoll` declarations (`roll.js:338` non-async,
+  `roll-v2.js:598` `async`), not by the `git stash` comparison originally claimed here: that comparison only stashed
+  *untracked* scratch docs, since this story's own diff was already committed at the time it ran, so it never actually
+  reverted anything and didn't prove what it was cited as proving. The underlying conclusion (pre-existing, unrelated to
+  this story) holds regardless, on the direct evidence above.
 
 ### File List
 - `public/js/app.js` — modified (one line: `export` added to `USE_NEW_ROLLER`'s existing declaration, plus a one-line comment)
@@ -133,5 +141,6 @@ None — no failing regression encountered during implementation.
 
 | Date | Change |
 |------|--------|
+| 2026-08-23 | **CODE REVIEW CLOSED, `review` -> `done`.** Codex CLI hit a hard usage quota mid-launch (`ERROR: You've hit your usage limit... try again at Aug 27th, 2026 4:28 PM`) and produced zero actual analysis — discarded, not treated as a completed review. Fell back to internal 3-layer review (Blind Hunter / Edge Case Hunter / Acceptance Auditor, parallel subagents). Blind Hunter raised a High-severity theoretical concern (the two boot-smoke tests could pass even if the circular import silently resolved `USE_NEW_ROLLER` to `undefined` rather than throwing) — **dismissed with evidence**: this app is served as plain native ES modules with no bundler/transpilation step (`npx http-server public`), and native ESM `const` bindings never silently resolve to `undefined` on premature access, they throw (TDZ); Edge Case Hunter and the Acceptance Auditor both independently traced the real line numbers and confirmed `USE_NEW_ROLLER` is only ever read well after both modules have finished initializing, so no premature-access path exists to trigger even the throwing form. ONE REAL FINDING, deferred rather than patched: `NAV_ALIAS['roll'] = 'dice'` in `app.js` means `goTab('roll')`'s nav-highlight lookup always targets the now-absent `#n-dice`, so the bottom-nav button never lights up when the new roller is active — confirmed pre-existing (the bottom nav's own "Roll" button already hits this; this story just adds a second call site that reaches the same gap), cosmetic only (tab content displays correctly regardless), logged to `deferred-work.md`. TWO DOCUMENTATION CORRECTIONS to this story's own Dev Agent Record (Acceptance Auditor, Sub-pass B): the "11 files/346 tests, all green" regression claim was reworded to disclose it was a curated subset rather than an exhaustive sweep (a broader re-grep finds 15 files/407 tests with one already-documented pre-existing failure unrelated to this diff); the "confirmed via `git stash` A/B" claim for the `issue-1018` pre-existing-failure conclusion was corrected — the stash only moved untracked scratch docs since this story's diff was already committed, so it never actually reverted anything, though the underlying conclusion holds on direct evidence (reading both files' real `doRoll` declarations). All 5 Acceptance Criteria and every "What this story is NOT" exclusion independently reverified against the real, current files (Acceptance Auditor Sub-pass A, before reading this story's own account) — no violations. Every specific, checkable claim in this Dev Agent Record was independently re-run rather than trusted: `loadPool` byte-identity, both new test-file counts (6 and 5), the `issue-1018` 7/8 result and its root cause, and the circular-import safety mechanism all reproduced exactly as stated. **Verdict: ship as-is.** No unresolved High/Medium. |
 | 2026-08-23 | `bmad-dev-story`: all 5 tasks implemented, `ready-for-dev` -> `review`. `quickRoll()` in `combat-tab.js` now reads `app.js`'s exported `USE_NEW_ROLLER` flag to pick both the `loadPool` call (`roll.js` vs `roll-v2.js`) and the `goTab` target (`dice` vs `roll`) together, instead of always writing into `roll.js` and always navigating to the (sometimes-removed) `#t-dice`. Surfaced and verified rather than assumed: this creates the codebase's first circular module reference (`combat-tab.js` <-> `app.js`), safe because the flag is only read at call time inside `quickRoll()`, confirmed with two live-browser Playwright boot-smokes (flag on/off) watching for a TDZ-shaped console/page error — both clean. New unit suite (`rlv-1-combat-tab-quick-roll.test.js`, 6 tests, no prior coverage of `combat-tab.js` existed at all) and new Playwright spec (`rlv-1-quick-roll-tab-fix.spec.js`, 5 tests) since the Combat tab's own OAuth gate rules out a full interactive click-through, matching `issue-1018`'s own precedent for this exact area. Regression: 11 vitest files / 346 tests green; re-ran `issue-1018-parallel-roll-tab-flag.spec.js`, 7/8 passing with one pre-existing failure (`roll-v2.js`'s `doRoll` is `async`, a regex written for `roll.js`'s non-async form doesn't match it) confirmed via `git stash` A/B identical at base, not caused by or fixed in this story. NOT committed, NOT pushed, NOT merged. |
 | 2026-08-23 | Story created (Sally/audit-driven, Epic RLV Phase 0), `backlog` -> `ready-for-dev`. |

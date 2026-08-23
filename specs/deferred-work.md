@@ -892,3 +892,40 @@ data-integrity gap crd-3a's own review already fixed the correctness-critical ha
     nothing currently in this codebase's write paths prevents but which also isn't a shape any
     known live character currently has (not checked against live `tm_game.characters` as part of
     this review — a live data-integrity audit, if wanted, is separate work).
+
+---
+
+## Deferred from: code review of rlv-1-fix-combat-tab-quick-roll-silent-failure (2026-08-23, internal 3-layer review)
+
+Codex CLI hit a hard usage quota mid-launch (`ERROR: You've hit your usage limit... try again at
+Aug 27th, 2026 4:28 PM`) and produced zero actual analysis before failing — the run was discarded
+outright rather than treated as a completed review. Fell back to `bmad-loop`'s internal 3-layer
+review (Blind Hunter / Edge Case Hunter / Acceptance Auditor as parallel subagents). One real,
+verified, pre-existing finding surfaced by the Edge Case Hunter layer — deferred rather than patched
+here, since it is broader than this story's own narrow scope and predates it.
+
+- **`goTab('roll')` never lights up its own bottom-nav/sidebar button, because `NAV_ALIAS` still maps
+  `roll` to the legacy `dice` nav id.** `public/js/app.js:396` declares `const NAV_ALIAS = { ...,
+  roll: 'dice', ... }`. `goTab(t)` computes `navId = 'n-' + (NAV_ALIAS[t] || t)` (line 488), so
+  `goTab('roll')` always looks for `#n-dice` regardless of which roller is active. When
+  `USE_NEW_ROLLER` is true, `renderBottomNav`/the desktop sidebar's `primaryTabs` loop both skip
+  rendering the `dice` nav item entirely (`app.js:442`, `2206`: `if (item.id === 'dice' &&
+  USE_NEW_ROLLER) continue;`) — only `#n-roll` exists in the DOM at that point. `document.
+  getElementById('n-dice')` returns `null`, so the `.on` class is never applied and `scrollIntoView`
+  never fires. The tab CONTENT still displays correctly (`#t-roll` becomes `.active` regardless,
+  since that lookup isn't gated by `NAV_ALIAS`) — only the nav button's own highlighted/active visual
+  state silently fails to update.
+  - **Confirmed pre-existing, not introduced by rlv-1**: the bottom nav's own "Roll" button already
+    calls `goTab('roll')` via its own `onclick` (the `NAV_ITEMS` entry rendered generically), so this
+    exact failure was already live before this story touched anything. rlv-1 only adds a SECOND call
+    site (`combat-tab.js`'s Quick Roll) that now also reaches the same pre-existing gap.
+  - **Why deferred rather than patched here**: `NAV_ALIAS` is a small, generically-named lookup table
+    also used for the editor sub-view aliases (`chars`/`editor`/`edit`/`sheets`/`sheet` → `stats`);
+    the correct fix (making the `roll` entry flag-aware, or removing it now that `#n-roll` is a real
+    distinct nav id in its own right rather than an alias of anything) is a one-line but
+    flag-sensitive change to shared navigation-highlighting code well outside this story's own scope
+    ("What this story is NOT" explicitly excludes anything beyond `combat-tab.js`'s own Quick Roll
+    fix) — worth its own small story rather than a drive-by patch bundled into an unrelated bugfix.
+  - **Reachability**: any tap of the existing bottom-nav "Roll" button, or (after this story) Quick
+    Roll from the Combat tab, whenever `tm-use-new-dice-roller` is on — cosmetic (nav highlight only,
+    tab content is unaffected), not a functional blocker.
