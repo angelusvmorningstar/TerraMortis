@@ -7271,7 +7271,8 @@ function renderQuestion(q, value) {
         }
         // Mandragora Garden — effective dots across all bonus channels
         const mandDots = effectiveDomainDots(c, 'Mandragora Garden');
-        // Each effective dot produces 1 Blood Fruit (worth 2 vitae if consumed; not on the vitae track)
+        // Each effective dot produces 1 Blood Fruit (worth 2 vitae if consumed; not on the vitae
+        // track). Flat and unconditional, no maintenance cost or gate (ruled 2026-08-18, dtlt.10).
         const bloodFruit = mandDots;
         // Herd: TM errata — 1 vitae per effective dot per month, all bonus channels included.
         const herdDots = effectiveDomainDots(c, 'Herd');
@@ -7370,7 +7371,9 @@ function renderQuestion(q, value) {
         if (oathBonus > 0) posMods.push({ label: `Oath of Fealty (Invictus Status ${invStatusForOath})`, val: oathBonus });
         if (ghoulCost > 0) negMods.push({ label: 'Ghoul Retainers', val: -ghoulCost });
         if (riteVitaeCost > 0) negMods.push({ label: 'Cruac Rites', val: -riteVitaeCost });
-        if (mandDots > 0) negMods.push({ label: `Mandragora Garden (${'●'.repeat(mandDots)})`, val: -mandDots });
+        // Mandragora Garden maintenance cost REMOVED 2026-08-18 (Angelus's ruling, dtlt.10): the
+        // garden is a flat per-dot Blood Fruit benefit with no vitae upkeep. Do not reintroduce a
+        // cost line here.
 
         const netStarting = posMods.reduce((s, m) => s + m.val, 0) + negMods.reduce((s, m) => s + m.val, 0);
         const projected = Math.max(0, Math.min(vitaeMax, netStarting + avgGathered));

@@ -939,7 +939,7 @@ development_status:
   # interpretation flagged in the story file (cost side wasn't explicitly
   # named in the ruling; interpreted as dropped too, for symmetry) — flagged,
   # not silently assumed.
-  dtlt-10-mandragora-fruit-conditionality: ready-for-dev    # ruled 2026-08-18 — Reading C (flat, no cost) — see story file
+  dtlt-10-mandragora-fruit-conditionality: done    # ruled 2026-08-18 — Reading C (flat, no cost) implemented and CODE REVIEW CLOSED 2026-08-23: deleted the unconditional -mandDots cost push at downtime-form.js:7373, confirmed the flat bloodFruit calc and its row visibility were already correct, corrected one pre-existing Playwright test (dt-vitae-projection.spec.js) that asserted the old cost behaviour. Internal 3-layer review found no High/Medium; 4 Low doc/record-accuracy patches applied (stale Merits Errata.md cost text, stale test-file header comment, two Dev Agent Record corrections). Story: dtlt.10.mandragora-fruit-conditionality.story.md.
   # 2026-08-18: CLOSED AS MOOT, Angelus's own confirmation, verified against
   # current code. The redesigned downtime form (dt-form.22, ROTE moved to a
   # personal-project-action variant) already locks the rote feed to the SAME

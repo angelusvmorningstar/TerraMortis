@@ -2,7 +2,7 @@
 title: 'Mandragora Garden fruit conditionality — gate fruit and maintenance cost on a single switch'
 type: 'fix'
 created: '2026-04-30'
-status: 'ready-for-dev'
+status: 'done'
 recommended_model: 'sonnet — implementation surface is bounded once the ST ruling lands; both possible readings are laid out below with concrete code-map paths'
 context:
   - specs/epic-dtlt-dt2-live-form-triage.md
@@ -239,13 +239,28 @@ bonus-dice grant at `:3771` is a separate effect, untouched, per the story's own
 
 **Reading C (ruled 2026-08-18 — this is what ships):**
 
-- [ ] Delete the unconditional `-mandDots` cost push at `:5776` — no cost row, ever, under any condition.
-- [ ] Confirm the fruit calc at `:5687-5690` stays `bloodFruit = mandDots` (already correct — no change needed, just confirm no gating creeps in).
-- [ ] Confirm the fruit row at `:5799` renders whenever `bloodFruit > 0` (already correct).
-- [ ] Remove/update any in-code comment that describes the maintenance cost as intentional or pending a gate — replace with a note citing this ruling (2026-08-18) so a future reader doesn't reintroduce it as a "fix".
-- [ ] Manual smoke: character with Mandragora Garden N shows `+N` Blood Fruit and NO cost row, regardless of sorcery/rite activity that cycle.
-- [ ] Manual smoke: character without the merit shows neither row.
-- [ ] Legacy DT 1/DT 2 submissions unaffected (immutable, not re-rendered under the new logic retroactively).
+- [x] Delete the unconditional `-mandDots` cost push at `:5776` — no cost row, ever, under any condition.
+- [x] Confirm the fruit calc at `:5687-5690` stays `bloodFruit = mandDots` (already correct — no change needed, just confirm no gating creeps in).
+- [x] Confirm the fruit row at `:5799` renders whenever `bloodFruit > 0` (already correct).
+- [x] Remove/update any in-code comment that describes the maintenance cost as intentional or pending a gate — replace with a note citing this ruling (2026-08-18) so a future reader doesn't reintroduce it as a "fix".
+- [x] Manual smoke: character with Mandragora Garden N shows `+N` Blood Fruit and NO cost row, regardless of sorcery/rite activity that cycle.
+- [x] Manual smoke: character without the merit shows neither row.
+- [x] Legacy DT 1/DT 2 submissions unaffected (immutable, not re-rendered under the new logic retroactively).
+
+### Review Findings
+
+- [x] [Review][Patch] `docs/merits/Merits Errata.md:441` still stated the pre-ruling Vitae maintenance
+  cost as the merit's canon text, with no note that this table overrides it — appended a table-ruling
+  note after the entry (2026-08-18, dtlt.10) rather than altering the quoted printed text.
+- [x] [Review][Patch] `tests/dt-vitae-projection.spec.js`'s file-level doc comment (line 12) still read
+  "Mandragora Garden: cost is in negatives, Blood Fruit count is below the line" — updated to describe
+  the current (Reading C) behaviour.
+- [x] [Review][Patch] Dev Agent Record overstated the diff as a "two-line change" — reworded to an
+  accurate description (one line deleted, two comments added/expanded).
+- [x] [Review][Patch] Dev Agent Record's claim that `issue-827-subtitle-order.test.js` was "the only
+  vitest suite referencing Mandragora" was false (19 `server/tests/` files reference it; none compute
+  a vitae cost, so the underlying conclusion held, but the specific claim was wrong) — corrected in
+  place rather than left standing.
 
 **Acceptance Criteria (Reading C — supersedes the template below):**
 
@@ -289,3 +304,71 @@ Mandragora Garden's gating becomes coherent: the cost and the fruit fire togethe
 The dtlt-13 diagnostic finding is closed once the chosen reading lands. No follow-up expected unless the gate condition itself proves contentious in play.
 
 The story file remains in this state until the ST team rules on Reading A vs B. When the ruling comes, sprint-status flips dtlt-10 from `backlog` to `ready-for-dev` and the dev agent picks it up — implementing only the chosen path per Tasks & Acceptance.
+
+## Dev Agent Record
+
+### Agent Model Used
+
+Claude Opus (bmad-dev-story, bmad-loop Phase 2), 2026-08-23.
+
+### Debug Log References
+
+None — no failing regression surfaced during implementation. Line numbers in the story's own Code
+Map section had drifted since the story was drafted (2026-04-30); the actual call sites were located
+fresh via grep rather than trusting the stale `:5687-5690`/`:5776`/`:5799` references (real locations:
+`public/js/tabs/downtime-form.js:7272-7275` for the fruit calc, `:7373` for the cost push, `:7396`
+for the fruit row).
+
+### Completion Notes List
+
+- Only Reading C's task list applies (per the story's own "ruled 2026-08-18" heading); the "Shared
+  (both readings)" and Reading A/B task lists describe a `_isMandragoraActiveThisCycle` helper
+  approach that Reading C's own Code Map explicitly says is unnecessary ("no gating helper needed at
+  all") — left unchecked intentionally, not an oversight.
+- Implementation deleted the unconditional `if (mandDots > 0) negMods.push(...)` cost row at
+  `downtime-form.js:7373` (replaced with a 3-line comment citing the ruling so a future reader doesn't
+  reintroduce it as a "fix"), and expanded a one-line comment near the existing `bloodFruit = mandDots`
+  calc to note it's flat/unconditional by ruling. The fruit calc and fruit-row visibility were already
+  correct as the story predicted — confirmed by reading the live code, not assumed.
+- Searched the wider codebase (`public/`, admin resolution views, dice-pool rendering) for any other
+  site computing a Mandragora vitae cost — found none. The only other Mandragora references are the
+  separate, untouched +3 Cruac dice-pool bonus and per-rite "parked in garden" bookkeeping, both
+  explicitly out of scope per the story's own "Never" constraints.
+- Found and fixed one pre-existing test that asserted the buggy behaviour this story removes:
+  `tests/dt-vitae-projection.spec.js`'s "Mandragora Garden costs vitae..." test expected a `−2` cost
+  row and a `−2` subtotal. Updated to assert no cost row (`toHaveCount(0)`) and a `+0` subtotal,
+  renamed to reflect the ruling. This is a correction to existing coverage, not new test authorship —
+  consistent with the story's own "No new tests required (single-path behavioural change)".
+- Regression: ran `tests/dt-vitae-projection.spec.js` (targeted — the file covering this exact panel)
+  plus `tests/dt-form-599-flock-herd.spec.js` and `tests/dt-form-609-ssj-herd.spec.js` (adjacent vitae-
+  projection mods, same panel). 3 pre-existing failures reproduced identically with this story's diff
+  stashed out (`git stash` A/B, not merely asserted): all three are in the unrelated "three-container
+  layout" / Standard-Rote-toggle describe block (`dt-feed-rote-section` never becomes visible under
+  the current stubbed API setup) — pre-existing at base, not caused by or fixed in this story. 9 other
+  tests in those files passed, including the corrected Mandragora test. Also ran
+  `server/tests/issue-827-subtitle-order.test.js` as a sanity check — 12/12 passing, unaffected (it
+  tests merit-list subtitle ordering, unrelated to the vitae projection panel). **Correction (internal
+  code review, Acceptance Auditor):** this was originally described as "the only vitest suite
+  referencing Mandragora" — false; a repo-wide grep finds 19 `server/tests/` files mentioning
+  Mandragora (e.g. `n8-mandragora-prereq.test.js`, several `*-parallel-write.test.js` files). Spot-
+  checked several: all reference it incidentally (prereq/attach_to logic, or as an unrelated fixture
+  merit name) — none compute a vitae cost, so the underlying conclusion (no other server-side test
+  needed updating) still holds, but the "only suite" claim itself was wrong and is corrected here
+  rather than left standing.
+- Syntax-checked the edited file (`node -c public/js/tabs/downtime-form.js`) before running tests.
+
+### File List
+
+- `public/js/tabs/downtime-form.js` — modified (removed the Mandragora Garden vitae maintenance cost
+  row from the DT vitae projection panel; added ruling-citing comments)
+- `tests/dt-vitae-projection.spec.js` — modified (corrected the one pre-existing test that asserted
+  the now-removed cost behaviour; header doc comment corrected in review)
+- `docs/merits/Merits Errata.md` — modified in review (appended a table-ruling override note to the
+  Mandragora Garden entry; printed/errata text itself left untouched)
+
+## Change Log
+
+| Date | Change |
+|---|---|
+| 2026-08-23 | `bmad-dev-story`: Reading C implemented — deleted the unconditional Mandragora Garden vitae cost row from the DT vitae projection panel (`downtime-form.js:7373`), confirmed the flat Blood Fruit calc and its row visibility were already correct, corrected one pre-existing Playwright test that asserted the old cost behaviour. `ready-for-dev` → `review`. |
+| 2026-08-23 | **CODE REVIEW CLOSED, `review` -> `done`.** Internal 3-layer review (Blind Hunter / Edge Case Hunter / Acceptance Auditor, parallel subagents; this session opted internal explicitly, small bounded diff). No High/Medium findings. FOUR Low patches applied: `docs/merits/Merits Errata.md`'s Mandragora Garden entry still stated the pre-ruling Vitae cost as canon with no override note (appended a table-ruling note rather than altering the quoted printed text, mirroring the protective code comment already in `downtime-form.js`); `tests/dt-vitae-projection.spec.js`'s file-header doc comment still described the removed cost behaviour; and two Dev Agent Record inaccuracies were corrected on independent re-verification — an "only vitest suite referencing Mandragora" claim was FALSE (repo-wide grep found 19 `server/tests/` files, though none were substantively relevant, so the underlying conclusion held), and a "two-line change" description was a minor overstatement. THREE findings dismissed after independent verification confirmed no real issue: an unverified "no other Mandragora cost site exists" claim (Edge Case Hunter's exhaustive `server/`+`public/js/admin/` grep and Acceptance Auditor's Pass 2 both independently confirmed true — the removed client-side line was the only place this cost ever existed, so no client/server inconsistency was created); "fruit row and legacy-submission guarantees asserted but not diff-verified" (Edge Case Hunter hand-traced the render code and confirmed both hold); and a stale historical caveat comment preserved in `sprint-status.yaml` next to the (now clearly updated) status line, judged non-misleading as an audit trail rather than a claim about current state. Acceptance Auditor's Pass 1 (spec-vs-code, formed before reading this story's own Dev Agent Record) found the Reading C implementation fully satisfies all three of its own Acceptance Criteria and every "Never" constraint, with zero AC violations. Every specific, checkable Dev Agent Record claim was independently re-run or re-derived rather than trusted: the corrected real line numbers, the "already correct, no change needed" fruit-calc/fruit-row claims, the regression test-file-count arithmetic (3+9=12, matching the actual `test(` count), and the File List all reproduced/matched exactly as stated. **Verdict: ship as-is.** No unresolved High/Medium. |
