@@ -27,8 +27,8 @@ import { vmPool, vmUsed, investedPool, investedUsed, lorekeeperPool, lorekeeperU
 // cache rather than the static catalogue module. The cache is loaded at
 // app boot (admin.js) and refetched on `broadcastCatalogueUpdate` WS
 // frames. The static module stays in place until ECM-7 deletes it
-// alongside the server mirror; editor/sheet.js and suite/roll.js still
-// read from it via `getCatalogueEntry`.
+// alongside the server mirror; editor/sheet.js and suite/roll-v2.js
+// (roll.js retired by rlv.2) still read from it via `getCatalogueEntry`.
 import { getCatalogueByBucket } from '../data/equipment-catalogue-cache.js';
 // #896: ST admin editor BYPASSES the availability filter (ST can assign any
 // item to any character) but still shows the per-character effective

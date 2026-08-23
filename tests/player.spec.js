@@ -7,7 +7,7 @@
  * the current DOM (noted inline) — see the Task-0 DOM map in
  * specs/stories/fix.626.player-portal-spec-rewrites.story.md.
  *   - #player-app -> #app; tabs -> window.goTab(id) + #t-<id>.active
- *   - "Sheet" -> goTab('chars'); default tab is 'dice' (not sheet)
+ *   - "Sheet" -> goTab('chars'); default tab is 'roll' (not sheet)
  *   - header username -> #hdr-char-name (active char); user moved to #desktop-sidebar-user
  *   - logout -> Settings (.settings-logout / window.logout); #nav-game removed (app IS the game)
  *   - #nav-admin gated by applyRoleRestrictions (own display: '' for ST, 'none' for player)

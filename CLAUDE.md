@@ -55,6 +55,17 @@ running the affected suites because a change "looks safe".
     and a disabled active button. CM-1 (#1028) replaced that with the four-button
     downtime/processing/prep/game group. Stale at base, measured identical with and without CM-4a
     (added to this list 2026-08-16); wants its own cleanup story.
+  - `tests/feature-662-eq3-roll-calc-equipment-chips.spec.js` (7 of 12: AC-1, AC-2, AC-3, AC-4, AC-7,
+    AC-8, AC-10) — equipment-chip/weapon-reference assertions on `#effline` never find their
+    elements. Confirmed via `git stash` isolation during rlv.2 (2026-08-24) against unmodified base
+    code — identical failures with and without that story's changes, so unrelated to the roll.js
+    retirement. Root cause not investigated (out of rlv.2's scope).
+  - `tests/suite.spec.js` (at least 5 of 24, stopped counting past test 12/24) — "starts on Roll
+    tab", "Roll and Character nav buttons visible", "Territory nav visible for ST", "tab navigation
+    works" (60s timeout), "Player nav button visible" (`#nav-player` doesn't exist in `NAV_ITEMS`).
+    Confirmed via `git stash` isolation during rlv.2 (2026-08-24) against unmodified base code —
+    same failures, same line numbers, before that story touched anything. Looks like incomplete
+    mocking/fixtures for the ST/Player nav describe blocks; not investigated further.
 - Angelus **cannot run the app locally** to smoke-test. Anything needing a human look must be on a
   deployed environment first.
 

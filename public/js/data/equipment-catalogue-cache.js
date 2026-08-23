@@ -2,8 +2,9 @@
  * Equipment catalogue cache (Epic ECM, ECM-5 / issue #872).
  *
  * Module-level cache fed by `GET /api/equipment_catalogue` at boot. Consumers
- * (currently `editor/edit.js` per ECM-5; `editor/sheet.js` and `suite/roll.js`
- * fold in alongside the static-module deletion in ECM-7) read from the cache
+ * (currently `editor/edit.js` per ECM-5; `editor/sheet.js` and `suite/roll-v2.js`
+ * — roll.js retired outright by rlv.2, 2026-08-24 — fold in alongside the
+ * static-module deletion in ECM-7) read from the cache
  * rather than the static `EQUIPMENT_CATALOGUE` import. Refetches on receipt
  * of a `broadcastCatalogueUpdate` WS frame so admin catalogue edits propagate
  * to every open dropdown without a page reload.

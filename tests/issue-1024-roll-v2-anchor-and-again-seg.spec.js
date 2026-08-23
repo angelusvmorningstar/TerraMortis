@@ -1,9 +1,13 @@
 // Smokes for issue #1024 — ROLL v2 slice A (anchor) + D (segmented Again).
 //
-// Source-fetch smokes plus a live boot smoke that confirms the new
-// anchor + seg control are present and functional in the `flag ON`
-// state without needing Discord OAuth. DICE (#t-dice) markup is
-// asserted unchanged (safety-net for the flag-off path).
+// Source-fetch smokes plus a live boot smoke that confirm the anchor + seg
+// control are present and functional, without needing Discord OAuth.
+// rlv.2 (2026-08-24) promoted roll-v2.js to the sole player roller and
+// deleted roll.js/#t-dice outright, so the flag-conditional tests this file
+// used to carry ("flag ON" vs "flag OFF", the #t-dice safety net) are gone —
+// there is only one state to assert now. See
+// tests/rlv-2-single-roller-retirement.spec.js for the retirement proof
+// itself (no #t-dice, no flag, no toggle).
 
 const { test, expect } = require('@playwright/test');
 
@@ -33,37 +37,21 @@ test('#1024 — #t-roll no longer has the old a8/a9/na-c chips', async ({ reques
   const res = await request.get('/index.html');
   const html = await res.text();
 
-  // Locate just the #t-roll block so we don't accidentally hit #t-dice.
+  // Locate just the #t-roll block (index.html is CRLF — found pre-existing
+  // and fixed here: the old \n\n-only delimiter never matched on this
+  // checkout, same CRLF/LF family as this project's other documented
+  // line-ending gremlins).
   const start = html.indexOf('<div id="t-roll"');
   expect(start).toBeGreaterThan(0);
-  const end = html.indexOf('</div>\n\n    <!-- ═══ TERRITORY', start);
+  const territoryMatch = /<\/div>\r?\n\r?\n\s*<!-- ═══ TERRITORY/.exec(html.slice(start));
+  expect(territoryMatch).not.toBeNull();
+  const end = start + territoryMatch.index;
   expect(end).toBeGreaterThan(start);
   const rollBlock = html.slice(start, end);
 
   expect(rollBlock).not.toMatch(/id="a8"/);
   expect(rollBlock).not.toMatch(/id="a9"/);
   expect(rollBlock).not.toMatch(/id="na-c"/);
-});
-
-test('#1024 — #t-dice block is untouched (safety net for flag-off path)', async ({ request }) => {
-  const res = await request.get('/index.html');
-  const html = await res.text();
-
-  const start = html.indexOf('<div id="t-dice"');
-  const end = html.indexOf('<!-- ═══ ROLL TAB', start);
-  expect(start).toBeGreaterThan(0);
-  expect(end).toBeGreaterThan(start);
-  const diceBlock = html.slice(start, end);
-
-  // DICE keeps the legacy controls exactly.
-  expect(diceBlock).toMatch(/id="a8"/);
-  expect(diceBlock).toMatch(/id="a9"/);
-  expect(diceBlock).toMatch(/id="na-c"/);
-  expect(diceBlock).toMatch(/id="pval"/);
-  expect(diceBlock).toMatch(/id="mval"/);
-  // And has none of the v2 anchor bits.
-  expect(diceBlock).not.toMatch(/id="rv2-eff"/);
-  expect(diceBlock).not.toMatch(/id="rv2-again-seg"/);
 });
 
 test('#1024 — roll-v2.js exports setAgainSeg', async ({ request }) => {
@@ -99,24 +87,19 @@ test('#1024 — suite.css contains the .rv2-* styles', async ({ request }) => {
   expect(rvBlock).not.toMatch(/rgba\(\s*255\s*,/);
 });
 
-// ── Live boot smokes: reload the app with the flag set, confirm the
-//    ROLL tab's anchor + seg pill actually render and behave.
-//    No OAuth needed — the tab markup + rv2 painters run pre-login.
+// ── Live boot smokes: confirm the ROLL tab's anchor + seg pill actually
+//    render and behave. No OAuth needed — the tab markup + rv2 painters
+//    run pre-login.
 
-async function bootWithFlag(page, on) {
+async function bootApp(page) {
   await page.goto('/');
-  await page.evaluate((flag) => {
-    if (flag) localStorage.setItem('tm-use-new-dice-roller', '1');
-    else localStorage.removeItem('tm-use-new-dice-roller');
-  }, on);
-  await page.reload({ waitUntil: 'domcontentloaded' });
   await page.waitForTimeout(400);
 }
 
-test('#1024 — flag ON: anchor + seg pill are in the live DOM', async ({ page }) => {
+test('#1024 — anchor + seg pill are in the live DOM', async ({ page }) => {
   const errors = [];
   page.on('pageerror', (e) => errors.push(String(e)));
-  await bootWithFlag(page, true);
+  await bootApp(page);
 
   const state = await page.evaluate(() => ({
     hasEff: !!document.getElementById('rv2-eff'),
@@ -133,8 +116,8 @@ test('#1024 — flag ON: anchor + seg pill are in the live DOM', async ({ page }
   expect(state.hasSub, 'rv2-sub should be present').toBeTruthy();
   expect(state.hasSeg, 'rv2-again-seg should be present').toBeTruthy();
   expect(state.segButtons).toEqual(['10', '9', '8', 'none']);
-  expect(state.dice, '#t-dice should be removed at boot').toBeFalsy();
-  expect(state.roll, '#t-roll should survive at boot').toBeTruthy();
+  expect(state.dice, '#t-dice should not exist').toBeFalsy();
+  expect(state.roll, '#t-roll should be present').toBeTruthy();
 
   // No module errors from the rewired painter.
   const relevant = errors.filter((e) =>
@@ -143,24 +126,8 @@ test('#1024 — flag ON: anchor + seg pill are in the live DOM', async ({ page }
   expect(relevant).toEqual([]);
 });
 
-test('#1024 — flag OFF: v1 DICE tab remains, no v2 elements leak', async ({ page }) => {
-  await bootWithFlag(page, false);
-  const state = await page.evaluate(() => ({
-    hasEff: !!document.getElementById('rv2-eff'),
-    hasSeg: !!document.getElementById('rv2-again-seg'),
-    hasA8: !!document.getElementById('a8'),
-    dice: !!document.getElementById('t-dice'),
-    roll: !!document.getElementById('t-roll'),
-  }));
-  expect(state.hasEff, 'rv2-eff should NOT exist when flag off').toBeFalsy();
-  expect(state.hasSeg, 'rv2-again-seg should NOT exist when flag off').toBeFalsy();
-  expect(state.hasA8, '#a8 (v1 chip) should exist when flag off').toBeTruthy();
-  expect(state.dice, '#t-dice should survive at boot').toBeTruthy();
-  expect(state.roll, '#t-roll should be removed at boot').toBeFalsy();
-});
-
-test('#1024 — flag ON: clicking a seg button flips the .on class exclusively', async ({ page }) => {
-  await bootWithFlag(page, true);
+test('#1024 — clicking a seg button flips the .on class exclusively', async ({ page }) => {
+  await bootApp(page);
   // Directly invoke the exposed global — bypasses the login gate.
   await page.evaluate(() => window.setAgainSeg('8'));
   const state = await page.evaluate(() => {
@@ -184,8 +151,8 @@ test('#1024 — flag ON: clicking a seg button flips the .on class exclusively',
   expect(state2.filter((s) => s.v !== 'none').every((s) => !s.on)).toBe(true);
 });
 
-test('#1024 — flag ON: sticky Roll button label reflects effective count', async ({ page }) => {
-  await bootWithFlag(page, true);
+test('#1024 — sticky Roll button label reflects effective count', async ({ page }) => {
+  await bootApp(page);
   // Set base pool to 7 via chgPool. Fresh state has PS=5 (roll-v2 default).
   await page.evaluate(() => {
     window.chgPool(2);
