@@ -49,7 +49,7 @@ import {
   registerCallbacks as registerAttrsCallbacks
 } from './editor/attrs-tab.js';
 import { devotions, rites, setStatusTerritories } from './data/accessors.js';
-import { renderCharPools } from './game/char-pools.js';
+import { renderCharPools, roteEligibleFor } from './game/char-pools.js';
 import { renderMapStageHtml } from './components/map-overlay.js';
 import { openContestedRoll, closeContestedRoll, crSetType, crSetChar, crAdjPool, crRoll } from './game/contested-roll.js';
 // crd.2: the blocking incoming-challenge modal that used to poll here is gone
@@ -125,9 +125,9 @@ import { loadPool, chgPool, chgMod, updPool, setAgain, setAgainSeg, togMod, togS
 import { onSheetChar, renderSheet as suiteRenderSheet, repaintSheetTrackers } from './suite/sheet.js';
 import { toggleExp as suiteToggleExp, toggleDisc as suiteToggleDisc } from './suite/sheet-helpers.js';
 import { updResist, showResistSec } from './shared/resist.js';
-import { getPool } from './shared/pools.js';
-import { getAttrEffective as getAttrVal, skDots } from './data/accessors.js';
-import { SKILLS_MENTAL } from './data/constants.js';
+import { getPool, unskilledPenalty } from './shared/pools.js';
+import { getAttrEffective as getAttrVal, skDots, skTotal } from './data/accessors.js';
+import { SKILLS_MENTAL, ALL_ATTRS, ALL_SKILLS } from './data/constants.js';
 import { AUSPEX_QUESTIONS } from './data/auspex-insight.js';
 import { toast as _toast } from './suite/toast.js';
 // suite/tracker-feed.js removed — feeding consolidated to More grid (nav-2-5)
@@ -331,8 +331,9 @@ function openChar(idx) {
   if (poolsEl) {
     suiteState.rollChar = c;
     renderCharPools(poolsEl, c, (p) => {
-      loadPool(p.total, p.label, p.pi || { total: p.total, attr: p.attr, attrV: p.attrV, skill: p.skill, skillV: p.skillV, nineAgain: p.nineAgain, resistance: p.resistance });
       goTab('roll');
+      if (p.opensPanel) { openPanel(p.opensPanel); return; }
+      loadPool(p.total, p.label, p.pi || { total: p.total, attr: p.attr, attrV: p.attrV, skill: p.skill, skillV: p.skillV, nineAgain: p.nineAgain, resistance: p.resistance });
     });
   }
 
@@ -1026,6 +1027,73 @@ function openPanel(mode) {
         body.appendChild(el);
       });
     }
+  } else if (mode === 'custom') {
+    // rlv.4 (#1039, D5) — free Attribute x Skill x Discipline ad-hoc pool
+    // builder, for rolls with no pre-built pool button. Attribute is the
+    // only mandatory chip; Skill and Discipline are each independently
+    // optional and toggle off on a second tap. A 0-dot skill is a
+    // deliberate, allowed choice (unskilledPenalty applies), not hidden.
+    title.textContent = 'Custom Pool';
+    if (!suiteState.rollChar) {
+      body.innerHTML = '<div class="hempty" style="padding:24px 16px;">Select a character first</div>';
+    } else {
+      const c = suiteState.rollChar;
+      const myDiscs = Object.entries(c.disciplines || {}).filter(([, v]) => (v?.dots || 0) > 0).map(([name, v]) => ({ name, dots: v.dots }));
+      let attr = null, skill = null, disc = null, showAll = false;
+      const render = () => {
+        let html = '<div class="panel-section">Attribute</div><div class="vm-chip-wrap">';
+        ALL_ATTRS.forEach(a => {
+          html += `<button class="mchip cp-attr-chip${attr === a ? ' on' : ''}" data-a="${esc(a)}">${esc(a)}</button>`;
+        });
+        html += '</div>';
+
+        const nonZero = ALL_SKILLS.filter(s => skTotal(c, s) > 0);
+        const shown = showAll ? ALL_SKILLS : nonZero;
+        html += `<div class="panel-section">Skill <button class="cp-showall-btn" id="cp-showall">${showAll ? 'non-zero only' : 'show all'}</button></div><div class="vm-chip-wrap">`;
+        if (!shown.length) {
+          html += '<div class="hempty" style="padding:0 16px 8px;">No non-zero skills — tap "show all"</div>';
+        }
+        shown.forEach(s => {
+          html += `<button class="mchip cp-skill-chip${skill === s ? ' on' : ''}" data-s="${esc(s)}">${esc(s)}</button>`;
+        });
+        html += '</div><div class="panel-section">Discipline</div>';
+        html += myDiscs.length
+          ? '<div class="vm-chip-wrap">' + myDiscs.map(d =>
+              `<button class="mchip cp-disc-chip${disc === d.name ? ' on' : ''}" data-d="${esc(d.name)}">${esc(d.name)} (${d.dots})</button>`
+            ).join('') + '</div>'
+          : '<div class="hempty" style="padding:0 16px 8px;">No disciplines</div>';
+
+        const attrV = attr ? getAttrVal(c, attr) : 0;
+        const skillV = skill ? skTotal(c, skill) : 0;
+        const unskilled = (skill && skillV === 0) ? unskilledPenalty(skill) : 0;
+        const discDots = disc ? (myDiscs.find(d => d.name === disc)?.dots || 0) : 0;
+        const total = Math.max(0, attrV + skillV + unskilled + discDots);
+
+        if (attr) {
+          const bits = [attr + ' ' + attrV];
+          if (skill) bits.push(skill + ' ' + (unskilled ? unskilled : skillV) + (unskilled ? ' (unskilled)' : ''));
+          if (disc) bits.push(disc + ' ' + discDots);
+          html += `<div class="panel-total">${esc(bits.join(' + '))} = <b>${total}</b> dice</div>`;
+          html += '<button class="pnl-confirm-btn" id="cp-load">Load Pool</button>';
+        }
+        body.innerHTML = html;
+        body.querySelectorAll('.cp-attr-chip').forEach(btn => btn.addEventListener('click', () => { attr = attr === btn.dataset.a ? null : btn.dataset.a; render(); }));
+        body.querySelectorAll('.cp-skill-chip').forEach(btn => btn.addEventListener('click', () => { skill = skill === btn.dataset.s ? null : btn.dataset.s; render(); }));
+        body.querySelectorAll('.cp-disc-chip').forEach(btn => btn.addEventListener('click', () => { disc = disc === btn.dataset.d ? null : btn.dataset.d; render(); }));
+        document.getElementById('cp-showall')?.addEventListener('click', () => { showAll = !showAll; render(); });
+        document.getElementById('cp-load')?.addEventListener('click', () => {
+          const label = [attr, skill, disc].filter(Boolean).join(' + ') || 'Custom Pool';
+          // Review fix (Codex Pass 3a, AC5): the Rote badge is skill-specific
+          // (PT dot-5 + asset skill), computable independent of how the pool
+          // was assembled — roteEligibleFor() is the same function the
+          // pre-built skill-pool tiles use, so an eligible skill picked here
+          // gets the same Rote cue AC5 promises, not just named pools.
+          const pi = { total, attr, attrV, skill: skill || null, skillV, unskilled: unskilled || null, discName: disc || null, discV: discDots, resistance: null, roteEligible: roteEligibleFor(c, skill) };
+          loadPool(total, label, pi);
+        });
+      };
+      render();
+    }
   }
 
   document.getElementById('panel-overlay').classList.add('on');
@@ -1077,6 +1145,7 @@ function pickChar(c) {
   const rollPoolsEl = document.getElementById('roll-char-pools');
   if (rollPoolsEl) {
     renderCharPools(rollPoolsEl, c, (p) => {
+      if (p.opensPanel) { openPanel(p.opensPanel); return; }
       loadPool(p.total, p.label, p.pi || { total: p.total, attr: p.attr, attrV: p.attrV, skill: p.skill, skillV: p.skillV, nineAgain: p.nineAgain, resistance: p.resistance });
     });
     rollPoolsEl.style.display = '';
@@ -1212,8 +1281,9 @@ async function _switchChar(idx) {
   const poolsEl = document.getElementById('gcp-panel');
   if (poolsEl) {
     renderCharPools(poolsEl, c, (p) => {
-      loadPool(p.total, p.label, p.pi || { total: p.total, attr: p.attr, attrV: p.attrV, skill: p.skill, skillV: p.skillV, nineAgain: p.nineAgain, resistance: p.resistance });
       goTab('roll');
+      if (p.opensPanel) { openPanel(p.opensPanel); return; }
+      loadPool(p.total, p.label, p.pi || { total: p.total, attr: p.attr, attrV: p.attrV, skill: p.skill, skillV: p.skillV, nineAgain: p.nineAgain, resistance: p.resistance });
     });
   }
 

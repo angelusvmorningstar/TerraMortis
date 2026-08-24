@@ -1,0 +1,445 @@
+diff --git a/public/css/suite.css b/public/css/suite.css
+index bdf80eeb..4c4ffbfa 100644
+--- a/public/css/suite.css
++++ b/public/css/suite.css
+@@ -338,6 +338,15 @@ body.desktop-mode .sh-powers-grid > .sh-sec{break-inside:avoid;}
+ .pi-badge{font-family:var(--fl);font-size:10px;color:var(--gdim);}
+ .pi-pool{width:36px;height:36px;border-radius: var(--radius-md);background:var(--crim);display:flex;align-items:center;justify-content:center;font-family:var(--fl);font-size:15px;color:var(--txt-on-dark);flex-shrink:0;}
+ .pi-pool.nr{background:var(--surf2);color:var(--txt3);}
++/* rlv.4 (#1039) — scoped mini-panel (Custom Pool builder): wrapping chip
++   row, live total, confirm button */
++.vm-chip-wrap{display:flex;flex-wrap:wrap;gap:6px;padding:0 16px 8px;}
++.vm-chip-wrap .mchip{flex:0 0 auto;height:36px;padding:0 12px;}
++.panel-section .cp-showall-btn{float:right;background:none;border:none;color:var(--gdim);font-family:var(--fl);font-size:8px;letter-spacing:.1em;text-transform:uppercase;cursor:pointer;padding:0;-webkit-tap-highlight-color:transparent;}
++.panel-total{margin:8px 16px;padding:10px 12px;border:1px solid var(--gold2-a25);border-radius:6px;background:var(--gold2-a12);font-family:var(--fl);font-size:11px;color:var(--txt2);letter-spacing:.02em;}
++.panel-total b{color:var(--gold2);}
++.pnl-confirm-btn{display:block;width:calc(100% - 32px);margin:8px 16px 16px;padding:14px;border:none;border-radius:8px;background:var(--crim);color:var(--txt-on-dark);font-family:var(--fl);font-size:12px;letter-spacing:.14em;text-transform:uppercase;cursor:pointer;-webkit-tap-highlight-color:transparent;}
++.pnl-confirm-btn:active{filter:brightness(1.15);}
+ /* ── Auspex Insight ── */
+ .auspex-insight-btn{display:block;width:100%;margin-top:10px;padding:10px 14px;background:var(--gold-a8);border:1px solid var(--gold-a20);border-radius: var(--radius-md);color:var(--gold);font-family:var(--fl);font-size:12px;letter-spacing:.1em;text-align:left;cursor:pointer;-webkit-tap-highlight-color:transparent;}
+ .auspex-insight-btn:active{background:var(--gold-a15);}
+@@ -831,6 +840,13 @@ body.desktop-mode .sh-powers-grid > .sh-sec{break-inside:avoid;}
+ .gcp-9a-badge{position:absolute;top:-4px;right:-4px;width:16px;height:16px;border-radius:50%;background:var(--gold2);color:var(--bg);font-family:var(--fl);font-size:9px;font-weight:700;display:flex;align-items:center;justify-content:center;line-height:1;}
+ .gcp-pool-btn.gcp-rote{border-color:var(--rote-a40);}
+ .gcp-rote-badge{position:absolute;top:-4px;right:14px;width:16px;height:16px;border-radius:50%;background:var(--rote);color:var(--txt-on-dark);font-family:var(--fl);font-size:9px;font-weight:700;display:flex;align-items:center;justify-content:center;line-height:1;}
++/* rlv.4 (#1039) — "+ Custom Pool" choice tile (opens a panel, no immediate dice total) */
++.gcp-pool-btn.gcp-choice{border-color:var(--gold2-a25);}
++.gcp-choice-arrow{color:var(--gdim);font-size:18px;}
++.gcp-choice-wide{grid-column:1/-1;flex-direction:row;align-items:center;gap:8px;}
++.gcp-choice-wide .gcp-choice-arrow{order:2;margin-left:auto;}
++.gcp-choice-wide .gcp-pool-lbl{order:1;margin-top:0;}
++.gcp-choice-wide .gcp-pool-sub{display:none;}
+ 
+ /* ══════════════════════════════════════════════════════════════════════════════
+    STATUS TAB — ported from player-layout.css
+diff --git a/public/js/app.js b/public/js/app.js
+index 692a5ecd..15e37521 100644
+--- a/public/js/app.js
++++ b/public/js/app.js
+@@ -125,9 +125,9 @@ import { loadPool, chgPool, chgMod, updPool, setAgain, setAgainSeg, togMod, togS
+ import { onSheetChar, renderSheet as suiteRenderSheet, repaintSheetTrackers } from './suite/sheet.js';
+ import { toggleExp as suiteToggleExp, toggleDisc as suiteToggleDisc } from './suite/sheet-helpers.js';
+ import { updResist, showResistSec } from './shared/resist.js';
+-import { getPool } from './shared/pools.js';
+-import { getAttrEffective as getAttrVal, skDots } from './data/accessors.js';
+-import { SKILLS_MENTAL } from './data/constants.js';
++import { getPool, unskilledPenalty } from './shared/pools.js';
++import { getAttrEffective as getAttrVal, skDots, skTotal } from './data/accessors.js';
++import { SKILLS_MENTAL, ALL_ATTRS, ALL_SKILLS } from './data/constants.js';
+ import { AUSPEX_QUESTIONS } from './data/auspex-insight.js';
+ import { toast as _toast } from './suite/toast.js';
+ // suite/tracker-feed.js removed — feeding consolidated to More grid (nav-2-5)
+@@ -331,8 +331,9 @@ function openChar(idx) {
+   if (poolsEl) {
+     suiteState.rollChar = c;
+     renderCharPools(poolsEl, c, (p) => {
+-      loadPool(p.total, p.label, p.pi || { total: p.total, attr: p.attr, attrV: p.attrV, skill: p.skill, skillV: p.skillV, nineAgain: p.nineAgain, resistance: p.resistance });
+       goTab('roll');
++      if (p.opensPanel) { openPanel(p.opensPanel); return; }
++      loadPool(p.total, p.label, p.pi || { total: p.total, attr: p.attr, attrV: p.attrV, skill: p.skill, skillV: p.skillV, nineAgain: p.nineAgain, resistance: p.resistance });
+     });
+   }
+ 
+@@ -1026,6 +1027,68 @@ function openPanel(mode) {
+         body.appendChild(el);
+       });
+     }
++  } else if (mode === 'custom') {
++    // rlv.4 (#1039, D5) — free Attribute x Skill x Discipline ad-hoc pool
++    // builder, for rolls with no pre-built pool button. Attribute is the
++    // only mandatory chip; Skill and Discipline are each independently
++    // optional and toggle off on a second tap. A 0-dot skill is a
++    // deliberate, allowed choice (unskilledPenalty applies), not hidden.
++    title.textContent = 'Custom Pool';
++    if (!suiteState.rollChar) {
++      body.innerHTML = '<div class="hempty" style="padding:24px 16px;">Select a character first</div>';
++    } else {
++      const c = suiteState.rollChar;
++      const myDiscs = Object.entries(c.disciplines || {}).filter(([, v]) => (v?.dots || 0) > 0).map(([name, v]) => ({ name, dots: v.dots }));
++      let attr = null, skill = null, disc = null, showAll = false;
++      const render = () => {
++        let html = '<div class="panel-section">Attribute</div><div class="vm-chip-wrap">';
++        ALL_ATTRS.forEach(a => {
++          html += `<button class="mchip cp-attr-chip${attr === a ? ' on' : ''}" data-a="${esc(a)}">${esc(a)}</button>`;
++        });
++        html += '</div>';
++
++        const nonZero = ALL_SKILLS.filter(s => skTotal(c, s) > 0);
++        const shown = showAll ? ALL_SKILLS : nonZero;
++        html += `<div class="panel-section">Skill <button class="cp-showall-btn" id="cp-showall">${showAll ? 'non-zero only' : 'show all'}</button></div><div class="vm-chip-wrap">`;
++        if (!shown.length) {
++          html += '<div class="hempty" style="padding:0 16px 8px;">No non-zero skills — tap "show all"</div>';
++        }
++        shown.forEach(s => {
++          html += `<button class="mchip cp-skill-chip${skill === s ? ' on' : ''}" data-s="${esc(s)}">${esc(s)}</button>`;
++        });
++        html += '</div><div class="panel-section">Discipline</div>';
++        html += myDiscs.length
++          ? '<div class="vm-chip-wrap">' + myDiscs.map(d =>
++              `<button class="mchip cp-disc-chip${disc === d.name ? ' on' : ''}" data-d="${esc(d.name)}">${esc(d.name)} (${d.dots})</button>`
++            ).join('') + '</div>'
++          : '<div class="hempty" style="padding:0 16px 8px;">No disciplines</div>';
++
++        const attrV = attr ? getAttrVal(c, attr) : 0;
++        const skillV = skill ? skTotal(c, skill) : 0;
++        const unskilled = (skill && skillV === 0) ? unskilledPenalty(skill) : 0;
++        const discDots = disc ? (myDiscs.find(d => d.name === disc)?.dots || 0) : 0;
++        const total = Math.max(0, attrV + skillV + unskilled + discDots);
++
++        if (attr) {
++          const bits = [attr + ' ' + attrV];
++          if (skill) bits.push(skill + ' ' + (unskilled ? unskilled : skillV) + (unskilled ? ' (unskilled)' : ''));
++          if (disc) bits.push(disc + ' ' + discDots);
++          html += `<div class="panel-total">${esc(bits.join(' + '))} = <b>${total}</b> dice</div>`;
++          html += '<button class="pnl-confirm-btn" id="cp-load">Load Pool</button>';
++        }
++        body.innerHTML = html;
++        body.querySelectorAll('.cp-attr-chip').forEach(btn => btn.addEventListener('click', () => { attr = attr === btn.dataset.a ? null : btn.dataset.a; render(); }));
++        body.querySelectorAll('.cp-skill-chip').forEach(btn => btn.addEventListener('click', () => { skill = skill === btn.dataset.s ? null : btn.dataset.s; render(); }));
++        body.querySelectorAll('.cp-disc-chip').forEach(btn => btn.addEventListener('click', () => { disc = disc === btn.dataset.d ? null : btn.dataset.d; render(); }));
++        document.getElementById('cp-showall')?.addEventListener('click', () => { showAll = !showAll; render(); });
++        document.getElementById('cp-load')?.addEventListener('click', () => {
++          const label = [attr, skill, disc].filter(Boolean).join(' + ') || 'Custom Pool';
++          const pi = { total, attr, attrV, skill: skill || null, skillV, unskilled: unskilled || null, discName: disc || null, discV: discDots, resistance: null };
++          loadPool(total, label, pi);
++        });
++      };
++      render();
++    }
+   }
+ 
+   document.getElementById('panel-overlay').classList.add('on');
+@@ -1077,6 +1140,7 @@ function pickChar(c) {
+   const rollPoolsEl = document.getElementById('roll-char-pools');
+   if (rollPoolsEl) {
+     renderCharPools(rollPoolsEl, c, (p) => {
++      if (p.opensPanel) { openPanel(p.opensPanel); return; }
+       loadPool(p.total, p.label, p.pi || { total: p.total, attr: p.attr, attrV: p.attrV, skill: p.skill, skillV: p.skillV, nineAgain: p.nineAgain, resistance: p.resistance });
+     });
+     rollPoolsEl.style.display = '';
+@@ -1212,8 +1276,9 @@ async function _switchChar(idx) {
+   const poolsEl = document.getElementById('gcp-panel');
+   if (poolsEl) {
+     renderCharPools(poolsEl, c, (p) => {
+-      loadPool(p.total, p.label, p.pi || { total: p.total, attr: p.attr, attrV: p.attrV, skill: p.skill, skillV: p.skillV, nineAgain: p.nineAgain, resistance: p.resistance });
+       goTab('roll');
++      if (p.opensPanel) { openPanel(p.opensPanel); return; }
++      loadPool(p.total, p.label, p.pi || { total: p.total, attr: p.attr, attrV: p.attrV, skill: p.skill, skillV: p.skillV, nineAgain: p.nineAgain, resistance: p.resistance });
+     });
+   }
+ 
+diff --git a/public/js/game/char-pools.js b/public/js/game/char-pools.js
+index 7e61437f..dd8cd1ae 100644
+--- a/public/js/game/char-pools.js
++++ b/public/js/game/char-pools.js
+@@ -131,7 +131,17 @@ export function renderCharPools(el, char, onTap) {
+     discHtml += poolBtn(pw.name, pi.total, sub, idx, discNa);
+   }
+ 
+-  const hasPools = skillHtml || discHtml;
++  // rlv.4 (#1039, D5): "+ Custom Pool" tile — an ad-hoc entry path for rolls
++  // with no pre-built pool button. Opens a scoped panel (app.js's
++  // openPanel('custom')) instead of rolling immediately, so onTap receives
++  // {opensPanel} rather than a total/pi. Always available, even for a
++  // character with zero non-zero skills and zero disciplines — Custom Pool
++  // alone is reason enough to render the Pools section.
++  const customIdx = _pools.length;
++  _pools.push({ opensPanel: 'custom', label: '+ Custom Pool' });
++  const customHtml = choiceBtn('+ Custom Pool', customIdx, true);
++
++  const hasPools = skillHtml || discHtml || customHtml;
+   if (hasPools) {
+     const collapsed = localStorage.getItem('tm_pools_collapsed') === '1';
+     h += `<button class="gcp-collapse-btn">${collapsed ? '▸' : '▾'} Pools</button>`;
+@@ -144,6 +154,7 @@ export function renderCharPools(el, char, onTap) {
+       h += '<div class="gcp-section-hd">Discipline Pools</div>';
+       h += `<div class="gcp-pool-grid">${discHtml}</div>`;
+     }
++    if (customHtml) h += `<div class="gcp-pool-grid">${customHtml}</div>`;
+     h += '</div>';
+   }
+ 
+@@ -168,6 +179,14 @@ function statChip(label, value) {
+   return `<div class="gcp-stat"><span class="gcp-stat-v">${value}</span><span class="gcp-stat-l">${esc(label)}</span></div>`;
+ }
+ 
++// rlv.4 — a "choice" tile: opens a panel instead of rolling immediately, so
++// there is no dice total to show yet. `wide` spans the full grid row (used
++// for the "+ Custom Pool" tile only).
++function choiceBtn(label, idx, wide) {
++  const cls = 'gcp-pool-btn gcp-choice' + (wide ? ' gcp-choice-wide' : '');
++  return `<button class="${cls}" data-idx="${idx}"><span class="gcp-pool-n gcp-choice-arrow">›</span><span class="gcp-pool-lbl">${esc(label)}</span><span class="gcp-pool-sub">tap to choose</span></button>`;
++}
++
+ function poolBtn(label, total, sub, idx, nineAgain, roteEligible) {
+   const badges = (nineAgain ? '<span class="gcp-9a-badge">9</span>' : '')
+                + (roteEligible ? '<span class="gcp-rote-badge">R</span>' : '');
+diff --git a/public/js/shared/pools.js b/public/js/shared/pools.js
+index 0c2346f4..daf21b5a 100644
+--- a/public/js/shared/pools.js
++++ b/public/js/shared/pools.js
+@@ -6,7 +6,7 @@ import { SKILLS_MENTAL } from '../data/constants.js';
+ import { getRuleByKey } from '../data/loader.js';
+ 
+ /** Unskilled penalty: -3 for Mental skills, -1 for Physical/Social. */
+-function unskilledPenalty(skillName) {
++export function unskilledPenalty(skillName) {
+   return SKILLS_MENTAL.includes(skillName) ? -3 : -1;
+ }
+ 
+diff --git a/tests/rlv-4-custom-pool-builder.spec.js b/tests/rlv-4-custom-pool-builder.spec.js
+new file mode 100644
+index 00000000..6b655fdc
+--- /dev/null
++++ b/tests/rlv-4-custom-pool-builder.spec.js
+@@ -0,0 +1,230 @@
++// E2E coverage for rlv.4 — the "+ Custom Pool" ad-hoc Attribute x Skill x
++// Discipline builder on the Roll tab. Adapts gdx-11's stranded dev-branch
++// Custom Pool builder (git commit 922f357e) directly onto main; see
++// specs/stories/rlv-4-port-builder-ux-into-unified-roller.md for the full
++// adaptation spec. House style follows
++// tests/rlv-2-single-roller-retirement.spec.js: source-fetch smokes for
++// static assertions, plus a live-boot flow for the interactive path.
++//
++// Character injection: this app registers a Service Worker (public/sw.js)
++// that intercepts /api/characters ahead of Playwright's page.route() stubs
++// and serves real cached data from whatever real ST session last used this
++// origin — confirmed by direct diagnosis during this story's dev-story pass
++// (a real, pre-existing test-infrastructure gap, out of this story's scope
++// to fix broadly). This suite sidesteps it entirely by injecting the fixture
++// character via the same exposed `window.pickChar(c)` global the real
++// character-list panel itself calls — real app code, real renderCharPools()
++// wiring, just skipping the network fetch that the SW hijacks. Matches the
++// precedent already set by tests/feature-662-eq3-roll-calc-equipment-chips
++// .spec.js's direct `suite/data.js` state injection for the same reason.
++
++const { test, expect } = require('@playwright/test');
++test.use({ serviceWorkers: 'block' });
++
++// ── Source-fetch smokes ──────────────────────────────────────────────────
++
++test('rlv.4 — shared/pools.js exports unskilledPenalty', async ({ request }) => {
++  const res = await request.get('/js/shared/pools.js');
++  const src = await res.text();
++  expect(src).toMatch(/export\s+function\s+unskilledPenalty\b/);
++});
++
++test('rlv.4 — char-pools.js builds the "+ Custom Pool" choice tile', async ({ request }) => {
++  const res = await request.get('/js/game/char-pools.js');
++  const src = await res.text();
++  expect(src).toMatch(/opensPanel:\s*'custom'/);
++  expect(src).toMatch(/\+ Custom Pool/);
++  expect(src).toMatch(/function choiceBtn\(/);
++});
++
++test('rlv.4 — app.js has the custom panel mode and routes opensPanel tiles', async ({ request }) => {
++  const res = await request.get('/js/app.js');
++  const src = await res.text();
++  expect(src).toMatch(/mode === 'custom'/);
++  expect(src).toMatch(/if \(p\.opensPanel\) \{ openPanel\(p\.opensPanel\); return; \}/);
++  // Not the retired gdx-11 dev-branch scope — this story ports Custom Pool
++  // only, not the rest of that commit.
++  expect(src).not.toMatch(/lashOutPool|bloodBondPool|isStakeWeapon/);
++});
++
++test('rlv.4 — suite.css contains the scoped-panel and choice-tile classes', async ({ request }) => {
++  const res = await request.get('/css/suite.css');
++  const css = await res.text();
++  for (const cls of [
++    '.vm-chip-wrap',
++    '.panel-total',
++    '.pnl-confirm-btn',
++    '.gcp-pool-btn.gcp-choice',
++    '.gcp-choice-wide',
++  ]) {
++    expect(css.includes(cls), `${cls} missing from suite.css`).toBe(true);
++  }
++});
++
++// ── Live boot flow — no OAuth needed (local-test-token bypass) ──────────
++
++const ST_USER = {
++  id: '900000004', username: 'test_st_rlv4', global_name: 'Test ST rlv4',
++  avatar: null, role: 'st', player_id: 'p-rlv4', character_ids: [], is_dual_role: false,
++};
++
++function attrs(overrides = {}) {
++  return {
++    Intelligence: { dots: 3, bonus: 0 }, Wits: { dots: 2, bonus: 0 }, Resolve: { dots: 2, bonus: 0 },
++    Strength: { dots: 2, bonus: 0 }, Dexterity: { dots: 2, bonus: 0 }, Stamina: { dots: 2, bonus: 0 },
++    Presence: { dots: 2, bonus: 0 }, Manipulation: { dots: 2, bonus: 0 }, Composure: { dots: 2, bonus: 0 },
++    ...overrides,
++  };
++}
++
++// Has one non-zero skill (Occult) and one discipline (Auspex) — used for the
++// interactive attribute+skill+discipline formula tests. Intelligence/Occult/
++// Auspex are deliberately chosen because none of them are boosted by this
++// app's discipline-enhances-attribute rule (Celerity->Dex, Vigour->Str,
++// Resilience->Sta only), so getAttrEffective's total is predictable without
++// depending on the rules-cache fallback.
++const RICH_CHAR = {
++  _id: 'char-rlv4-rich', name: 'Custom Pool Tester', moniker: null, honorific: null,
++  clan: 'Mekhet', covenant: 'Invictus', player: 'Test Player',
++  blood_potency: 1, humanity: 7, humanity_base: 7, court_title: null, retired: false,
++  status: { city: 1, clan: 1, covenant: {} },
++  attributes: attrs(),
++  skills: { Occult: { dots: 3, bonus: 0, specs: [], nine_again: false } },
++  disciplines: { Auspex: { dots: 2 } },
++  merits: [], powers: [], ordeals: [],
++};
++
++// Zero non-zero skills, zero disciplines — used for the "tile visible even
++// with nothing built up yet" AC2 test.
++const EMPTY_CHAR = {
++  _id: 'char-rlv4-empty', name: 'Blank Slate', moniker: null, honorific: null,
++  clan: 'Mekhet', covenant: 'Invictus', player: 'Test Player',
++  blood_potency: 1, humanity: 7, humanity_base: 7, court_title: null, retired: false,
++  status: { city: 1, clan: 1, covenant: {} },
++  attributes: attrs(),
++  skills: {}, disciplines: {}, merits: [], powers: [], ordeals: [],
++};
++
++async function setupSuite(page, chars) {
++  await page.addInitScript((user) => {
++    localStorage.setItem('tm_auth_token', 'local-test-token');
++    localStorage.setItem('tm_auth_expires', String(Date.now() + 3600000));
++    localStorage.setItem('tm_auth_user', JSON.stringify(user));
++  }, ST_USER);
++
++  await page.route('**/api/**', r => r.fulfill({ status: 200, contentType: 'application/json', body: '[]' }));
++  await page.route(/\/api\/game_sessions\/next/, r => r.fulfill({ status: 200, contentType: 'application/json', body: 'null' }));
++  await page.route(/\/api\/characters$/, r => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(chars) }));
++
++  await page.goto('/');
++  await page.waitForSelector('#app', { state: 'visible', timeout: 15000 });
++  // Land on the Roll tab explicitly — boot()'s default-landing tab depends on
++  // viewport width and prior character selection state, neither of which
++  // this test wants to depend on.
++  await page.evaluate(() => window.goTab('roll'));
++  await page.waitForSelector('#t-roll.active', { state: 'visible', timeout: 5000 });
++}
++
++// Injects the fixture character via the real, exposed `window.pickChar(c)`
++// global rather than driving the character-list panel's real API-backed
++// flow — see the file header comment for why.
++async function pickCharacter(page, char) {
++  await page.evaluate((c) => window.pickChar(c), char);
++  await expect(page.locator('#roll-char-pools')).toBeVisible({ timeout: 5000 });
++}
++
++test('rlv.4 — Select a character first, when no character is loaded', async ({ page }) => {
++  await setupSuite(page, [RICH_CHAR]);
++  await page.evaluate(() => window.openPanel('custom'));
++  await page.waitForSelector('#panel', { state: 'visible', timeout: 10000 });
++  await expect(page.locator('#panel-body')).toContainText('Select a character first');
++});
++
++test('rlv.4 — "+ Custom Pool" tile renders even with zero skills and zero disciplines', async ({ page }) => {
++  await setupSuite(page, [EMPTY_CHAR]);
++  await pickCharacter(page, EMPTY_CHAR);
++  await expect(page.locator('#roll-char-pools .gcp-choice')).toBeVisible();
++  await expect(page.locator('#roll-char-pools .gcp-choice')).toContainText('Custom Pool');
++});
++
++test('rlv.4 — tapping the tile opens the Custom Pool panel with three chip groups', async ({ page }) => {
++  await setupSuite(page, [RICH_CHAR]);
++  await pickCharacter(page, RICH_CHAR);
++  await page.locator('#roll-char-pools .gcp-choice').click();
++  await page.waitForSelector('#panel', { state: 'visible', timeout: 10000 });
++  await expect(page.locator('#panel-title')).toHaveText('Custom Pool');
++  await expect(page.locator('.cp-attr-chip')).toHaveCount(9);
++  // Occult is RICH_CHAR's only non-zero skill — shown by default.
++  await expect(page.locator('.cp-skill-chip[data-s="Occult"]')).toBeVisible();
++  await expect(page.locator('.cp-disc-chip[data-d="Auspex"]')).toBeVisible();
++  // No "Load Pool" until an Attribute is picked.
++  await expect(page.locator('#cp-load')).toHaveCount(0);
++});
++
++test('rlv.4 — picking Attribute+Skill+Discipline computes the live total and loads the pool', async ({ page }) => {
++  await setupSuite(page, [RICH_CHAR]);
++  await pickCharacter(page, RICH_CHAR);
++  await page.locator('#roll-char-pools .gcp-choice').click();
++  await page.waitForSelector('#panel', { state: 'visible', timeout: 10000 });
++
++  await page.locator('.cp-attr-chip[data-a="Intelligence"]').click();
++  await page.locator('.cp-skill-chip[data-s="Occult"]').click();
++  await page.locator('.cp-disc-chip[data-d="Auspex"]').click();
++
++  // Intelligence 3 + Occult 3 + Auspex 2 = 8.
++  await expect(page.locator('.panel-total')).toContainText('Intelligence 3');
++  await expect(page.locator('.panel-total')).toContainText('Occult 3');
++  await expect(page.locator('.panel-total')).toContainText('Auspex 2');
++  await expect(page.locator('.panel-total b')).toHaveText('8');
++
++  await page.locator('#cp-load').click();
++
++  // Panel closes on Load Pool (loadPool() calls closePanel()).
++  await expect(page.locator('#panel-overlay')).not.toHaveClass(/\bon\b/);
++
++  await expect(page.locator('#pool-banner')).toContainText('Intelligence + Occult + Auspex');
++  await expect(page.locator('#pool-banner')).toContainText('8d');
++  await expect(page.locator('#rv2-eff')).toHaveText('8');
++  await expect(page.locator('#effline')).toContainText('Intelligence');
++  await expect(page.locator('#effline')).toContainText('Occult');
++  await expect(page.locator('#effline')).toContainText('Auspex');
++});
++
++test('rlv.4 — a 0-dot skill applies unskilledPenalty and the total floors at 0', async ({ page }) => {
++  await setupSuite(page, [RICH_CHAR]);
++  await pickCharacter(page, RICH_CHAR);
++  await page.locator('#roll-char-pools .gcp-choice').click();
++  await page.waitForSelector('#panel', { state: 'visible', timeout: 10000 });
++
++  // Investigation (Mental, 0 dots) is hidden by default — reveal via "show all".
++  await expect(page.locator('.cp-skill-chip[data-s="Investigation"]')).toHaveCount(0);
++  await page.locator('#cp-showall').click();
++  await expect(page.locator('.cp-skill-chip[data-s="Investigation"]')).toBeVisible();
++
++  await page.locator('.cp-attr-chip[data-a="Wits"]').click();
++  await page.locator('.cp-skill-chip[data-s="Investigation"]').click();
++
++  // Wits 2 + Investigation -3 (unskilled Mental) = -1, floored to 0.
++  await expect(page.locator('.panel-total')).toContainText('unskilled');
++  await expect(page.locator('.panel-total b')).toHaveText('0');
++
++  await page.locator('#cp-load').click();
++  await expect(page.locator('#pool-banner')).toContainText('0d');
++});
++
++test('rlv.4 — chips deselect on a second tap', async ({ page }) => {
++  await setupSuite(page, [RICH_CHAR]);
++  await pickCharacter(page, RICH_CHAR);
++  await page.locator('#roll-char-pools .gcp-choice').click();
++  await page.waitForSelector('#panel', { state: 'visible', timeout: 10000 });
++
++  const attrChip = page.locator('.cp-attr-chip[data-a="Intelligence"]');
++  await attrChip.click();
++  await expect(attrChip).toHaveClass(/\bon\b/);
++  await expect(page.locator('#cp-load')).toBeVisible();
++
++  await attrChip.click();
++  await expect(attrChip).not.toHaveClass(/\bon\b/);
++  // No Attribute picked -> no Load Pool button.
++  await expect(page.locator('#cp-load')).toHaveCount(0);
++});

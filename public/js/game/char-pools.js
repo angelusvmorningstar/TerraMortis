@@ -48,16 +48,43 @@ const ABBR = {
 
 function ab(s) { return ABBR[s] || (s || '').slice(0, 3); }
 
-// Module-level pool store — avoids JSON-in-attribute hacks
-let _pools = [];
+/**
+ * PT dot-5 Rote eligibility for a given skill: asset skill + Professional
+ * Training rating >= 5. Pure function of (character, skill name) — reused
+ * by the skill-pool loop below and by app.js's Custom Pool builder (rlv.4,
+ * review fix — AC5 promises the Rote badge applies to Custom Pools exactly
+ * as it does to any named pool; this is what makes that literally true
+ * rather than only true for pre-built skill-pool tiles).
+ */
+export function roteEligibleFor(char, skill) {
+  if (!skill) return false;
+  const ptMerit = (char.merits || []).find(m => m.name === 'Professional Training' && (m.rating || 0) >= 5);
+  return !!(ptMerit && (ptMerit.asset_skills || []).includes(skill));
+}
 
 /**
  * Render the pools panel into el.
  * onTap(poolObj) is called when the ST taps a pool button.
  * poolObj: { total, label, attr, attrV, skill, skillV, resistance, pi }
+ *
+ * Review fix (rlv.4, Codex Pass 2): `pools` is scoped to this call, not a
+ * module-level singleton. renderCharPools() is called for TWO independent,
+ * simultaneously-mounted containers (#gcp-panel on the Sheets tab,
+ * #roll-char-pools on the Roll tab), each potentially showing a different
+ * character. A shared module-level array meant the container rendered
+ * SECOND silently rewrote the array the FIRST container's already-attached
+ * buttons still read from at click time — a stale button could resolve
+ * against a different character's rebuilt pools (wrong pool loaded, or
+ * `onTap(undefined)` if the stale index was now out of range). Confirmed
+ * live before this fix: two characters with different pool counts, render
+ * A into one container then B into another, click A's still-attached tile
+ * — the click handler received `undefined`, not A's own pool. Closing over
+ * a per-call local instead of a shared mutable makes each container's
+ * buttons permanently correct regardless of what any other container
+ * renders afterward.
  */
 export function renderCharPools(el, char, onTap) {
-  _pools = [];
+  const pools = [];
 
   const defence = defenceForDisplay(char);
   const hp      = calcHealth(char);
@@ -90,9 +117,7 @@ export function renderCharPools(el, char, onTap) {
       || char._pt_nine_again_skills?.has(sk)
       || char._mci_dot3_skills?.has(sk)
       || char._ohm_nine_again_skills?.has(sk);
-    // Check PT dot-5 Rote eligibility: asset skill + PT rating >= 5
-    const ptMerit = (char.merits || []).find(m => m.name === 'Professional Training' && (m.rating || 0) >= 5);
-    const roteEligible = !!(ptMerit && (ptMerit.asset_skills || []).includes(sk));
+    const roteEligible = roteEligibleFor(char, sk);
     // Check Air of Menace: adds Nightmare dots to Intimidation
     let meritBonus = 0, meritLabel = '';
     if (sk === 'Intimidation' && (char.merits || []).some(m => m.name === 'Air of Menace')) {
@@ -100,8 +125,8 @@ export function renderCharPools(el, char, onTap) {
       if (meritBonus > 0) meritLabel = 'AoM';
     }
     const poolTotal = total + meritBonus;
-    const idx   = _pools.length;
-    _pools.push({ total: poolTotal, label: sk, attr, attrV, skill: sk, skillV: skD, nineAgain: !!na, roteEligible, meritBonus, meritLabel, resistance: null, pi: null });
+    const idx   = pools.length;
+    pools.push({ total: poolTotal, label: sk, attr, attrV, skill: sk, skillV: skD, nineAgain: !!na, roteEligible, meritBonus, meritLabel, resistance: null, pi: null });
     const sub = ab(attr) + '+' + ab(sk) + (meritBonus ? '+' + meritLabel + '(' + meritBonus + ')' : '');
     skillHtml += poolBtn(sk, poolTotal, sub, idx, na, roteEligible);
   }
@@ -124,14 +149,24 @@ export function renderCharPools(el, char, onTap) {
   for (const pw of derivedPowers) {
     const pi = getPool(char, pw.name);
     if (!pi || pi.noRoll || pi.total === undefined) continue;
-    const idx = _pools.length;
+    const idx = pools.length;
     const discNa = pi.nineAgain || (pi.skill && skNineAgain(char, pi.skill));
-    _pools.push({ total: pi.total, label: pw.name, attr: pi.attr, attrV: pi.attrV, skill: pi.skill, skillV: pi.skillV, nineAgain: !!discNa, resistance: pi.resistance || null, pi });
+    pools.push({ total: pi.total, label: pw.name, attr: pi.attr, attrV: pi.attrV, skill: pi.skill, skillV: pi.skillV, nineAgain: !!discNa, resistance: pi.resistance || null, pi });
     const sub = ab(pi.attr) + '+' + ab(pi.skill) + (pi.resistance ? ' vs ' + pi.resistance : '');
     discHtml += poolBtn(pw.name, pi.total, sub, idx, discNa);
   }
 
-  const hasPools = skillHtml || discHtml;
+  // rlv.4 (#1039, D5): "+ Custom Pool" tile — an ad-hoc entry path for rolls
+  // with no pre-built pool button. Opens a scoped panel (app.js's
+  // openPanel('custom')) instead of rolling immediately, so onTap receives
+  // {opensPanel} rather than a total/pi. Always available, even for a
+  // character with zero non-zero skills and zero disciplines — Custom Pool
+  // alone is reason enough to render the Pools section.
+  const customIdx = pools.length;
+  pools.push({ opensPanel: 'custom', label: '+ Custom Pool' });
+  const customHtml = choiceBtn('+ Custom Pool', customIdx, true);
+
+  const hasPools = skillHtml || discHtml || customHtml;
   if (hasPools) {
     const collapsed = localStorage.getItem('tm_pools_collapsed') === '1';
     h += `<button class="gcp-collapse-btn">${collapsed ? '▸' : '▾'} Pools</button>`;
@@ -144,6 +179,7 @@ export function renderCharPools(el, char, onTap) {
       h += '<div class="gcp-section-hd">Discipline Pools</div>';
       h += `<div class="gcp-pool-grid">${discHtml}</div>`;
     }
+    if (customHtml) h += `<div class="gcp-pool-grid">${customHtml}</div>`;
     h += '</div>';
   }
 
@@ -152,7 +188,7 @@ export function renderCharPools(el, char, onTap) {
 
   el.querySelectorAll('.gcp-pool-btn').forEach(btn => {
     const idx = Number(btn.dataset.idx);
-    btn.addEventListener('click', () => onTap(_pools[idx]));
+    btn.addEventListener('click', () => onTap(pools[idx]));
   });
 
   el.querySelector('.gcp-collapse-btn')?.addEventListener('click', () => {
@@ -166,6 +202,14 @@ export function renderCharPools(el, char, onTap) {
 
 function statChip(label, value) {
   return `<div class="gcp-stat"><span class="gcp-stat-v">${value}</span><span class="gcp-stat-l">${esc(label)}</span></div>`;
+}
+
+// rlv.4 — a "choice" tile: opens a panel instead of rolling immediately, so
+// there is no dice total to show yet. `wide` spans the full grid row (used
+// for the "+ Custom Pool" tile only).
+function choiceBtn(label, idx, wide) {
+  const cls = 'gcp-pool-btn gcp-choice' + (wide ? ' gcp-choice-wide' : '');
+  return `<button class="${cls}" data-idx="${idx}"><span class="gcp-pool-n gcp-choice-arrow">›</span><span class="gcp-pool-lbl">${esc(label)}</span><span class="gcp-pool-sub">tap to choose</span></button>`;
 }
 
 function poolBtn(label, total, sub, idx, nineAgain, roteEligible) {
