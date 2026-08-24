@@ -27,8 +27,12 @@ No sequencing dependency either direction — this epic can proceed independentl
 **Status: rlv.2 merged to main 2026-08-24 (PR #1198). rlv.1's own PR #1196 closed unmerged the same
 day — superseded by rlv.2 itself, not landed separately (see that row below); its regression test
 survived, rewritten, as PR #1201 (merged). ALL FIVE open decisions (D1-D5) resolved 2026-08-24 —
-rlv.9 and rlv.3 both superseded (nothing left to fix/design for either), rlv.4/rlv.5/rlv.7/rlv.8 all
-unblocked and ready to story whenever picked up. No open decisions remain in this epic.**
+rlv.9 and rlv.3 both superseded (nothing left to fix/design for either). rlv.4 done 2026-08-24
+(dev-storied + Codex-reviewed, PR #1203 open against `main`, not yet merged). rlv.5 superseded
+2026-08-24 — investigated before storying, its "external consumers" were already decoupled, nothing
+to repoint (see D2). rlv.6 done 2026-08-24 (dead-code deletion, Codex-reviewed, 1 real regression
+found and patched, NOT yet committed). rlv.7/rlv.8 unblocked, not yet storied. No open
+decisions remain in this epic.**
 
 ---
 
@@ -44,9 +48,20 @@ briefly here so this table's own "blocked on" column is legible without cross-re
   decision. Angelus's own words: "roll twice take best result is what we're using... this is an
   intentional shift from rules." No code change, no retroactive accounting for past rolls. rlv.9
   (which existed solely to fix this) is superseded — see that row below.
-- **D2 — DOM-contract cleanup timing.** Land the merge with existing shared IDs untouched, converting
-  to a real `getPool()`/`onRollComplete()`/`mountInto()` interface as a *separate* later story
-  (Winston's recommendation) — confirm, or do both in one pass?
+- **D2 — DOM-contract cleanup timing. RESOLVED 2026-08-24, moot — investigated properly rather than
+  storied on the row's own word.** rlv.2 landed with existing shared IDs untouched, as agreed; rlv.5
+  was scoped to "repoint `contested-roll.js`/`combat-tab.js` onto a real `getPool()`/
+  `onRollComplete()`/`mountInto()` interface instead of the shared-ID convention." Read both files in
+  full before storying rlv.5: **neither one actually uses the shared-ID convention.**
+  `contested-roll.js` imports only two pure rendering helpers (`mkDieEl`, `mkColsEl`) and owns its
+  entire overlay, state, and dice logic independently; `combat-tab.js` imports only the already-clean
+  `loadPool()` function and calls it once. Neither touches `#pval`/`#mval`/`#roll-btn`/`#effline`
+  directly. The real "shared-ID surface" D2 was about is `roll-v2.js` itself being wired to fixed IDs
+  baked into `index.html`'s markup, consumed directly by `app.js` (not by these two files) — a much
+  larger, higher-risk refactor (converting the Roll tab's core rendering into a genuinely mountable
+  component) with no live bug or blocked feature forcing it today. **rlv.5 closed as substantially
+  already-satisfied — see that row below.** If the real `roll-v2.js` component-API refactor is ever
+  wanted, it needs its own fresh scoping pass, not a resurrection of this row's old framing.
 - **D3 — Staged-rollout mechanism. RESOLVED 2026-08-24 (Angelus): direct cutover, not a staged soak.**
   `roll-v2.js` becomes the only player roller. The `tm-use-new-dice-roller` flag, its Settings
   checkbox, and `roll.js` itself are all removed outright in rlv.2 — no rollback fence held for a
@@ -103,9 +118,9 @@ briefly here so this table's own "blocked on" column is legible without cross-re
 | rlv.1 | ~~Fix `combat-tab.js`'s silent Quick Roll failure under the new-roller flag~~ | Immediate, standalone | **superseded** — PR #1196 closed unmerged 2026-08-24: predates rlv.2, conflicts with the deleted flag system, AND its own fix is fully subsumed by rlv.2's unconditional `combat-tab.js` wiring (only one roller exists now, the bug can't recur). Regression test rewritten and merged separately, PR #1201 | — |
 | rlv.2 | Promote `roll-v2.js` to the sole player roller; delete `roll.js` and the flag outright (D3 resolved: direct cutover) | Mechanics merge | **done** — dev-storied, internally reviewed, merged to `main` 2026-08-24 (PR #1198, commit `a8860617`) | Nothing — shipped |
 | rlv.3 | ~~Reconcile pool-source state model~~ | Design pass | **superseded** — D5 resolved 2026-08-24 answers the question this design pass existed to ask; no separate story needed | — |
-| rlv.4 | Port `dice-engine.js`'s dropdown-picker UI in as an alternate ad-hoc entry path, building the same `pi` shape `char-pools.js` already produces (NOT porting its data model — that would be a downgrade, see D5) | Builder port | **backlog** | rlv.2 (done) |
-| rlv.5 | Repoint external consumers (`contested-roll.js`, `combat-tab.js`) onto the unified module's real DOM-contract interface (`getPool()`/`onRollComplete()`/`mountInto()`, per D2) instead of the shared-ID convention — `challenge-notification.js` dropped from scope, deleted by crd-2 | Interface cleanup | **backlog** | rlv.2 (done) — D4 resolved 2026-08-24 (`contested-roll.js` stays separate, but still consumes `roll-v2.js`'s render helpers and still wants the real interface) |
-| rlv.6 | Delete `dice-engine.js`'s standalone dice math once ported (rlv.4) | Cleanup | **backlog** | rlv.4, rlv.5 — narrowed 2026-08-24: `roll.js` and the flag mechanism are now deleted by rlv.2 itself, not held for this story |
+| rlv.4 | Port `dice-engine.js`'s dropdown-picker UI in as an alternate ad-hoc entry path, building the same `pi` shape `char-pools.js` already produces (NOT porting its data model — that would be a downgrade, see D5) | Builder port | **done** — adapted gdx-11's stranded `dev`-branch Custom Pool builder (commit `922f357e`) directly onto `main`; dev-storied, Codex-reviewed (2 Medium defects found and patched, both prove-discriminated with new regression tests), 2026-08-24. PR #1203 open against `main`, not yet merged | Nothing — PR open |
+| rlv.5 | ~~Repoint external consumers (`contested-roll.js`, `combat-tab.js`) onto the unified module's real DOM-contract interface~~ | Interface cleanup | **superseded** — D2 resolved 2026-08-24: investigated before storying, both files already interact via clean function calls (`mkDieEl`/`mkColsEl` render helpers; `loadPool()`), neither touches the shared-ID surface (`#pval`/`#mval`/`#roll-btn`) at all. Nothing to repoint. The real shared-ID coupling is `roll-v2.js`↔`app.js`, a much larger refactor with no forcing bug — out of scope, needs its own fresh story if ever wanted | — |
+| rlv.6 | Delete `dice-engine.js` and its dead sidecar wiring — re-scoped 2026-08-24: investigated before storying, this was never a "migration completion" cleanup: `dice-engine.js` is already fully unreachable (no admin-nav entry, no `#engine-content` mount point since the whole Engine domain was removed under #836) and was already flagged as dead code in a 2026-06-17 investigation note (#846, "zero callers, confirmed") — independent of anything rlv.4 ported | Dead-code cleanup | **done** — dev-storied + Codex-reviewed 2026-08-24 (1 real Medium regression found and patched — this diff's own CSS deletion broke a surviving mobile touch-target test, repointed to the real live roll button rather than deleted). NOT yet committed/pushed | Nothing — shipped locally |
 | rlv.7 | Persistent per-power modifier chips (#1039 net-new) — a generated toggle layer alongside `roll-v2.js`'s existing `state.WP`/`state.MOD`/`state.ROTE` layers, on top of `char-pools.js`'s existing pool-breakdown state | New feature | **backlog** | rlv.2 (done) — loosened 2026-08-24 from rlv.4: D5's own finding is that chips sit on the model `char-pools.js` already produces, not on the ad-hoc dropdown entry path rlv.4 builds; re-confirm this when rlv.7 is actually storied rather than trusting it indefinitely |
 | rlv.8 | Status-difference auto-mods for social manoeuvring (#1039 net-new) | New feature | **backlog** | rlv.2 (done) — same loosening as rlv.7, same caveat to re-confirm at story time |
 | rlv.9 | ~~Rote rules fix~~ | Rules correctness | **superseded** — D1 resolved 2026-08-24, the "bug" is a deliberate house rule, nothing to fix | — |

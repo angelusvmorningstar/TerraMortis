@@ -6,7 +6,7 @@ import { SKILLS_MENTAL } from '../data/constants.js';
 import { getRuleByKey } from '../data/loader.js';
 
 /** Unskilled penalty: -3 for Mental skills, -1 for Physical/Social. */
-function unskilledPenalty(skillName) {
+export function unskilledPenalty(skillName) {
   return SKILLS_MENTAL.includes(skillName) ? -3 : -1;
 }
 

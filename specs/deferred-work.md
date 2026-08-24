@@ -1,6 +1,25 @@
 # Deferred Work
 
-## Deferred from: DT Story UX (2026-04-17)
+## Deferred from: rlv.6 (delete dice-engine.js and its dead sidecar wiring) (2026-08-24)
+
+Three small, independently-verified admin-app cleanup items found while scoping/reviewing rlv.6, all
+explicitly out of that story's own "delete dice-engine.js" scope — none touch product behaviour for
+a real user today, all are pure debt/test-accuracy items:
+
+- **`tests/admin.spec.js`'s "Admin — Next Session Panel" describe block (~6-7 tests) clicks a stale
+  `data-domain="engine"` selector.** `initNextSession()` (`public/js/admin.js:331`) is actually
+  called under `domain === 'attendance'` today — the panel is real and live, its test suite's own
+  `beforeEach` was never updated after the Engine domain was retired. Fix is a one-line selector
+  change (`data-domain="engine"` → `data-domain="attendance"`).
+- **`public/css/admin-layout.css`'s `#session-tracker` rule block (~line 2570 post-rlv.6) is orphaned
+  dead CSS.** `session-tracker.js` was already deleted under issue #836, but its own CSS block was
+  never removed — same shape as `dice-engine.js`'s own CSS was before rlv.6 caught it.
+- **`public/js/admin.js`'s `switchDomain()` has a second statically-unreachable branch: `npcs`.**
+  No `data-domain="npcs"` button exists in `admin.html`; `tests/issue-23-npc-register.spec.js`
+  itself asserts the NPC Register button is absent, confirming this is intentional/already-known, not
+  a live bug — just leftover dispatcher debt (`initNpcRegister` stays imported, its branch stays
+  dead) of the same shape rlv.6 just cleaned up for Engine. Found by Codex's own Pass 2 during
+  rlv.6's code review, correctly declined as out-of-scope by its own Pass 3a.
 
 - ~~**DT Story — taller narrative textarea**~~ — **FOLDED INTO Epic 1 (Story Surface Reform) as DTS1.10** during 2026-04-27 scoping pass. See `memory/project_dt_overhaul_2026-04-27.md`.
 - ~~**DT Story — collapse completed cards**~~ — **FOLDED INTO Epic 1 as DTS1.11** during 2026-04-27 scoping pass. See `memory/project_dt_overhaul_2026-04-27.md`.
