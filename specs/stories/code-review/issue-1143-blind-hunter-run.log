@@ -1,0 +1,1621 @@
+Reading prompt from stdin...
+2026-08-12T02:03:19.087834Z ERROR codex_models_manager::cache: failed to load models cache: missing field `base_instructions` at line 94 column 5
+OpenAI Codex v0.146.0
+--------
+workdir: D:\Terra Mortis\TM Suite
+model: gpt-5.6-sol
+provider: openai
+approval: never
+sandbox: workspace-write [workdir, /tmp, $TMPDIR]
+reasoning effort: high
+reasoning summaries: none
+session id: 019ff3b5-b3c8-7ac2-900e-e31a178fe815
+--------
+user
+# Adversarial review — issue-1143-status-actions-auth-safety (Status Actions — actor authorization + write safety), TM Suite
+
+You are reviewing a completed change in a repo you have full access to. You have NONE of the
+conversation in which it was written, which is the point: you are here to catch what the author
+could not catch about their own work.
+
+**This is Pass 1 of 3 (Blind Hunter), run as an ISOLATED session** — you will not see Pass 2 or
+Pass 3's material, and they will not see yours until all three are complete.
+
+## Ground rules
+
+- Repo root: `D:\Terra Mortis\TM Suite`. The diff is at
+  `specs/stories/code-review/issue-1143-diff.txt` and is relative to that root, taken against base
+  commit `aca9e996`.
+- The diff is **deliberately scoped to source and tooling only**. Story-spec and tracking edits
+  (`specs/stories/issue-1143-status-actions-auth-safety.md`, `specs/stories/sprint-status.yaml`)
+  are excluded from it on purpose, so this pass stays genuinely blind to the author's own account.
+  Do not treat their absence as an omission or go hunting for them.
+- **Read and run freely** to verify a claim. Running the code beats reasoning about it every time.
+- **Do NOT modify, commit, or push anything.** This repo (`TM Suite`) has sibling repos in the same
+  umbrella workspace one level up (`TM Cockpit`, `TM Wiki`, `TM Herald`) — do not read or touch
+  them; they are irrelevant to this diff.
+- Temporarily editing a file to prove something (revert one line, confirm the check now fails the
+  way you expect, restore it) **is allowed and encouraged** — you MUST restore it exactly, confirm
+  the restore with `git diff`, and say so in your output.
+- Environment hazards: the local MongoDB (`127.0.0.1:27017`, a Windows service) is a STANDALONE
+  instance, not a replica set — do not attempt multi-document transactions against it, they will
+  fail unconditionally. Vitest hard-overrides the DB name to `tm_suite_test` under test — never
+  target the bare `tm_suite` database. `fileParallelism` is `false` project-wide (tests run
+  sequentially in one process) — do not attempt to parallelise test runs. A full `npx vitest run`
+  (no filter) takes ~5 minutes and has 6 known-unrelated pre-existing failures across 11 files
+  (`oath-a-pledge-helpers.test.js`, `n7-n9-allocator-readers.test.js`,
+  `epic.708.3-cycle-phase-controls.test.js`, plus 7 files with pre-existing file-level errors like
+  stale `ENOENT`/`SyntaxError`) — prefer the targeted command below unless you need the full run.
+- Blast radius: `server/routes/office-actions.js` is a live production route that mutates a
+  character's `status.city` (City Status) directly during an in-person LARP session — a bug here
+  is not cosmetic, it changes what a Storyteller believes is true about a character's political
+  standing. `server/tests/helpers/db-setup.js` is shared test infrastructure imported by roughly
+  15+ other test files project-wide. `server/index.js`'s boot sequence runs for every route.
+
+## Honesty requirements (these outrank completeness)
+
+- If you could not run something, say so plainly and name what you could not run.
+- If you found nothing in a pass or at a severity, say that explicitly rather than omitting the
+  section or padding with style opinions.
+- Report the exact current gate numbers you observe:
+  `cd server && npx vitest run tests/issue-1143-office-actions-auth-safety.test.js tests/issue-1143-db-setup-skip.test.js tests/otc-2-office-actions-api.test.js tests/feature.691.hos-city-status-power.test.js`.
+  Report the real numbers even if they disagree with anything the diff or a comment claims —
+  especially then.
+
+---
+
+## PASS 1 — BLIND HUNTER (the diff, and nothing else)
+
+You get the diff at `specs/stories/code-review/issue-1143-diff.txt` and **nothing else**. No spec,
+no story file, no project context. Do not explore the repository beyond resolving an import path
+the diff itself leaves ambiguous.
+
+### What this diff claims to be
+
+A security-hardening fix to an Express route (`server/routes/office-actions.js`, `POST /`) that:
+adds an actor-ownership authorization check before processing; derives the session id it scopes
+budget/dedupe queries by from the server's own database query instead of trusting a client-supplied
+field; adds a MongoDB partial unique index plus an insert-then-recount-with-compensating-delete
+pattern intended to make a budget check and a per-target duplicate check atomic under concurrent
+requests; and rewrites a self-target check to compare parsed `ObjectId`s instead of raw strings. It
+also adds a non-throwing DB-connectivity probe (`isDbAvailable()`) to shared test helper
+`server/tests/helpers/db-setup.js`, and two new test files plus edits to two existing ones.
+
+**That is the shape it claims. Do not trust the shape — verify it.**
+
+### What to hunt for
+
+1. **The compensating-delete window.** In the `POST /` handler's paid-action branch: an
+   `insertOne` happens, then a `countDocuments` recount, then — if over budget — a `deleteOne` on
+   the just-inserted doc, then a 403. Is there ANY path where the insert succeeds, the recount
+   incorrectly reads the count as within-budget (or the delete silently fails/no-ops), and the
+   handler proceeds to mutate `characters.status.city` anyway for an over-budget action? Trace the
+   exact boundary arithmetic: is it `>` or `>=` against the freshly-inserted count, and does that
+   match the STATED intent of "at most `budget` actions may ever land"? Walk a concrete numeric
+   example by hand (budget=3, 2 prior successful actions, 1 new request arrives) and confirm the
+   arithmetic the diff performs actually produces the claimed boundary.
+2. **The duplicate-key catch.** The insert is wrapped in a try/catch checking `err?.code === 11000`
+   to detect the new partial unique index's violation and translate it to a 409. Is `err.code` the
+   correct property on this MongoDB Node driver's error for a duplicate-key violation, or could the
+   real code live at `err.errorResponse.code`, a nested `err.writeErrors[0].code`, or similar,
+   meaning this catch silently never fires and an E11000 instead propagates as an unhandled 500?
+3. **Trivially-satisfiable checks.** Any assertion, guard, or boundary condition in the diff whose
+   pass condition is weaker than its name/comment implies — including in the new/modified test
+   files (a test that would pass even if the fix were reverted is worse than no test).
+4. **Ordering and information leakage.** The new authorization check runs before the route's
+   existing checks (game-phase gate, session lookup, self-target check, actor/target existence).
+   Does any error response emitted BEFORE the authorization check — or any response ordering
+   overall — leak information a non-owner shouldn't get (e.g., confirming a specific `actor_id`
+   exists, or is a valid office-holder, before confirming the caller is allowed to act as them)?
+5. **Error paths and unhandled rejections.** Every `await` in the rewritten handler and in the new
+   `findLatestSession()` helper — what happens if any of them rejects (a transient Mongo error, not
+   a validation failure)? Does the route send a response, or can it hang / double-respond / crash
+   the process?
+6. **Resource cleanup on the thrown path.** If the `countDocuments` recount itself throws (not just
+   returns a bad count), does the already-inserted document get orphaned with no compensating
+   delete, since the delete only runs on the "over budget" branch, not on a genuine exception?
+7. **Self-contradiction within the diff.** Does any code comment claim a guarantee ("never
+   over-accept", "atomic", "single source of truth") that a different part of the same diff
+   contradicts? Does the diff claim to leave something unchanged (e.g. a schema, a client) and then
+   touch it anyway, or vice versa?
+8. **Dead code / unused imports / unreachable branches** introduced by the diff — in particular,
+   check whether any import, variable, or helper added is genuinely used on every path that reaches
+   it, and whether anything from the pre-diff code is now unreachable but not removed.
+9. **The two new test files** (`server/tests/issue-1143-office-actions-auth-safety.test.js`,
+   `server/tests/issue-1143-db-setup-skip.test.js`): do their assertions actually exercise the
+   claimed behaviour, or could an equally-plausible-looking implementation with a real bug still
+   pass them? Pay particular attention to the two concurrency tests (`Promise.all`-based) — is
+   there a race in the TEST ITSELF that could make it pass regardless of whether the production
+   code is actually atomic (e.g. asserting on a value that both a correct and an incorrect
+   implementation would produce)?
+
+Flag anything you cannot judge without the spec as "worth checking" rather than asserting it.
+
+**STOP. Write your Pass 1 findings to `specs/stories/code-review/issue-1143-blind-hunter-findings.md` now.**
+
+## Output
+
+Write your findings to `specs/stories/code-review/issue-1143-blind-hunter-findings.md`, grouped
+`## High` / `## Medium` / `## Low`, each tagged `[Pass 1]`. Write `- None found.` under any empty
+heading rather than dropping it.
+
+For each finding:
+
+- **One-line title**
+- **Severity**: High / Medium / Low
+- **File:line**
+- **The triggering input or sequence** — be concrete about what reaches it
+- **The observable consequence** — what actually goes wrong, for whom
+- **Confidence**: how sure you are this is real and not a misread
+
+Close with a **Validation notes** section stating:
+
+- Which files you opened, and confirmation you stayed within Pass 1's scope (diff only).
+- Every command you ran, with its real result, including the gate command above.
+- Anything you could not run, and why. Name it specifically.
+- Confirmation that you modified nothing, or that anything you touched was restored and verified
+  (`git status --short` clean of unintended change).
+
+codex
+I’ll review only the supplied diff, trace the changed route and tests from that artifact, run the exact targeted gate, and write the Pass 1 report to the requested file. I won’t inspect the excluded story/tracking files or sibling repositories.
+  → Inspect the supplied diff and map all changed behavior/tests
+  • Run the exact targeted Vitest gate and any narrowly justified verification
+  • Write the blind-hunter findings file and verify no unintended workspace changes
+exec
+"C:\\Program Files\\PowerShell\\7\\pwsh.exe" -Command "Get-Content -LiteralPath 'specs/stories/code-review/issue-1143-diff.txt'" in D:\Terra Mortis\TM Suite
+ succeeded in 5351ms:
+diff --git a/server/index.js b/server/index.js
+index a7a606ee..b9659256 100644
+--- a/server/index.js
++++ b/server/index.js
+@@ -203,6 +203,17 @@ async function start() {
+       { player_id: 1, story_id: 1 },
+       { unique: true, background: true },
+     );
++    // Ensure partial unique index on office_actions (issue #1143) — makes
++    // the per-target dedupe check for paid Status Actions (raise/lower)
++    // atomic at the database level instead of a racing findOne.
++    getDb().collection('office_actions').createIndex(
++      { game_session_id: 1, actor_id: 1, target_id: 1 },
++      {
++        unique: true,
++        background: true,
++        partialFilterExpression: { action_type: { $in: ['raise', 'lower'] } },
++      },
++    );
+     await runRulesEngineGate();
+   } catch (err) {
+     console.error('Failed to connect to MongoDB:', err.message);
+diff --git a/server/routes/office-actions.js b/server/routes/office-actions.js
+index f399482d..10928b7c 100644
+--- a/server/routes/office-actions.js
++++ b/server/routes/office-actions.js
+@@ -6,6 +6,7 @@ import { officeActionSchema } from '../schemas/office_action.schema.js';
+ import { calcEffectiveCityStatus } from '../../public/js/data/city-status-calc.js';
+ import { findRegentTerritory } from '../../public/js/data/helpers.js';
+ import { currentCycleInGamePhase } from '../../public/js/downtime/cycle-phase.js';
++import { isStRole } from '../middleware/auth.js';
+ 
+ const PAID_TYPES = new Set(['raise', 'lower']);
+ const GATED_TYPES = new Set(['raise', 'lower', 'grant_first', 'strip_last']);
+@@ -13,15 +14,24 @@ const GATED_TYPES = new Set(['raise', 'lower', 'grant_first', 'strip_last']);
+ const router = Router();
+ const col    = () => getCollection('office_actions');
+ 
+-// GET /api/office_actions/latest_session
+-// Returns the most recent game session (session_date <= today) so the client
+-// can scope budget checks and the public log to the active game.
+-router.get('/latest_session', async (req, res) => {
++// issue-1143: the single source of truth for "what is the current game
++// session" — used by GET /latest_session for display AND by POST / to
++// derive the authoritative game_session_id server-side. A client-supplied
++// game_session_id must never be trusted for budget/dedupe scoping (finding
++// #2 — it was previously the spoofable key resetting both checks).
++async function findLatestSession() {
+   const today = new Date().toISOString().slice(0, 10);
+-  const session = await getCollection('game_sessions').findOne(
++  return getCollection('game_sessions').findOne(
+     { session_date: { $lte: today } },
+     { sort: { session_date: -1 }, projection: { _id: 1, title: 1, session_date: 1, game_number: 1 } },
+   );
++}
++
++// GET /api/office_actions/latest_session
++// Returns the most recent game session (session_date <= today) so the client
++// can scope budget checks and the public log to the active game.
++router.get('/latest_session', async (req, res) => {
++  const session = await findLatestSession();
+   res.json(session || null);
+ });
+ 
+@@ -39,14 +49,32 @@ router.get('/', async (req, res) => {
+ // POST /api/office_actions
+ // Records a status power use and atomically updates target's status.city.
+ router.post('/', validate(officeActionSchema), async (req, res) => {
+-  const { game_session_id, actor_id, target_id, action_type } = req.body;
++  const { actor_id, target_id, action_type } = req.body;
++
++  // issue-1143 finding #1: actor_id must belong to the authenticated caller
++  // (one of req.user.character_ids), or the caller must hold an ST role.
++  // Checked first, before every other gate — "you may not act as this
++  // character" is a more fundamental rejection than "no game is live" or
++  // "that target is invalid." Reuses this project's existing ownership
++  // pattern (isStRole + character_ids membership), the same shape as
++  // isRegentOfTerritory and npcs.js's quick-add ownership check.
++  const callerCharIds = (req.user?.character_ids || []).map(String);
++  if (!isStRole(req.user) && !callerCharIds.includes(String(actor_id)))
++    return res.status(403).json({ error: 'FORBIDDEN', message: 'You may not act as this character' });
++
++  // issue-1143 finding #2: derive the authoritative game_session_id
++  // server-side from the SAME query GET /latest_session already uses. The
++  // client-supplied body field is never trusted for scoping — see
++  // findLatestSession() above.
++  const session = await findLatestSession();
++  if (!session)
++    return res.status(403).json({ error: 'FORBIDDEN', message: 'No active game session found' });
++  const game_session_id = String(session._id);
+ 
+   // otc.2 (2026-08-12): Status Actions must only fire while a game is live.
+-  // Checked first, before any other validation — a Status Action submitted
+-  // outside game phase is rejected outright regardless of whether the actor,
+-  // target, or budget would otherwise be valid. Mirrors the server-side
+-  // convention already used elsewhere (server/routes/downtime.js): cyclePhase
+-  // called with no second argument trusts the phase-aware lane only.
++  // Mirrors the server-side convention already used elsewhere
++  // (server/routes/downtime.js): cyclePhase called with no second argument
++  // trusts the phase-aware lane only.
+   if (GATED_TYPES.has(action_type)) {
+     // otc.2 fix (2026-08-12, Codex review): identify the CURRENT cycle
+     // (highest game_number) first, THEN test its phase. The original
+@@ -61,42 +89,27 @@ router.post('/', validate(officeActionSchema), async (req, res) => {
+       return res.status(403).json({ error: 'FORBIDDEN', message: 'No game session is currently in progress' });
+   }
+ 
+-  if (actor_id === target_id)
++  // issue-1143 finding #4: resolve both ids to real ObjectIds BEFORE any
++  // comparison — a hex-case-variant pair of the SAME id must not slip past
++  // a raw string comparison. Both ids are parsed once here and reused below
++  // instead of re-constructed per query.
++  let actorObjectId, targetObjectId;
++  try { actorObjectId = new ObjectId(actor_id); }
++  catch { return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'Invalid actor_id' }); }
++  try { targetObjectId = new ObjectId(target_id); }
++  catch { return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'Invalid target_id' }); }
++  if (actorObjectId.equals(targetObjectId))
+     return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'Cannot target yourself' });
+ 
+   // Load actor — must hold a court office
+-  let actor;
+-  try { actor = await getCollection('characters').findOne({ _id: new ObjectId(actor_id) }); }
+-  catch { return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'Invalid actor_id' }); }
++  const actor = await getCollection('characters').findOne({ _id: actorObjectId });
+   if (!actor)
+     return res.status(404).json({ error: 'NOT_FOUND', message: 'Actor not found' });
+   if (!actor.court_category)
+     return res.status(403).json({ error: 'FORBIDDEN', message: 'Actor holds no court office' });
+ 
+-  // Budget + uniqueness checks for paid actions
+-  if (PAID_TYPES.has(action_type)) {
+-    // otc.2: was (actor.status.city + TITLE_STATUS_BONUS) only, silently
+-    // dropping the regent-ambience bonus and the 10-cap the client already
+-    // displays. Now the same effective-City-Status calculation as the client.
+-    const territories = await getCollection('territories').find().toArray();
+-    const regentAmbience = findRegentTerritory(territories, actor)?.ambience;
+-    const budget = calcEffectiveCityStatus(actor, regentAmbience);
+-    const used = await col().countDocuments({
+-      game_session_id, actor_id, action_type: { $in: ['raise', 'lower'] },
+-    });
+-    if (used >= budget)
+-      return res.status(403).json({ error: 'FORBIDDEN', message: 'Budget exhausted for this session' });
+-    const dup = await col().findOne({
+-      game_session_id, actor_id, target_id, action_type: { $in: ['raise', 'lower'] },
+-    });
+-    if (dup)
+-      return res.status(409).json({ error: 'CONFLICT', message: 'Target already acted on this session' });
+-  }
+-
+   // Load target
+-  let target;
+-  try { target = await getCollection('characters').findOne({ _id: new ObjectId(target_id) }); }
+-  catch { return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'Invalid target_id' }); }
++  const target = await getCollection('characters').findOne({ _id: targetObjectId });
+   if (!target)
+     return res.status(404).json({ error: 'NOT_FOUND', message: 'Target not found' });
+ 
+@@ -134,9 +147,68 @@ router.post('/', validate(officeActionSchema), async (req, res) => {
+     timestamp,
+   };
+ 
++  if (PAID_TYPES.has(action_type)) {
++    // issue-1143 finding #3: budget + dedupe + write must be atomic enough
++    // that a realistic concurrent-request race cannot exceed budget or
++    // double-act on one target.
++    //
++    // This project's local dev/test MongoDB runs as a STANDALONE instance
++    // (confirmed live via `hello`), not a replica set — multi-document
++    // transactions are unavailable there even though Atlas (production)
++    // supports them. Using session.withTransaction would make this route
++    // untestable in this project's actual dev environment, so this uses an
++    // insert-then-verify pattern instead, which works identically on both:
++    //   1. A partial unique index on { game_session_id, actor_id, target_id }
++    //      (scoped to action_type in [raise, lower] — see index creation in
++    //      server/index.js) makes the per-target dedupe check ATOMIC: a
++    //      second concurrent insert on the same target fails with E11000,
++    //      not a racing findOne.
++    //   2. Budget stays a derived count (the formula/model is unchanged —
++    //      see story "What this story is NOT"). After a successful insert,
++    //      this re-counts the actor's paid actions THIS session; if the
++    //      insert pushed the count over budget, the insert is compensated
++    //      (deleted) and the request rejected. Two concurrent inserts can
++    //      both land, but each recount is a fresh, real read — at most
++    //      `budget` of them keep their insert, the rest self-evict. This
++    //      can occasionally over-reject right at the boundary (a legitimate
++    //      request bounces and must be retried) but can never over-accept —
++    //      the direction issue #1143 actually cares about.
++    const territories = await getCollection('territories').find().toArray();
++    const regentAmbience = findRegentTerritory(territories, actor)?.ambience;
++    const budget = calcEffectiveCityStatus(actor, regentAmbience);
++
++    let inserted;
++    try {
++      inserted = await col().insertOne(doc);
++    } catch (err) {
++      if (err?.code === 11000)
++        return res.status(409).json({ error: 'CONFLICT', message: 'Target already acted on this session' });
++      throw err;
++    }
++
++    const used = await col().countDocuments({
++      game_session_id, actor_id, action_type: { $in: ['raise', 'lower'] },
++    });
++    if (used > budget) {
++      await col().deleteOne({ _id: inserted.insertedId });
++      return res.status(403).json({ error: 'FORBIDDEN', message: 'Budget exhausted for this session' });
++    }
++
++    await getCollection('characters').updateOne(
++      { _id: targetObjectId },
++      { $set: { 'status.city': new_status, updated_at: timestamp } },
++    );
++
++    return res.status(201).json({ action: { ...doc, _id: inserted.insertedId }, new_status });
++  }
++
++  // grant_first / strip_last — no budget, and the old_status guard above
++  // already makes a race harmless: both set a fixed target value (1 or 0),
++  // not an increment, so a duplicate concurrent insert produces a redundant
++  // log entry but never an inconsistent status.city.
+   const inserted = await col().insertOne(doc);
+   await getCollection('characters').updateOne(
+-    { _id: new ObjectId(target_id) },
++    { _id: targetObjectId },
+     { $set: { 'status.city': new_status, updated_at: timestamp } },
+   );
+ 
+diff --git a/server/tests/feature.691.hos-city-status-power.test.js b/server/tests/feature.691.hos-city-status-power.test.js
+index 061ce54b..baa70f4f 100644
+--- a/server/tests/feature.691.hos-city-status-power.test.js
++++ b/server/tests/feature.691.hos-city-status-power.test.js
+@@ -23,7 +23,10 @@ describe('feature.691 — office_actions route', () => {
+     expect(ROUTE).toContain("'/latest_session'"));
+ 
+   it('validates actor !== target', () =>
+-    expect(ROUTE).toContain('actor_id === target_id'));
++    // issue-1143 (AC4): rewritten from a raw string comparison
++    // (actor_id === target_id) to resolved-ObjectId equality, so a
++    // hex-case-variant pair of the same id is still caught as a self-target.
++    expect(ROUTE).toContain('actorObjectId.equals(targetObjectId)'));
+ 
+   it('enforces paid budget via countDocuments', () =>
+     expect(ROUTE).toContain('countDocuments'));
+diff --git a/server/tests/helpers/db-setup.js b/server/tests/helpers/db-setup.js
+index 7aadb67a..0fb1b809 100644
+--- a/server/tests/helpers/db-setup.js
++++ b/server/tests/helpers/db-setup.js
+@@ -30,6 +30,30 @@ export async function teardownDb() {
+   // The connection closes naturally when the process exits.
+ }
+ 
++/**
++ * issue-1143 (AC5): non-throwing connectivity probe, for suites that want a
++ * clean vitest skip rather than a failed beforeAll + a second erroring
++ * afterAll cleanup. setupDb() itself keeps its existing throw-on-failure
++ * contract unchanged (other suites already depend on that shape) — this is
++ * a separate, additive helper. Usage:
++ *
++ *   const dbAvailable = await isDbAvailable();
++ *   describe.skipIf(!dbAvailable)('suite name', () => {
++ *     beforeAll(async () => { await setupDb(); ... });
++ *     ...
++ *   });
++ *
++ * The top-level `await` works because vitest test files are ESM modules.
++ */
++export async function isDbAvailable() {
++  try {
++    await setupDb();
++    return true;
++  } catch {
++    return false;
++  }
++}
++
+ /**
+  * Get a few character IDs for testing player filtering.
+  *
+diff --git a/server/tests/issue-1143-db-setup-skip.test.js b/server/tests/issue-1143-db-setup-skip.test.js
+new file mode 100644
+index 00000000..c32b3bd2
+--- /dev/null
++++ b/server/tests/issue-1143-db-setup-skip.test.js
+@@ -0,0 +1,70 @@
++/**
++ * issue-1143 AC5 — server/tests/helpers/db-setup.js's isDbAvailable() must
++ * catch a failed connection and resolve false, not throw/rethrow. This is
++ * what `describe.skipIf(!(await isDbAvailable()))` in a DB-backed suite
++ * needs to produce a clean vitest skip instead of the failed-beforeAll +
++ * erroring-afterAll double-error the bare setupDb()/teardownDb() pairing
++ * produces when MongoDB is unreachable.
++ *
++ * Deliberately its OWN file, isolated from every other DB-backed suite: it
++ * mocks '../db.js' to simulate a connection failure, which would corrupt
++ * the real shared connection state (the module-level `db` singleton in
++ * server/db.js) if run inside a file that also does real DB work in the
++ * same process. vi.resetModules() + vi.doMock() give this file its own
++ * module graph for db.js/db-setup.js without touching the real one other
++ * suites depend on.
++ *
++ * This test needs no real MongoDB — it is intentionally NOT DB-backed.
++ */
++
++import { describe, it, expect, vi, afterEach } from 'vitest';
++
++afterEach(() => {
++  vi.doUnmock('../db.js');
++  vi.resetModules();
++});
++
++describe('issue-1143 AC5 — isDbAvailable() clean-skip contract', () => {
++  it('resolves false, and does not throw, when the underlying connection fails', async () => {
++    vi.resetModules();
++    vi.doMock('../db.js', () => ({
++      connectDb: vi.fn().mockRejectedValue(new Error('ECONNREFUSED (simulated)')),
++      closeDb: vi.fn(),
++      getCollection: vi.fn(),
++      getDb: vi.fn(() => { throw new Error('Database not connected — call connectDb() first'); }),
++    }));
++
++    const { isDbAvailable } = await import('./helpers/db-setup.js');
++    await expect(isDbAvailable()).resolves.toBe(false);
++  });
++
++  it('resolves true when the underlying connection succeeds (positive control)', async () => {
++    vi.resetModules();
++    vi.doMock('../db.js', () => ({
++      connectDb: vi.fn().mockResolvedValue(undefined),
++      closeDb: vi.fn(),
++      getCollection: vi.fn(),
++      getDb: vi.fn(() => ({ databaseName: 'tm_suite_test' })),
++    }));
++
++    const { isDbAvailable } = await import('./helpers/db-setup.js');
++    await expect(isDbAvailable()).resolves.toBe(true);
++  });
++
++  it('still rejects when the DB connects but to a non-_test database (safety guard preserved)', async () => {
++    vi.resetModules();
++    vi.doMock('../db.js', () => ({
++      connectDb: vi.fn().mockResolvedValue(undefined),
++      closeDb: vi.fn(),
++      getCollection: vi.fn(),
++      getDb: vi.fn(() => ({ databaseName: 'tm_suite' })), // NOT *_test
++    }));
++
++    const { isDbAvailable } = await import('./helpers/db-setup.js');
++    // Connecting to a non-test DB under vitest is a hard safety violation,
++    // not a "DB unreachable" case — isDbAvailable() still catches it (it
++    // wraps the full setupDb() call, guard included) and resolves false
++    // rather than letting a live connection to the wrong database through.
++    await expect(isDbAvailable()).resolves.toBe(false);
++  });
++});
+diff --git a/server/tests/issue-1143-office-actions-auth-safety.test.js b/server/tests/issue-1143-office-actions-auth-safety.test.js
+new file mode 100644
+index 00000000..4c088f24
+--- /dev/null
++++ b/server/tests/issue-1143-office-actions-auth-safety.test.js
+@@ -0,0 +1,329 @@
++/**
++ * issue-1143 — real behavioural coverage for the four route-level defects
++ * fixed in server/routes/office-actions.js's POST / handler, all confirmed
++ * pre-existing since #691 and deferred out of otc-2-status-actions-server-
++ * hardening's scope:
++ *
++ *   AC1 — actor_id must belong to the authenticated caller, or the caller
++ *         must hold an ST role.
++ *   AC2 — game_session_id is derived server-side (game_sessions collection);
++ *         a client-supplied value can no longer reset budget/dedupe scoping.
++ *   AC3 — budget + dedupe + write are atomic enough that a real concurrent
++ *         request race cannot exceed budget or double-act on one target.
++ *   AC4 — the self-target check compares resolved ObjectIds, not raw
++ *         strings (a hex-case-variant pair of the same id is still a
++ *         self-target).
++ *
++ * AC5 (db-setup.js clean skip contract) is unit-tested separately in
++ * issue-1143-db-setup-skip.test.js, which needs to mock the DB connection
++ * failure path — that would corrupt the shared connection state this file's
++ * other tests depend on if done here. This file instead DEMONSTRATES the
++ * resulting pattern for real: every describe block below is wrapped in
++ * describe.skipIf(!dbAvailable) rather than the bare setupDb()/teardownDb()
++ * pairing otc-2-office-actions-api.test.js still uses, so this suite reports
++ * a clean vitest skip (not a failed beforeAll + a second erroring afterAll)
++ * if MongoDB is unreachable when this file runs.
++ *
++ * Follows the pattern established by otc-2-office-actions-api.test.js: real
++ * Supertest requests against the mounted app + tm_suite_test, prefixed test
++ * fixtures, full-collection defensive clears for the shared game_sessions /
++ * downtime_cycles collections (a leftover doc from another file could
++ * otherwise make findLatestSession()/currentCycleInGamePhase() resolve to
++ * the wrong record).
++ *
++ * DB-backed: real MongoDB required. See db-setup.js.
++ */
++
++import { describe, it, expect, beforeAll, afterAll } from 'vitest';
++import request from 'supertest';
++import { createTestApp, stUser, playerUser } from './helpers/test-app.js';
++import { setupDb, teardownDb, isDbAvailable } from './helpers/db-setup.js';
++import { getCollection } from '../db.js';
++import { ObjectId } from 'mongodb';
++
++// issue-1143 AC5: resolved once at module load (top-level await is valid in
++// an ESM vitest test file) so every describe.skipIf below shares one
++// connectivity probe rather than re-probing per suite.
++const dbAvailable = await isDbAvailable();
++
++let app;
++const NAME_PREFIX = 'Issue-1143 Probe';
++
++async function cleanup() {
++  await getCollection('characters').deleteMany({ name: { $regex: `^${NAME_PREFIX}` } });
++  await getCollection('territories').deleteMany({ name: { $regex: `^${NAME_PREFIX}` } });
++  await getCollection('downtime_cycles').deleteMany({ label: { $regex: `^${NAME_PREFIX}` } });
++  await getCollection('game_sessions').deleteMany({ title: { $regex: `^${NAME_PREFIX}` } });
++  await getCollection('office_actions').deleteMany({ actor_name: { $regex: `^${NAME_PREFIX}` } });
++}
++
++async function seedGameSessionAndCycle() {
++  // Full-collection defensive clear — see file header. Matches the same
++  // rationale otc-2-office-actions-api.test.js already established for
++  // downtime_cycles.
++  const today = new Date().toISOString().slice(0, 10);
++  await getCollection('game_sessions').deleteMany({ session_date: { $lte: today } });
++  await getCollection('game_sessions').insertOne({
++    title: `${NAME_PREFIX} Session`,
++    session_date: today,
++    game_number: 999,
++  });
++  await getCollection('downtime_cycles').deleteMany({});
++  await getCollection('downtime_cycles').insertOne({
++    label: `${NAME_PREFIX} Cycle`, phase: 'game', game_number: 999,
++  });
++}
++
++async function seedActor({ city = 0, courtCategory = 'Head of State' } = {}) {
++  const actorDoc = {
++    name: `${NAME_PREFIX} Actor ${Date.now()}_${Math.random()}`,
++    court_category: courtCategory,
++    status: { city },
++    retired: false,
++  };
++  const { insertedId } = await getCollection('characters').insertOne(actorDoc);
++  return insertedId;
++}
++
++async function seedTargets(count, startingCity = 1) {
++  const docs = Array.from({ length: count }, (_, i) => ({
++    name: `${NAME_PREFIX} Target ${Date.now()}_${i}_${Math.random()}`,
++    status: { city: startingCity },
++    retired: false,
++  }));
++  const result = await getCollection('characters').insertMany(docs);
++  return Object.values(result.insertedIds);
++}
++
++beforeAll(async () => {
++  // issue-1143 AC5: this top-level beforeAll runs regardless of which
++  // describe.skipIf blocks below get skipped, so it must guard itself too —
++  // otherwise an unreachable DB would still produce one failure here even
++  // with every suite marked skipped.
++  if (!dbAvailable) return;
++  await setupDb();
++  app = createTestApp();
++  await cleanup();
++  // createTestApp() doesn't run server/index.js's real boot sequence, so the
++  // production index-creation call there never fires under vitest. Ensure
++  // the same partial unique index exists here directly — createIndex is
++  // idempotent, matching the precedent in issue-971-cyoa-passages.test.js.
++  await getCollection('office_actions').createIndex(
++    { game_session_id: 1, actor_id: 1, target_id: 1 },
++    { unique: true, partialFilterExpression: { action_type: { $in: ['raise', 'lower'] } } },
++  );
++});
++
++afterAll(async () => {
++  if (!dbAvailable) return;
++  await cleanup();
++  await teardownDb();
++});
++
++describe.skipIf(!dbAvailable)('issue-1143 AC1 — actor_id authorization', () => {
++  it('403s a player POSTing an actor_id that is not one of their own character_ids', async () => {
++    await seedGameSessionAndCycle();
++    const actorId = await seedActor({ city: 3 });
++    const [targetId] = await seedTargets(1);
++
++    const res = await request(app).post('/api/office_actions')
++      .set('X-Test-User', playerUser(['000000000000000000000001']))
++      .send({
++        game_session_id: 'irrelevant', actor_id: String(actorId), target_id: String(targetId), action_type: 'raise',
++      });
++
++    expect(res.status).toBe(403);
++    expect(res.body.message).toMatch(/may not act as this character/i);
++  });
++
++  it('allows a player POSTing an actor_id that IS in their own character_ids', async () => {
++    await seedGameSessionAndCycle();
++    const actorId = await seedActor({ city: 3 });
++    const [targetId] = await seedTargets(1);
++
++    const res = await request(app).post('/api/office_actions')
++      .set('X-Test-User', playerUser([String(actorId)]))
++      .send({
++        game_session_id: 'irrelevant', actor_id: String(actorId), target_id: String(targetId), action_type: 'raise',
++      });
++
++    expect(res.status).toBe(201);
++  });
++
++  it('allows an ST-role caller to act as any actor_id (override)', async () => {
++    await seedGameSessionAndCycle();
++    const actorId = await seedActor({ city: 3 });
++    const [targetId] = await seedTargets(1);
++
++    const res = await request(app).post('/api/office_actions')
++      .set('X-Test-User', stUser())
++      .send({
++        game_session_id: 'irrelevant', actor_id: String(actorId), target_id: String(targetId), action_type: 'raise',
++      });
++
++    expect(res.status).toBe(201);
++  });
++});
++
++describe.skipIf(!dbAvailable)('issue-1143 AC2 — server-derived game_session_id', () => {
++  it('ignores a forged client-supplied game_session_id and stamps the real one', async () => {
++    await seedGameSessionAndCycle();
++    const realSession = await getCollection('game_sessions').findOne(
++      { title: `${NAME_PREFIX} Session` },
++    );
++    const actorId = await seedActor({ city: 3 });
++    const [targetId] = await seedTargets(1);
++
++    const res = await request(app).post('/api/office_actions')
++      .set('X-Test-User', stUser())
++      .send({
++        game_session_id: 'totally-forged-session-id', actor_id: String(actorId), target_id: String(targetId), action_type: 'raise',
++      });
++
++    expect(res.status).toBe(201);
++    expect(res.body.action.game_session_id).toBe(String(realSession._id));
++    expect(res.body.action.game_session_id).not.toBe('totally-forged-session-id');
++  });
++
++  it('a forged game_session_id cannot be used to reset budget scoping across requests', async () => {
++    // Pre-issue-1143 exploit: invent a fresh game_session_id per request to
++    // make the budget/dedupe counts always read 0. Post-fix, every request
++    // resolves to the SAME real session regardless of what the client sends,
++    // so the budget below (Head of State, city 0 => budget 3) is enforced
++    // across all four requests even though each one claims a different
++    // client-side session id.
++    await seedGameSessionAndCycle();
++    const actorId = await seedActor({ city: 0 });
++    const targets = await seedTargets(4, 1);
++
++    for (let i = 0; i < 3; i++) {
++      const res = await request(app).post('/api/office_actions')
++        .set('X-Test-User', stUser())
++        .send({
++          game_session_id: `forged-session-${i}`, actor_id: String(actorId), target_id: String(targets[i]), action_type: 'raise',
++        });
++      expect(res.status, `raise #${i + 1} of 3 (budget 3) should succeed`).toBe(201);
++    }
++
++    const res = await request(app).post('/api/office_actions')
++      .set('X-Test-User', stUser())
++      .send({
++        game_session_id: 'forged-session-should-not-reset-budget', actor_id: String(actorId), target_id: String(targets[3]), action_type: 'raise',
++      });
++    expect(res.status, 'the 4th raise exceeds budget 3 and must be rejected even under a fresh forged session id').toBe(403);
++  });
++
++  it('403s when no live game session exists', async () => {
++    await getCollection('game_sessions').deleteMany({});
++    await getCollection('downtime_cycles').deleteMany({});
++    await getCollection('downtime_cycles').insertOne({
++      label: `${NAME_PREFIX} Cycle`, phase: 'game', game_number: 999,
++    });
++    const actorId = await seedActor({ city: 3 });
++    const [targetId] = await seedTargets(1);
++
++    const res = await request(app).post('/api/office_actions')
++      .set('X-Test-User', stUser())
++      .send({
++        game_session_id: 'irrelevant', actor_id: String(actorId), target_id: String(targetId), action_type: 'raise',
++      });
++
++    expect(res.status).toBe(403);
++    expect(res.body.message).toMatch(/no active game session/i);
++  });
++});
++
++describe.skipIf(!dbAvailable)('issue-1143 AC4 — self-target check on resolved ObjectIds', () => {
++  it('rejects a self-target even when actor_id/target_id differ only by hex case', async () => {
++    await seedGameSessionAndCycle();
++    const actorId = await seedActor({ city: 3 });
++    const lower = actorId.toHexString();
++    const upper = lower.toUpperCase();
++    expect(lower).not.toBe(upper); // sanity: the pair really is a different string
++
++    const res = await request(app).post('/api/office_actions')
++      .set('X-Test-User', stUser())
++      .send({
++        game_session_id: 'irrelevant', actor_id: lower, target_id: upper, action_type: 'raise',
++      });
++
++    expect(res.status).toBe(400);
++    expect(res.body.message).toMatch(/cannot target yourself/i);
++  });
++
++  it('still allows the identical-string self-target case (regression check)', async () => {
++    await seedGameSessionAndCycle();
++    const actorId = await seedActor({ city: 3 });
++
++    const res = await request(app).post('/api/office_actions')
++      .set('X-Test-User', stUser())
++      .send({
++        game_session_id: 'irrelevant', actor_id: String(actorId), target_id: String(actorId), action_type: 'raise',
++      });
++
++    expect(res.status).toBe(400);
++    expect(res.body.message).toMatch(/cannot target yourself/i);
++  });
++});
++
++describe.skipIf(!dbAvailable)('issue-1143 AC3 — atomic budget + dedupe under concurrency', () => {
++  it('at most one of two concurrent requests wins the last budget slot', async () => {
++    await seedGameSessionAndCycle();
++    // Head of State, city 0 => effective budget 3. Consume 2 sequentially
++    // (unraced) to leave exactly 1 slot, then race two parallel requests at
++    // two DIFFERENT targets for that final slot.
++    const actorId = await seedActor({ city: 0 });
++    const targets = await seedTargets(4, 1);
++
++    for (let i = 0; i < 2; i++) {
++      const res = await request(app).post('/api/office_actions')
++        .set('X-Test-User', stUser())
++        .send({
++          game_session_id: 'irrelevant', actor_id: String(actorId), target_id: String(targets[i]), action_type: 'raise',
++        });
++      expect(res.status).toBe(201);
++    }
++
++    const [resA, resB] = await Promise.all([
++      request(app).post('/api/office_actions').set('X-Test-User', stUser()).send({
++        game_session_id: 'irrelevant', actor_id: String(actorId), target_id: String(targets[2]), action_type: 'raise',
++      }),
++      request(app).post('/api/office_actions').set('X-Test-User', stUser()).send({
++        game_session_id: 'irrelevant', actor_id: String(actorId), target_id: String(targets[3]), action_type: 'raise',
++      }),
++    ]);
++
++    const statuses = [resA.status, resB.status].sort();
++    expect(statuses[0], `exactly one of the two racing requests should succeed (got ${statuses.join(',')})`).toBe(201);
++    expect(statuses[1]).not.toBe(201);
++
++    const finalCount = await getCollection('office_actions').countDocuments({
++      actor_id: String(actorId), action_type: 'raise',
++    });
++    expect(finalCount, 'budget of 3 must never be exceeded regardless of the race outcome').toBe(3);
++  });
++
++  it('at most one of two concurrent requests targeting the SAME character succeeds', async () => {
++    await seedGameSessionAndCycle();
++    const actorId = await seedActor({ city: 3 });
++    const [targetId] = await seedTargets(1);
++
++    const [resA, resB] = await Promise.all([
++      request(app).post('/api/office_actions').set('X-Test-User', stUser()).send({
++        game_session_id: 'irrelevant', actor_id: String(actorId), target_id: String(targetId), action_type: 'raise',
++      }),
++      request(app).post('/api/office_actions').set('X-Test-User', stUser()).send({
++        game_session_id: 'irrelevant', actor_id: String(actorId), target_id: String(targetId), action_type: 'raise',
++      }),
++    ]);
++
++    const statuses = [resA.status, resB.status].sort();
++    expect(statuses[0], `exactly one of the two racing same-target requests should succeed (got ${statuses.join(',')})`).toBe(201);
++    expect(statuses[1]).not.toBe(201);
++
++    const finalCount = await getCollection('office_actions').countDocuments({
++      actor_id: String(actorId), target_id: String(targetId),
++    });
++    expect(finalCount, 'the unique partial index must prevent a duplicate action doc on the same target').toBe(1);
++  });
++});
+diff --git a/server/tests/otc-2-office-actions-api.test.js b/server/tests/otc-2-office-actions-api.test.js
+index 33b61c2c..11293310 100644
+--- a/server/tests/otc-2-office-actions-api.test.js
++++ b/server/tests/otc-2-office-actions-api.test.js
+@@ -22,13 +22,40 @@ import { ObjectId } from 'mongodb';
+ 
+ let app;
+ const NAME_PREFIX = 'OTC-2 Probe';
++// issue-1143: game_session_id is no longer client-trusted — the server
++// derives it itself from the game_sessions collection (findLatestSession()
++// in office-actions.js). This value is still SENT in request bodies below
++// (the schema requires the field) but the server ignores it for scoping; a
++// real game_sessions doc is seeded in beforeAll so the route has something
++// authoritative to resolve to. Kept only as a placeholder value now.
+ const GAME_SESSION_ID = 'otc-2-test-session';
+ 
+ async function cleanup() {
+   await getCollection('characters').deleteMany({ name: { $regex: `^${NAME_PREFIX}` } });
+   await getCollection('territories').deleteMany({ name: { $regex: `^${NAME_PREFIX}` } });
+   await getCollection('downtime_cycles').deleteMany({ label: { $regex: `^${NAME_PREFIX}` } });
+-  await getCollection('office_actions').deleteMany({ game_session_id: GAME_SESSION_ID });
++  await getCollection('game_sessions').deleteMany({ title: { $regex: `^${NAME_PREFIX}` } });
++  // Scoped by actor_name, not game_session_id — since issue-1143, the
++  // persisted game_session_id is the REAL server-derived session's _id, not
++  // this file's placeholder constant.
++  await getCollection('office_actions').deleteMany({ actor_name: { $regex: `^${NAME_PREFIX}` } });
++}
++
++async function seedGameSession() {
++  // issue-1143: clears ALL game_sessions with session_date <= today, not
++  // just this file's own prefixed ones — findLatestSession() picks the
++  // single most recent match across the WHOLE shared tm_suite_test
++  // collection, so a leftover session from another file with today's date
++  // could otherwise outrank (or tie with) this one. Mirrors the same
++  // defensive full-collection-clear already used for downtime_cycles below
++  // (Codex review finding, otc.2).
++  const today = new Date().toISOString().slice(0, 10);
++  await getCollection('game_sessions').deleteMany({ session_date: { $lte: today } });
++  await getCollection('game_sessions').insertOne({
++    title: `${NAME_PREFIX} Session`,
++    session_date: today,
++    game_number: 999,
++  });
+ }
+ 
+ async function seedActor({ city = 0, regentAmbience = null } = {}) {
+@@ -74,6 +101,7 @@ beforeAll(async () => {
+   await setupDb();
+   app = createTestApp();
+   await cleanup();
++  await seedGameSession();
+ });
+ 
+ afterAll(async () => {
+
+codex
+The first pass through the diff already exposes a key concurrency question: the recount occurs after insertion, but the claimed “self-eviction” guarantee depends on interleaving and Mongo read visibility. I’m now reading the remaining diff in bounded chunks and will verify the concrete race with the targeted tests.
+exec
+"C:\\Program Files\\PowerShell\\7\\pwsh.exe" -Command '$lines = Get-Content -LiteralPath '"'specs/stories/code-review/issue-1143-diff.txt'; Write-Output ('LINE_COUNT=' + "'$lines.Count); $lines | Select-Object -Skip 500 -First 400' in D:\Terra Mortis\TM Suite
+ succeeded in 2770ms:
+LINE_COUNT=744
++    await seedGameSessionAndCycle();
++    const actorId = await seedActor({ city: 3 });
++    const [targetId] = await seedTargets(1);
++
++    const res = await request(app).post('/api/office_actions')
++      .set('X-Test-User', playerUser([String(actorId)]))
++      .send({
++        game_session_id: 'irrelevant', actor_id: String(actorId), target_id: String(targetId), action_type: 'raise',
++      });
++
++    expect(res.status).toBe(201);
++  });
++
++  it('allows an ST-role caller to act as any actor_id (override)', async () => {
++    await seedGameSessionAndCycle();
++    const actorId = await seedActor({ city: 3 });
++    const [targetId] = await seedTargets(1);
++
++    const res = await request(app).post('/api/office_actions')
++      .set('X-Test-User', stUser())
++      .send({
++        game_session_id: 'irrelevant', actor_id: String(actorId), target_id: String(targetId), action_type: 'raise',
++      });
++
++    expect(res.status).toBe(201);
++  });
++});
++
++describe.skipIf(!dbAvailable)('issue-1143 AC2 — server-derived game_session_id', () => {
++  it('ignores a forged client-supplied game_session_id and stamps the real one', async () => {
++    await seedGameSessionAndCycle();
++    const realSession = await getCollection('game_sessions').findOne(
++      { title: `${NAME_PREFIX} Session` },
++    );
++    const actorId = await seedActor({ city: 3 });
++    const [targetId] = await seedTargets(1);
++
++    const res = await request(app).post('/api/office_actions')
++      .set('X-Test-User', stUser())
++      .send({
++        game_session_id: 'totally-forged-session-id', actor_id: String(actorId), target_id: String(targetId), action_type: 'raise',
++      });
++
++    expect(res.status).toBe(201);
++    expect(res.body.action.game_session_id).toBe(String(realSession._id));
++    expect(res.body.action.game_session_id).not.toBe('totally-forged-session-id');
++  });
++
++  it('a forged game_session_id cannot be used to reset budget scoping across requests', async () => {
++    // Pre-issue-1143 exploit: invent a fresh game_session_id per request to
++    // make the budget/dedupe counts always read 0. Post-fix, every request
++    // resolves to the SAME real session regardless of what the client sends,
++    // so the budget below (Head of State, city 0 => budget 3) is enforced
++    // across all four requests even though each one claims a different
++    // client-side session id.
++    await seedGameSessionAndCycle();
++    const actorId = await seedActor({ city: 0 });
++    const targets = await seedTargets(4, 1);
++
++    for (let i = 0; i < 3; i++) {
++      const res = await request(app).post('/api/office_actions')
++        .set('X-Test-User', stUser())
++        .send({
++          game_session_id: `forged-session-${i}`, actor_id: String(actorId), target_id: String(targets[i]), action_type: 'raise',
++        });
++      expect(res.status, `raise #${i + 1} of 3 (budget 3) should succeed`).toBe(201);
++    }
++
++    const res = await request(app).post('/api/office_actions')
++      .set('X-Test-User', stUser())
++      .send({
++        game_session_id: 'forged-session-should-not-reset-budget', actor_id: String(actorId), target_id: String(targets[3]), action_type: 'raise',
++      });
++    expect(res.status, 'the 4th raise exceeds budget 3 and must be rejected even under a fresh forged session id').toBe(403);
++  });
++
++  it('403s when no live game session exists', async () => {
++    await getCollection('game_sessions').deleteMany({});
++    await getCollection('downtime_cycles').deleteMany({});
++    await getCollection('downtime_cycles').insertOne({
++      label: `${NAME_PREFIX} Cycle`, phase: 'game', game_number: 999,
++    });
++    const actorId = await seedActor({ city: 3 });
++    const [targetId] = await seedTargets(1);
++
++    const res = await request(app).post('/api/office_actions')
++      .set('X-Test-User', stUser())
++      .send({
++        game_session_id: 'irrelevant', actor_id: String(actorId), target_id: String(targetId), action_type: 'raise',
++      });
++
++    expect(res.status).toBe(403);
++    expect(res.body.message).toMatch(/no active game session/i);
++  });
++});
++
++describe.skipIf(!dbAvailable)('issue-1143 AC4 — self-target check on resolved ObjectIds', () => {
++  it('rejects a self-target even when actor_id/target_id differ only by hex case', async () => {
++    await seedGameSessionAndCycle();
++    const actorId = await seedActor({ city: 3 });
++    const lower = actorId.toHexString();
++    const upper = lower.toUpperCase();
++    expect(lower).not.toBe(upper); // sanity: the pair really is a different string
++
++    const res = await request(app).post('/api/office_actions')
++      .set('X-Test-User', stUser())
++      .send({
++        game_session_id: 'irrelevant', actor_id: lower, target_id: upper, action_type: 'raise',
++      });
++
++    expect(res.status).toBe(400);
++    expect(res.body.message).toMatch(/cannot target yourself/i);
++  });
++
++  it('still allows the identical-string self-target case (regression check)', async () => {
++    await seedGameSessionAndCycle();
++    const actorId = await seedActor({ city: 3 });
++
++    const res = await request(app).post('/api/office_actions')
++      .set('X-Test-User', stUser())
++      .send({
++        game_session_id: 'irrelevant', actor_id: String(actorId), target_id: String(actorId), action_type: 'raise',
++      });
++
++    expect(res.status).toBe(400);
++    expect(res.body.message).toMatch(/cannot target yourself/i);
++  });
++});
++
++describe.skipIf(!dbAvailable)('issue-1143 AC3 — atomic budget + dedupe under concurrency', () => {
++  it('at most one of two concurrent requests wins the last budget slot', async () => {
++    await seedGameSessionAndCycle();
++    // Head of State, city 0 => effective budget 3. Consume 2 sequentially
++    // (unraced) to leave exactly 1 slot, then race two parallel requests at
++    // two DIFFERENT targets for that final slot.
++    const actorId = await seedActor({ city: 0 });
++    const targets = await seedTargets(4, 1);
++
++    for (let i = 0; i < 2; i++) {
++      const res = await request(app).post('/api/office_actions')
++        .set('X-Test-User', stUser())
++        .send({
++          game_session_id: 'irrelevant', actor_id: String(actorId), target_id: String(targets[i]), action_type: 'raise',
++        });
++      expect(res.status).toBe(201);
++    }
++
++    const [resA, resB] = await Promise.all([
++      request(app).post('/api/office_actions').set('X-Test-User', stUser()).send({
++        game_session_id: 'irrelevant', actor_id: String(actorId), target_id: String(targets[2]), action_type: 'raise',
++      }),
++      request(app).post('/api/office_actions').set('X-Test-User', stUser()).send({
++        game_session_id: 'irrelevant', actor_id: String(actorId), target_id: String(targets[3]), action_type: 'raise',
++      }),
++    ]);
++
++    const statuses = [resA.status, resB.status].sort();
++    expect(statuses[0], `exactly one of the two racing requests should succeed (got ${statuses.join(',')})`).toBe(201);
++    expect(statuses[1]).not.toBe(201);
++
++    const finalCount = await getCollection('office_actions').countDocuments({
++      actor_id: String(actorId), action_type: 'raise',
++    });
++    expect(finalCount, 'budget of 3 must never be exceeded regardless of the race outcome').toBe(3);
++  });
++
++  it('at most one of two concurrent requests targeting the SAME character succeeds', async () => {
++    await seedGameSessionAndCycle();
++    const actorId = await seedActor({ city: 3 });
++    const [targetId] = await seedTargets(1);
++
++    const [resA, resB] = await Promise.all([
++      request(app).post('/api/office_actions').set('X-Test-User', stUser()).send({
++        game_session_id: 'irrelevant', actor_id: String(actorId), target_id: String(targetId), action_type: 'raise',
++      }),
++      request(app).post('/api/office_actions').set('X-Test-User', stUser()).send({
++        game_session_id: 'irrelevant', actor_id: String(actorId), target_id: String(targetId), action_type: 'raise',
++      }),
++    ]);
++
++    const statuses = [resA.status, resB.status].sort();
++    expect(statuses[0], `exactly one of the two racing same-target requests should succeed (got ${statuses.join(',')})`).toBe(201);
++    expect(statuses[1]).not.toBe(201);
++
++    const finalCount = await getCollection('office_actions').countDocuments({
++      actor_id: String(actorId), target_id: String(targetId),
++    });
++    expect(finalCount, 'the unique partial index must prevent a duplicate action doc on the same target').toBe(1);
++  });
++});
+diff --git a/server/tests/otc-2-office-actions-api.test.js b/server/tests/otc-2-office-actions-api.test.js
+index 33b61c2c..11293310 100644
+--- a/server/tests/otc-2-office-actions-api.test.js
++++ b/server/tests/otc-2-office-actions-api.test.js
+@@ -22,13 +22,40 @@ import { ObjectId } from 'mongodb';
+ 
+ let app;
+ const NAME_PREFIX = 'OTC-2 Probe';
++// issue-1143: game_session_id is no longer client-trusted — the server
++// derives it itself from the game_sessions collection (findLatestSession()
++// in office-actions.js). This value is still SENT in request bodies below
++// (the schema requires the field) but the server ignores it for scoping; a
++// real game_sessions doc is seeded in beforeAll so the route has something
++// authoritative to resolve to. Kept only as a placeholder value now.
+ const GAME_SESSION_ID = 'otc-2-test-session';
+ 
+ async function cleanup() {
+   await getCollection('characters').deleteMany({ name: { $regex: `^${NAME_PREFIX}` } });
+   await getCollection('territories').deleteMany({ name: { $regex: `^${NAME_PREFIX}` } });
+   await getCollection('downtime_cycles').deleteMany({ label: { $regex: `^${NAME_PREFIX}` } });
+-  await getCollection('office_actions').deleteMany({ game_session_id: GAME_SESSION_ID });
++  await getCollection('game_sessions').deleteMany({ title: { $regex: `^${NAME_PREFIX}` } });
++  // Scoped by actor_name, not game_session_id — since issue-1143, the
++  // persisted game_session_id is the REAL server-derived session's _id, not
++  // this file's placeholder constant.
++  await getCollection('office_actions').deleteMany({ actor_name: { $regex: `^${NAME_PREFIX}` } });
++}
++
++async function seedGameSession() {
++  // issue-1143: clears ALL game_sessions with session_date <= today, not
++  // just this file's own prefixed ones — findLatestSession() picks the
++  // single most recent match across the WHOLE shared tm_suite_test
++  // collection, so a leftover session from another file with today's date
++  // could otherwise outrank (or tie with) this one. Mirrors the same
++  // defensive full-collection-clear already used for downtime_cycles below
++  // (Codex review finding, otc.2).
++  const today = new Date().toISOString().slice(0, 10);
++  await getCollection('game_sessions').deleteMany({ session_date: { $lte: today } });
++  await getCollection('game_sessions').insertOne({
++    title: `${NAME_PREFIX} Session`,
++    session_date: today,
++    game_number: 999,
++  });
+ }
+ 
+ async function seedActor({ city = 0, regentAmbience = null } = {}) {
+@@ -74,6 +101,7 @@ beforeAll(async () => {
+   await setupDb();
+   app = createTestApp();
+   await cleanup();
++  await seedGameSession();
+ });
+ 
+ afterAll(async () => {
+
+2026-08-12T02:03:50.387186Z ERROR codex_models_manager::manager: failed to renew cache TTL: missing field `base_instructions` at line 94 column 5
+exec
+"C:\\Program Files\\PowerShell\\7\\pwsh.exe" -Command '$lines = Get-Content -LiteralPath '"'specs/stories/code-review/issue-1143-diff.txt'; "'$lines | Select-Object -Skip 700 -First 100' in D:\Terra Mortis\TM Suite
+ succeeded in 2437ms:
++// in office-actions.js). This value is still SENT in request bodies below
++// (the schema requires the field) but the server ignores it for scoping; a
++// real game_sessions doc is seeded in beforeAll so the route has something
++// authoritative to resolve to. Kept only as a placeholder value now.
+ const GAME_SESSION_ID = 'otc-2-test-session';
+ 
+ async function cleanup() {
+   await getCollection('characters').deleteMany({ name: { $regex: `^${NAME_PREFIX}` } });
+   await getCollection('territories').deleteMany({ name: { $regex: `^${NAME_PREFIX}` } });
+   await getCollection('downtime_cycles').deleteMany({ label: { $regex: `^${NAME_PREFIX}` } });
+-  await getCollection('office_actions').deleteMany({ game_session_id: GAME_SESSION_ID });
++  await getCollection('game_sessions').deleteMany({ title: { $regex: `^${NAME_PREFIX}` } });
++  // Scoped by actor_name, not game_session_id — since issue-1143, the
++  // persisted game_session_id is the REAL server-derived session's _id, not
++  // this file's placeholder constant.
++  await getCollection('office_actions').deleteMany({ actor_name: { $regex: `^${NAME_PREFIX}` } });
++}
++
++async function seedGameSession() {
++  // issue-1143: clears ALL game_sessions with session_date <= today, not
++  // just this file's own prefixed ones — findLatestSession() picks the
++  // single most recent match across the WHOLE shared tm_suite_test
++  // collection, so a leftover session from another file with today's date
++  // could otherwise outrank (or tie with) this one. Mirrors the same
++  // defensive full-collection-clear already used for downtime_cycles below
++  // (Codex review finding, otc.2).
++  const today = new Date().toISOString().slice(0, 10);
++  await getCollection('game_sessions').deleteMany({ session_date: { $lte: today } });
++  await getCollection('game_sessions').insertOne({
++    title: `${NAME_PREFIX} Session`,
++    session_date: today,
++    game_number: 999,
++  });
+ }
+ 
+ async function seedActor({ city = 0, regentAmbience = null } = {}) {
+@@ -74,6 +101,7 @@ beforeAll(async () => {
+   await setupDb();
+   app = createTestApp();
+   await cleanup();
++  await seedGameSession();
+ });
+ 
+ afterAll(async () => {
+
+2026-08-12T02:03:55.933660Z ERROR codex_models_manager::manager: failed to renew cache TTL: missing field `base_instructions` at line 94 column 5
+exec
+"C:\\Program Files\\PowerShell\\7\\pwsh.exe" -Command "Select-String -LiteralPath 'server/middleware/auth.js' -Pattern 'function isStRole|const isStRole|export.*isStRole' -Context 3,8; node -e \"const p=require('mongodb/package.json'); console.log('mongodb-driver='+p.version)\"" in D:\Terra Mortis\TM Suite
+2026-08-12T02:04:30.606956Z ERROR codex_core::tools::router: error=Exit code: 1
+Wall time: 2.8 seconds
+Output:
+
+  server\middleware\auth.js:79: * client UI redacts character and player names. For access-control
+  server\middleware\auth.js:80: * purposes it's equivalent to 'st' everywhere.
+  server\middleware\auth.js:81: */
+> server\middleware\auth.js:82:[7mexport function isStRole[0m(user) {[0m
+[7m[0m  server\middleware\auth.js:83:  const r = user?.role;[0m
+[7m[0m  server\middleware\auth.js:84:  return r === 'st' || r === 'dev';[0m
+[7m[0m  server\middleware\auth.js:85:}[0m
+[7m[0m  server\middleware\auth.js:86:[0m
+[7m[0m  server\middleware\auth.js:87:/**[0m
+[7m[0m  server\middleware\auth.js:88: * Coordinator tier — non-ST staff with access to check-in, finance,[0m
+[7m[0m  server\middleware\auth.js:89: * and emergency tabs. ST and dev also qualify.[0m
+[7m[0m  server\middleware\auth.js:90: */[0m
+
+node:internal/modules/cjs/loader:1459
+  throw err;
+  ^
+
+Error: Cannot find module 'mongodb/package.json'
+Require stack:
+- D:\Terra Mortis\TM Suite\[eval]
+    at Module._resolveFilename (node:internal/modules/cjs/loader:1456:15)
+    at defaultResolveImpl (node:internal/modules/cjs/loader:1066:19)
+    at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1071:22)
+    at Module._load (node:internal/modules/cjs/loader:1242:25)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)
+    at Module.require (node:internal/modules/cjs/loader:1556:12)
+    at require (node:internal/modules/helpers:152:16)
+    at [eval]:1:9
+    at runScriptInThisContext (node:internal/vm:219:10)
+    at node:internal/process/execution:451:12 {
+  code: 'MODULE_NOT_FOUND',
+  requireStack: [ 'D:\\Terra Mortis\\TM Suite\\[eval]' ]
+}
+
+Node.js v24.14.1
+
+ exited 1 in 2766ms:
+
+  server\middleware\auth.js:79: * client UI redacts character and player names. For access-control
+  server\middleware\auth.js:80: * purposes it's equivalent to 'st' everywhere.
+  server\middleware\auth.js:81: */
+> server\middleware\auth.js:82:[7mexport function isStRole[0m(user) {[0m
+[7m[0m  server\middleware\auth.js:83:  const r = user?.role;[0m
+[7m[0m  server\middleware\auth.js:84:  return r === 'st' || r === 'dev';[0m
+[7m[0m  server\middleware\auth.js:85:}[0m
+[7m[0m  server\middleware\auth.js:86:[0m
+[7m[0m  server\middleware\auth.js:87:/**[0m
+[7m[0m  server\middleware\auth.js:88: * Coordinator tier — non-ST staff with access to check-in, finance,[0m
+[7m[0m  server\middleware\auth.js:89: * and emergency tabs. ST and dev also qualify.[0m
+[7m[0m  server\middleware\auth.js:90: */[0m
+
+node:internal/modules/cjs/loader:1459
+  throw err;
+  ^
+
+Error: Cannot find module 'mongodb/package.json'
+Require stack:
+- D:\Terra Mortis\TM Suite\[eval]
+    at Module._resolveFilename (node:internal/modules/cjs/loader:1456:15)
+    at defaultResolveImpl (node:internal/modules/cjs/loader:1066:19)
+    at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1071:22)
+    at Module._load (node:internal/modules/cjs/loader:1242:25)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)
+    at Module.require (node:internal/modules/cjs/loader:1556:12)
+    at require (node:internal/modules/helpers:152:16)
+    at [eval]:1:9
+    at runScriptInThisContext (node:internal/vm:219:10)
+    at node:internal/process/execution:451:12 {
+  code: 'MODULE_NOT_FOUND',
+  requireStack: [ 'D:\\Terra Mortis\\TM Suite\\[eval]' ]
+}
+
+Node.js v24.14.1
+
+2026-08-12T02:04:30.640340Z ERROR codex_models_manager::manager: failed to renew cache TTL: missing field `base_instructions` at line 94 column 5
+  ✓ Inspect the supplied diff and map all changed behavior/tests
+  → Run the exact targeted Vitest gate and any narrowly justified verification
+  • Write the blind-hunter findings file and verify no unintended workspace changes
+exec
+"C:\\Program Files\\PowerShell\\7\\pwsh.exe" -Command 'npx vitest run tests/issue-1143-office-actions-auth-safety.test.js tests/issue-1143-db-setup-skip.test.js tests/otc-2-office-actions-api.test.js tests/feature.691.hos-city-status-power.test.js' in D:\Terra Mortis\TM Suite\server
+2026-08-12T02:04:50.962990Z ERROR codex_models_manager::manager: failed to renew cache TTL: missing field `base_instructions` at line 94 column 5
+2026-08-12T02:04:55.386840Z ERROR codex_models_manager::manager: failed to renew cache TTL: missing field `base_instructions` at line 94 column 5
+2026-08-12T02:05:07.692820Z ERROR codex_core::tools::router: error=Exit code: 1
+Wall time: 27.8 seconds
+Output:
+
+ RUN  v4.1.2 D:/Terra Mortis/TM Suite/server
+
+stdout | tests/otc-2-office-actions-api.test.js
+[dotenv@17.3.1] injecting env (4) from ..\.env -- tip: ⚙️  override existing env vars with { override: true }
+
+ ❯ tests/otc-2-office-actions-api.test.js (8 tests | 8 skipped) 5040ms
+
+ Test Files  1 failed | 2 passed | 1 skipped (4)
+      Tests  34 passed | 18 skipped (52)
+   Start at  12:04:46
+   Duration  21.05s (transform 1.96s, setup 151ms, import 14.41s, tests 5.07s, environment 1ms)
+
+ DEPRECATED  `test.poolOptions` was removed in Vitest 4. All previous `poolOptions` are now top-level options. Please, refer to the migration guide: https://vitest.dev/guide/migration#pool-rework
+stderr | tests/otc-2-office-actions-api.test.js
+strict mode: use allowUnionTypes to allow union type keyword at "#/definitions/merit/properties/narrow" (strictTypes)
+strict mode: use allowUnionTypes to allow union type keyword at "#/definitions/merit/properties/narrow" (strictTypes)
+
+stderr | tests/otc-2-office-actions-api.test.js
+[setupDb] connectDb() failed: connect EACCES 159.143.141.178:27017
+
+
+⎯⎯⎯⎯⎯⎯ Failed Suites 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/otc-2-office-actions-api.test.js [ tests/otc-2-office-actions-api.test.js ]
+MongoServerSelectionError: connect EACCES 159.143.141.178:27017
+ ❯ Topology.selectServer node_modules/mongodb/src/sdam/topology.ts:637:29
+ ❯ Topology._connect node_modules/mongodb/src/sdam/topology.ts:469:21
+ ❯ Topology.connect node_modules/mongodb/src/sdam/topology.ts:405:6
+ ❯ topologyConnect node_modules/mongodb/src/mongo_client.ts:662:8
+ ❯ MongoClient._connect node_modules/mongodb/src/mongo_client.ts:674:6
+ ❯ MongoClient.connect node_modules/mongodb/src/mongo_client.ts:586:6
+ ❯ connectDb db.js:33:3
+     31|     tls: true,
+     32|   });
+     33|   await client.connect();
+       |   ^
+     34|   db = client.db(dbName);
+     35|   console.log('MongoDB connected successfully');
+ ❯ setupDb tests/helpers/db-setup.js:9:5
+ ❯ tests/otc-2-office-actions-api.test.js:101:3
+
+Caused by: MongoNetworkError: connect EACCES 159.143.141.178:27017
+ ❯ TLSSocket.<anonymous> node_modules/mongodb/lib/cmap/connect.js:313:44
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯
+Serialized Error: { errorLabelSet: { constructor: 'Function<Set>', has: 'Function<has>', add: 'Function<add>', delete: 'Function<delete>', difference: 'Function<difference>', clear: 'Function<clear>', entries: 'Function<entries>', forEach: 'Function<forEach>', intersection: 'Function<intersection>', isSubsetOf: 'Function<isSubsetOf>', isSupersetOf: 'Function<isSupersetOf>', isDisjointFrom: 'Function<isDisjointFrom>', size: 3, symmetricDifference: 'Function<symmetricDifference>', union: 'Function<union>', values: 'Function<values>', keys: 'Function<values>' }, beforeHandshake: false, errorLabels: [ 'SystemOverloadedError', 'RetryableError', 'ResetPool' ], errmsg: 'connect EACCES 159.143.141.178:27017', hasErrorLabel: 'Function<hasErrorLabel>', addErrorLabel: 'Function<addErrorLabel>' }
+Caused by: Error: connect EACCES 159.143.141.178:27017
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯
+Serialized Error: { errno: -4092, code: 'EACCES', syscall: 'connect', address: '159.143.141.178', port: 27017 }
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  tests/otc-2-office-actions-api.test.js [ tests/otc-2-office-actions-api.test.js ]
+Error: Database not connected — call connectDb() first
+ ❯ getDb db.js:39:18
+     37|
+     38| export function getDb() {
+     39|   if (!db) throw new Error('Database not connected — call connectDb() …
+       |                  ^
+     40|   return db;
+     41| }
+ ❯ getCollection db.js:44:10
+ ❯ cleanup tests/otc-2-office-actions-api.test.js:34:22
+ ❯ tests/otc-2-office-actions-api.test.js:108:9
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
+
+ exited 1 in 27753ms:
+
+ RUN  v4.1.2 D:/Terra Mortis/TM Suite/server
+
+stdout | tests/otc-2-office-actions-api.test.js
+[dotenv@17.3.1] injecting env (4) from ..\.env -- tip: ⚙️  override existing env vars with { override: true }
+
+ ❯ tests/otc-2-office-actions-api.test.js (8 tests | 8 skipped) 5040ms
+
+ Test Files  1 failed | 2 passed | 1 skipped (4)
+      Tests  34 passed | 18 skipped (52)
+   Start at  12:04:46
+   Duration  21.05s (transform 1.96s, setup 151ms, import 14.41s, tests 5.07s, environment 1ms)
+
+ DEPRECATED  `test.poolOptions` was removed in Vitest 4. All previous `poolOptions` are now top-level options. Please, refer to the migration guide: https://vitest.dev/guide/migration#pool-rework
+stderr | tests/otc-2-office-actions-api.test.js
+strict mode: use allowUnionTypes to allow union type keyword at "#/definitions/merit/properties/narrow" (strictTypes)
+strict mode: use allowUnionTypes to allow union type keyword at "#/definitions/merit/properties/narrow" (strictTypes)
+
+stderr | tests/otc-2-office-actions-api.test.js
+[setupDb] connectDb() failed: connect EACCES 159.143.141.178:27017
+
+
+⎯⎯⎯⎯⎯⎯ Failed Suites 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/otc-2-office-actions-api.test.js [ tests/otc-2-office-actions-api.test.js ]
+MongoServerSelectionError: connect EACCES 159.143.141.178:27017
+ ❯ Topology.selectServer node_modules/mongodb/src/sdam/topology.ts:637:29
+ ❯ Topology._connect node_modules/mongodb/src/sdam/topology.ts:469:21
+ ❯ Topology.connect node_modules/mongodb/src/sdam/topology.ts:405:6
+ ❯ topologyConnect node_modules/mongodb/src/mongo_client.ts:662:8
+ ❯ MongoClient._connect node_modules/mongodb/src/mongo_client.ts:674:6
+ ❯ MongoClient.connect node_modules/mongodb/src/mongo_client.ts:586:6
+ ❯ connectDb db.js:33:3
+     31|     tls: true,
+     32|   });
+     33|   await client.connect();
+       |   ^
+     34|   db = client.db(dbName);
+     35|   console.log('MongoDB connected successfully');
+ ❯ setupDb tests/helpers/db-setup.js:9:5
+ ❯ tests/otc-2-office-actions-api.test.js:101:3
+
+Caused by: MongoNetworkError: connect EACCES 159.143.141.178:27017
+ ❯ TLSSocket.<anonymous> node_modules/mongodb/lib/cmap/connect.js:313:44
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯
+Serialized Error: { errorLabelSet: { constructor: 'Function<Set>', has: 'Function<has>', add: 'Function<add>', delete: 'Function<delete>', difference: 'Function<difference>', clear: 'Function<clear>', entries: 'Function<entries>', forEach: 'Function<forEach>', intersection: 'Function<intersection>', isSubsetOf: 'Function<isSubsetOf>', isSupersetOf: 'Function<isSupersetOf>', isDisjointFrom: 'Function<isDisjointFrom>', size: 3, symmetricDifference: 'Function<symmetricDifference>', union: 'Function<union>', values: 'Function<values>', keys: 'Function<values>' }, beforeHandshake: false, errorLabels: [ 'SystemOverloadedError', 'RetryableError', 'ResetPool' ], errmsg: 'connect EACCES 159.143.141.178:27017', hasErrorLabel: 'Function<hasErrorLabel>', addErrorLabel: 'Function<addErrorLabel>' }
+Caused by: Error: connect EACCES 159.143.141.178:27017
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯
+Serialized Error: { errno: -4092, code: 'EACCES', syscall: 'connect', address: '159.143.141.178', port: 27017 }
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  tests/otc-2-office-actions-api.test.js [ tests/otc-2-office-actions-api.test.js ]
+Error: Database not connected — call connectDb() first
+ ❯ getDb db.js:39:18
+     37|
+     38| export function getDb() {
+     39|   if (!db) throw new Error('Database not connected — call connectDb() …
+       |                  ^
+     40|   return db;
+     41| }
+ ❯ getCollection db.js:44:10
+ ❯ cleanup tests/otc-2-office-actions-api.test.js:34:22
+ ❯ tests/otc-2-office-actions-api.test.js:108:9
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
+
+2026-08-12T02:05:07.730992Z ERROR codex_models_manager::manager: failed to renew cache TTL: missing field `base_instructions` at line 94 column 5
+codex
+The exact gate completed with a real failure caused by the environment selecting a remote MongoDB endpoint blocked by the sandbox: 4 files yielded 34 passed, 18 skipped; 2 files passed, 1 skipped, and `otc-2-office-actions-api.test.js` failed at suite setup/cleanup. I’ll record those exact numbers and am checking whether the documented local standalone can be selected without changing code.
+exec
+"C:\\Program Files\\PowerShell\\7\\pwsh.exe" -Command "Select-String -LiteralPath 'server/db.js' -Pattern 'process\\.env|MongoClient|dbName' -Context 2,3" in D:\Terra Mortis\TM Suite
+ succeeded in 2673ms:
+
+> server\db.js:1:import { [7mMongoClient[0m } from 'mongodb';[0m
+[7m[0m  server\db.js:2:import { config } from './config.js';[0m
+[7m[0m  server\db.js:3:[0m
+[7m[0m  server\db.js:4:let client;[0m
+  server\db.js:8:// unit-tested without a real MongoDB connection.
+  server\db.js:9://
+> server\db.js:10:// Vitest sets [7mprocess.env[0m.VITEST truthy in every worker. If we're running[0m
+[7m[0m  server\db.js:11:// under vitest, the resolved DB name MUST end with `_test` — otherwise a[0m
+[7m[0m  server\db.js:12:// regression in setup-env.js ordering (or an env override) would silently[0m
+[7m[0m  server\db.js:13:// point a test run at production.[0m
+> server\db.js:14:export function assertTestDbSafety([7mdbName[0m, isVitest) {
+> server\db.js:15:  if (isVitest && ![7mdbName[0m.endsWith('_test')) {[0m
+[7m[0m  server\db.js:16:    throw new Error([0m
+> server\db.js:17:      `Refusing to connect: test context (VITEST) targeting non-test database '${[7mdbName[0m}'. ` +[0m
+[7m[0m  server\db.js:18:        `Tests must use a *_test database — check tests/helpers/setup-env.js ordering.`[0m
+[7m[0m  server\db.js:19:    );[0m
+[7m[0m  server\db.js:20:  }[0m
+  server\db.js:23:export async function connectDb() {
+  server\db.js:24:  if (db) return; // Already connected — idempotent for test suites sharing a process
+> server\db.js:25:  const [7mdbName[0m = process.env.MONGODB_DB || 'tm_suite';[0m
+> server\db.js:26:  assertTestDbSafety([7mdbName[0m, !!process.env.VITEST);[0m
+[7m[0m  server\db.js:27:  // Strip legacy ssl= param — not accepted by MongoDB driver v7[0m
+[7m[0m  server\db.js:28:  const uri = config.MONGODB_URI.replace(/[&?]ssl=[^&]*/g, '');[0m
+> server\db.js:29:  client = new [7mMongoClient[0m(uri, {[0m
+[7m[0m  server\db.js:30:    serverSelectionTimeoutMS: 5000,[0m
+[7m[0m  server\db.js:31:    tls: true,[0m
+[7m[0m  server\db.js:32:  });[0m
+  server\db.js:33:  await client.connect();
+> server\db.js:34:  db = client.db([7mdbName[0m);[0m
+[7m[0m  server\db.js:35:  console.log('MongoDB connected successfully');[0m
+[7m[0m  server\db.js:36:}[0m
+[7m[0m  server\db.js:37:[0m
+
+
+2026-08-12T02:05:18.590000Z ERROR codex_models_manager::manager: failed to renew cache TTL: missing field `base_instructions` at line 94 column 5
+exec
+"C:\\Program Files\\PowerShell\\7\\pwsh.exe" -Command "node -e \"const p=require('./node_modules/mongodb/package.json'); console.log(p.version)\"" in D:\Terra Mortis\TM Suite\server
+ succeeded in 2706ms:
+7.1.1
+
+2026-08-12T02:05:26.405156Z ERROR codex_models_manager::manager: failed to renew cache TTL: missing field `base_instructions` at line 94 column 5
+exec
+"C:\\Program Files\\PowerShell\\7\\pwsh.exe" -Command "@'
+const { MongoClient } = require('mongodb');
+(async () => {
+  const client = new MongoClient('mongodb://127.0.0.1:27017', { serverSelectionTimeoutMS: 3000 });
+  const name = 'issue_1143_dup_probe_' + Date.now();
+  try {
+    await client.connect();
+    const c = client.db('tm_suite_test').collection(name);
+    await c.createIndex({ k: 1 }, { unique: true });
+    await c.insertOne({ k: 1 });
+    try { await c.insertOne({ k: 1 }); }
+    catch (err) {
+      console.log(JSON.stringify({ constructor: err.constructor?.name, code: err.code, nestedCode: err.errorResponse?.code, writeErrorCode: err.writeErrors?.[0]?.code, messageHasE11000: /E11000/.test(err.message) }));
+    }
+    await c.drop();
+    console.log('probe_collection_dropped=true');
+  } catch (err) {
+    console.error('probe_failed=' + err.message);
+    process.exitCode = 1;
+  } finally { await client.close().catch(() => {}); }
+})();
+'@ | node -" in D:\Terra Mortis\TM Suite\server
+ succeeded in 3753ms:
+{"constructor":"MongoServerError","code":11000,"nestedCode":11000,"messageHasE11000":true}
+probe_collection_dropped=true
+
+2026-08-12T02:05:39.351930Z ERROR codex_models_manager::manager: failed to renew cache TTL: missing field `base_instructions` at line 94 column 5
+exec
+"C:\\Program Files\\PowerShell\\7\\pwsh.exe" -Command 'npm ls express --depth=0' in D:\Terra Mortis\TM Suite\server
+ succeeded in 4265ms:
+tm-suite-api@1.0.0 D:\Terra Mortis\TM Suite\server
+└── express@5.2.1
+
+
+2026-08-12T02:05:59.424457Z ERROR codex_models_manager::manager: failed to renew cache TTL: missing field `base_instructions` at line 94 column 5
+exec
+"C:\\Program Files\\PowerShell\\7\\pwsh.exe" -Command '$path = '"'specs/stories/code-review/issue-1143-diff.txt'
+"'$file = '"''
+"'$newLine = 0
+$inHunk = $false
+Get-Content -LiteralPath $path | ForEach-Object {
+  $line = $_
+  if ($line -match '"'"'^'"\\+\\+\\+ b/(.+)"'$'"') { "'$file = $Matches[1]; $inHunk = $false; return }
+  if ($line -match '"'"'^@@ -'"\\d+(?:,\\d+)? \\+(\\d+)(?:,\\d+)? @@') { "'$newLine = [int]$Matches[1]; $inHunk = $true; return }
+  if (-not $inHunk) { return }
+  if ($line.StartsWith('"'+') -and -not "'$line.StartsWith('"'+++')) {
+    if ("'$line -match '"'createIndex|callerCharIds|findLatestSession\\(\\)|actorObjectId\\.equals|insertOne\\(doc\\)|countDocuments|deleteOne\\(|characters.*updateOne|isDbAvailable|Promise\\.all') {
+      Write-Output ("'$file + '"':' + "'$newLine + '"':' + "'$line.Substring(1))
+    }
+    $newLine++
+  } elseif ($line.StartsWith('"'-')) {
+  } else { "'$newLine++ }
+}' in D:\Terra Mortis\TM Suite
+ succeeded in 2911ms:
+server/index.js:209:    getDb().collection('office_actions').createIndex(
+server/routes/office-actions.js:22:async function findLatestSession() {
+server/routes/office-actions.js:34:  const session = await findLatestSession();
+server/routes/office-actions.js:61:  const callerCharIds = (req.user?.character_ids || []).map(String);
+server/routes/office-actions.js:62:  if (!isStRole(req.user) && !callerCharIds.includes(String(actor_id)))
+server/routes/office-actions.js:68:  // findLatestSession() above.
+server/routes/office-actions.js:69:  const session = await findLatestSession();
+server/routes/office-actions.js:101:  if (actorObjectId.equals(targetObjectId))
+server/routes/office-actions.js:182:      inserted = await col().insertOne(doc);
+server/routes/office-actions.js:189:    const used = await col().countDocuments({
+server/routes/office-actions.js:193:      await col().deleteOne({ _id: inserted.insertedId });
+server/routes/office-actions.js:197:    await getCollection('characters').updateOne(
+server/tests/feature.691.hos-city-status-power.test.js:29:    expect(ROUTE).toContain('actorObjectId.equals(targetObjectId)'));
+server/tests/helpers/db-setup.js:40: *   const dbAvailable = await isDbAvailable();
+server/tests/helpers/db-setup.js:48:export async function isDbAvailable() {
+server/tests/issue-1143-db-setup-skip.test.js:2: * issue-1143 AC5 — server/tests/helpers/db-setup.js's isDbAvailable() must
+server/tests/issue-1143-db-setup-skip.test.js:4: * what `describe.skipIf(!(await isDbAvailable()))` in a DB-backed suite
+server/tests/issue-1143-db-setup-skip.test.js:27:describe('issue-1143 AC5 — isDbAvailable() clean-skip contract', () => {
+server/tests/issue-1143-db-setup-skip.test.js:37:    const { isDbAvailable } = await import('./helpers/db-setup.js');
+server/tests/issue-1143-db-setup-skip.test.js:38:    await expect(isDbAvailable()).resolves.toBe(false);
+server/tests/issue-1143-db-setup-skip.test.js:50:    const { isDbAvailable } = await import('./helpers/db-setup.js');
+server/tests/issue-1143-db-setup-skip.test.js:51:    await expect(isDbAvailable()).resolves.toBe(true);
+server/tests/issue-1143-db-setup-skip.test.js:63:    const { isDbAvailable } = await import('./helpers/db-setup.js');
+server/tests/issue-1143-db-setup-skip.test.js:65:    // not a "DB unreachable" case — isDbAvailable() still catches it (it
+server/tests/issue-1143-db-setup-skip.test.js:68:    await expect(isDbAvailable()).resolves.toBe(false);
+server/tests/issue-1143-office-actions-auth-safety.test.js:31: * otherwise make findLatestSession()/currentCycleInGamePhase() resolve to
+server/tests/issue-1143-office-actions-auth-safety.test.js:40:import { setupDb, teardownDb, isDbAvailable } from './helpers/db-setup.js';
+server/tests/issue-1143-office-actions-auth-safety.test.js:47:const dbAvailable = await isDbAvailable();
+server/tests/issue-1143-office-actions-auth-safety.test.js:109:  // the same partial unique index exists here directly — createIndex is
+server/tests/issue-1143-office-actions-auth-safety.test.js:111:  await getCollection('office_actions').createIndex(
+server/tests/issue-1143-office-actions-auth-safety.test.js:287:    const [resA, resB] = await Promise.all([
+server/tests/issue-1143-office-actions-auth-safety.test.js:300:    const finalCount = await getCollection('office_actions').countDocuments({
+server/tests/issue-1143-office-actions-auth-safety.test.js:311:    const [resA, resB] = await Promise.all([
+server/tests/issue-1143-office-actions-auth-safety.test.js:324:    const finalCount = await getCollection('office_actions').countDocuments({
+server/tests/otc-2-office-actions-api.test.js:26:// derives it itself from the game_sessions collection (findLatestSession()
+server/tests/otc-2-office-actions-api.test.js:46:  // just this file's own prefixed ones — findLatestSession() picks the
+
+2026-08-12T02:07:24.920793Z ERROR codex_models_manager::manager: failed to renew cache TTL: missing field `base_instructions` at line 94 column 5
+exec
+"C:\\Program Files\\PowerShell\\7\\pwsh.exe" -Command "@'
+const { MongoClient, ObjectId } = require('mongodb');
+(async () => {
+  const client = new MongoClient('mongodb://127.0.0.1:27017', { serverSelectionTimeoutMS: 3000 });
+  const name = 'issue_1143_budget_probe_' + Date.now();
+  try {
+    await client.connect();
+    const c = client.db('tm_suite_test').collection(name);
+    const outcomes = {};
+    for (let i = 0; i < 25; i++) {
+      await c.deleteMany({});
+      await c.insertMany([{ actor_id: 'a', game_session_id: 's', target_id: 'prior1', action_type: 'raise' }, { actor_id: 'a', game_session_id: 's', target_id: 'prior2', action_type: 'raise' }]);
+      const attempt = async (target_id) => {
+        const inserted = await c.insertOne({ actor_id: 'a', game_session_id: 's', target_id, action_type: 'raise' });
+        const used = await c.countDocuments({ game_session_id: 's', actor_id: 'a', action_type: { "'$in: ['"'raise', 'lower'] } });
+        if (used > 3) { await c.deleteOne({ _id: inserted.insertedId }); return 403; }
+        return 201;
+      };
+      const statuses = (await Promise.all([attempt('newA'), attempt('newB')])).sort();
+      const finalCount = await c.countDocuments({});
+      const key = statuses.join(',') + '/count=' + finalCount;
+      outcomes[key] = (outcomes[key] || 0) + 1;
+    }
+    console.log(JSON.stringify(outcomes));
+    await c.drop();
+    console.log('probe_collection_dropped=true');
+  } catch (err) {
+    console.error('probe_failed=' + err.stack);
+    process.exitCode = 1;
+  } finally { await client.close().catch(() => {}); }
+})();
+'@ | node -" in D:\Terra Mortis\TM Suite\server
+ succeeded in 4680ms:
+{"403,403/count=2":25}
+probe_collection_dropped=true
+
+2026-08-12T02:08:03.551119Z ERROR codex_models_manager::manager: failed to renew cache TTL: missing field `base_instructions` at line 94 column 5
+codex
+A direct local-standalone probe of the exact insert→recount→self-delete sequence exposed a test/implementation contradiction: with budget 3 and two existing actions, both racing inserts saw 4 and both deleted themselves in all 25 runs, leaving count 2. The code’s comment permits that over-rejection, but the new test requires exactly one 201 and a final count of 3, so the test can fail under the behavior the implementation explicitly allows.

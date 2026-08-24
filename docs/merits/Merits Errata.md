@@ -440,6 +440,11 @@ Merit now reads: Prerequisite: Circle of the Crone Status ● Effect: You've con
 
 Merit now reads: Prerequisites: Circle Status ●, Safe Place (equal level), Crúac ● Effect: Your character cultivates and maintains a ghouled plant garden. She can use Mandragora to conduct Crúac rituals remotely into the Safe Place in which the garden is located. When standing in the garden, add dots in Mandragora Garden to Crúac rolls. She may sustain a number of Crúac rituals equal to Merit dots indefinitely and they do not count towards Sorcery Tolerance. Additionally, a number of Crúac rituals equal to Merit dots performed within the garden have their base cost reduced by the Merit's rating. Mandragora transplanted elsewhere wither and die if not cared for by a character with this Merit. Whilst feeding the garden one Vitae per month equal to dots in Mandragora Garden, the garden produces twice that quantity in sap, nectar, or other fluids, which serve as animal blood, on which Kindred may feed. This can be brought to game and should be costumed. Anyone attacking or otherwise harming the garden provokes Frenzy as if they attacked the vampire directly. Mandragora take on qualities of the vampire's blood: they bear fruit symbolic of clan, and reflect Crúac style if applicable. A garden can be shared, but blood produced and rituals maintained do not increase. Drawback: Costs dots in Vitae monthly to maintain, split amongst contributors' starting Vitae pool. Source: SotC pg 181
 
+> **Table ruling override (2026-08-18, Angelus):** the Vitae maintenance cost above is NOT charged at
+> this table. Mandragora Garden is a flat, unconditional per-dot Blood Fruit benefit with no upkeep —
+> see `specs/stories/dtlt.10.mandragora-fruit-conditionality.story.md`. This entry is kept verbatim as
+> the printed/errata text for reference; do not reintroduce the cost in the app based on this quote.
+
 ---
 
 ### The Mother-Daughter Bond (●)

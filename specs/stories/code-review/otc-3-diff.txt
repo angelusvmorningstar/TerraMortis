@@ -1,0 +1,294 @@
+diff --git a/public/css/suite.css b/public/css/suite.css
+index 3238fdfb..6bdaa6d9 100644
+--- a/public/css/suite.css
++++ b/public/css/suite.css
+@@ -2284,6 +2284,9 @@ body.desktop-mode.sidebar-collapsed .sb-collapse-btn { width: 100%; justify-cont
+ .office-title { font-family: var(--fh); font-size: 22px; color: var(--gold); letter-spacing: .06em; }
+ .office-role  { font-family: var(--fl); font-size: 12px; letter-spacing: .1em; text-transform: uppercase; color: var(--txt2); margin-top: 2px; }
+ 
++.office-category-picker { margin-bottom: 16px; }
++.office-reference-banner { font-family: var(--fb); font-size: 13px; color: var(--txt); padding: 10px 14px; background: var(--gold-a6); border: 1px solid var(--gold2); border-radius: 6px; margin-bottom: 20px; }
++
+ .office-section { margin-bottom: 24px; }
+ .office-section-hd { font-family: var(--fl); font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: var(--gold2); border-bottom: 1px solid var(--bdr); padding-bottom: 4px; margin-bottom: 12px; }
+ 
+diff --git a/public/js/app.js b/public/js/app.js
+index 33fb0a9c..50221c39 100644
+--- a/public/js/app.js
++++ b/public/js/app.js
+@@ -399,7 +399,7 @@ const NAV_ITEMS = [
+   { id: 'emergency', label: 'Emergency', icon: '<svg viewBox="0 0 24 24"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.89 12 19.79 19.79 0 0 1 1.84 3.4 2 2 0 0 1 3.81 1h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.96a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg>', goTab: 'emergency', coordinatorOnly: true },
+   // Conditional
+   { id: 'regency',   label: 'Regency',   icon: '<svg viewBox="0 0 24 24"><path d="M8 3h8a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"/><path d="M6 5a2 2 0 1 0-4 0 2 2 0 0 0 4 0z"/><path d="M18 5a2 2 0 1 0 4 0 2 2 0 0 0-4 0z"/><line x1="9" y1="9" x2="15" y2="9"/><line x1="9" y1="13" x2="15" y2="13"/><line x1="9" y1="17" x2="12" y2="17"/></svg>', goTab: 'regency', condition: 'hasRegency' },
+-  { id: 'office',    label: 'Office',    icon: '<svg viewBox="0 0 24 24"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>', goTab: 'office', condition: 'hasOffice' },
++  { id: 'office',    label: 'Office',    icon: '<svg viewBox="0 0 24 24"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>', goTab: 'office' },
+   // Settings (always last)
+   { id: 'settings',  label: 'Settings',  icon: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>', goTab: 'settings' },
+ ];
+@@ -1653,7 +1653,7 @@ const MORE_APPS = [
+   { id: 'emergency',    label: 'Emergency',   icon: _svg.emergency,section: 'st', coordinatorOnly: true },
+   // ── Conditional apps (section determined by context) ──
+   { id: 'regency',      label: 'Regency',     icon: _svg.regency,  section: 'game', condition: 'hasRegency' },
+-  { id: 'office',       label: 'Office',      icon: _svg.office,   section: 'game', condition: 'hasOffice' },
++  { id: 'office',       label: 'Office',      icon: _svg.office,   section: 'game' },
+   { id: 'archive',      label: 'Story',       icon: '<svg viewBox="0 0 24 24"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>', section: 'player' },
+ ];
+ 
+@@ -1676,9 +1676,6 @@ function _moreGridCondition(app) {
+     const terrs = suiteState.territories || [];
+     return !!(myChar && findRegentTerritory(terrs, myChar));
+   }
+-  if (app.condition === 'hasOffice') {
+-    return !!(myChar && myChar.court_category);
+-  }
+   return true;
+ }
+ 
+diff --git a/public/js/tabs/office-tab.js b/public/js/tabs/office-tab.js
+index 32f611c2..edfa44a8 100644
+--- a/public/js/tabs/office-tab.js
++++ b/public/js/tabs/office-tab.js
+@@ -6,21 +6,46 @@ import { charPicker, setCharPickerSources } from '../components/character-picker
+ import { getCycles } from '../downtime/db.js';
+ import { currentCycleInGamePhase } from '../downtime/cycle-phase.js';
+ 
+-export function renderOfficeTab(el, char, chars = []) {
++// otc.3: the fixed order the picker lists offices in. All five Court
++// Positions, even 'Administrator' (which has no OFFICE_DATA entry yet — it
++// still hits the existing pending-fallback branch below when selected).
++export const OFFICE_CATEGORIES = ['Head of State', 'Primogen', 'Enforcer', 'Socialite', 'Administrator'];
++
++export function renderOfficeTab(el, char, chars = [], viewCategory) {
+   if (!el || !char) { if (el) el.innerHTML = '<div class="dtl-empty">No character loaded.</div>'; return; }
+-  if (!char.court_category) { el.innerHTML = '<div class="dtl-empty">No office held.</div>'; return; }
+ 
+-  const data = OFFICE_DATA[char.court_category];
+-  const title = esc(char.court_title || char.court_category);
+-  const role  = esc(char.court_category);
++  // otc.3: any player can browse any office as reference, not just one they
++  // hold. Default to the viewer's own held office; if they hold none, start
++  // on Head of State rather than an empty state.
++  const category = viewCategory || char.court_category || 'Head of State';
++  const isOwnOffice = category === char.court_category;
++
++  const data = OFFICE_DATA[category];
++  const title = isOwnOffice ? esc(char.court_title || category) : esc(category);
++  const role  = esc(category);
+ 
+   let h = `<div class="office-tab">`;
+   h += `<div class="office-header"><div class="office-title">${title}</div><div class="office-role">${role}</div></div>`;
+ 
++  h += `<div class="office-category-picker">`;
++  h += `<select class="form-select" id="office-category-select">`;
++  for (const cat of OFFICE_CATEGORIES) {
++    const sel = cat === category ? ' selected' : '';
++    const mine = cat === char.court_category ? ' (yours)' : '';
++    h += `<option value="${esc(cat)}"${sel}>${esc(cat)}${esc(mine)}</option>`;
++  }
++  h += `</select>`;
++  h += `</div>`;
++
++  if (!isOwnOffice) {
++    h += `<div class="office-reference-banner">Reference view — showing what this office grants, not your own.</div>`;
++  }
++
+   if (!data) {
+     h += `<div class="dtl-empty">Office details for this role are pending.</div>`;
+     h += `</div>`;
+     el.innerHTML = h;
++    _wireCategoryPicker(el, char, chars);
+     return;
+   }
+ 
+@@ -34,8 +59,10 @@ export function renderOfficeTab(el, char, chars = []) {
+   h += `</div>`;
+   h += `</div>`;
+ 
+-  // Interactive status actions — HoS only (phase 1)
+-  if (char.court_category === 'Head of State') {
++  // Interactive status actions — HoS only (phase 1), and only when browsing
++  // your OWN office. otc.3: a player browsing Head of State's reference must
++  // never see or trigger this panel just because the category matches.
++  if (category === 'Head of State' && isOwnOffice) {
+     h += `<div class="office-section">`;
+     h += `<div class="office-section-hd">Status Actions — this session</div>`;
+     h += `<div class="office-budget-line">Loading…</div>`;
+@@ -68,12 +95,24 @@ export function renderOfficeTab(el, char, chars = []) {
+ 
+   h += `</div>`;
+   el.innerHTML = h;
++  _wireCategoryPicker(el, char, chars);
+ 
+-  if (char.court_category === 'Head of State') {
++  if (category === 'Head of State' && isOwnOffice) {
+     _wireHosActions(el, char, chars);
+   }
+ }
+ 
++/** otc.3: the category picker is present on every render (own office or
++ *  browsing, including the pending-fallback branch) — wiring is shared. */
++function _wireCategoryPicker(el, char, chars) {
++  if (typeof el.querySelector !== 'function') return; // plain-object test mocks have no real DOM
++  const select = el.querySelector('#office-category-select');
++  if (!select) return;
++  select.addEventListener('change', () => {
++    renderOfficeTab(el, char, chars, select.value);
++  });
++}
++
+ async function _wireHosActions(el, char, chars) {
+   const budgetLine  = el.querySelector('.office-budget-line');
+   const pickerMount = el.querySelector('.office-picker-mount');
+diff --git a/server/tests/feature.691.hos-city-status-power.test.js b/server/tests/feature.691.hos-city-status-power.test.js
+index 0dea9406..f5b9a16d 100644
+--- a/server/tests/feature.691.hos-city-status-power.test.js
++++ b/server/tests/feature.691.hos-city-status-power.test.js
+@@ -82,8 +82,11 @@ describe('feature.691 — office tab', () => {
+   it('accepts chars as third parameter', () =>
+     expect(TAB).toMatch(/function renderOfficeTab\s*\(el,\s*char,\s*chars/));
+ 
+-  it('gates interactive section on Head of State only', () =>
+-    expect(TAB).toContain("court_category === 'Head of State'"));
++  it('gates interactive section on Head of State only, AND only your own office (otc.3)', () => {
++    // otc.3: browsing someone else's Head of State reference must not also
++    // gate on the raw category match alone — isOwnOffice must be part of it.
++    expect(TAB).toMatch(/category === 'Head of State' && isOwnOffice/);
++  });
+ 
+   it('wires HoS actions after innerHTML is set', () =>
+     expect(TAB).toContain('_wireHosActions'));
+diff --git a/server/tests/issue-1141-office-tab-render.test.js b/server/tests/issue-1141-office-tab-render.test.js
+index 2e2713a4..8bb2d69b 100644
+--- a/server/tests/issue-1141-office-tab-render.test.js
++++ b/server/tests/issue-1141-office-tab-render.test.js
+@@ -45,9 +45,9 @@ describe('issue-1141 — office-tab.js render-level regressions', () => {
+     }
+   });
+ 
+-  function render(char, chars = [char]) {
++  function render(char, chars = [char], viewCategory) {
+     const el = { innerHTML: '' };
+-    renderOfficeTab(el, char, chars);
++    renderOfficeTab(el, char, chars, viewCategory);
+     return el.innerHTML;
+   }
+ 
+@@ -117,4 +117,63 @@ describe('issue-1141 — office-tab.js render-level regressions', () => {
+     // The block must genuinely be two separate <p> tags, not one flat run of text.
+     expect(block).not.toBe(paragraphs.join(''));
+   });
++
++  describe('otc.3 — browsable reference mode', () => {
++    it('AC1/AC2: renders a category picker for all five offices, defaulting to your own held office', () => {
++      const yusuf = { _id: 'yusuf', name: 'Yusuf Kalusicj', court_category: 'Primogen', court_title: 'Primogen' };
++      const html = render(yusuf);
++
++      expect(html).toContain('id="office-category-select"');
++      for (const cat of ['Head of State', 'Primogen', 'Enforcer', 'Socialite', 'Administrator']) {
++        expect(html).toContain(`>${cat}`);
++      }
++      // Own office is selected by default and marked as such.
++      expect(html).toMatch(/<option value="Primogen" selected>Primogen \(yours\)<\/option>/);
++    });
++
++    it('AC3/AC5, the core security boundary: browsing an office you do NOT hold shows reference only — no Status Actions panel, even for Head of State', () => {
++      // Yusuf holds Primogen, not Head of State. Browsing Head of State's
++      // reference must NEVER expose the interactive panel a real Head of
++      // State would see — this is the exact gap this story exists to close.
++      const yusuf = { _id: 'yusuf', name: 'Yusuf Kalusicj', court_category: 'Primogen', court_title: 'Primogen' };
++      const html = render(yusuf, [yusuf], 'Head of State');
++
++      expect(html).not.toContain('office-budget-line');
++      expect(html).not.toContain('office-picker-mount');
++      expect(html).not.toContain('office-action-btns');
++      expect(html).not.toContain('office-action-msg');
++      // Reference content is still present — this is a browsing view, not an empty one.
++      expect(html).toContain('Due Diligence'); // a real Head of State manoeuvre name
++      expect(html).toContain('office-merit-chip');
++    });
++
++    it('AC5: the reference-view banner appears when browsing, and is absent on your own office', () => {
++      const yusuf = { _id: 'yusuf', name: 'Yusuf Kalusicj', court_category: 'Primogen', court_title: 'Primogen' };
++      const browsing = render(yusuf, [yusuf], 'Head of State');
++      const own = render(yusuf, [yusuf], 'Primogen');
++
++      expect(browsing).toContain('office-reference-banner');
++      expect(own).not.toContain('office-reference-banner');
++    });
++
++    it('AC4: your own office still renders exactly as before this story (no regression)', () => {
++      const yusuf = { _id: 'yusuf', name: 'Yusuf Kalusicj', court_category: 'Primogen', court_title: 'Primogen' };
++      const html = render(yusuf, [yusuf], 'Primogen');
++
++      expect(html).toContain('People Talk'); // a real Primogen manoeuvre name
++      expect(html).toContain('office-merit-chip');
++      expect(html).not.toContain('office-reference-banner');
++    });
++
++    it('AC6: selecting Administrator via the picker still hits the pending fallback', () => {
++      const yusuf = { _id: 'yusuf', name: 'Yusuf Kalusicj', court_category: 'Primogen', court_title: 'Primogen' };
++      const html = render(yusuf, [yusuf], 'Administrator');
++
++      expect(html).toContain('Office details for this role are pending.');
++      expect(html).not.toContain('office-manoeuvre-list');
++      expect(html).not.toContain('office-merit-chip');
++      // The picker itself must still be present so the viewer isn't stuck.
++      expect(html).toContain('id="office-category-select"');
++    });
++  });
+ });
+diff --git a/server/tests/otc-3-office-nav-unconditional.test.js b/server/tests/otc-3-office-nav-unconditional.test.js
+new file mode 100644
+index 00000000..aef8cef9
+--- /dev/null
++++ b/server/tests/otc-3-office-nav-unconditional.test.js
+@@ -0,0 +1,49 @@
++/**
++ * otc.3 — the Office tab is visible to every player, not just officeholders.
++ *
++ * app.js is browser-coupled (module-scope location/window access in the same
++ * file's other imports) and this project has no dedicated test file for its
++ * nav system (NAV_ITEMS/MORE_APPS/_moreGridCondition — confirmed by grep
++ * before writing this file, per this story's own Task 4 instruction). This
++ * follows the project's established fallback for otherwise-untestable
++ * browser-coupled files: a source-text contract test, matching the style of
++ * feature.691.hos-city-status-power.test.js.
++ */
++
++import { describe, it, expect } from 'vitest';
++import fs from 'fs';
++import path from 'path';
++import { fileURLToPath } from 'url';
++
++const __dirname = path.dirname(fileURLToPath(import.meta.url));
++const REPO_ROOT = path.resolve(__dirname, '..', '..');
++const APP = fs.readFileSync(path.join(REPO_ROOT, 'public/js/app.js'), 'utf8');
++
++describe('otc.3 — Office tab nav is unconditional', () => {
++  it('the "hasOffice" condition string no longer appears anywhere in app.js', () => {
++    expect(APP).not.toContain('hasOffice');
++  });
++
++  it('both office nav entries (NAV_ITEMS and MORE_APPS) are single lines with no condition property', () => {
++    // Both registrations are single-line object literals in this file (confirmed
++    // by reading app.js directly) — match per-line rather than a multi-line span,
++    // which risks a non-greedy regex spanning across unrelated later code.
++    const officeLines = APP.split('\n').filter(line => line.includes("id: 'office'"));
++    expect(officeLines.length).toBe(2); // NAV_ITEMS + MORE_APPS
++    for (const line of officeLines) {
++      expect(line).not.toContain('condition');
++    }
++  });
++
++  it('hasRegency is untouched — this story does not extend to the Regency tab', () => {
++    expect(APP).toContain("condition: 'hasRegency'");
++  });
++
++  it('_moreGridCondition still short-circuits STs to true before any condition branch', () => {
++    const start = APP.indexOf('function _moreGridCondition');
++    const end = APP.indexOf('\n}', start);
++    expect(start).toBeGreaterThan(-1);
++    const body = APP.slice(start, end);
++    expect(body).toContain("getRole() === 'st'");
++  });
++});

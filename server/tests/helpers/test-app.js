@@ -38,6 +38,7 @@ import officeMeritDotsRouter from '../../routes/office-merit-dots.js';
 import officeManoeuvreRankRouter from '../../routes/office-manoeuvre-rank.js';
 import officeSeatsRouter from '../../routes/office-seats.js';
 import contestedRollsRouter from '../../routes/contested-rolls.js';
+import humanityCheckRouter from '../../routes/humanity-check.js';
 
 /**
  * Create a test app with a mock user injected via header.
@@ -136,6 +137,8 @@ export function createTestApp() {
   // oaq.2 review: needed to test contested-rolls.js's request_type guard
   // against status_action documents sharing the same collection.
   app.use('/api/contested_roll_requests', mockAuth, noCache(), contestedRollsRouter);
+  // gdx.12: Humanity Check submit/accept/decline (shares the same collection).
+  app.use('/api/humanity_check_requests', mockAuth, noCache(), humanityCheckRouter);
 
   return app;
 }

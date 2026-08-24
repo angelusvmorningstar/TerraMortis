@@ -979,8 +979,7 @@ function wireEvents() {
       console.error('Tracker feed confirm failed:', err);
       if (btn) {
         btn.textContent = 'Save failed \u2014 retry';
-        btn.style.background = 'var(--crim)';
-        btn.style.color = '#fff';
+        btn.classList.add('is-error');
         btn.disabled = false;
       }
     }

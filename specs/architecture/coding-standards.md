@@ -109,6 +109,11 @@ Token families (see `public/css/theme.css` for the full set and per-theme values
 
 **Rule:** never write bare hex in rule bodies. Tokens are the only colour source. The only hex allowed is inside `:root` / `[data-theme]` declarations in `theme.css`.
 
+**Touch targets:** every interactive control on a player surface needs a hit area of at least
+`var(--tap-min)` (44px, WCAG 2.5.5 AAA, declared in `theme.css`'s `:root`). Use the token, never a
+bare `44px`. The three techniques and their traps are documented in one block at the end of
+`public/css/suite.css` (search "TOUCH TARGETS"); read it before adding a new control.
+
 ### Shared Chrome Pattern
 
 When multiple classes share visual chrome (background, border, radius, padding) or shared text style (font, size, weight, letter-spacing), declare it once via a grouped selector rather than duplicating rule bodies.
@@ -189,6 +194,73 @@ h += `<span class="effpool-seg effpool-merit">${label}</span>`;
 
 If a one-off dynamic value is genuinely unavoidable (e.g. a computed width), it
 must still resolve to a token, never a literal colour/font.
+
+#### The DOM API counts too
+
+The rule above is about the *value*, not about the syntax that carried it. Setting
+the same literal through the DOM API is equally prohibited: `el.style.cssText`,
+`el.style.color`, `el.style.background` and every sibling. This is not a
+hypothetical. #854 normalised the attribute form and left the DOM-API form
+untouched, because its enforcement grep only matched `style="..."`; #859 was
+raised out of that gap and gdx-4 closed it.
+
+```js
+// WRONG: same literal, different syntax; the grep that only reads attributes misses it
+btn.style.cssText = 'background:#333;color:#aaa;border:1px solid #555';
+el.style.color = '#fff';
+
+// RIGHT: a class, with the colours declared as tokens in the stylesheet
+btn.className = 'dev-preview-btn';
+el.classList.add('is-error');
+// .feed-confirm-btn.is-error { background: var(--crim); color: var(--txt-on-dark); }
+```
+
+One shape is compliant and must **not** be "fixed": `var(--token, #hex)`, where
+the hex is a fallback and the token is what renders. `public/js/app.js`'s
+`statusEl.style.color = 'var(--green2, #7EC8A0)'` is the precedent (#859 AC2).
+
+#### Enforcement
+
+Both greps are the human-runnable form. Run them by hand as:
+
+```
+grep -rnoE "\.style\.[a-zA-Z]+\s*=\s*['\"\`][^'\"\`]*(#[0-9A-Fa-f]{3,6}|rgba?\()" public/js/
+grep -rnoE "style=\"[^\"]*(#[0-9A-Fa-f]{3,6}|rgba?\()" public/js/
+```
+
+The first must return exactly one line, `public/js/app.js`'s `var()` fallback. The
+second must return none.
+
+**The checked-in vitest suite is a stricter superset of these two commands, not an
+identical copy** - a Codex adversarial review (2026-08-20) found that treating them
+as interchangeable let real bypasses through: the shell greps use `{3,6}` hex
+digits and (the second) double-quoted attributes only, while
+`server/tests/gdx-4-css-standards-grep.test.js` matches `{3,8}` digits, both quote
+styles, whitespace around `=`, and several more DOM-API syntax forms
+(`.style['prop'] =`, `+=`, `.setProperty(...)`, `.setAttribute('style', ...)`).
+It also runs over the whole of `public/js` and, for the bare-hex-in-declaration
+check, `public/css/suite.css` plus (grandfathered at their measured pre-existing
+count where non-zero) the rest of `public/css` except `theme.css` - see that
+file's own header for the full list. Prefer running the vitest suite over
+copy-pasting the shell commands: a match on the commands above is necessary but
+not sufficient for a clean gate.
+
+#### Documented exemptions
+
+Exactly two standing exemptions exist. This list is the register: adding a third
+means adding it here, with its reason, and to the allowlist in the test suite
+above. Nothing is exempt by being overlooked.
+
+1. **`public/js/editor/print.js`'s embedded `<style>` block.** `printSheet()` builds
+   a complete standalone `<!DOCTYPE html>` document and hands it to a new window
+   for printing. That document does not link `theme.css` and must not: a print
+   sheet needs dark ink on white paper whichever theme the ST is running in the
+   app, so `var(--txt)` would resolve to nothing there. The exemption covers that
+   one embedded stylesheet only: a colour in a `style="..."` attribute inside the
+   same file is still a violation.
+2. **`console.log('%c...')` devtools banners** (`public/js/admin.js:2`). Console
+   `%c` styling is parsed by the browser's devtools console, not by the page's CSS
+   engine, so it cannot read a custom property.
 
 ### Responsive Design
 

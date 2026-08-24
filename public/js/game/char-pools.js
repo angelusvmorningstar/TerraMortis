@@ -103,6 +103,60 @@ export function renderCharPools(el, char, onTap) {
   h += statChip('Speed',     speed);
   h += '</div>';
 
+  // ── Vampire Mechanics (gdx-11, #981) ──
+  // Originally gated behind the tm-use-new-dice-roller flag (v1's roll.js
+  // never understood the pi.noWP/pi.willpower_cost fields every tile here
+  // sets) — that flag and roll.js itself were both retired outright by
+  // rlv.2, so roll-v2.js is now the only player roller and this section is
+  // unconditional. The choice tiles push {opensPanel}, routed by app.js's
+  // onTap callback to openPanel(mode).
+  {
+    let vmHtml = '';
+    const VM_IMMEDIATE = [
+      { label: 'Frenzy Resistance', a1: 'Resolve', a2: 'Composure' },
+      { label: 'Riding the Wave', a1: 'Wits', a2: 'Composure' },
+    ];
+    for (const m of VM_IMMEDIATE) {
+      // getAttrEffective already includes bonus dots + discipline enhancement
+      // (accessors.js) - NOT added again here, unlike the pre-existing skill-
+      // pool loop below (out of this story's scope to touch). AC8's own
+      // Custom Pool formula uses getAttrEffective alone for the same reason.
+      const v1 = getAttrEffective(char, m.a1);
+      const v2 = getAttrEffective(char, m.a2);
+      const total = v1 + v2;
+      const idx = pools.length;
+      // The second attribute is modelled via pi's generic `skill` field —
+      // downstream (roll-v2.js's effline/spec/equipment-chip logic) only
+      // ever reads it as a display label + a lookup key, and none of
+      // Composure/Wits/Resolve resolve against any real skill's specs or
+      // equipment domain, so this is a safe, zero-side-effect reuse rather
+      // than inventing a second bespoke pi shape for a two-attribute pool.
+      const pi = { total, attr: m.a1, attrV: v1, skill: m.a2, skillV: v2, discName: null, discV: 0, resistance: null, noWP: false };
+      pools.push({ total, label: m.label, attr: m.a1, attrV: v1, skill: m.a2, skillV: v2, nineAgain: false, resistance: null, pi });
+      vmHtml += poolBtn(m.label, total, ab(m.a1) + '+' + ab(m.a2), idx, false);
+    }
+    const VM_CHOICE = [
+      { label: 'Lash Out', mode: 'lashout' },
+      { label: 'Clash of Wills', mode: 'clash' },
+      { label: 'Blood Bond Resistance', mode: 'bloodbond' },
+    ];
+    for (const m of VM_CHOICE) {
+      const idx = pools.length;
+      pools.push({ opensPanel: m.mode, label: m.label });
+      vmHtml += choiceBtn(m.label, idx);
+    }
+    // gdx.12: third tile kind — {submitAction}, routed by app.js's onTap to
+    // submitHumanityCheck() instead of openPanel()/loadPool(). No panel, no
+    // roll — see the story's own "What this story is NOT" for why.
+    {
+      const idx = pools.length;
+      pools.push({ submitAction: 'humanity_check', label: 'Humanity Check' });
+      vmHtml += submitBtn('Humanity Check', idx);
+    }
+    h += '<div class="gcp-section-hd">Vampire Mechanics</div>';
+    h += `<div class="gcp-pool-grid">${vmHtml}</div>`;
+  }
+
   // ── Skill pools (only non-zero skills) ──
   // Include PT dot-4 and MCI dot-3 bonus dots from applyDerivedMerits
   let skillHtml = '';
@@ -166,9 +220,13 @@ export function renderCharPools(el, char, onTap) {
   pools.push({ opensPanel: 'custom', label: '+ Custom Pool' });
   const customHtml = choiceBtn('+ Custom Pool', customIdx, true);
 
-  const hasPools = skillHtml || discHtml || customHtml;
-  if (hasPools) {
-    const collapsed = localStorage.getItem('tm_pools_collapsed') === '1';
+  // gdx-11 (#981, AC9): phone-density — first view after loading a
+  // character defaults to COLLAPSED (previously expanded-by-default).
+  // `stored === null` means the toggle has never been touched on this
+  // device; an explicit prior '0' (user un-collapsed manually) still wins.
+  if (skillHtml || discHtml || customHtml) {
+    const storedCollapsed = localStorage.getItem('tm_pools_collapsed');
+    const collapsed = storedCollapsed === null ? true : storedCollapsed === '1';
     h += `<button class="gcp-collapse-btn">${collapsed ? '▸' : '▾'} Pools</button>`;
     h += `<div class="gcp-pools-wrap${collapsed ? ' gcp-all-collapsed' : ''}">`;
     if (skillHtml) {
@@ -188,7 +246,11 @@ export function renderCharPools(el, char, onTap) {
 
   el.querySelectorAll('.gcp-pool-btn').forEach(btn => {
     const idx = Number(btn.dataset.idx);
-    btn.addEventListener('click', () => onTap(pools[idx]));
+    // gdx.12: second arg (the tapped button element) is new — existing
+    // onTap callbacks that only declare one parameter are unaffected. Lets
+    // submitAction handling disable the tile immediately to prevent a
+    // double-submit, without char-pools.js itself making any network call.
+    btn.addEventListener('click', () => onTap(pools[idx], btn));
   });
 
   el.querySelector('.gcp-collapse-btn')?.addEventListener('click', () => {
@@ -204,12 +266,19 @@ function statChip(label, value) {
   return `<div class="gcp-stat"><span class="gcp-stat-v">${value}</span><span class="gcp-stat-l">${esc(label)}</span></div>`;
 }
 
-// rlv.4 — a "choice" tile: opens a panel instead of rolling immediately, so
-// there is no dice total to show yet. `wide` spans the full grid row (used
-// for the "+ Custom Pool" tile only).
+// rlv.4 / gdx-11 — a "choice" tile: opens a scoped panel instead of rolling
+// immediately, so there is no dice total to show yet. `wide` spans the full
+// grid row (used for the "+ Custom Pool" tile only).
 function choiceBtn(label, idx, wide) {
   const cls = 'gcp-pool-btn gcp-choice' + (wide ? ' gcp-choice-wide' : '');
   return `<button class="${cls}" data-idx="${idx}"><span class="gcp-pool-n gcp-choice-arrow">›</span><span class="gcp-pool-lbl">${esc(label)}</span><span class="gcp-pool-sub">tap to choose</span></button>`;
+}
+
+// gdx.12: a "submit" tile — posts a pending request immediately, no panel,
+// no dice total. Visually the same chrome as choiceBtn (reuse .gcp-choice)
+// but distinct subtitle copy so it doesn't falsely promise a choice panel.
+function submitBtn(label, idx) {
+  return `<button class="gcp-pool-btn gcp-choice" data-idx="${idx}"><span class="gcp-pool-n gcp-choice-arrow">✓</span><span class="gcp-pool-lbl">${esc(label)}</span><span class="gcp-pool-sub">tap to submit</span></button>`;
 }
 
 function poolBtn(label, total, sub, idx, nineAgain, roteEligible) {

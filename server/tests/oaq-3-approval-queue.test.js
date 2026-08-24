@@ -308,7 +308,13 @@ describe('oaq.3 — view module file shape', () => {
   it('fetches GET /api/office_actions/pending and calls accept/decline via apiRaw (needs the full response body, not just a thrown message, to redact resolved_by/declined_by)', () => {
     const src = readFile('public/js/suite/office-approvals.js');
     expect(src).toMatch(/apiGet\(['"]\/api\/office_actions\/pending['"]\)/);
-    expect(src).toMatch(/apiRaw\('PUT',\s*`\/api\/office_actions\/\$\{requestId\}\/\$\{action\}`/);
+    // gdx.12: _resolve() now routes per request_type (status_action ->
+    // office_actions, humanity_check -> humanity_check_requests) rather than
+    // a single hardcoded endpoint — assert both literal paths are present
+    // and the actual PUT call is built from the resolved `endpoint` var.
+    expect(src).toMatch(/apiRaw\('PUT',\s*`\$\{endpoint\}\/\$\{requestId\}\/\$\{action\}`/);
+    expect(src).toMatch(/'\/api\/office_actions'/);
+    expect(src).toMatch(/'\/api\/humanity_check_requests'/);
   });
 
   it('polls every 10 seconds, mirroring challenge-notification.js\'s POLL_MS', () => {
@@ -323,10 +329,18 @@ describe('oaq.3 — view module file shape', () => {
     expect(src).not.toMatch(/closest\('\.domain'\)/);
   });
 
-  it('uses a single delegated listener, not per-render addEventListener (project convention)', () => {
+  it('uses delegated root listeners only, not per-render addEventListener (project convention)', () => {
     const src = readFile('public/js/suite/office-approvals.js');
-    const addListenerCalls = src.match(/addEventListener\(/g) || [];
-    expect(addListenerCalls.length, 'exactly one delegated root listener, no per-row handlers').toBe(1);
+    // gdx.12 added a second delegated listener (root 'change', for the
+    // Humanity Check level <select>) alongside the original root 'click' —
+    // both bound exactly once inside _attachDelegatedHandlers at scaffold
+    // time, same as the original single-listener shape this test protects.
+    // The real invariant is "no per-row handlers", not "exactly one call".
+    const handlerBody = src.slice(src.indexOf('function _attachDelegatedHandlers'), src.indexOf('function _refetchAndRender'));
+    const addListenerCalls = handlerBody.match(/addEventListener\(/g) || [];
+    expect(addListenerCalls.length, 'both delegated listeners live inside _attachDelegatedHandlers').toBe(2);
+    const outsideHandler = src.replace(handlerBody, '');
+    expect(outsideHandler, 'no addEventListener call outside _attachDelegatedHandlers (i.e. no per-row handlers)').not.toMatch(/addEventListener\(/);
   });
 
   it('renders an empty state when there is nothing pending', () => {

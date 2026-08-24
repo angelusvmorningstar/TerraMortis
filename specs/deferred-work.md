@@ -1,5 +1,43 @@
 # Deferred Work
 
+## Deferred from: dev->main reconciliation (2026-08-25)
+
+Full reconciliation of `dev`'s 30 stranded commits (gdx-1/2/3/4/11/12, xpl-1, dtlt-10, devotion
+cult-gate, issue-779/791, epic-di/epic-dbo doc closures) onto `main`, via a throwaway-branch merge
+per `feedback-branch-reconciliation-technique`. 8 real conflicted files hand-resolved (char-pools.js,
+app.js, roll-v2.js, suite.css, deferred-work.md, sprint-status.yaml, plus dtlt-10's own duplicate-of-
+PR-#1197 finding). Full vitest (4226 passed, 13 failed — all traced to pre-existing/environmental
+causes, none in the hand-resolved files) and targeted Playwright (rlv-2, rlv-4, desktop-and-css) both
+green after two real regressions were found and fixed: rlv-4's own tests assumed `.gcp-choice`
+matched exactly one tile (now 5, once gdx-11/12's Lash Out/Clash/Blood Bond/Humanity Check tiles are
+also present) and assumed the Pools section renders expanded (gdx-11 AC9 now defaults it collapsed);
+plus a stale `#t-dice` selector reference in two `desktop-and-css.spec.js` probe fixtures (rlv.2
+retired that id).
+
+Two genuine findings surfaced by bringing two independently-evolved branches together, confirmed via
+direct branch comparison NOT to stem from any specific merge-conflict judgment call (identical on
+`origin/main` and `origin/dev` before this reconciliation touched either) — real, but out of
+proportion for a merge pass, and needing product/design judgement this pass shouldn't make
+unilaterally:
+
+- **gdx-2's own CSS ratchet (AC1: no absolute px font-size; AC2: no sub-floor type) is violated by
+  13 rules in `suite.css` that gdx-2 never checked against, because they were built on `main`
+  independently while gdx-2 lived on `dev`** — mostly Epic CRD's own `.cr-*`/`.cq-*` classes
+  (`contested-roll.js`/`pending-queue.js`'s resolve-screen and pending-queue UI), plus
+  `#desktop-sidebar.collapsed .sidebar-app-btn`/`.sidebar-util-btn`. None of these rules were touched
+  by this reconciliation's own 2 `suite.css` conflict hunks — confirmed present with the exact same
+  raw-px values on `origin/main` alone. Fixing this means converting ~13 CRD-era rules to the
+  `--fs-floor-*` token scale gdx-2 established, which needs someone with real context on those rules
+  (not blind mechanical conversion) — worth its own small follow-up story.
+- **gdx-3's own AC3 test (`.trk-adj`/`.sh-tracker-info-btn` "T1/T2 fixes didn't grow the visible box
+  on desktop") already asserted values (28px/16px) that don't match either parent branch's real CSS**
+  — `--control-height-sm` is `36px` on both `origin/main` and `origin/dev` independently, and
+  `.sh-tracker-info-btn`'s width has always been `24px` on both, not the `16px` the test expects. This
+  predates the reconciliation entirely (confirmed via direct branch comparison) — the test's own
+  expected values were already wrong before gdx-3 was ever storied against this file, not something
+  broken by merging. Needs whoever re-baselines gdx-3's own AC3 to reconcile the test against the
+  real, live token values rather than trust the original story's own recorded expectation.
+
 ## Deferred from: rlv.6 (delete dice-engine.js and its dead sidecar wiring) (2026-08-24)
 
 Three small, independently-verified admin-app cleanup items found while scoping/reviewing rlv.6, all
@@ -20,6 +58,41 @@ a real user today, all are pure debt/test-accuracy items:
   a live bug — just leftover dispatcher debt (`initNpcRegister` stays imported, its branch stays
   dead) of the same shape rlv.6 just cleaned up for Engine. Found by Codex's own Pass 2 during
   rlv.6's code review, correctly declined as out-of-scope by its own Pass 3a.
+
+---
+
+## Deferred from: code review of xpl-1-xp-ledger-write-hook (2026-08-15)
+
+- **No index on `xp_ledger.character_id`** — `GET /:id/xp_ledger` does a full collection scan plus
+  in-memory sort. Negligible at current data volume; deliberately not patched in this pass because
+  the fix (a boot-time `createIndex` call in `server/index.js`, matching the existing
+  `cyoa_passages`/`office_actions`/`contested_roll_requests` convention there) would land in a file
+  that already carries an unrelated, uncommitted, in-progress change from a concurrent session —
+  touching it risked entangling two unrelated diffs. Cheap follow-up once that file is clear.
+- **Pre-fetch → diff → write is not atomic (TOCTOU)** — two concurrent `PUT`s for the same character
+  can both diff against the same stale prior state, producing ledger rows that don't sum to the
+  real change. Mirrors this route's own pre-existing last-writer-wins behaviour on the character
+  document itself (no optimistic locking anywhere in `PUT /:id` today, ledger or not) — a real
+  architectural gap, not unique to this story, and low-probability given a 3-ST team. Fixing it
+  properly (findOneAndUpdate with `returnDocument:'before'` diffed against the pre-image, or a
+  transaction) is a bigger change appropriate to its own story if ever prioritised.
+- **Ledger covers only 4 of 5 XP-spend buckets** — `bp_creation.xp`, `humanity_xp`,
+  `xp_log.spent.willpower`/`.special`, and the `powers[]` categories (devotions/pacts/fighting
+  styles, via `xpSpentMerits`/`xpSpentPowers`) are real spend but out of this story's explicit
+  scope. The XP History section title now says so explicitly (code-review patch); extending
+  coverage is a natural follow-up story, not folded in here.
+- **Non-integer `.xp` values are not guarded against** — `Number(x) || 0` in `diffXpLedgerRows`
+  would carry a fractional or string-coerced XP value straight into a `delta`/`new_total` the
+  (currently unwired) schema declares `integer`. No known live data has this shape; worth a guard
+  if the schema is ever wired up for real.
+- **Order-dependent tests in `xpl-1-xp-ledger-api.test.js`** — several tests assert on state left
+  behind by an earlier test in the same file rather than establishing their own fixture. Matches
+  this project's existing test style elsewhere; not fixed here to avoid restructuring test flow
+  under time pressure the same day this story shipped.
+
+---
+
+## Deferred from: DT Story UX (2026-04-17)
 
 - ~~**DT Story — taller narrative textarea**~~ — **FOLDED INTO Epic 1 (Story Surface Reform) as DTS1.10** during 2026-04-27 scoping pass. See `memory/project_dt_overhaul_2026-04-27.md`.
 - ~~**DT Story — collapse completed cards**~~ — **FOLDED INTO Epic 1 as DTS1.11** during 2026-04-27 scoping pass. See `memory/project_dt_overhaul_2026-04-27.md`.
@@ -694,6 +767,26 @@ deferred as pre-existing, not caused by this diff:
   future importer) would bypass the "linked cycles" refusal and let a Story with real dependents be
   deleted. Pre-existing code, untouched by cm-3's diff (which only extended the PATCH handler).
 
+## Deferred from: code review of gdx-11-vampire-mechanics-quick-actions (2026-08-19)
+
+- **`saveToApi()` (`public/js/game/tracker.js`) has only a silent `.catch(() => {})`** — a failed
+  network/auth write (e.g. a 403 from `canAccess()` on a target outside the acting player's own
+  `character_ids`) reports success in the UI regardless (the optimistic cache update happens before
+  the fetch even resolves). Found via gdx-11's Apply Torpor button, but this is `trackerWriteField`/
+  `trackerAdj`'s own shared infrastructure (predates gdx-11, gdx-6/gdx-7 era) — every existing
+  tracker write in the app (Vitae/Willpower/damage steppers, conditions) shares the identical
+  pattern. Revisit as a cross-cutting fix (e.g. surface a toast on a non-2xx response) rather than
+  patching one call site.
+- **`char-pools.js`'s module-level `_pools` array is shared across the app's two render containers**
+  (`gcp-panel` on the Sheets tab, `roll-char-pools` on the Roll tab) — a stale button `data-idx`
+  clicked after the other container's own render overwrote `_pools` could resolve to a mismatched
+  entry. Pre-existing (the array predates gdx-11, already shared for skill/discipline pool tiles);
+  gdx-11's new `{opensPanel}`-shaped entries (no `total`/`pi`) make a hypothetical stale-index hit
+  worse (`loadPool(undefined, ...)` -> `NaN` pool) than the pre-existing worst case (a wrong
+  number). Real fix needs scoping `_pools` per-container (e.g. on `el.dataset` or a `WeakMap` keyed
+  by the container element) rather than one shared module array — an app-wide change, not scoped to
+  one story.
+
 ## Deferred from: code review of xpl-2-historic-reconciliation (2026-08-18)
 
 - **`applyReconciliation`'s idempotency guard is a non-atomic check-then-insert** —
@@ -705,6 +798,276 @@ deferred as pre-existing, not caused by this diff:
   non-atomic guard, mitigated only by "a human runs this once, by hand," not by code. Revisit if this
   project ever moves to a pattern where migration scripts can run concurrently or unattended.
 
+## Deferred from: gdx-12-humanity-check-oaq-submit-approve (2026-08-19, dev-story)
+
+- **`middleware/validate.js` caches compiled Ajv validators keyed by `schema.title`, and any two
+  schemas that both omit `title` silently share one cache slot** — `cache.get(schema.title)` with
+  `schema.title === undefined` for both means whichever schema compiles first "wins" the cache entry
+  for both routes; the second route then validates every request against the WRONG schema. Found
+  live: `server/schemas/office_action.schema.js` has no `title`; the new
+  `humanity_check_request.schema.js` originally didn't either, and every POST to
+  `/api/humanity_check_requests` was silently validated against `officeActionSchema` instead (a
+  schema-valid Humanity Check payload 400'd with no obvious cause). Fixed locally for this story by
+  giving the new schema a `title` (matching `contested_roll_request.schema.js`'s own existing
+  convention). `office_action.schema.js` itself is UNCHANGED and still title-less — it remains
+  latently vulnerable to the identical collision against any future schema that also omits `title`.
+  Real fix is either titling every schema (enforce via a lint/test) or keying the cache off the
+  schema object's own identity (`WeakMap`) instead of a string field that happens to be optional.
+  Out of this story's scope — flagging so the next schema author doesn't rediscover this the hard
+  way.
+
+## Deferred from: code review of gdx-12-humanity-check-oaq-submit-approve (2026-08-20)
+
+- **`PUT /:id/accept` and `PUT /:id/decline` bypass the Ajv `validate()` middleware/schema
+  convention** the `POST /` route in the same file uses — `accept` validates its one field
+  (`breaking_point_level`) manually inline instead, `decline` needs no body at all. Correct today,
+  but inconsistent with this route file's own established pattern. Deferred as pre-existing
+  convention drift, not unique to this story.
+- **The "Load Pool" banner (`humanity-check.js`) uses a hardcoded `id="gcp-hc-load-banner"`**
+  rather than a per-container-scoped id. Not currently triggered — `checkForResolvedHumanityCheck`
+  has exactly one call site today (the roll tab's pools element in `app.js`'s `pickChar()`) — but
+  would produce duplicate DOM ids if a future call site (e.g. the Sheet tab's own pools panel) ever
+  renders it too. Deferred as a latent risk only.
+- **Resolved `humanity_check` documents (`GET /mine`, unbounded query) and the ST's session-local
+  `office-approvals.js` `state.levelByRequestId` Map (no eviction when a row is removed by another
+  ST's poll) both grow unbounded with no cleanup path.** Matches this project's existing accepted
+  accumulation pattern elsewhere for resolved/declined records at this campaign's scale — not a new
+  class of problem. Deferred.
+- **`.oaq-queue-row:has(.oaq-hc-level-select)` (`suite.css`) has no `@supports` fallback** for
+  browsers lacking `:has()` support — the rule prevents the actions row from overflowing on narrow
+  phone widths; without it that overflow returns silently on an unsupported browser. Deferred as low
+  likelihood given this campaign's known device set.
+- **The Approval Queue's 10-second poll re-render can interrupt an ST mid-choice on an open
+  breaking-point `<select>`** (`office-approvals.js`). Deferred — shares the same re-render-on-poll
+  shape as the rest of this file's existing rows, not a new pattern introduced by this story.
+- **The `middleware/validate.js` Ajv-cache title-collision landmine** (`office_action.schema.js`
+  still has no `title`, still latently vulnerable to the identical collision against any future
+  title-less schema) — already found, fixed for this story's own schema, and filed above during
+  Task 2. Re-confirmed by this review as already tracked, not a new gap.
+
+## Deferred from: code review of gdx-1-mobile-zoom (2026-08-20)
+
+- **The new viewport-meta-tag test (`tests/desktop-and-css.spec.js`) doesn't defensively handle a
+  hypothetical multiple-viewport-tag (Playwright strict-mode violation) or entirely-missing-tag
+  (`null` attribute, unclear matcher error) scenario.** Neither is reachable given the current
+  DOM — there is exactly one, always-present viewport meta tag in `public/index.html` — cheap to
+  add if that ever changes, not worth the defensive code now.
+
+## Deferred from: gdx-3-mobile-touch-targets (2026-08-20, dev-story)
+
+Three deliberate carve-outs from Epic GDX Group A's 44px touch-target pass (issue #984). Each is a
+real gap with a measured selector list, recorded here so a follow-up story does not have to
+re-derive it. Opening GitHub issues for them is Angelus's call.
+
+- **B1 - the Downtime form's own `.dt-` prefixed controls.** Roughly 45 selectors from
+  `components.css:1422` onward, plus `#t-downtime .qf-carthian-remove` (`suite.css:1699`),
+  `.raw-toggle-btn` (`suite.css:1734`), `.dt-history-summary` (`suite.css:1723`) and
+  `.dt-mobile-show-anyway` (`suite.css:1452`). **Reason: another epic has already ratified a
+  conflicting target size for this surface.** `specs/epic-dtui-downtime-form-ux-refactor.md`'s NFR9
+  says "Touch targets >= 32px for tickers and chips; >= 36px for buttons", and
+  `specs/stories/dtui-2-dt-chip-and-chip-grid.story.md`'s CC6 shipped `min-height:32px` on `.dt-chip`
+  as a deliberate design decision - it measures exactly 32px today, i.e. it is *at* its own ratified
+  floor. Overriding another epic's accepted criterion is a product decision, and the DT form's dense
+  chip grids would re-flow. The boundary is the `.dt-` prefix, not the file section: the `.qf-`
+  shared form primitives live in the same section but also render on Ordeals, Archive, Feeding and
+  the questionnaire, so they were fixed by gdx-3 (44px exceeds rather than contradicts DTUI's
+  ">= 36px for buttons").
+- **B2 - ST-only surfaces other than the Tracker tab.** `.cbt-*` (Combat tab,
+  `public/js/game/combat-tab.js`), `#t-territory .regent-sel` (24.4px) and
+  `#t-territory .peek-toggle-label` (14.4px) - the two stragglers css-4 missed - `.stm-*` (ST mods
+  panel and audit), `.si-*` (Check-In, coordinator-only), `.city-map-*` / `.city-section-hd`,
+  `.sidebar-st-btn`, and `#desktop-sidebar .sidebar-btn`. **Reason:** issue #984's AC1 says
+  "player-surface controls" and names none of these. The ST Tracker tab is the one ST-only surface
+  the issue does name, so it was fixed; these were not.
+- **B3 - the ST character editor's own chrome**, i.e. `components.css` lines 143 to 511 (`.dot`,
+  `.skill-flag`, `.cap-btn`, `.mci-*`, `.infl-*`, `.dev-*`, `.sk-spec-*`, `.sh-bane-*`,
+  `.sh-attr-pri select`, `.sh-edit-select`, `.topbar-btn`, `.topbar-action`, `.edit-back`) plus the
+  edit-mode-only selectors in the SHEET VIEW section (`.sh-stat-adj`, `.sh-stat-lr`,
+  `.sh-ts-slot-add`, `.sh-ts-slot-btn`, `.rel-edit-btn`, `.rite-free-badge`, `.rite-xp-badge`).
+  Same carve-out boundary gdx-2 used, for the same shared-stylesheet reason, with `.edit-tab`
+  explicitly pulled OUT of it and fixed (see the story's scoping call). `.dot` in particular
+  (`components.css:48`, 18x18) is carved out on measured evidence rather than by inheritance: the
+  `.attr-row` / `.skill-row` pitch is about 29px and `.dot-stepper{gap:2px}` gives a 20px horizontal
+  pitch, so a 44px hit area would overlap the row above and below by ~7px each and every neighbouring
+  dot by 24px. Expanding it would make mis-taps MORE likely, not less - WCAG 2.5.8's spacing
+  exception exists for exactly this case. The only real fix is re-laying-out the editor's Attribute
+  and Skill grids for phone widths, which is a redesign.
+
+Two smaller findings surfaced while measuring, both gdx-4 (mobile CSS cleanup) candidates rather
+than gdx-3 work:
+
+- **`.gcp-rote-badge` (`suite.css`) has no positioned ancestor.** It is `position:absolute;
+  top:-4px; right:14px`, but only `.gcp-pool-btn.gcp-9a` declares `position:relative` - the
+  `.gcp-rote` variant does not, so the badge currently anchors to `.tab` (`position:absolute;
+  inset:0`) and renders at the top of the whole tab rather than on its own tile. gdx-3 found this by
+  having to exclude `.gcp-pool-btn` from its Technique T2 list to avoid silently "fixing" (i.e.
+  moving) it. `.gcp-pool-btn` already measures 320x64 at 360px, so it needed no touch-target work
+  either way.
+- **`.hdr-profile`, `.hdr-profile-menu` and `.hdr-menu-item` (`suite.css:59-66`) appear to be dead
+  CSS.** A full grep of `public/` for that markup - `.html` and `.js`, excluding
+  `getElementById`/`closest` lookups - returns nothing that emits them, although `app.js` still
+  queries `#hdr-profile-menu` in two places. gdx-3 gave them their hit-area treatment anyway because
+  they are named in the story's own in-scope inventory, but if they really are dead they should be
+  deleted rather than maintained.
+
+## Deferred from: code review of gdx-3-mobile-touch-targets (2026-08-20, external Codex)
+
+External Codex adversarial review plus independent verification. Everything below was measured in
+headless Chromium against the real served page, not reasoned from the diff.
+
+- **[RESOLVED 2026-08-20 - Angelus, filed as [GitHub issue #1192](https://github.com/angelusvmorningstar/TerraMortis/issues/1192)] Thirteen Technique T2 selectors now expand horizontally only,
+  because a full 44px vertical expansion reaches into their own stacked or wrapped siblings.**
+  Angelus authorised the follow-up (option b below) rather than accepting the capped state
+  permanently - gdx-3 itself still ships `done` with the capped state as AC2's evidenced exception,
+  and issue #1192 tracks removing that exception via the Technique T3 fix described below.
+  `.effpool-spec`, `.trk-chip-rm`, `.trk-card-hd`, `.trk-adj.sm`, `.sh-tracker-info-btn`,
+  `.rl-sec-hd`, `.status-chip-st`, `.rank-pill`, `.settings-btn`, `.settings-checkbox-row`,
+  `.rules-expander-toggle`, `.qf-checkbox-label`, `.char-picker__chip-remove`. Measured overlaps
+  before the review round's fix ran from 2px (`.settings-btn`) to 26px (`.settings-checkbox-row`),
+  and in every case `document.elementFromPoint` inside the overlap resolved to the NEXT sibling, so
+  a tap on the row you can see activated the row below it. The review round removed that regression
+  by dropping the vertical expansion for these thirteen (the overlay is now exactly the element's
+  own box tall), which restores the pre-gdx-3 hit behaviour but does not reach 44px. **The real fix
+  is a phone-tier row growth (Technique T3), exactly as gdx-3 already did for `.arc-doc-item`,
+  `.char-picker__option`, `.hdr-menu-item` and `.qf-radio-label` - but that is a VISIBLE phone
+  change and AC4 requires each such selector to be signed off by name, so it is a product decision
+  rather than a review-round patch.** The checked-in `no two sibling hit areas overlap` test in
+  `tests/desktop-and-css.spec.js` ratchets the current state, and `GDX3_AC2_EXCEPTIONS` in the same
+  file is the machine-readable list.
+- **`.svt-btn` has only a 24px effective vertical hit area at viewports of 600px and above.**
+  `.sheet-topbar button::after` also matches it (they share the topbar), but its parent
+  `.svt-toggle` carries `overflow:hidden` to clip the segmented control's 4px corners, so the
+  overlay is swallowed. Measured at 1280px: box 62.19x24, overlay computes 62.19x44, and
+  `elementFromPoint` 21px above and below the centre both resolved to `div.sheet-topbar`. gdx-3's
+  T3 fix (`min-height:var(--tap-min)`) is scoped to `@media (max-width:599px)`, so desktop widths
+  get nothing. **Not an AC1 breach** - AC1 is written for a 360px viewport, where T3 does apply and
+  the control measures 62x44 - but it is a real gap for a wide touch device. The fix is either
+  relaxing `.svt-toggle` to `overflow:visible` with per-child radius, or lifting the `min-height`
+  out of the media query; both are visible-risk changes gdx-3 explicitly declined to make blind.
+- **`.prestige-toggle`, `.st-char-dismiss`, `.hdr-profile`, `.hdr-menu-item` and `.feed-toggle` have
+  no live render path, yet carry gdx-3 touch-target rules and test fixtures.** Verified by full
+  grep of `public/js/`, `public/index.html` and `public/admin.html`: `.prestige-toggle` and
+  `.st-char-dismiss` occur only in the repository-root legacy `index.html`, which is not served
+  (Playwright and the dev server both serve `public/`); `.hdr-profile` and `.hdr-menu-item` are
+  emitted nowhere at all (`app.js` still queries the `#hdr-profile-menu` **id**, which is a
+  different thing); and `.feed-toggle` is emitted nowhere either - the only grep hits are the
+  substring inside `proc-feed-toggles-row` in `public/js/admin/downtime-views.js`, which is an
+  admin-app class and `admin.html` does not load `suite.css`. This extends the dev-story's own
+  `.hdr-profile` note above to five selectors. Deleting them is gdx-4's job (dead-rule cleanup);
+  gdx-3 correctly declined to delete rules named in its own inventory.
+- **The gdx-3 fixtures are synthetic below the tab.** `gdx3Measure` mounts into the real
+  `#t-<tab>` element index.html ships (so the tab's padding, width cap and `overflow-x:hidden` do
+  apply) but replaces everything inside it with hand-authored markup, so a production clipping
+  ancestor, stacking context or neighbour that a fixture omits cannot fail the probe. Two real
+  defects hid behind exactly that gap and were only found by mounting realistic sibling runs (the
+  wrapped `.rank-pill` set and the Office `.cs-step-btn` pair). The review round added a
+  multi-sibling test that closes the specific hole; a fixture strategy that renders through the real
+  JS renderers rather than hand-written HTML would close it properly, and is a test-infrastructure
+  story of its own.
+
+## Deferred from: gdx-4-mobile-css-cleanup (2026-08-20, dev-story; +2, 2026-08-21, Codex review response)
+
+Six deliberate carve-outs from the CSS-standards cleanup (issue #985, absorbing #859). Two were named
+when the story was scoped, two surfaced during the audit that wrote it, and two more surfaced while
+addressing the Codex adversarial review's findings (2026-08-21) - hardening the checked-in ratchet
+surfaced a genuine pre-existing violation the old, looser regex could never see. Each is recorded
+with its evidence and a suggested follow-up title so nothing has to be re-derived. Opening GitHub
+issues for them is Angelus's call.
+
+- **Carve-out 1: seven confirmed-dead CSS declarations, blocked on retiring gdx-3's fixtures.**
+  `.hdr-profile` (`suite.css:59`), `.hdr-profile-menu` (`:64`), `.hdr-menu-item` (`:65`),
+  `.prestige-toggle` (`:578`), `.st-char-dismiss` (`:590`), `.feed-toggle` (`:514`), and
+  `.cc-alert.yellow`'s `font-size` (`components.css:21`). Evidence is already in this file's gdx-3
+  dev-story and gdx-3 Codex-review sections: the first three are emitted nowhere in `public/js/`,
+  `public/index.html` or `public/admin.html` (`app.js` queries the `#hdr-profile-menu` **id**, which
+  is a different thing); `.prestige-toggle` and `.st-char-dismiss` occur only in the
+  repository-root legacy `index.html`, which is not served; `.feed-toggle`'s only grep hits are the
+  substring inside `proc-feed-toggles-row` in `public/js/admin/downtime-views.js`, an admin class,
+  and `admin.html` does not load `suite.css`. **Why not in gdx-4:** this is removal of live CSS
+  surface, not a token substitution, and six of the seven currently carry gdx-3's touch-target rules
+  **and** gdx-3 test fixtures (`suite.css:2783`, `2788`, `2859`, `2864`, `2955`, plus `GDX3_PROBES`
+  and `GDX3_SIBLING_PROBES` in `tests/desktop-and-css.spec.js`). Deleting the base rules without
+  retiring those fixtures breaks the gdx-3 ratchet, and retiring gdx-3 fixtures is a decision about
+  gdx-3's AC. Suggested title: *`gdx-13-dead-css-selector-retirement`: delete seven confirmed dead
+  declarations and retire their gdx-3 fixtures.*
+
+- **Carve-out 2: three inline `font-size:Npx` literals gdx-2's file-scoped audit could not reach.**
+  `public/js/suite/territory.js:368` (`font-size:12px` inside a `selStyle` string),
+  `public/js/tabs/downtime-form.js:5662` (`font-size:12px` on `.dt-feed-dim`), and
+  `public/js/app.js:2034` (`font-size:11px` on the Player Mode sub-label). All three re-verified at
+  their stated lines during gdx-4's audit. **Why not in gdx-4:** gdx-4's AC is colour-scoped, exactly
+  as #854's was, and #985 says nothing about `font-size`. More substantively these are gdx-2's
+  concern: the right fix is `var(--fs-floor-body)` / `var(--fs-floor-micro)` under gdx-2's own floor
+  rules, checked against the ~242 sibling sites `specs/stories/deferred-work.md:570-575` records,
+  rather than fixed in isolation. Suggested title: *`gdx-14-inline-font-size-sweep`: retire the three
+  inline `font-size` literals gdx-2's file-scoped audit could not reach.*
+
+- **Carve-out 3: the ~17 bare `rgba()` literals in `suite.css` (discovered during gdx-4's audit).**
+  Lines 40, 252, 253, 721, 1030, 1319, 1324, 1356, 1363, 1378, 1477, 1478, 1535, 1948, 2259, 2272,
+  2297 at the pre-gdx-4 commit: shadows, scrims and tinted fills. Many have a plausible alpha token
+  in `theme.css` (`--overlay`, `--overlay2`, `--crim-aNN`, `--gold-aNN`, `--green4-aNN` and about
+  sixty siblings) but several have none. **Why not in gdx-4:** matching a hand-mixed rgba to the
+  nearest token is a per-site design judgement **in two themes**, not a mechanical substitution, and
+  seventeen of those is its own story. `server/tests/gdx-4-css-standards-grep.test.js` deliberately
+  asserts these are still present, so sweeping them is a conscious act that updates that test rather
+  than something that happens quietly under cover of tidying. Suggested title:
+  *`gdx-15-rgba-literal-tokenisation`: match or mint an alpha token for each of the seventeen bare
+  `rgba()` sites in `suite.css`.*
+
+- **Carve-out 4: two undefined custom properties in the admin Next Session panel (discovered during
+  gdx-4's audit).** `public/js/admin/next-session.js` uses `var(--fh2)` (line 23) and `var(--muted)`
+  (line 24); **neither token is declared anywhere in `public/css/`**, verified by grep across all six
+  stylesheets. Both declarations therefore silently do nothing today, so the heading falls back to
+  the inherited font and the status text to the inherited colour. (gdx-4's story text cited these as
+  "lines 22-23"; the real lines are 23 and 24, and they are two different declarations rather than
+  one line carrying both.) **Why not in gdx-4:** an undefined token is a live rendering bug whose fix
+  **changes what the admin panel looks like**, and Angelus cannot smoke-test locally, so it needs a
+  look on a deployed environment. gdx-4 edited line 26 of the same function and deliberately left
+  these alone. Suggested title: *`gdx-16-next-session-undefined-tokens`: resolve `--fh2` and
+  `--muted` in the admin Next Session panel, with a deployed look before and after.*
+
+- **Carve-out 5: the bare-hex ratchet only ever scanned `suite.css`, not the whole of `public/css`
+  AC7 promises (found by the Codex review, 2026-08-20).** `server/tests/gdx-4-css-standards-grep.test.js`'s
+  AC3 assertion read only `public/css/suite.css`; a literal reintroduced in any of the other five
+  stylesheets could stay green forever. Re-measured with the actual `declarationValues()`/`BARE_HEX`
+  predicate (not a naive grep, which mostly matches ID selectors like `#feed-toggle` and GitHub-issue
+  references like `#1155` inside comments): `admin-shared.css`, `admin-spheres.css`, `components.css`
+  and `layout.css` already have **zero** genuine bare-hex declaration values and are now held to the
+  same zero-offender standard as `suite.css`. `admin-layout.css` has **four** genuine, pre-existing
+  ones, none related to gdx-4: `.proc-ambience-dir-decrease { color: #c06060 }` (line 5712),
+  `.npcr-rels-row.disp-positive`'s `border-left` (`#5a7d3a`, line 9155), `.hd-btn-delete`'s `color`
+  (`#fff`, line 9983) and its `:hover` `background` (`#a00`, line 9985). **Why not swept now:**
+  matching each to a theme-correct token is the same per-site, two-theme design judgement carve-out 3
+  already deferred for `suite.css`'s rgba sites, just in a different stylesheet - bundling an
+  unaudited four-site sweep into a review response is how a "quick fix" becomes the next
+  `downtime-form.js:5498`. The ratchet now grandfathers `admin-layout.css` at its measured count of 4
+  and fails on growth, so a NEW bare hex anywhere in `public/css` is still caught even though these
+  four are not yet swept. Suggested title: *`gdx-17-css-hex-ratchet-full-coverage`: tokenise
+  `admin-layout.css`'s four remaining bare-hex declarations and drop the ratchet's baseline to zero.*
+
+- **Carve-out 6: a genuine, pre-existing rgba() literal in an inline `style="..."` attribute in
+  `public/js/editor/sheet.js`, invisible to AC2's ratchet until the Codex review's fix to it
+  (2026-08-20/21).** `sheet.js:456-457`, the Sheet editor's Touchstones panel: `'<span
+  class="sh-ts-slot-att" style="color:' + (att ? 'rgba(140,200,140,.9)' : 'var(--txt3)') + '">'` -
+  when a touchstone is "Attached" (`att === true`) the span's colour is the bare literal
+  `rgba(140,200,140,.9)`; when "Detached" it already uses a token. AC2's original regex stopped its
+  value scan at the first quote of EITHER kind, which sat zero characters after `color:` in this exact
+  source (`color:' + (att ? ...`), so it was structurally invisible to the old check and has nothing
+  to do with gdx-4's own diff - the Codex-hardened regex (quote-matched by backreference) is what
+  surfaced it. **Worth noting for whoever picks this up:** `theme.css`'s dark-theme block already
+  declares `--green2-a9:rgba(140,200,140,.9)` (line 231) - an EXACT match for the literal in dark
+  theme - while the Parchment (default, light) block's `--green2-a9` resolves to a different value
+  (`rgba(42,122,74,.90)`, line 57). That means the current code does not just skip tokenisation, it
+  renders the dark-theme green on every theme, which is the same "mis-themed by a hard-coded value"
+  shape `.dev-preview-btn` had. **Why not fixed here:** `sheet.js`'s Touchstones panel is entirely
+  outside gdx-4's file list and was never audited by this story; any colour change needs Angelus's own
+  deployed-environment look before shipping, per this repo's own testing discipline (Angelus cannot
+  smoke-test locally). `server/tests/gdx-4-css-standards-grep.test.js`'s AC2 describe block carries a
+  narrow, explicitly-labelled `DEFERRED_VIOLATIONS` entry for this one site (distinct from AC1's
+  compliant-shape `ALLOWED` list) so the ratchet stays green without silently absorbing it. Suggested
+  title: *`gdx-18-sheet-touchstone-attached-colour-token`: replace the Touchstones panel's inline
+  `rgba(140,200,140,.9)`/`var(--txt3)` conditional with a class toggle backed by `--green2-a9`
+  (or the nearest reviewed token), with a deployed before/after look.*
 ## Deferred from: code review of crd-1-data-lock-schema-hardening-wp-spike (2026-08-22, external Codex review)
 
 External Codex review (3-pass blinded adversarial protocol) of the Epic CRD data-lock story. Full
