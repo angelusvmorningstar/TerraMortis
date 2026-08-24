@@ -24,10 +24,11 @@ covers Suite↔Player↔Admin CSS/JS fragmentation; the roller never lived in `p
 deleted, USF Phase 0 Stage B, commit `5fdaa032`), so none of USF's named shards touch roller code.
 No sequencing dependency either direction — this epic can proceed independently.
 
-**Status: rlv.1 (PR #1196, open) and rlv.2 (merged to main 2026-08-24, PR #1198) both shipped.
-ALL FIVE open decisions (D1-D5) resolved 2026-08-24 — rlv.9 and rlv.3 both superseded (nothing left
-to fix/design for either), rlv.4/rlv.5/rlv.7/rlv.8 all unblocked and ready to story whenever picked
-up. No open decisions remain in this epic.**
+**Status: rlv.2 merged to main 2026-08-24 (PR #1198). rlv.1's own PR #1196 closed unmerged the same
+day — superseded by rlv.2 itself, not landed separately (see that row below); its regression test
+survived, rewritten, as PR #1201 (merged). ALL FIVE open decisions (D1-D5) resolved 2026-08-24 —
+rlv.9 and rlv.3 both superseded (nothing left to fix/design for either), rlv.4/rlv.5/rlv.7/rlv.8 all
+unblocked and ready to story whenever picked up. No open decisions remain in this epic.**
 
 ---
 
@@ -99,7 +100,7 @@ briefly here so this table's own "blocked on" column is legible without cross-re
 
 | ID | Title | Phase | Status | Blocked on |
 |----|-------|-------|--------|------------|
-| rlv.1 | Fix `combat-tab.js`'s silent Quick Roll failure under the new-roller flag | Immediate, standalone | **done** — dev-storied, internally reviewed, PR #1196 open against `main` (not yet merged) | Nothing — independent bug fix |
+| rlv.1 | ~~Fix `combat-tab.js`'s silent Quick Roll failure under the new-roller flag~~ | Immediate, standalone | **superseded** — PR #1196 closed unmerged 2026-08-24: predates rlv.2, conflicts with the deleted flag system, AND its own fix is fully subsumed by rlv.2's unconditional `combat-tab.js` wiring (only one roller exists now, the bug can't recur). Regression test rewritten and merged separately, PR #1201 | — |
 | rlv.2 | Promote `roll-v2.js` to the sole player roller; delete `roll.js` and the flag outright (D3 resolved: direct cutover) | Mechanics merge | **done** — dev-storied, internally reviewed, merged to `main` 2026-08-24 (PR #1198, commit `a8860617`) | Nothing — shipped |
 | rlv.3 | ~~Reconcile pool-source state model~~ | Design pass | **superseded** — D5 resolved 2026-08-24 answers the question this design pass existed to ask; no separate story needed | — |
 | rlv.4 | Port `dice-engine.js`'s dropdown-picker UI in as an alternate ad-hoc entry path, building the same `pi` shape `char-pools.js` already produces (NOT porting its data model — that would be a downgrade, see D5) | Builder port | **backlog** | rlv.2 (done) |

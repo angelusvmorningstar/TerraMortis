@@ -915,20 +915,28 @@ two below were judged real but out of proportion to fix in this pass, or not thi
   re-audit of this doc against the real current roller landscape (`roll-v2.js`, `dice-engine.js`,
   `downtime-views.js`'s own roller, `contested-roll.js`), which is its own scoped task, not a
   one-line patch inside a code review.
-- **A real sequencing/merge-conflict risk between rlv.1 (PR #1196, open, not merged) and rlv.2's own
-  uncommitted `combat-tab.js` changes** (Medium, coordination risk, not a code defect). rlv.2's Dev
-  Notes assumed "land rlv.1 first" before its own dev-story ran, but PR #1196 was never actually
-  merged onto this branch — this branch's `combat-tab.js` still had the ORIGINAL unfixed
-  `goTab('dice')`/`import ... from '../suite/roll.js'` code when rlv.2's dev-story started, and
-  rlv.2 fixed it directly (correctly, and independently of rlv.1's own fix shape) as part of
-  repointing away from the deleted `roll.js`. This means when PR #1196 eventually merges to `main`
-  with its own `combat-tab.js` changes, and rlv.2's branch also touches the same lines, there is a
-  live risk of a merge conflict or (worse) a silent double-fix where one branch's change quietly
-  overwrites the other's. Not fixed here — no code defect exists in either branch alone; this is
-  purely a heads-up for whoever merges the two. Recommended handling: merge rlv.1's PR #1196 to
-  `main` FIRST, then rebase/recreate rlv.2's branch off the post-merge `main` so its own
-  `combat-tab.js` diff is computed against the already-landed rlv.1 fix rather than the pre-fix
-  original — avoids the conflict entirely rather than resolving it by hand.
+- **RESOLVED 2026-08-24 — the predicted sequencing/merge-conflict risk between rlv.1 (PR #1196) and
+  rlv.2's own `combat-tab.js` changes materialised exactly as flagged, the day after this entry was
+  written.** Original entry (below, kept for the record) recommended merging #1196 first, then
+  rebasing rlv.2 — but rlv.2 (PR #1198) merged to `main` first instead, per Angelus's own sequencing
+  on the day. Attempting `gh pr merge` on #1196 next surfaced a real conflict in `app.js` and
+  `combat-tab.js` (that branch predates rlv.2, still has the whole `rollV1`/`rollV2`/`USE_NEW_ROLLER`
+  flag system rlv.2 deleted). Resolution, per Angelus's own instruction: **#1196 closed unmerged**,
+  since its fix is fully subsumed by rlv.2's own unconditional `combat-tab.js` wiring — the
+  "wrong roller" bug #1196 existed to fix cannot recur once there's only one roller. Its regression
+  test was rewritten against post-rlv.2 `main` (no flag) and merged separately as PR #1201
+  (`server/tests/rlv-1-combat-tab-quick-roll.test.js`), prove-discriminated (reverted the `goTab`
+  target locally, confirmed the exact test failed, restored). Original entry, superseded by the
+  above but kept for context:
+  - A real sequencing/merge-conflict risk between rlv.1 (PR #1196, open, not merged) and rlv.2's own
+    uncommitted `combat-tab.js` changes (Medium, coordination risk, not a code defect). rlv.2's Dev
+    Notes assumed "land rlv.1 first" before its own dev-story ran, but PR #1196 was never actually
+    merged onto this branch — this branch's `combat-tab.js` still had the ORIGINAL unfixed
+    `goTab('dice')`/`import ... from '../suite/roll.js'` code when rlv.2's dev-story started, and
+    rlv.2 fixed it directly (correctly, and independently of rlv.1's own fix shape) as part of
+    repointing away from the deleted `roll.js`. Recommended handling at the time: merge rlv.1's PR
+    #1196 to `main` FIRST, then rebase/recreate rlv.2's branch off the post-merge `main` — overtaken
+    by events (rlv.2 merged first), resolved by closing #1196 instead once the conflict was real.
 
 ## Deferred from: rlv-2-promote-roll-v2-retire-roll-v1 (2026-08-24, dev-story)
 
