@@ -467,6 +467,22 @@ Claude Sonnet 5 (`bmad-dev-story`, 2026-08-24)
   deliberately placed there per AC1/AC8 (visible pool-breakdown disclosure, "stays visible to STs").
 - Task 8: full regression — see Debug Log References above. No High/Medium findings; the one
   Task-5 assumption correction is a Dev Notes accuracy fix, not a defect requiring a patch.
+- **Real bug found and fixed during this session's own pre-review self-check** (before handing off to
+  Codex, not a review finding): `addPowerChip` (`roll-v2.js`) applied the clamped value to `state.MOD`
+  **unconditionally** after calling `addChip()`, but `addChip()` has its own, independent
+  empty/whitespace-label rejection — a valid non-zero value submitted with a blank label would inflate
+  `state.MOD` with no corresponding chip added and nothing persisted, so the pool total would silently
+  drift wrong until the next `loadPool()`. Fixed by comparing `state.powerChips.length` before/after
+  the `addChip()` call and only applying `state.MOD += v` when it actually grew. Prove-discriminated:
+  `git stash`-reverted the fix alone, confirmed the two new regression tests (empty label, whitespace
+  label) fail exactly as expected (`state.MOD` reads `3` instead of `0`), restored and re-confirmed
+  28/28 green. Two new regression tests plus one for the pre-existing `0`-value early guard and one
+  for "no character loaded" added to `server/tests/rlv-7-persistent-mod-chips.test.js`, using the same
+  `location`/`document` stub harness as `gdx-7-apply-costs-on-roll.test.js` (this story's own Task 6
+  originally scoped out testing `roll-v2.js`'s DOM-touching exports, matching `togSpec`/`chgMod`'s
+  existing untested precedent — that scoping call still stands for the *rest* of `addPowerChip`/
+  `togPowerChip`/`removePowerChip`; this one function gets a dedicated integration test because a real
+  bug was found in it, not because the scope changed).
 - Open item carried forward, not resolved here (flagged in the story's own Dev Notes rather than
   decided unilaterally): the issue's "pool caps enforced" AC is undefined; this story implements it
   as a ±10 clamp per chip, reusing the app's own existing `chgMod()` bound. If Angelus wants a

@@ -37,6 +37,78 @@ const {
   clampChipValue, loadChips, addChip, toggleChip, removeChip,
 } = await import('../../public/js/game/power-mod-chips.js');
 
+// ── addPowerChip integration (roll-v2.js), same stub harness as
+// gdx-7-apply-costs-on-roll.test.js — importing roll-v2.js transitively
+// reaches location.hostname (tracker.js, app-settings.js) and touches
+// `document` on every updPool() repaint. This block only imports roll-v2.js
+// once and shares `state` (suite/data.js's singleton) across its own tests,
+// matching gdx-7's own dynamic-import pattern (server/tests/gdx-7-apply-
+// costs-on-roll.test.js:334,411).
+const hadLocation = 'location' in globalThis;
+const hadDocument = 'document' in globalThis;
+if (!hadLocation) globalThis.location = { hostname: 'test', pathname: '/' };
+function _fakeElement() {
+  return {
+    _html: '', _text: '', disabled: false, value: '',
+    get innerHTML() { return this._html; }, set innerHTML(v) { this._html = v; },
+    get textContent() { return this._text; }, set textContent(v) { this._text = v; },
+    classList: { add() {}, remove() {}, toggle() {} },
+    style: {},
+    querySelectorAll: () => [],
+    querySelector: () => null,
+  };
+}
+if (!hadDocument) {
+  globalThis.document = {
+    getElementById: () => _fakeElement(),
+    createElement: () => _fakeElement(),
+  };
+}
+
+const { addPowerChip } = await import('../../public/js/suite/roll-v2.js');
+const { default: state } = await import('../../public/js/suite/data.js');
+
+describe('rlv.7 — addPowerChip (roll-v2.js integration, MOD/persistence must never disagree)', () => {
+  beforeEach(() => {
+    state.rollChar = { _id: 'char-integration' };
+    state.POOL_NAME = 'Nightmare';
+    state.MOD = 0;
+    state.powerChips = [];
+  });
+
+  it('a valid label+value adds a chip and applies its value to MOD', () => {
+    addPowerChip('Air of Menace', 2);
+    expect(state.MOD).toBe(2);
+    expect(state.powerChips).toHaveLength(1);
+    expect(state.powerChips[0]).toMatchObject({ label: 'Air of Menace', value: 2, on: true });
+  });
+
+  it('regression: an empty-label submission with a valid value must NOT inflate MOD (bug found and fixed during this story\'s own review — addChip() rejects the chip but addPowerChip() used to add MOD unconditionally anyway)', () => {
+    addPowerChip('', 3);
+    expect(state.MOD).toBe(0);
+    expect(state.powerChips).toHaveLength(0);
+  });
+
+  it('regression: a whitespace-only label submission must NOT inflate MOD', () => {
+    addPowerChip('   ', 3);
+    expect(state.MOD).toBe(0);
+    expect(state.powerChips).toHaveLength(0);
+  });
+
+  it('a 0-value submission is rejected before ever reaching addChip (existing early guard)', () => {
+    addPowerChip('Some Label', 0);
+    expect(state.MOD).toBe(0);
+    expect(state.powerChips).toHaveLength(0);
+  });
+
+  it('no-ops entirely when no character is loaded', () => {
+    state.rollChar = null;
+    addPowerChip('Air of Menace', 2);
+    expect(state.MOD).toBe(0);
+    expect(state.powerChips).toHaveLength(0);
+  });
+});
+
 describe('rlv.7 — clampChipValue (AC9, pool-cap enforcement)', () => {
   it('passes through in-range values unchanged', () => {
     expect(clampChipValue(3)).toBe(3);

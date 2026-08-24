@@ -503,7 +503,14 @@ export function addPowerChip(label, value) {
   if (!state.rollChar || !state.POOL_NAME) return;
   const v = clampChipValue(value);
   if (!v) return;
-  state.powerChips = addChip(String(state.rollChar._id), state.POOL_NAME, label, v);
+  const before = state.powerChips.length;
+  const updated = addChip(String(state.rollChar._id), state.POOL_NAME, label, v);
+  // addChip() has its own, independent empty/whitespace-label rejection —
+  // if it silently no-opped (list unchanged), MOD must not be touched
+  // either, or a rejected chip would still inflate the pool with no
+  // visible chip and nothing persisted to explain it on reload.
+  if (updated.length === before) return;
+  state.powerChips = updated;
   state.MOD += v;
   const labelEl = document.getElementById('pmc-label');
   const valueEl = document.getElementById('pmc-value');
