@@ -1,0 +1,809 @@
+diff --git a/public/css/suite.css b/public/css/suite.css
+index 4c4ffbfa..f13f058a 100644
+--- a/public/css/suite.css
++++ b/public/css/suite.css
+@@ -148,6 +148,20 @@ body.desktop-mode .view-toggle-btn{display:inline-flex !important;}
+ .effpool-seg--wp{color:var(--green2);}
+ .effpool-seg--resist{color:var(--info);}
+ 
++/* rlv.7 (#1039 item 2): persistent per-power mod chips — the "×" remove
++   affordance nested inside an .effpool-spec badge, and the add-mod row
++   below the breakdown. No --space-* scale exists in this app (theme.css's
++   own port note) — spacing here matches the plain-px convention every
++   neighbouring .effpool-*/.mchip rule in this file already uses. */
++.effpool-spec-del{margin-left:4px;color:var(--txt3);}
++.effpool-spec-del:hover{color:var(--crim2);}
++.effpool-spec.on .effpool-spec-del{color:var(--bg);}
++.rv2-addmod-row{display:flex;gap:6px;margin-top:8px;}
++.rv2-addmod-label{flex:2;}
++.rv2-addmod-value{flex:1;}
++.rv2-addmod-row .rv2-addmod-btn{flex:0 0 auto;height:36px;padding:0 12px;}
++.rv2-addmod-row.disabled{opacity:.5;}
++
+ /* Resistance */
+ .resist-sel{width:100%;background:var(--surf2);border:1px solid var(--bdr2);color:var(--txt);border-radius: var(--radius-md);padding:6px 10px;font-family:var(--ft);font-size:13px;cursor:pointer;margin-top:2px;}
+ .resist-sel:focus{outline:none;border-color:var(--gold);}
+diff --git a/public/index.html b/public/index.html
+index a47eb6bc..92485a26 100644
+--- a/public/index.html
++++ b/public/index.html
+@@ -252,6 +252,14 @@
+       <details class="rv2-breakdown">
+         <summary>Pool breakdown</summary>
+         <div id="effline" class="effline">Effective pool: <span>5 dice</span></div>
++        <!-- rlv.7 (#1039 item 2): static markup so updPool()'s own #effline
++             innerHTML rewrite never touches — and never wipes the focus or
++             value of — these live inputs. -->
++        <div class="rv2-addmod-row" id="rv2-addmod-row">
++          <input type="text" id="pmc-label" class="form-input rv2-addmod-label" placeholder="Mod label (e.g. Air of Menace)" maxlength="40" disabled>
++          <input type="number" id="pmc-value" class="form-input rv2-addmod-value" placeholder="+/-" min="-10" max="10" disabled>
++          <button type="button" class="mchip rv2-addmod-btn" onclick="addPowerChip(document.getElementById('pmc-label').value, document.getElementById('pmc-value').value)" disabled>+ Mod</button>
++        </div>
+       </details>
+ 
+       <!-- Sticky bottom Roll button; label updates on every state change. -->
+diff --git a/public/js/app.js b/public/js/app.js
+index a598ba4c..cd564f7d 100644
+--- a/public/js/app.js
++++ b/public/js/app.js
+@@ -121,7 +121,7 @@ import { installStModPopover } from './editor/st-mod-popover.js';
+ // behind are retired outright, not soaked or dead-code-fenced). Every
+ // external touch-point (pickChar, shared/resist.js, contested-roll) reads
+ // the same DOM ids as before, unchanged by this promotion.
+-import { loadPool, chgPool, chgMod, updPool, setAgain, setAgainSeg, togMod, togSpec, doRoll, clrHist, effPool, togEquipChip, updWeaponRef, spendVitae, spendWillpower } from './suite/roll-v2.js';
++import { loadPool, chgPool, chgMod, updPool, setAgain, setAgainSeg, togMod, togSpec, doRoll, clrHist, effPool, togEquipChip, updWeaponRef, spendVitae, spendWillpower, addPowerChip, togPowerChip, removePowerChip } from './suite/roll-v2.js';
+ import { onSheetChar, renderSheet as suiteRenderSheet, repaintSheetTrackers } from './suite/sheet.js';
+ import { toggleExp as suiteToggleExp, toggleDisc as suiteToggleDisc } from './suite/sheet-helpers.js';
+ import { updResist, showResistSec } from './shared/resist.js';
+@@ -1444,6 +1444,9 @@ Object.assign(window, {
+   updWeaponRef,
+   spendVitae,
+   spendWillpower,
++  addPowerChip,
++  togPowerChip,
++  removePowerChip,
+ 
+   // Suite sheet tab
+   onSheetChar,
+diff --git a/public/js/game/power-mod-chips.js b/public/js/game/power-mod-chips.js
+new file mode 100644
+index 00000000..6942e4f4
+--- /dev/null
++++ b/public/js/game/power-mod-chips.js
+@@ -0,0 +1,66 @@
++/* rlv.7 (#1039 item 2) — persistent per-power modifier chips.
++   Player curates free-text label+value mods; the app remembers them per
++   (character, power) and restores their last on/off state next time the
++   same power is loaded — the roller's own state.WP/MOD/ROTE toggle
++   pattern (roll-v2.js), generated from a list instead of hardcoded (D5).
++   Modelled directly on tabs/draft-persist.js's own versioned-payload,
++   composite-key shape. */
++
++const VERSION = 1;
++const CAP = 10; // matches chgMod()'s existing -10..+10 stepper bound, roll-v2.js
++
++function key(charId, powerName) {
++  return `tm-rlv7-chips-${charId}-${powerName}`;
++}
++
++export function clampChipValue(v) {
++  const n = Math.trunc(Number(v) || 0);
++  return Math.max(-CAP, Math.min(CAP, n));
++}
++
++export function loadChips(charId, powerName) {
++  if (!charId || !powerName) return [];
++  try {
++    const raw = localStorage.getItem(key(charId, powerName));
++    if (!raw) return [];
++    const parsed = JSON.parse(raw);
++    if (!parsed || parsed.v !== VERSION || !Array.isArray(parsed.chips)) return [];
++    return parsed.chips;
++  } catch {
++    return [];
++  }
++}
++
++function saveChips(charId, powerName, chips) {
++  if (!charId || !powerName) return;
++  try {
++    localStorage.setItem(key(charId, powerName), JSON.stringify({ v: VERSION, chips }));
++  } catch {
++    // QuotaExceeded or storage disabled — acceptable fallback failure.
++  }
++}
++
++export function addChip(charId, powerName, label, value) {
++  const chips = loadChips(charId, powerName);
++  const cleanLabel = String(label || '').trim().slice(0, 40);
++  const cleanValue = clampChipValue(value);
++  if (!cleanLabel || !cleanValue) return chips;
++  const chip = { id: crypto.randomUUID(), label: cleanLabel, value: cleanValue, on: true };
++  const next = [...chips, chip];
++  saveChips(charId, powerName, next);
++  return next;
++}
++
++export function toggleChip(charId, powerName, chipId) {
++  const chips = loadChips(charId, powerName);
++  const next = chips.map(c => c.id === chipId ? { ...c, on: !c.on } : c);
++  saveChips(charId, powerName, next);
++  return next;
++}
++
++export function removeChip(charId, powerName, chipId) {
++  const chips = loadChips(charId, powerName);
++  const next = chips.filter(c => c.id !== chipId);
++  saveChips(charId, powerName, next);
++  return next;
++}
+diff --git a/public/js/suite/data.js b/public/js/suite/data.js
+index 82f376cf..4b316615 100644
+--- a/public/js/suite/data.js
++++ b/public/js/suite/data.js
+@@ -91,6 +91,16 @@ const state = {
+   // applied to MOD. Populated by togSpec, cleared by loadPool.
+   specBonuses: {},
+   activeEquipBonus: null,
++  // rlv.7 (#1039): the currently-loaded pool's own display label (the `name`
++  // argument every loadPool() call site already passes) — the persistence
++  // key for power-mod-chips.js. Populated by loadPool(), cleared by nothing
++  // (stays set to the last-loaded pool's name, same lifetime as POOL_INFO).
++  POOL_NAME: null,
++  // Persistent per-power mod chips for the currently-loaded pool (rlv.7,
++  // #1039). Array of { id, label, value, on }. Populated by loadPool() from
++  // power-mod-chips.js's localStorage-backed store; mutated by
++  // addPowerChip/togPowerChip/removePowerChip.
++  powerChips: [],
+   activeWeaponId: null,
+   hist: [],
+   chars: [],
+diff --git a/public/js/suite/roll-v2.js b/public/js/suite/roll-v2.js
+index 4d1124f3..8b86a27d 100644
+--- a/public/js/suite/roll-v2.js
++++ b/public/js/suite/roll-v2.js
+@@ -34,6 +34,10 @@ import { isCombatGearWeaponShaped, isEquipmentOnMe } from '../data/equipment-der
+ // on the rule itself, via pools.js — see spendableCost below).
+ import { getGlobalSettings } from '../data/app-settings.js';
+ import { trackerAdj, trackerRead, ensureLoaded as ensureTrackerLoaded } from '../game/tracker.js';
++// rlv.7 (#1039 item 2): persistent per-power modifier chips — one more
++// toggleable layer on state.MOD, generated from a localStorage-backed list
++// instead of hardcoded (same shape as state.WP/state.ROTE, D5).
++import { loadChips, addChip, toggleChip, removeChip, clampChipValue } from '../game/power-mod-chips.js';
+ 
+ // ── Imports from other suite modules (will exist once extracted) ──
+ // showResistSec / updResist live in shared/resist.js
+@@ -186,6 +190,13 @@ export function loadPool(total, name, pi) {
+   state.activeEquipBonus = null;
+   state.activeWeaponId = null;
+   state.POOL_INFO = pi || null;
++  // rlv.7 (#1039): restore this power's persisted mod chips, folding
++  // currently-on ones into MOD — same reset-then-rebuild pattern as
++  // specBonuses/activeEquipBonus above, just sourced from localStorage
++  // instead of starting empty.
++  state.POOL_NAME = name;
++  state.powerChips = state.rollChar ? loadChips(String(state.rollChar._id), name) : [];
++  state.MOD += state.powerChips.filter(c => c.on).reduce((sum, c) => sum + c.value, 0);
+   // Auto-set 9-Again when the pool source grants it
+   if (pi?.nineAgain) setAgain(9);
+   else setAgain(10);
+@@ -398,8 +409,41 @@ export function updPool() {
+     }
+   }
+ 
++  // Persistent per-power mod chips (rlv.7, #1039 item 2). Not gated on
++  // pi.skill — a chip can attach to any loaded pool (discipline power,
++  // Common Action, Custom Pool), not just skill pools.
++  if (state.powerChips && state.powerChips.length) {
++    html += '<div class="effpool-specs">' + state.powerChips.map(chip => {
++      const cls = 'effpool-spec' + (chip.on ? ' on' : '');
++      const safeId = String(chip.id).replace(/"/g, '&quot;');
++      const safeLabel = String(chip.label).replace(/</g, '&lt;').replace(/>/g, '&gt;');
++      const sign = chip.value > 0 ? '+' : '';
++      return `<span class="${cls}" data-chip="${safeId}" `
++           + `onclick="togPowerChip('${safeId}')" title="Click to toggle">`
++           + `${safeLabel} <span class="effpool-spec-bonus">${sign}${chip.value}</span>`
++           + `<span class="effpool-spec-del" onclick="event.stopPropagation();removePowerChip('${safeId}')" title="Remove">×</span>`
++           + `</span>`;
++    }).join('') + '</div>';
++  }
++
+   el.innerHTML = html;
+   updWeaponRef();
++
++  // Add-mod row (rlv.7): static markup outside #effline's own innerHTML
++  // rewrite (see the story's Dev Notes — a live text input inside this
++  // rewrite would lose focus/value on every unrelated toggle), only its
++  // enabled/disabled state is painted here.
++  const addModRow = document.getElementById('rv2-addmod-row');
++  if (addModRow) {
++    const enabled = !!(state.rollChar && state.POOL_NAME);
++    addModRow.classList.toggle('disabled', !enabled);
++    const labelEl = document.getElementById('pmc-label');
++    const valueEl = document.getElementById('pmc-value');
++    const btnEl = document.querySelector('.rv2-addmod-btn');
++    if (labelEl) labelEl.disabled = !enabled;
++    if (valueEl) valueEl.disabled = !enabled;
++    if (btnEl) btnEl.disabled = !enabled;
++  }
+ }
+ 
+ // ── SPECIALTY TOGGLE ──
+@@ -447,6 +491,57 @@ export function togEquipChip(badge) {
+   updPool();
+ }
+ 
++// ── PERSISTENT PER-POWER MOD CHIPS (rlv.7, #1039 item 2) ──
++
++/** Add a new chip to the currently-loaded pool, on by default (AC2). Value
++ *  is clamped to power-mod-chips.js's own -10..+10 cap (AC9) before it's
++ *  applied — a clamped-to-0 or empty-label submission silently no-ops,
++ *  matching togSpec's own silent-guard style above. Clears the add-mod
++ *  row's own inputs on success, matching this file's existing direct-DOM
++ *  style (e.g. togMod's rote-c/wp-c classList writes). */
++export function addPowerChip(label, value) {
++  if (!state.rollChar || !state.POOL_NAME) return;
++  const v = clampChipValue(value);
++  if (!v) return;
++  const before = state.powerChips.length;
++  const updated = addChip(String(state.rollChar._id), state.POOL_NAME, label, v);
++  // addChip() has its own, independent empty/whitespace-label rejection —
++  // if it silently no-opped (list unchanged), MOD must not be touched
++  // either, or a rejected chip would still inflate the pool with no
++  // visible chip and nothing persisted to explain it on reload.
++  if (updated.length === before) return;
++  state.powerChips = updated;
++  state.MOD += v;
++  const labelEl = document.getElementById('pmc-label');
++  const valueEl = document.getElementById('pmc-value');
++  if (labelEl) labelEl.value = '';
++  if (valueEl) valueEl.value = '';
++  updPool();
++}
++
++/** Toggle a chip on/off — same sign logic as togSpec (toggling off
++ *  subtracts, toggling on adds). */
++export function togPowerChip(id) {
++  if (!state.rollChar || !state.POOL_NAME) return;
++  const chip = state.powerChips.find(c => c.id === id);
++  if (!chip) return;
++  state.MOD += chip.on ? -chip.value : chip.value;
++  state.powerChips = toggleChip(String(state.rollChar._id), state.POOL_NAME, id);
++  updPool();
++}
++
++/** Permanently remove a chip (curation, distinct from toggling off). If it
++ *  was on, its value is subtracted from MOD first so an active chip's
++ *  bonus never lingers after deletion. */
++export function removePowerChip(id) {
++  if (!state.rollChar || !state.POOL_NAME) return;
++  const chip = state.powerChips.find(c => c.id === id);
++  if (!chip) return;
++  if (chip.on) state.MOD -= chip.value;
++  state.powerChips = removeChip(String(state.rollChar._id), state.POOL_NAME, id);
++  updPool();
++}
++
+ // ── WEAPON REFERENCE PANEL (EQ-3) ──
+ 
+ const COMBAT_SKILLS = ['Weaponry', 'Brawl', 'Firearms', 'Archery'];
+diff --git a/server/tests/rlv-7-persistent-mod-chips.test.js b/server/tests/rlv-7-persistent-mod-chips.test.js
+new file mode 100644
+index 00000000..0efc2886
+--- /dev/null
++++ b/server/tests/rlv-7-persistent-mod-chips.test.js
+@@ -0,0 +1,248 @@
++/**
++ * rlv.7 (#1039 item 2) — persistent per-power modifier chips.
++ *
++ * Unit tests for public/js/game/power-mod-chips.js's pure, browser-global-
++ * free functions: clampChipValue (pool-cap enforcement, AC9) and the
++ * localStorage-backed add/toggle/remove/load cycle (AC4-AC8). This module
++ * only touches `localStorage` and `crypto.randomUUID`, both real Node 20+
++ * globals — no location/document stub harness needed (contrast
++ * gdx-7-apply-costs-on-roll.test.js, which imports roll-v2.js directly and
++ * therefore needs one).
++ *
++ * A fresh in-memory localStorage fake is installed per test (afterEach
++ * clears it) so tests never share state across the file, matching the
++ * existing pattern used elsewhere for testing localStorage-backed modules.
++ */
++
++import { describe, it, expect, beforeEach, afterEach } from 'vitest';
++
++const hadLocalStorage = 'localStorage' in globalThis;
++let store;
++
++beforeEach(() => {
++  store = new Map();
++  globalThis.localStorage = {
++    getItem: k => (store.has(k) ? store.get(k) : null),
++    setItem: (k, v) => store.set(k, String(v)),
++    removeItem: k => store.delete(k),
++    clear: () => store.clear(),
++  };
++});
++
++afterEach(() => {
++  if (!hadLocalStorage) delete globalThis.localStorage;
++});
++
++const {
++  clampChipValue, loadChips, addChip, toggleChip, removeChip,
++} = await import('../../public/js/game/power-mod-chips.js');
++
++// ── addPowerChip integration (roll-v2.js), same stub harness as
++// gdx-7-apply-costs-on-roll.test.js — importing roll-v2.js transitively
++// reaches location.hostname (tracker.js, app-settings.js) and touches
++// `document` on every updPool() repaint. This block only imports roll-v2.js
++// once and shares `state` (suite/data.js's singleton) across its own tests,
++// matching gdx-7's own dynamic-import pattern (server/tests/gdx-7-apply-
++// costs-on-roll.test.js:334,411).
++const hadLocation = 'location' in globalThis;
++const hadDocument = 'document' in globalThis;
++if (!hadLocation) globalThis.location = { hostname: 'test', pathname: '/' };
++function _fakeElement() {
++  return {
++    _html: '', _text: '', disabled: false, value: '',
++    get innerHTML() { return this._html; }, set innerHTML(v) { this._html = v; },
++    get textContent() { return this._text; }, set textContent(v) { this._text = v; },
++    classList: { add() {}, remove() {}, toggle() {} },
++    style: {},
++    querySelectorAll: () => [],
++    querySelector: () => null,
++  };
++}
++if (!hadDocument) {
++  globalThis.document = {
++    getElementById: () => _fakeElement(),
++    createElement: () => _fakeElement(),
++  };
++}
++
++const { addPowerChip } = await import('../../public/js/suite/roll-v2.js');
++const { default: state } = await import('../../public/js/suite/data.js');
++
++describe('rlv.7 — addPowerChip (roll-v2.js integration, MOD/persistence must never disagree)', () => {
++  beforeEach(() => {
++    state.rollChar = { _id: 'char-integration' };
++    state.POOL_NAME = 'Nightmare';
++    state.MOD = 0;
++    state.powerChips = [];
++  });
++
++  it('a valid label+value adds a chip and applies its value to MOD', () => {
++    addPowerChip('Air of Menace', 2);
++    expect(state.MOD).toBe(2);
++    expect(state.powerChips).toHaveLength(1);
++    expect(state.powerChips[0]).toMatchObject({ label: 'Air of Menace', value: 2, on: true });
++  });
++
++  it('regression: an empty-label submission with a valid value must NOT inflate MOD (bug found and fixed during this story\'s own review — addChip() rejects the chip but addPowerChip() used to add MOD unconditionally anyway)', () => {
++    addPowerChip('', 3);
++    expect(state.MOD).toBe(0);
++    expect(state.powerChips).toHaveLength(0);
++  });
++
++  it('regression: a whitespace-only label submission must NOT inflate MOD', () => {
++    addPowerChip('   ', 3);
++    expect(state.MOD).toBe(0);
++    expect(state.powerChips).toHaveLength(0);
++  });
++
++  it('a 0-value submission is rejected before ever reaching addChip (existing early guard)', () => {
++    addPowerChip('Some Label', 0);
++    expect(state.MOD).toBe(0);
++    expect(state.powerChips).toHaveLength(0);
++  });
++
++  it('no-ops entirely when no character is loaded', () => {
++    state.rollChar = null;
++    addPowerChip('Air of Menace', 2);
++    expect(state.MOD).toBe(0);
++    expect(state.powerChips).toHaveLength(0);
++  });
++});
++
++describe('rlv.7 — clampChipValue (AC9, pool-cap enforcement)', () => {
++  it('passes through in-range values unchanged', () => {
++    expect(clampChipValue(3)).toBe(3);
++    expect(clampChipValue(-7)).toBe(-7);
++    expect(clampChipValue(0)).toBe(0);
++  });
++  it('clamps above +10 down to +10', () => {
++    expect(clampChipValue(11)).toBe(10);
++    expect(clampChipValue(999)).toBe(10);
++  });
++  it('clamps below -10 up to -10', () => {
++    expect(clampChipValue(-11)).toBe(-10);
++    expect(clampChipValue(-999)).toBe(-10);
++  });
++  it('truncates non-integer input toward zero', () => {
++    expect(clampChipValue(2.9)).toBe(2);
++    expect(clampChipValue(-2.9)).toBe(-2);
++  });
++  it('treats non-numeric input as 0', () => {
++    expect(clampChipValue('abc')).toBe(0);
++    expect(clampChipValue(undefined)).toBe(0);
++    expect(clampChipValue(null)).toBe(0);
++  });
++});
++
++describe('rlv.7 — addChip (AC2, AC9)', () => {
++  it('rejects an empty label', () => {
++    const chips = addChip('char-1', 'Nightmare', '', 2);
++    expect(chips).toEqual([]);
++  });
++  it('rejects a whitespace-only label', () => {
++    const chips = addChip('char-1', 'Nightmare', '   ', 2);
++    expect(chips).toEqual([]);
++  });
++  it('rejects a 0 value', () => {
++    const chips = addChip('char-1', 'Nightmare', 'Air of Menace', 0);
++    expect(chips).toEqual([]);
++  });
++  it('accepts a valid label+value, added on by default', () => {
++    const chips = addChip('char-1', 'Nightmare', 'Air of Menace', 2);
++    expect(chips).toHaveLength(1);
++    expect(chips[0]).toMatchObject({ label: 'Air of Menace', value: 2, on: true });
++    expect(typeof chips[0].id).toBe('string');
++    expect(chips[0].id.length).toBeGreaterThan(0);
++  });
++  it('truncates a label over 40 chars rather than rejecting it', () => {
++    const longLabel = 'x'.repeat(60);
++    const chips = addChip('char-1', 'Nightmare', longLabel, 1);
++    expect(chips).toHaveLength(1);
++    expect(chips[0].label).toHaveLength(40);
++  });
++  it('clamps an out-of-range value on entry', () => {
++    const chips = addChip('char-1', 'Nightmare', 'Huge Bonus', 99);
++    expect(chips[0].value).toBe(10);
++  });
++});
++
++describe('rlv.7 — toggleChip (AC4)', () => {
++  it('flips on for the matching id only, leaves other chips untouched', () => {
++    let chips = addChip('char-1', 'Nightmare', 'Chip A', 2);
++    chips = addChip('char-1', 'Nightmare', 'Chip B', 3);
++    const [a, b] = chips;
++    const toggled = toggleChip('char-1', 'Nightmare', a.id);
++    const ta = toggled.find(c => c.id === a.id);
++    const tb = toggled.find(c => c.id === b.id);
++    expect(ta.on).toBe(false);
++    expect(tb.on).toBe(true);
++  });
++  it('a not-found id returns the list unchanged', () => {
++    const chips = addChip('char-1', 'Nightmare', 'Chip A', 2);
++    const result = toggleChip('char-1', 'Nightmare', 'nonexistent-id');
++    expect(result).toEqual(chips);
++  });
++});
++
++describe('rlv.7 — removeChip (AC5)', () => {
++  it('drops the matching chip only', () => {
++    let chips = addChip('char-1', 'Nightmare', 'Chip A', 2);
++    chips = addChip('char-1', 'Nightmare', 'Chip B', 3);
++    const [a, b] = chips;
++    const result = removeChip('char-1', 'Nightmare', a.id);
++    expect(result).toHaveLength(1);
++    expect(result[0].id).toBe(b.id);
++  });
++  it('a not-found id returns the list unchanged', () => {
++    const chips = addChip('char-1', 'Nightmare', 'Chip A', 2);
++    const result = removeChip('char-1', 'Nightmare', 'nonexistent-id');
++    expect(result).toEqual(chips);
++  });
++});
++
++describe('rlv.7 — loadChips (AC6, AC7)', () => {
++  it('returns [] for a charId/powerName with nothing stored', () => {
++    expect(loadChips('char-1', 'Nightmare')).toEqual([]);
++  });
++  it('returns [] (not a throw) for a corrupted stored payload', () => {
++    localStorage.setItem('tm-rlv7-chips-char-1-Nightmare', 'not json{{{');
++    expect(() => loadChips('char-1', 'Nightmare')).not.toThrow();
++    expect(loadChips('char-1', 'Nightmare')).toEqual([]);
++  });
++  it('returns [] for a wrong-version stored payload', () => {
++    localStorage.setItem('tm-rlv7-chips-char-1-Nightmare', JSON.stringify({ v: 999, chips: [{ id: 'x', label: 'x', value: 1, on: true }] }));
++    expect(loadChips('char-1', 'Nightmare')).toEqual([]);
++  });
++  it('round-trips a real addChip write correctly', () => {
++    addChip('char-1', 'Nightmare', 'Air of Menace', 2);
++    const loaded = loadChips('char-1', 'Nightmare');
++    expect(loaded).toHaveLength(1);
++    expect(loaded[0].label).toBe('Air of Menace');
++  });
++  it('returns [] for missing charId or powerName', () => {
++    expect(loadChips(null, 'Nightmare')).toEqual([]);
++    expect(loadChips('char-1', null)).toEqual([]);
++  });
++});
++
++describe('rlv.7 — composite-key isolation (AC8)', () => {
++  it('chips added under (charA, powerX) do not appear under (charA, powerY)', () => {
++    addChip('char-A', 'Nightmare', 'Only for Nightmare', 2);
++    expect(loadChips('char-A', 'Intimidation')).toEqual([]);
++  });
++  it('chips added under (charA, powerX) do not appear under (charB, powerX)', () => {
++    addChip('char-A', 'Nightmare', 'Only for char A', 2);
++    expect(loadChips('char-B', 'Nightmare')).toEqual([]);
++  });
++  it('each (char, power) pair keeps its own independent chip list', () => {
++    addChip('char-A', 'Nightmare', 'A-Nightmare chip', 2);
++    addChip('char-A', 'Intimidation', 'A-Intimidation chip', 3);
++    addChip('char-B', 'Nightmare', 'B-Nightmare chip', 4);
++    expect(loadChips('char-A', 'Nightmare')).toHaveLength(1);
++    expect(loadChips('char-A', 'Nightmare')[0].label).toBe('A-Nightmare chip');
++    expect(loadChips('char-A', 'Intimidation')).toHaveLength(1);
++    expect(loadChips('char-A', 'Intimidation')[0].label).toBe('A-Intimidation chip');
++    expect(loadChips('char-B', 'Nightmare')).toHaveLength(1);
++    expect(loadChips('char-B', 'Nightmare')[0].label).toBe('B-Nightmare chip');
++  });
++});
+diff --git a/tests/rlv-7-persistent-mod-chips.spec.js b/tests/rlv-7-persistent-mod-chips.spec.js
+new file mode 100644
+index 00000000..41e29f42
+--- /dev/null
++++ b/tests/rlv-7-persistent-mod-chips.spec.js
+@@ -0,0 +1,260 @@
++// E2E coverage for rlv.7 (#1039 item 2) — persistent per-power modifier
++// chips on the Roll tab. A player adds a free-text label+value modifier to
++// whatever pool is loaded; it renders as a toggleable chip (reusing
++// .effpool-spec styling), persists per (character, power/pool label) in
++// localStorage, and restores its last on/off state next time that same
++// power is loaded for that same character. See
++// specs/stories/rlv-7-persistent-per-power-mod-chips.md for the full spec.
++//
++// House style follows tests/rlv-4-custom-pool-builder.spec.js exactly:
++// serviceWorkers blocked (this app's Service Worker intercepts
++// /api/characters ahead of Playwright's own page.route() stubs and can
++// serve stale real data — see memory/project-sw-leaks-live-data-in-
++// playwright-tests.md), local-test-token auth bypass, window.pickChar(c)
++// direct character injection instead of the real API-backed character-list
++// flow.
++
++const { test, expect } = require('@playwright/test');
++test.use({ serviceWorkers: 'block' });
++
++// ── Source-fetch smokes ──────────────────────────────────────────────────
++
++test('rlv.7 — power-mod-chips.js exports the expected pure functions', async ({ request }) => {
++  const res = await request.get('/js/game/power-mod-chips.js');
++  const src = await res.text();
++  expect(src).toMatch(/export\s+function\s+clampChipValue\b/);
++  expect(src).toMatch(/export\s+function\s+loadChips\b/);
++  expect(src).toMatch(/export\s+function\s+addChip\b/);
++  expect(src).toMatch(/export\s+function\s+toggleChip\b/);
++  expect(src).toMatch(/export\s+function\s+removeChip\b/);
++});
++
++test('rlv.7 — roll-v2.js exports addPowerChip/togPowerChip/removePowerChip', async ({ request }) => {
++  const res = await request.get('/js/suite/roll-v2.js');
++  const src = await res.text();
++  expect(src).toMatch(/export\s+function\s+addPowerChip\b/);
++  expect(src).toMatch(/export\s+function\s+togPowerChip\b/);
++  expect(src).toMatch(/export\s+function\s+removePowerChip\b/);
++});
++
++test('rlv.7 — index.html has the static add-mod row inside the breakdown disclosure', async ({ request }) => {
++  const res = await request.get('/');
++  const src = await res.text();
++  expect(src).toMatch(/id="rv2-addmod-row"/);
++  expect(src).toMatch(/id="pmc-label"/);
++  expect(src).toMatch(/id="pmc-value"/);
++});
++
++// ── Live boot flow — no OAuth needed (local-test-token bypass) ──────────
++
++const ST_USER = {
++  id: '900000005', username: 'test_st_rlv7', global_name: 'Test ST rlv7',
++  avatar: null, role: 'st', player_id: 'p-rlv7', character_ids: [], is_dual_role: false,
++};
++
++function attrs(overrides = {}) {
++  return {
++    Intelligence: { dots: 3, bonus: 0 }, Wits: { dots: 2, bonus: 0 }, Resolve: { dots: 2, bonus: 0 },
++    Strength: { dots: 2, bonus: 0 }, Dexterity: { dots: 3, bonus: 0 }, Stamina: { dots: 2, bonus: 0 },
++    Presence: { dots: 2, bonus: 0 }, Manipulation: { dots: 2, bonus: 0 }, Composure: { dots: 2, bonus: 0 },
++    ...overrides,
++  };
++}
++
++// Two non-zero skills (Occult, Larceny) so cross-power isolation (AC8) can
++// be proven by loading two different real pools on the same character.
++const CHIP_CHAR = {
++  _id: 'char-rlv7-chip', name: 'Chip Tester', moniker: null, honorific: null,
++  clan: 'Mekhet', covenant: 'Invictus', player: 'Test Player',
++  blood_potency: 1, humanity: 7, humanity_base: 7, court_title: null, retired: false,
++  status: { city: 1, clan: 1, covenant: {} },
++  attributes: attrs(),
++  skills: {
++    Occult: { dots: 3, bonus: 0, specs: [], nine_again: false },
++    Larceny: { dots: 2, bonus: 0, specs: [], nine_again: false },
++  },
++  disciplines: {}, merits: [], powers: [], ordeals: [],
++};
++
++async function setupSuite(page, chars) {
++  await page.addInitScript((user) => {
++    localStorage.setItem('tm_auth_token', 'local-test-token');
++    localStorage.setItem('tm_auth_expires', String(Date.now() + 3600000));
++    localStorage.setItem('tm_auth_user', JSON.stringify(user));
++  }, ST_USER);
++
++  await page.route('**/api/**', r => r.fulfill({ status: 200, contentType: 'application/json', body: '[]' }));
++  await page.route(/\/api\/game_sessions\/next/, r => r.fulfill({ status: 200, contentType: 'application/json', body: 'null' }));
++  await page.route(/\/api\/characters$/, r => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(chars) }));
++
++  await page.goto('/');
++  await page.waitForSelector('#app', { state: 'visible', timeout: 15000 });
++  await page.evaluate(() => window.goTab('roll'));
++  await page.waitForSelector('#t-roll.active', { state: 'visible', timeout: 5000 });
++}
++
++async function pickCharacter(page, char) {
++  await page.evaluate((c) => window.pickChar(c), char);
++  await expect(page.locator('#roll-char-pools')).toBeVisible({ timeout: 5000 });
++}
++
++async function loadSkillPool(page, skillName) {
++  await page.locator('#roll-char-pools .gcp-pool-btn', { hasText: skillName }).click();
++  // The add-mod row lives inside <details class="rv2-breakdown"> (collapsed
++  // by default) alongside #effline — open it so #pmc-label/#pmc-value are
++  // actually visible/fillable, matching what a real player has to do.
++  const details = page.locator('.rv2-breakdown');
++  if (!(await details.evaluate(el => el.open))) {
++    await details.locator('summary').click();
++  }
++}
++
++test('rlv.7 — Occult 3 + Intelligence 3 loads as 6 dice, no chips yet', async ({ page }) => {
++  await setupSuite(page, [CHIP_CHAR]);
++  await pickCharacter(page, CHIP_CHAR);
++  await loadSkillPool(page, 'Occult');
++  await expect(page.locator('#rv2-eff')).toHaveText('6');
++  await expect(page.locator('#effline .effpool-spec[data-chip]')).toHaveCount(0);
++});
++
++test('rlv.7 — adding a chip via the add-mod row renders it on and bumps the effective pool', async ({ page }) => {
++  await setupSuite(page, [CHIP_CHAR]);
++  await pickCharacter(page, CHIP_CHAR);
++  await loadSkillPool(page, 'Occult');
++  await expect(page.locator('#rv2-eff')).toHaveText('6');
++
++  await page.locator('#pmc-label').fill('Air of Menace');
++  await page.locator('#pmc-value').fill('2');
++  await page.locator('.rv2-addmod-btn').click();
++
++  const chip = page.locator('#effline .effpool-spec[data-chip]');
++  await expect(chip).toHaveCount(1);
++  await expect(chip).toHaveClass(/\bon\b/);
++  await expect(chip).toContainText('Air of Menace');
++  await expect(chip).toContainText('+2');
++  await expect(page.locator('#rv2-eff')).toHaveText('8');
++
++  // Inputs cleared after a successful add.
++  await expect(page.locator('#pmc-label')).toHaveValue('');
++  await expect(page.locator('#pmc-value')).toHaveValue('');
++});
++
++test('rlv.7 — toggling a chip off/on reduces/restores the effective pool', async ({ page }) => {
++  await setupSuite(page, [CHIP_CHAR]);
++  await pickCharacter(page, CHIP_CHAR);
++  await loadSkillPool(page, 'Occult');
++  await page.locator('#pmc-label').fill('Air of Menace');
++  await page.locator('#pmc-value').fill('2');
++  await page.locator('.rv2-addmod-btn').click();
++  await expect(page.locator('#rv2-eff')).toHaveText('8');
++
++  const chip = page.locator('#effline .effpool-spec[data-chip]');
++  // Click near the chip's own label text, not the trailing "×" delete affordance.
++  await chip.click({ position: { x: 8, y: 8 } });
++  await expect(chip).not.toHaveClass(/\bon\b/);
++  await expect(page.locator('#rv2-eff')).toHaveText('6');
++
++  await chip.click({ position: { x: 8, y: 8 } });
++  await expect(chip).toHaveClass(/\bon\b/);
++  await expect(page.locator('#rv2-eff')).toHaveText('8');
++});
++
++test('rlv.7 — a chip persists across reload with its last-known ON state (AC7)', async ({ page }) => {
++  await setupSuite(page, [CHIP_CHAR]);
++  await pickCharacter(page, CHIP_CHAR);
++  await loadSkillPool(page, 'Occult');
++  await page.locator('#pmc-label').fill('Air of Menace');
++  await page.locator('#pmc-value').fill('2');
++  await page.locator('.rv2-addmod-btn').click();
++  await expect(page.locator('#effline .effpool-spec[data-chip]')).toHaveClass(/\bon\b/);
++
++  await page.reload();
++  await page.waitForSelector('#app', { state: 'visible', timeout: 15000 });
++  await page.evaluate(() => window.goTab('roll'));
++  await pickCharacter(page, CHIP_CHAR);
++  await loadSkillPool(page, 'Occult');
++
++  const chip = page.locator('#effline .effpool-spec[data-chip]');
++  await expect(chip).toHaveCount(1);
++  await expect(chip).toHaveClass(/\bon\b/);
++  await expect(chip).toContainText('Air of Menace');
++  await expect(page.locator('#rv2-eff')).toHaveText('8');
++});
++
++test('rlv.7 — a chip persists across reload with its last-known OFF state (AC7)', async ({ page }) => {
++  await setupSuite(page, [CHIP_CHAR]);
++  await pickCharacter(page, CHIP_CHAR);
++  await loadSkillPool(page, 'Occult');
++  await page.locator('#pmc-label').fill('Bane Weakness');
++  await page.locator('#pmc-value').fill('-2');
++  await page.locator('.rv2-addmod-btn').click();
++  const chip = page.locator('#effline .effpool-spec[data-chip]');
++  await chip.click({ position: { x: 8, y: 8 } }); // toggle off
++  await expect(chip).not.toHaveClass(/\bon\b/);
++
++  await page.reload();
++  await page.waitForSelector('#app', { state: 'visible', timeout: 15000 });
++  await page.evaluate(() => window.goTab('roll'));
++  await pickCharacter(page, CHIP_CHAR);
++  await loadSkillPool(page, 'Occult');
++
++  const reloadedChip = page.locator('#effline .effpool-spec[data-chip]');
++  await expect(reloadedChip).toHaveCount(1);
++  await expect(reloadedChip).not.toHaveClass(/\bon\b/);
++  await expect(page.locator('#rv2-eff')).toHaveText('6'); // off chip contributes nothing
++});
++
++test('rlv.7 — removing a chip via "×" drops it permanently (AC5)', async ({ page }) => {
++  await setupSuite(page, [CHIP_CHAR]);
++  await pickCharacter(page, CHIP_CHAR);
++  await loadSkillPool(page, 'Occult');
++  await page.locator('#pmc-label').fill('Temporary Mod');
++  await page.locator('#pmc-value').fill('1');
++  await page.locator('.rv2-addmod-btn').click();
++  await expect(page.locator('#effline .effpool-spec[data-chip]')).toHaveCount(1);
++
++  await page.locator('#effline .effpool-spec-del').click();
++  await expect(page.locator('#effline .effpool-spec[data-chip]')).toHaveCount(0);
++  await expect(page.locator('#rv2-eff')).toHaveText('6');
++
++  await page.reload();
++  await page.waitForSelector('#app', { state: 'visible', timeout: 15000 });
++  await page.evaluate(() => window.goTab('roll'));
++  await pickCharacter(page, CHIP_CHAR);
++  await loadSkillPool(page, 'Occult');
++  await expect(page.locator('#effline .effpool-spec[data-chip]')).toHaveCount(0);
++});
++
++test('rlv.7 — a different pool on the same character shows no chips (AC8, per-power key)', async ({ page }) => {
++  await setupSuite(page, [CHIP_CHAR]);
++  await pickCharacter(page, CHIP_CHAR);
++  await loadSkillPool(page, 'Occult');
++  await page.locator('#pmc-label').fill('Occult-only chip');
++  await page.locator('#pmc-value').fill('2');
++  await page.locator('.rv2-addmod-btn').click();
++  await expect(page.locator('#effline .effpool-spec[data-chip]')).toHaveCount(1);
++
++  await loadSkillPool(page, 'Larceny');
++  await expect(page.locator('#effline .effpool-spec[data-chip]')).toHaveCount(0);
++
++  // Switching back to Occult still shows its own chip — proves the switch
++  // above didn't clobber Occult's stored chips, only changed the view.
++  await loadSkillPool(page, 'Occult');
++  await expect(page.locator('#effline .effpool-spec[data-chip]')).toHaveCount(1);
++  await expect(page.locator('#effline .effpool-spec[data-chip]')).toContainText('Occult-only chip');
++});
++
++test('rlv.7 — a value above +10 is clamped to +10 once added (AC9)', async ({ page }) => {
++  await setupSuite(page, [CHIP_CHAR]);
++  await pickCharacter(page, CHIP_CHAR);
++  await loadSkillPool(page, 'Occult');
++
++  await page.locator('#pmc-label').fill('Absurd Bonus');
++  await page.locator('#pmc-value').fill('99');
++  await page.locator('.rv2-addmod-btn').click();
++
++  const chip = page.locator('#effline .effpool-spec[data-chip]');
++  await expect(chip).toContainText('+10');
++  await expect(chip).not.toContainText('+99');
++  await expect(page.locator('#rv2-eff')).toHaveText('16'); // 6 base + 10 clamped
++});

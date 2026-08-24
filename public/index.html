@@ -252,6 +252,14 @@
       <details class="rv2-breakdown">
         <summary>Pool breakdown</summary>
         <div id="effline" class="effline">Effective pool: <span>5 dice</span></div>
+        <!-- rlv.7 (#1039 item 2): static markup so updPool()'s own #effline
+             innerHTML rewrite never touches — and never wipes the focus or
+             value of — these live inputs. -->
+        <div class="rv2-addmod-row" id="rv2-addmod-row">
+          <input type="text" id="pmc-label" class="form-input rv2-addmod-label" placeholder="Mod label (e.g. Air of Menace)" maxlength="40" disabled>
+          <input type="number" id="pmc-value" class="form-input rv2-addmod-value" placeholder="+/-" min="-10" max="10" disabled>
+          <button type="button" id="pmc-add-btn" class="mchip rv2-addmod-btn" onclick="addPowerChip(document.getElementById('pmc-label').value, document.getElementById('pmc-value').value)" disabled>+ Mod</button>
+        </div>
       </details>
 
       <!-- Sticky bottom Roll button; label updates on every state change. -->
