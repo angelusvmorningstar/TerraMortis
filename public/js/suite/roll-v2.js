@@ -1,10 +1,12 @@
 // ══════════════════════════════════════════════
-//  Roll Tab UI (v2 — parallel dev surface, #1018)
+//  Roll Tab UI (#1018) — the sole player roller since rlv.2 (2026-08-24).
 //
-//  Gated by the `tm-use-new-dice-roller` localStorage flag. Started as
-//  a byte-identical copy of ./roll.js.
+//  Was gated behind the `tm-use-new-dice-roller` localStorage flag
+//  alongside a parallel ./roll.js during its own development; rlv.2
+//  promoted this module and deleted the flag and ./roll.js outright, not
+//  as a staged soak. Started as a byte-identical copy of ./roll.js.
 //
-//  Slice A+D (#1024) — divergence from roll.js:
+//  Slice A+D (#1024) — divergence from roll.js (retired):
 //    A. Anchor number = `effPool()` (the count you'll ACTUALLY roll),
 //       painted into `#rv2-eff` / `#rv2-eff-unit`, with a
 //       always-visible sub-line at `#rv2-sub`

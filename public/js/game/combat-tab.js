@@ -12,7 +12,7 @@ import { getAttrEffective, calcDefence, calcHealth } from '../data/accessors.js'
 import { defenceForDisplay } from '../data/equipment-derivation.js';
 import { esc } from '../data/helpers.js';
 import { trackerAdj, trackerRead } from './tracker.js';
-import { loadPool, doRoll } from '../suite/roll.js';
+import { loadPool } from '../suite/roll-v2.js';
 
 const SESSION_KEY = 'tm_combat_scene';
 const d10 = () => Math.floor(Math.random() * 10) + 1;
@@ -145,8 +145,8 @@ function quickRoll(charId, pool, label) {
   if (!c) return;
   suiteState.rollChar = c;
   loadPool(pool, label, { total: pool });
-  // Navigate to dice tab to show the roll
-  if (window.goTab) window.goTab('dice');
+  // Navigate to the Roll tab to show the roll
+  if (window.goTab) window.goTab('roll');
 }
 
 function _isIncap(cb) {

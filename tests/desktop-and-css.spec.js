@@ -65,13 +65,13 @@ test('desktop-mode — bottom nav hidden in desktop mode', async ({ page }) => {
   await expect(page.locator('#bnav')).toBeHidden();
 });
 
-test('desktop-mode — sidebar has primary tabs (Dice, Sheet, Status)', async ({ page }) => {
+test('desktop-mode — sidebar has primary tabs (Roll, Sheet, Status)', async ({ page }) => {
   await setupSuite(page);
   await page.click('#btn-desktop-toggle');
   await page.waitForSelector('#desktop-sidebar', { state: 'visible', timeout: 5000 });
 
   const navText = await page.locator('#desktop-sidebar-nav').textContent();
-  expect(navText).toMatch(/Dice/i);
+  expect(navText).toMatch(/Roll/i);
   expect(navText).toMatch(/Sheet/i);
   expect(navText).toMatch(/Status/i);
 });
@@ -99,7 +99,7 @@ test('desktop-mode — ST sees Tracker and Sign-In in sidebar', async ({ page })
   expect(navText).toMatch(/Sign-In/i);
 });
 
-test('desktop-mode — tapping sidebar Dice navigates to dice tab', async ({ page }) => {
+test('desktop-mode — tapping sidebar Roll navigates to Roll tab', async ({ page }) => {
   await setupSuite(page);
   await page.click('#btn-desktop-toggle');
   await page.waitForSelector('#desktop-sidebar', { state: 'visible', timeout: 5000 });
@@ -108,9 +108,11 @@ test('desktop-mode — tapping sidebar Dice navigates to dice tab', async ({ pag
   await page.evaluate(() => window.goTab('status'));
   await page.waitForTimeout(200);
 
-  // Click Dice in sidebar (now a .sidebar-app-tile in primary grid)
-  await page.locator('#desktop-sidebar-nav .sidebar-app-tile').filter({ hasText: /Dice/i }).click();
-  await expect(page.locator('#t-dice')).toHaveClass(/active/, { timeout: 5000 });
+  // Click Roll in sidebar (now a .sidebar-app-tile in primary grid) — rlv.2
+  // (2026-08-24) retired the old Dice/Roll flag split; roll-v2.js's #t-roll
+  // is the only Roll tab now.
+  await page.locator('#desktop-sidebar-nav .sidebar-app-tile').filter({ hasText: /Roll/i }).click();
+  await expect(page.locator('#t-roll')).toHaveClass(/active/, { timeout: 5000 });
 });
 
 test('desktop-mode — toggling back restores game mode', async ({ page }) => {

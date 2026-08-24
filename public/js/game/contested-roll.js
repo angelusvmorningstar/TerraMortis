@@ -5,7 +5,7 @@ import suiteState from '../suite/data.js';
 import { getAttrEffective, getAttrBonus, skDots, skBonus } from '../data/accessors.js';
 import { displayName, dropdownName, esc } from '../data/helpers.js';
 import { apiPost } from '../data/api.js';
-import { mkDieEl, mkColsEl } from '../suite/roll.js';
+import { mkDieEl, mkColsEl } from '../suite/roll-v2.js';
 
 // ── Roll type definitions ──
 

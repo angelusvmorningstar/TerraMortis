@@ -892,3 +892,84 @@ data-integrity gap crd-3a's own review already fixed the correctness-critical ha
     nothing currently in this codebase's write paths prevents but which also isn't a shape any
     known live character currently has (not checked against live `tm_game.characters` as part of
     this review — a live data-integrity audit, if wanted, is separate work).
+
+## Deferred from: code review of rlv-2-promote-roll-v2-retire-roll-v1 (2026-08-24, internal 3-layer review)
+
+Internal review (Blind Hunter diff-only, Edge Case Hunter diff + full repo, Acceptance Auditor
+two-pass spec + Dev Agent Record verification), all three as subagents in this session, since
+Codex was unavailable (quota resets 2026-08-27). Two findings patched in the same pass (a stale
+`roll.js` comment in `equipment-client-fixes.test.js`, a second stale "Dice" assertion in
+`desktop-and-css.spec.js` the dev-story pass had missed) plus the Dev Agent Record's own test-count
+inaccuracies corrected (verified via `npx playwright test --list`: 6/6, 7/7, 13/13, not the
+originally-recorded 5/5, 8/8, 15/15 — all three files were genuinely fully green either way). The
+two below were judged real but out of proportion to fix in this pass, or not this story's to fix.
+
+- **`specs/architecture/system-map.md` §10 ("Dice Roller Implementations") is deeply stale, unrelated
+  to and predating this story** (Low, found not caused). It still lists `js/suite/roll.js` as the
+  Suite app's roller and the Game app roller as "(missing) — Needs to be built", when the Game app
+  roller (`roll-v2.js`, promoted to sole roller by this very story) has existed and shipped for some
+  time before rlv.2 ever started. This story's own diff makes the `roll.js` line doubly wrong (the
+  file no longer exists at all), but the whole table was already wrong in a much bigger way before
+  that. Not patched here — a one-line fix would leave the rest of the table (the "Game app (missing)"
+  row, the "DT processing... gold standard" framing) equally misleading, and a proper fix is a full
+  re-audit of this doc against the real current roller landscape (`roll-v2.js`, `dice-engine.js`,
+  `downtime-views.js`'s own roller, `contested-roll.js`), which is its own scoped task, not a
+  one-line patch inside a code review.
+- **A real sequencing/merge-conflict risk between rlv.1 (PR #1196, open, not merged) and rlv.2's own
+  uncommitted `combat-tab.js` changes** (Medium, coordination risk, not a code defect). rlv.2's Dev
+  Notes assumed "land rlv.1 first" before its own dev-story ran, but PR #1196 was never actually
+  merged onto this branch — this branch's `combat-tab.js` still had the ORIGINAL unfixed
+  `goTab('dice')`/`import ... from '../suite/roll.js'` code when rlv.2's dev-story started, and
+  rlv.2 fixed it directly (correctly, and independently of rlv.1's own fix shape) as part of
+  repointing away from the deleted `roll.js`. This means when PR #1196 eventually merges to `main`
+  with its own `combat-tab.js` changes, and rlv.2's branch also touches the same lines, there is a
+  live risk of a merge conflict or (worse) a silent double-fix where one branch's change quietly
+  overwrites the other's. Not fixed here — no code defect exists in either branch alone; this is
+  purely a heads-up for whoever merges the two. Recommended handling: merge rlv.1's PR #1196 to
+  `main` FIRST, then rebase/recreate rlv.2's branch off the post-merge `main` so its own
+  `combat-tab.js` diff is computed against the already-landed rlv.1 fix rather than the pre-fix
+  original — avoids the conflict entirely rather than resolving it by hand.
+
+## Deferred from: rlv-2-promote-roll-v2-retire-roll-v1 (2026-08-24, dev-story)
+
+- **`tests/suite.spec.js` has at least 5 of 24 tests already failing, independent of this story**
+  (Medium, found not caused, previously undocumented). "starts on Roll tab" (no `.active` class on
+  `#t-roll`/element not found), "Roll and Character nav buttons visible" (`#n-roll` not found/not
+  visible), "Territory nav visible for ST" (`#n-territory` hidden), "tab navigation works" (60s
+  timeout clicking `#n-chars`), and "Player nav button visible" (`#nav-player` — that id doesn't
+  exist anywhere in `app.js`'s real `NAV_ITEMS`, looks like a stale selector from a much older nav
+  structure). Confirmed via `git stash` isolation: identical failures, same line numbers, against
+  the UNMODIFIED base code before this story changed anything (only the "starts on Roll tab" and
+  "Roll and Character nav buttons" errors shift from "element not found" pre-change to "found but
+  not active/hidden" post-change, because `#t-dice`/`#n-dice` no longer exist for the assertion to
+  miss entirely — same underlying failure, not a new one). Stopped investigating past test 12/24
+  once the pre-existing pattern was confirmed (this file's mocking/fixture setup looks incomplete
+  for the ST/Player nav describe blocks) — full root-cause is out of this story's scope and the run
+  is slow (one 60s timeout per pass). Worth a `CLAUDE.md` "Known pre-existing failures" entry and a
+  proper investigation story of its own; do not re-derive from scratch, this session already proved
+  it's pre-existing twice (stash-isolated on two separate runs).
+
+- **`tests/feature-662-eq3-roll-calc-equipment-chips.spec.js` has 7 of 12 tests already failing,
+  independent of this story** (Medium, found not caused, previously undocumented). AC-1, AC-2, AC-3,
+  AC-4, AC-7, AC-8 and AC-10 all fail on `#effline .effpool-spec[data-equip]` / weapon-reference
+  assertions never finding elements. Confirmed via `git stash` isolation: identical 7 failures,
+  same test names, against the UNMODIFIED base code (`goTab('dice')` / `#t-dice`) before this story
+  changed anything. Not investigated further (equipment-chip rendering is outside this story's
+  scope — `togEquipChip`/`updWeaponRef` are the byte-identical-confirmed functions per the Phase 0
+  audit, so the break is more likely in equipment-catalogue data shape or fixture setup than in
+  roll.js vs roll-v2.js divergence, but that's a guess, not a finding). Worth a `CLAUDE.md` "Known
+  pre-existing failures" entry so a future story's targeted-gate count isn't thrown off by it.
+
+- **`tests/st-only-chrome.spec.js`'s two "Dice tab" nav-visibility tests were already broken before
+  this story touched anything** (Low, found not caused). "ST sees Dice tab in bottom nav" only ever
+  passed because the `dice`/`roll` `NAV_ITEMS` entries have never carried an `stOnly`/`condition`
+  gate in `app.js` — every role has always seen this tab. "Player does NOT see Dice tab in bottom
+  nav" was confirmed genuinely failing on a clean baseline run (`npx playwright test
+  tests/st-only-chrome.spec.js`, before any rlv.2 code change), independent of this story. rlv.2
+  deletes the `dice` nav item outright and consolidates to a single, still-ungated `roll` item, so
+  renaming the selector from `#n-dice` to `#n-roll` would not fix the premise — it would just point
+  an already-wrong assertion at the surviving tab (the Roll tab is a core player-facing feature and
+  should never be ST-only). Both tests were removed rather than renamed; the file's other two tests
+  (`#hdr-nav` visibility) are unrelated and untouched. If phone bottom-nav role gating was ever
+  meant to hide the Roll tab from players specifically, that's a product decision for Angelus, not
+  something to infer from a test that has been wrong on at least one side since before this story.

@@ -39,9 +39,17 @@ briefly here so this table's own "blocked on" column is legible without cross-re
 - **D2 — DOM-contract cleanup timing.** Land the merge with existing shared IDs untouched, converting
   to a real `getPool()`/`onRollComplete()`/`mountInto()` interface as a *separate* later story
   (Winston's recommendation) — confirm, or do both in one pass?
-- **D3 — Staged-rollout mechanism.** Reuse the existing (imperfect) `tm-use-new-dice-roller` flag for
-  one more soak cycle with a visible "which build is active" signal (Winston's proposal), given the
-  flag itself already caused the Game 7 incident — or a different approach?
+- **D3 — Staged-rollout mechanism. RESOLVED 2026-08-24 (Angelus): direct cutover, not a staged soak.**
+  `roll-v2.js` becomes the only player roller. The `tm-use-new-dice-roller` flag, its Settings
+  checkbox, and `roll.js` itself are all removed outright in rlv.2 — no rollback fence held for a
+  release cycle. Explicit rationale in his own words: "I only want the new dice roller active, I want
+  the old versions retired so there is no switch. Players don't realise there is two and I want to
+  just use the one we have been designing, which supersedes the rest." Safe per the Phase 0 audit's
+  own §4a finding (byte-identical on every gameplay-critical function, independently confirmed
+  twice) — the risk this decision accepts is UI/feature-parity gaps, not rules divergence. This also
+  means rlv.2 absorbs the `roll.js`-deletion half of what rlv.6 was scoped to do (see that row below,
+  narrowed accordingly) and the Game 7 failure mode (per-device silent mismatch) cannot recur at all
+  once this ships, by construction — there is no second roller left to be silently on.
 - **D4 — `contested-roll.js`'s scope.** Stays a deliberately-simplified third engine with its own
   header already disclaiming it ("always 10-again, ignores Roll tab state"), or gets folded into the
   unified roller's math with its `TYPES` pool-building table preserved as a distinct entry mode?
@@ -57,11 +65,11 @@ briefly here so this table's own "blocked on" column is legible without cross-re
 | ID | Title | Phase | Status | Blocked on |
 |----|-------|-------|--------|------------|
 | rlv.1 | Fix `combat-tab.js`'s silent Quick Roll failure under the new-roller flag | Immediate, standalone | **ready-for-dev** | Nothing — independent bug fix |
-| rlv.2 | Promote `roll-v2.js` to the sole player roller; retire `roll.js` | Mechanics merge | **ready-for-dev** (draft below; confirm D2/D3 before dev-story) | D2, D3 (soft — story can proceed with the roundtable's recommended defaults, flag for Angelus's final call at dev-story time) |
+| rlv.2 | Promote `roll-v2.js` to the sole player roller; delete `roll.js` and the flag outright (D3 resolved: direct cutover) | Mechanics merge | **ready-for-dev** — D2 and D3 both confirmed, no further decisions block dev-story | Nothing — D2 confirmed (rlv-d2-decision-record), D3 confirmed 2026-08-24 |
 | rlv.3 | Reconcile pool-source state model (push vs compositional) | Design pass | **backlog** | D5 |
 | rlv.4 | Port `dice-engine.js`'s builder UX + `char-pools.js`'s picker into the unified roller | Builder port | **backlog** | rlv.2, rlv.3 |
 | rlv.5 | Repoint external consumers (`contested-roll.js`, `combat-tab.js`, `challenge-notification.js`) onto the unified module's real exports | Interface cleanup | **backlog** | rlv.2 (D2 decision), D4 |
-| rlv.6 | Delete `roll.js`, `dice-engine.js`'s standalone dice math, the flag mechanism | Cleanup | **backlog** | rlv.2 soak period (D3), rlv.5 |
+| rlv.6 | Delete `dice-engine.js`'s standalone dice math once ported (rlv.4) | Cleanup | **backlog** | rlv.4, rlv.5 — narrowed 2026-08-24: `roll.js` and the flag mechanism are now deleted by rlv.2 itself, not held for this story |
 | rlv.7 | Persistent per-power modifier chips (#1039 net-new) | New feature | **backlog** | rlv.4 |
 | rlv.8 | Status-difference auto-mods for social manoeuvring (#1039 net-new) | New feature | **backlog** | rlv.4 |
 | rlv.9 | Rote rules fix | Rules correctness | **backlog** | D1 |

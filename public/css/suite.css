@@ -74,7 +74,7 @@ body.desktop-mode .view-toggle-btn{display:inline-flex !important;}
 .tab-wrap{flex:1;overflow:hidden;position:relative;}
 .tab{position:absolute;inset:0;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;display:none;overscroll-behavior:contain;}
 .tab.active{display:block;}
-#t-dice.active,#t-roll.active,#t-st.active{display:flex;}
+#t-roll.active,#t-st.active{display:flex;}
 
 /* ── BOTTOM NAV ── */
 /* Phone bottom nav (issue #596): +25% size, safe-area-inset reservation, and an
@@ -113,8 +113,8 @@ body.desktop-mode .view-toggle-btn{display:inline-flex !important;}
 /* ════════════════════════════════
    ROLL TAB
    ════════════════════════════════ */
-#t-roll,#t-dice{padding:20px 20px 80px;flex-direction:column;gap:18px;background:var(--bg);}
-#t-roll > *,#t-dice > *{width:100%;}
+#t-roll{padding:20px 20px 80px;flex-direction:column;gap:18px;background:var(--bg);}
+#t-roll > *{width:100%;}
 
 /* Shortcut row */
 .shortcut-row{display:flex;gap:8px;}

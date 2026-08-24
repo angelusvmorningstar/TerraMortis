@@ -91,7 +91,7 @@ async function setupSuite(page, char) {
 }
 
 // Load a pool into the roll calculator, setting rollChar and calling loadPool,
-// then navigate to the dice tab so chips are visible and clickable.
+// then navigate to the Roll tab so chips are visible and clickable.
 // goTab is called in a SEPARATE evaluate after loadPool, matching the
 // unified-app.js goToTab pattern — avoids a race where renderLifecycleCards()
 // (triggered async inside goTab) could resolve while loadPool is still running
@@ -103,8 +103,8 @@ async function loadRollPool(page, char, skill, attrV, skillV) {
     m.default.chars = [c];
     window.loadPool(aV + sV, sk + ' roll', { attr: 'Test', attrV: aV, skill: sk, skillV: sV, total: aV + sV });
   }, { c: char, sk: skill, aV: attrV, sV: skillV });
-  await page.evaluate(() => window.goTab('dice'));
-  await page.waitForSelector('#t-dice.active', { state: 'visible', timeout: 5000 });
+  await page.evaluate(() => window.goTab('roll'));
+  await page.waitForSelector('#t-roll.active', { state: 'visible', timeout: 5000 });
 }
 
 // ── Tests ─────────────────────────────────────────────────────────────────────

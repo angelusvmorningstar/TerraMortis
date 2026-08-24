@@ -2,8 +2,9 @@
  * Static-analysis tests for the EQ-1..EQ-4 client follow-ups #751 + #752.
  *
  * The relevant code paths (admin app boot loaders in city-views.js +
- * downtime-views.js; the suite roll.js equipment-chip + weapon-ref
- * predicates) all live behind browser-only module boundaries (apiGet
+ * downtime-views.js; the suite roll-v2.js — roll.js retired by rlv.2,
+ * 2026-08-24 — equipment-chip + weapon-ref predicates) all live behind
+ * browser-only module boundaries (apiGet
  * fetches at module-load, DOM globals, state-machine singletons) that make
  * direct unit-import expensive.
  *
@@ -57,7 +58,7 @@ describe('#751 — state.activeCycleNum wiring', () => {
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
-// #752 — 'active' included in roll.js predicates (option a per Khepri)
+// #752 — 'active' included in roll-v2.js predicates (option a per Khepri)
 //
 // EQC-2 (issue #1153) consolidated the inline `item.state === 'carried' ||
 // ... === 'worn' || ... === 'active'` repetition in both filters onto the
@@ -70,20 +71,20 @@ describe('#751 — state.activeCycleNum wiring', () => {
 // string appears nearby.
 // ─────────────────────────────────────────────────────────────────────────────
 
-describe('#752 / EQC-2 (#1153) — roll.js predicates use the shared isEquipmentOnMe predicate', () => {
+describe('#752 / EQC-2 (#1153) — roll-v2.js predicates use the shared isEquipmentOnMe predicate', () => {
   it('imports isEquipmentOnMe from equipment-derivation.js', () => {
-    const src = read('public/js/suite/roll.js');
+    const src = read('public/js/suite/roll-v2.js');
     expect(src).toMatch(/import\s*\{[^}]*isEquipmentOnMe[^}]*\}\s*from\s*['"]\.\.\/data\/equipment-derivation\.js['"]/);
   });
 
   it('equipment-chip filter calls isEquipmentOnMe(item), near the skill_gear bucket filter', () => {
-    const src = read('public/js/suite/roll.js');
+    const src = read('public/js/suite/roll-v2.js');
     // EQC-1 (#1152): the old 'equipment' bucket is now 'skill_gear'.
     expect(src).toMatch(/bucket === 'skill_gear'[\s\S]{0,400}isEquipmentOnMe\(item\)/);
   });
 
   it('weapon-reference filter calls isEquipmentOnMe(item), near the combat_gear/weapon-shaped filter', () => {
-    const src = read('public/js/suite/roll.js');
+    const src = read('public/js/suite/roll-v2.js');
     // EQC-1 (#1152): the old 'weapon' bucket merged into 'combat_gear',
     // weapon-shaped distinguished via isCombatGearWeaponShaped.
     expect(src).toMatch(/bucket === 'combat_gear' && isCombatGearWeaponShaped\(entry\)[\s\S]{0,400}isEquipmentOnMe\(item\)/);

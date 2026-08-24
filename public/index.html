@@ -149,92 +149,20 @@
       </div>
     </div>
 
-    <!-- ═══ ROLL TAB ═══ -->
-    <div id="t-dice" class="tab">
-      <div id="lifecycle-cards" style="display:none"></div>
-      <div class="shortcut-row">
-        <button class="sc-btn" id="sc-char" onclick="openPanel('char')">
-          <span class="sc-label" id="sc-char-lbl">Character</span>
-          <span class="sc-val" id="sc-char-val"></span>
-        </button>
-        <button class="sc-btn" id="sc-disc" onclick="openPanel('disc')">
-          <span class="sc-label" id="sc-disc-lbl">Discipline</span>
-          <span class="sc-val" id="sc-disc-val"></span>
-        </button>
-        <button class="sc-btn" id="sc-common" onclick="openPanel('common')">
-          <span class="sc-label">Common</span>
-        </button>
-        <button class="sc-btn sc-btn-auspex" id="sc-auspex" onclick="openPanel('auspex')" style="display:none">
-          <span class="sc-label">Auspex</span>
-        </button>
-      </div>
-      <div id="roll-char-pools" style="display:none"></div>
-      <div>
-        <div class="slabel">Dice pool</div>
-        <div class="crow">
-          <button class="cbtn" onclick="chgPool(-1)">&minus;</button>
-          <div class="cval" id="pval">5</div>
-          <button class="cbtn" onclick="chgPool(1)">+</button>
-        </div>
-        <div class="effline" id="effline">Effective pool: <span>5 dice</span></div>
-      </div>
-      <div id="weapon-ref" style="display:none"></div>
-      <div>
-        <div class="slabel">Bonus / Penalty</div>
-        <div class="crow">
-          <button class="bbtn" onclick="chgMod(-1)">&minus;</button>
-          <div class="bval" id="mval">0</div>
-          <button class="bbtn" onclick="chgMod(1)">+</button>
-        </div>
-      </div>
-      <div id="resist-sec" style="display:none;">
-        <div class="slabel" id="resist-lbl">Resistance</div>
-        <select id="resist-sel" class="resist-sel" onchange="updResist()">
-          <option value="">&#8212; select target &#8212;</option>
-        </select>
-        <div id="resist-line" class="resist-line"></div>
-      </div>
-      <div>
-        <div class="slabel">Again rule</div>
-        <div class="arow">
-          <button class="abtn" id="a8" onclick="setAgain(8)">8-AGAIN</button>
-          <button class="abtn" id="a9" onclick="setAgain(9)">9-AGAIN</button>
-        </div>
-      </div>
-      <div class="mrow">
-        <button class="mchip" id="rote-c" onclick="togMod('rote')">Rote</button>
-        <button class="mchip" id="na-c" onclick="togMod('na')">No Again</button>
-        <button class="mchip wp-chip" id="wp-c" onclick="togMod('wp')">WP (+3)</button>
-      </div>
-      <button id="roll-btn" onclick="doRoll()">Roll the Dice</button>
-      <button id="btn-contested" onclick="openContestedRoll()" style="display:none">Contested Roll</button>
-      <div id="res-area">
-        <div id="res-hdr"></div>
-        <div id="dice-area"><div class="empty-d">No rolls yet</div></div>
-      </div>
-      <div>
-        <div class="hist-hdr">
-          <div class="slabel slabel-inline">History</div>
-          <button class="hist-clr" onclick="clrHist()">Clear</button>
-        </div>
-        <div class="hlist" id="hlist"><div class="hempty">No rolls yet</div></div>
-      </div>
-      <!-- Feeding moved to More grid → Feeding app (nav-2-5) -->
-    </div>
-
-    <!-- ═══ ROLL TAB (v2 — parallel dev surface, gated by
-             `tm-use-new-dice-roller` flag; issues #1018, #1024).
+    <!-- ═══ ROLL TAB (issues #1018, #1024; roll.js retired outright by
+             rlv.2, 2026-08-24 — roll-v2.js is now the only player roller,
+             this is the only Roll tab markup, no flag).
 
              Slice A+D layout: effective-pool as the visual anchor;
-             segmented Again rule. The load-bearing "shared surface"
-             IDs (sc-*, roll-char-pools, weapon-ref, resist-*,
-             lifecycle-cards, btn-contested, effline, res-hdr,
-             dice-area, hlist, rote-c, wp-c, pval, mval, roll-btn) are
-             preserved so external touch-points (pickChar,
-             applyRoleRestrictions, renderLifecycleCards,
-             shared/resist.js, game/contested-roll.js) continue to
-             work unchanged. New rv2-* IDs drive the anchor + seg
-             control and are painted by roll-v2.js. ═══ -->
+             segmented Again rule. The "shared surface" IDs (sc-*,
+             roll-char-pools, weapon-ref, resist-*, lifecycle-cards,
+             btn-contested, effline, res-hdr, dice-area, hlist, rote-c,
+             wp-c, pval, mval, roll-btn) are the same ones every external
+             touch-point (pickChar, applyRoleRestrictions,
+             renderLifecycleCards, shared/resist.js, game/contested-roll.js)
+             already reads — kept unchanged by this retirement. rv2-* IDs
+             drive the anchor + seg control and are painted by
+             roll-v2.js. ═══ -->
     <div id="t-roll" class="tab">
       <div id="lifecycle-cards" style="display:none"></div>
       <div class="shortcut-row">
