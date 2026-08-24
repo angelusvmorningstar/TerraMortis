@@ -24,7 +24,8 @@ covers Suite↔Player↔Admin CSS/JS fragmentation; the roller never lived in `p
 deleted, USF Phase 0 Stage B, commit `5fdaa032`), so none of USF's named shards touch roller code.
 No sequencing dependency either direction — this epic can proceed independently.
 
-**Status: ready for the first two stories; the rest pending decisions named below.**
+**Status: rlv.1 (PR #1196, open) and rlv.2 (merged to main 2026-08-24, PR #1198) both shipped;
+rlv.3-9 pending the decisions named below.**
 
 ---
 
@@ -65,7 +66,7 @@ briefly here so this table's own "blocked on" column is legible without cross-re
 | ID | Title | Phase | Status | Blocked on |
 |----|-------|-------|--------|------------|
 | rlv.1 | Fix `combat-tab.js`'s silent Quick Roll failure under the new-roller flag | Immediate, standalone | **ready-for-dev** | Nothing — independent bug fix |
-| rlv.2 | Promote `roll-v2.js` to the sole player roller; delete `roll.js` and the flag outright (D3 resolved: direct cutover) | Mechanics merge | **ready-for-dev** — D2 and D3 both confirmed, no further decisions block dev-story | Nothing — D2 confirmed (rlv-d2-decision-record), D3 confirmed 2026-08-24 |
+| rlv.2 | Promote `roll-v2.js` to the sole player roller; delete `roll.js` and the flag outright (D3 resolved: direct cutover) | Mechanics merge | **done** — dev-storied, internally reviewed, merged to `main` 2026-08-24 (PR #1198, commit `a8860617`) | Nothing — shipped |
 | rlv.3 | Reconcile pool-source state model (push vs compositional) | Design pass | **backlog** | D5 |
 | rlv.4 | Port `dice-engine.js`'s builder UX + `char-pools.js`'s picker into the unified roller | Builder port | **backlog** | rlv.2, rlv.3 |
 | rlv.5 | Repoint external consumers (`contested-roll.js`, `combat-tab.js`, `challenge-notification.js`) onto the unified module's real exports | Interface cleanup | **backlog** | rlv.2 (D2 decision), D4 |
