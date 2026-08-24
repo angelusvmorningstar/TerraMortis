@@ -1,12 +1,14 @@
 # Story rlv.2: promote roll-v2.js to the sole player roller; retire roll.js
 
-Status: review — dev-story complete 2026-08-24, code review closed the same day (internal 3-layer,
-no unresolved High/Medium — see Senior Developer Review below). Committed `666a1005` on a fresh
-`ms/rlv-2-promote-roll-v2-retire-roll-v1` branch off `origin/main`; pushed and PR #1198 opened
-against `main` 2026-08-24 per Angelus's own explicit instruction:
-https://github.com/angelusvmorningstar/TerraMortisGame/pull/1198. **NOT merged, NOT deployed to
-`dev`** — the story's own smoke-test task is deliberately left undone pending Angelus's explicit
-deploy instruction, per `CLAUDE.md`'s hard rule; status stays `review` even with the PR open.
+Status: done — dev-story complete 2026-08-24, code review closed the same day (internal 3-layer,
+no unresolved High/Medium — see Senior Developer Review below). Committed `666a1005` on
+`ms/rlv-2-promote-roll-v2-retire-roll-v1`, PR #1198 opened against `main`, then **MERGED** (commit
+`a8860617`) the same session, per Angelus's own explicit "commit and merge" instruction.
+**This is a production merge** — `main` is what both Netlify (`terramortisgame.netlify.app`) and
+Render (`tm-game-api.onrender.com`) deploy from, so `roll-v2.js` is now the live sole player roller
+for real players. This story's own text had originally tied `done` to a `dev` smoke test first;
+that was superseded by Angelus's direct instruction to merge straight to `main`, which was flagged
+plainly before executing.
 
 D2/D3 confirmed 2026-08-24, no further decisions blocked dev-story. D2: DOM-contract cleanup
 deferred to rlv.5, existing shared IDs untouched here. D3:
@@ -376,7 +378,8 @@ rlv-2-promote-roll-v2-retire-roll-v1 (2026-08-24, internal 3-layer review)":**
 re-run post-comment-fix: 6/6 passed. No regression from any patch applied in this review.
 
 ### Outcome
-Story status: `review` → **`review`, unchanged** (patches applied are review-quality fixes to
-tests/docs, not implementation changes — the underlying dev-story work was already correct). Still
-NOT committed, NOT pushed, NOT deployed — per this file's own Dev Agent Record, deployment to `dev`
-requires Angelus's own explicit instruction and is the one outstanding item before `done`.
+Story status at review-close: `review` (patches applied are review-quality fixes to tests/docs, not
+implementation changes — the underlying dev-story work was already correct). **Updated post-review,
+same session**: committed (`666a1005`), PR #1198 opened against `main`, then merged (`a8860617`) on
+Angelus's own explicit "commit and merge" instruction — a production merge, since `main` deploys
+directly to Netlify/Render. Status: `done`.

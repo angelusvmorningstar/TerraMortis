@@ -90,9 +90,11 @@ transcripts are in the session history; synthesis below.
 - **Amelia (Dev)** — pushed back hardest on assuming v2 is a safe drop-in ("strict superset by line
   count" ≠ "proven safe replacement," since v2 has had near-zero production exposure vs v1). Named
   the two real risks that turned out to be genuine: (1) the shared/dice.js-vs-dice-engine.js math
-  divergence, and (2) the state-model mismatch between push-based (`char-pools.js` tap-to-load) and
-  compositional (dice-engine.js dropdown-build) pool sourcing — the second is still open, unaudited.
-  Proposed the Phase 0 audit that produced §4 below.
+  divergence, and (2) a state-model question she framed as push-based (`char-pools.js` tap-to-load)
+  vs compositional (`dice-engine.js` dropdown-build) pool sourcing. **That framing itself turned out
+  to be wrong — see §4d, D5 RESOLVED 2026-08-24**: `char-pools.js` was never flat/push-only, it
+  already carries the full compositional breakdown `dice-engine.js` only appears to have. Proposed
+  the Phase 0 audit that produced §4 below.
 
 ---
 
@@ -110,7 +112,7 @@ the `async` keyword; everything from `if (eff <= 0)` onward is unchanged. **No l
 bug between v1 and v2** — players on either roller get identical outcomes for identical inputs. The
 risk here was UI/feature parity and the flag mechanism, not silent rule disagreement.
 
-### 4b. `shared/dice.js` vs `dice-engine.js` vs official rules text — one real bug found, shared not divergent
+### 4b. `shared/dice.js` vs `dice-engine.js` vs official rules text — Rote is a deliberate house rule, not a bug
 Full 3-way comparison against `st-working/reference/Vampire the Requiem 2e Rulebook.md`:
 
 | Mechanic | Verdict |
@@ -120,24 +122,20 @@ Full 3-way comparison against `st-working/reference/Vampire the Requiem 2e Ruleb
 | Chance die (pool ≤0, 10=success, 1=dramatic failure) | All agree |
 | Exceptional success (≥5 successes) | All agree |
 | Dramatic failure (not auto-applied to a normal 0-success roll) | All agree, correctly |
-| **Rote quality** | **⚠️ WRONG — but identically wrong everywhere, so no cross-engine divergence** |
+| **Rote quality** | Departs from RAW, identically everywhere — **confirmed intentional, D1 RESOLVED 2026-08-24** |
 
-**The Rote bug**: official rule is *reroll only the individual dice that failed, once each, keeping
-original successes*. What's coded everywhere (`shared/dice.js`'s callers AND `dice-engine.js`
-independently) is *roll the entire pool a second, fully independent time, keep whichever complete
-pool has more successes*. These are not equivalent — the coded version is strictly worse for the
-player (a 5-die pool with 2 early successes and 3 failures should reroll just those 3 while banking
-the 2; instead the whole 5 dice get rerolled from scratch and the original successes aren't
-preserved). **Predates the roller fork entirely** — baked into whatever the original single-roller
-implementation was before `roll.js` was extracted. Has been resolving every Rote roll (PT dot 5)
-less favourably than the rules say, for as long as Rote has existed in this codebase, in every game
-played. **This is a standalone rules-correctness decision for Angelus, independent of the
-harmonisation work** — fixing it changes real outcomes going forward, and raises the (separate)
-question of whether past Rote rolls need any retroactive accounting.
+**Rote quality — RULED, not a bug.** Official RAW is *reroll only the individual dice that failed,
+once each, keeping original successes*. What's coded everywhere (`shared/dice.js`'s callers AND
+`dice-engine.js` independently) is *roll the entire pool a second, fully independent time, keep
+whichever complete pool has more successes*. This audit originally flagged the difference as a
+defect needing a decision — **Angelus confirmed 2026-08-24 this is a deliberate house-rule shift
+from RAW, not a mistake: "roll twice take best result is what we're using."** No code change, no
+retroactive accounting for past Rote rolls. D1 is closed; rlv.9 (which existed solely to fix this)
+is superseded — see the epic file's own D1/rlv.9 rows.
 
-Not checked in this pass: whether `game/contested-roll.js`, `game/combat-tab.js`, or
-`game/challenge-notification.js` implement Rote at all, and if so whether they share the same bug —
-flagged for whoever does the fix to confirm before patching only one call site.
+Not relevant now that D1 is resolved, kept for the historical record only: whether
+`game/contested-roll.js`, `game/combat-tab.js`, or `game/challenge-notification.js` implement Rote
+at all was never checked in this pass — moot, since there is no fix to apply consistently.
 
 ### 4c. Real call graph of the five external consumers — confirms 3 engines is an undercount
 - **`app.js`** — the only file importing both rollers; boot-time DOM-subtree removal per the flag;
@@ -167,6 +165,57 @@ counted. The `mkDieEl`/`mkColsEl` imports into `contested-roll.js`/`challenge-no
 safe today only because those functions are currently byte-identical between v1/v2 — any future
 divergence there would silently desync their visuals from whichever roller is actually active.
 
+### 4d. `char-pools.js` vs `dice-engine.js` — D5 RESOLVED 2026-08-24, the "two models" framing was wrong
+
+Investigated 2026-08-24 at Angelus's request (his own suspicion: "char-pools was built by Peter for
+the dice roller app, and so is doing this in a smarter way" than credited). Read both files in full,
+plus `shared/pools.js`, plus `git log`/`git blame` on `char-pools.js`.
+
+**`char-pools.js` is NOT push-based/flat — it already IS the compositional model, and a richer one
+than `dice-engine.js`.** Every pool it builds (`char-pools.js:104,129`) is a full breakdown object
+— `{ total, attr, attrV, skill, skillV, discName, discV, unskilled, resistance, cost, vitae_cost,
+willpower_cost, meritBonus, meritLabel, nineAgain }` — not a bare number. For discipline/power pools
+this comes from `shared/pools.js`'s `getPool()` (lines 29-77), which resolves a rule's
+`{attr, skill, disc}` spec into that same full breakdown, including rules text and costs. This whole
+object is passed straight into `roll-v2.js:loadPool(total, name, pi)` (line 182) and stored as
+`state.POOL_INFO` (line 188) — and it is **already load-bearing**, not vestigial: `effline`'s
+breakdown display renders it segment-by-segment (`roll-v2.js:339-349` — attr/skill/unskilled/
+discName/merit/rote/WP/resist each their own span), and `spendableCost(state.POOL_INFO, ...)`
+(line 145) drives gdx.7's real shipped vitae/WP spend automation off it. The original audit's
+"push-based tap-to-load" framing (§3, Amelia's bullet) undersold this file — the ingredients survive
+end-to-end and already power a real feature.
+
+**`dice-engine.js`'s "compositional" state is shallower, not richer, despite looking more
+manual.** `selAttr`/`selSkill`/`selDisc`/`selSpec` (lines 33-37) only track which dropdown is
+currently picked; the pool number is *re-derived from scratch* on every render via
+`getAttrVal`/`getSkillVal`/`getDiscVal` (lines 66-79), with no persisted breakdown object and no
+cost/resistance/rules metadata carried anywhere. It is compositional in "you assemble it by
+picking," not in "it remembers what it's made of" — the opposite of what §3/§5 item 7 implied.
+
+**What #1039 actually needs (toggleable per-power modifier chips) is a proven pattern already,
+not a missing capability.** `roll-v2.js`'s `state.WP`/`state.MOD`/`state.ROTE` are already
+independent, toggleable additive layers stacked on the base `pi`, each live-updating
+`effPool()`/`updPool()` (lines 208-225). A persistent chip is structurally "one more toggleable
+layer," generated from a list instead of hardcoded — a small extension of an existing pattern, not
+a foundation swap.
+
+**Authorship, checked against `git log`:** Angelus himself wrote `char-pools.js` originally
+(2026-04-04, Story 6.2) — the hypothesis "built by Peter" is not quite right. Peter did contribute 6
+of the file's 10 commits afterward with real improvements (9-again auto-select, derived-data
+application, discipline-power correctness) — so "Peter made it smarter" holds, "Peter built it"
+doesn't. `dice-engine.js` is the Peter-heavier file (8 of 14 commits).
+
+**D5 RESOLVED: standardise the unified roller on `char-pools.js`/`shared/pools.js`'s model.**
+`dice-engine.js`'s own *data shape* is not ported in as a foundation — that would be a downgrade,
+losing cost/resistance/rules metadata that already exists and is already used. `dice-engine.js`'s
+*dropdown-assembly UI* is the part worth reusing, as an alternate entry path for ad-hoc rolls that
+have no pre-built pool button (its actual real use case) — it should construct the same `pi` object
+shape `char-pools.js` already produces, not a competing shape. This changes rlv.3/rlv.4's own
+framing: not "reconcile two competing state models," but "add a generated-chip toggle layer plus an
+ad-hoc dropdown entry path onto the model that already won." One item flagged but not resolved by
+this pass: `char-pools.js`'s `_pools` module-level array (line 52) is a mutable singleton — worth a
+look for race/staleness risk once a chip-toggle layer is added, when rlv.3 is actually storied.
+
 ---
 
 ## 5. Open decisions for Angelus
@@ -180,17 +229,21 @@ divergence there would silently desync their visuals from whichever roller is ac
 4. **`combat-tab.js`'s Quick Roll bug** — worth an immediate, narrow fix (make it flag-aware, or route
    through the active roller's real API) independent of the larger consolidation, given it's already
    live and silent.
-5. **`contested-roll.js`'s scope** — stays a deliberately-simplified third engine (its own header
-   already says so), or gets folded into the unified roller's math with its own pool-building `TYPES`
-   table preserved as a distinct entry mode? Its working server-side roll log is relevant to gdx-8.
+5. ~~**`contested-roll.js`'s scope**~~ — **D4 RESOLVED 2026-08-24: stays separate.** Confirmed it is
+   NOT a near-duplicate of Epic CRD's `challenge-initiation.js` despite sharing the same three
+   roll-type labels — `contested-roll.js` is an ST-only, no-persistence, in-session quick-tool
+   (`#btn-contested` hidden from players, `app.js:1631-1632`); CRD's system is player-initiated and
+   asynchronous, with no stated intent anywhere in its own docs to replace this file. The
+   simplification is a real feature of its use case, not a limitation — not folded in. Its working
+   server-side roll log remains relevant to gdx-8. See `epic-rlv-roller-harmonisation.md`'s own D4
+   line for the full record.
 6. **Staged-rollout mechanism** — reuse the existing (imperfect) flag infrastructure for one more
    soak cycle with a visible "which build is active" signal (Winston's proposal), or a different
    approach given the flag itself already caused one incident.
-7. **State-model reconciliation** (Amelia's still-open flag) — `char-pools.js`'s push-based
-   tap-to-load vs `dice-engine.js`'s compositional dropdown-build are different models of "what the
-   current pool is." Not resolved by this audit — needs its own small design pass before Phase 1
-   (chassis) work starts, since #1039's mod chips/status-diff mods likely need compositional state
-   regardless of which entry path triggers them.
+7. ~~**State-model reconciliation**~~ — **RESOLVED 2026-08-24, see §4d.** There was never a real
+   two-model conflict: `char-pools.js`/`shared/pools.js` already carry the full compositional
+   breakdown `dice-engine.js` only appears to have. Standardise on the `char-pools.js` model; port
+   `dice-engine.js`'s dropdown UI in as an alternate ad-hoc entry path, not a competing data shape.
 
 ## Provenance
 

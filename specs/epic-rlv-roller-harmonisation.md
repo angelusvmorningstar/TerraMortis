@@ -24,7 +24,10 @@ covers Suite↔Player↔Admin CSS/JS fragmentation; the roller never lived in `p
 deleted, USF Phase 0 Stage B, commit `5fdaa032`), so none of USF's named shards touch roller code.
 No sequencing dependency either direction — this epic can proceed independently.
 
-**Status: ready for the first two stories; the rest pending decisions named below.**
+**Status: rlv.1 (PR #1196, open) and rlv.2 (merged to main 2026-08-24, PR #1198) both shipped.
+ALL FIVE open decisions (D1-D5) resolved 2026-08-24 — rlv.9 and rlv.3 both superseded (nothing left
+to fix/design for either), rlv.4/rlv.5/rlv.7/rlv.8 all unblocked and ready to story whenever picked
+up. No open decisions remain in this epic.**
 
 ---
 
@@ -33,9 +36,13 @@ No sequencing dependency either direction — this epic can proceed independentl
 These are named in full, with evidence, in `specs/dice-roller-harmonisation-audit.md` §5. Restated
 briefly here so this table's own "blocked on" column is legible without cross-referencing:
 
-- **D1 — Rote rules fix.** Standalone rules-correctness bug (wrong in all five engines, identically,
-  predates this epic entirely). Ship independent of this epic's sequencing, or fold in? Any
-  retroactive-accounting question for past Rote rolls?
+- **D1 — Rote rules fix. RESOLVED 2026-08-24 (Angelus): NOT a bug, a deliberate house rule.** The
+  Phase 0 audit found every engine (identically) implements Rote as "reroll the entire pool a second
+  time, keep whichever attempt has more successes" rather than RAW's "reroll only the failed dice,
+  keep the original successes," and had flagged this as a rules-correctness defect needing a
+  decision. Angelus's own words: "roll twice take best result is what we're using... this is an
+  intentional shift from rules." No code change, no retroactive accounting for past rolls. rlv.9
+  (which existed solely to fix this) is superseded — see that row below.
 - **D2 — DOM-contract cleanup timing.** Land the merge with existing shared IDs untouched, converting
   to a real `getPool()`/`onRollComplete()`/`mountInto()` interface as a *separate* later story
   (Winston's recommendation) — confirm, or do both in one pass?
@@ -50,13 +57,41 @@ briefly here so this table's own "blocked on" column is legible without cross-re
   means rlv.2 absorbs the `roll.js`-deletion half of what rlv.6 was scoped to do (see that row below,
   narrowed accordingly) and the Game 7 failure mode (per-device silent mismatch) cannot recur at all
   once this ships, by construction — there is no second roller left to be silently on.
-- **D4 — `contested-roll.js`'s scope.** Stays a deliberately-simplified third engine with its own
-  header already disclaiming it ("always 10-again, ignores Roll tab state"), or gets folded into the
-  unified roller's math with its `TYPES` pool-building table preserved as a distinct entry mode?
-- **D5 — State-model reconciliation** (Amelia's still-open flag, not yet resolved by the audit).
-  `char-pools.js`'s push-based tap-to-load vs `dice-engine.js`'s compositional dropdown-build are
-  different models of "what the current pool is." #1039's mod chips/status-diff mods likely need
-  compositional state regardless of entry path — needs its own small design pass before RLV-3.
+- **D4 — `contested-roll.js`'s scope. RESOLVED 2026-08-24: stays separate, not folded in.**
+  Investigated before asking: is this actually a near-duplicate of Epic CRD's newer
+  `challenge-initiation.js` (same three roll-type labels — Territory Bid, Social Manoeuvre,
+  Resistance Check)? **No — confirmed genuinely different use cases, not two maturity stages of the
+  same feature.** `contested-roll.js`'s own trigger (`#btn-contested`) is ST-only
+  (`app.js:1631-1632`) — a quick, no-persistence, in-session tool: an ST instantly rolls two
+  characters against each other with zero setup, deliberately ignoring whatever either player has
+  loaded on their own Roll tab. `challenge-initiation.js`/Epic CRD is player-initiated and
+  asynchronous — queued, accepted/declined/resolved later, possibly across sessions, with a full
+  pool-builder UI (crd.3b). Checked the CRD epic's own docs for any stated intent to replace
+  `contested-roll.js`: none found. They only *look* related because the same three roll-type labels
+  were copy-pasted from one into the other when CRD was built — which is exactly how the Territory
+  Bid bug (see below) ended up duplicated in both. **Decision: `contested-roll.js` stays a
+  deliberately-simplified third engine as-is** — its simplification is a real feature for its ST
+  quick-tool use case, not a limitation, and folding its math into the unified roller buys nothing
+  (no shared-bug risk exists; its own header already discloses the simplification rather than
+  claiming parity with the Roll tab).
+- **D5 — State-model reconciliation. RESOLVED 2026-08-24.** There was never a real two-model
+  conflict — investigated at Angelus's request (full read of `char-pools.js`, `dice-engine.js`,
+  `shared/pools.js`, plus `git log`/`git blame` on authorship). `char-pools.js`/`shared/pools.js`
+  already build a full compositional breakdown object (`{ attr, skill, disc, merit, cost,
+  resistance, ... }`, not a flat number) that already flows end-to-end into `roll-v2.js` and already
+  drives gdx.7's real shipped spend automation. `dice-engine.js`'s own state is the shallower one
+  despite looking more "compositional" — it just tracks which dropdown is picked and re-derives the
+  number from scratch each render, with no persisted breakdown. **Standardise the unified roller on
+  the `char-pools.js`/`shared/pools.js` model. Port `dice-engine.js`'s dropdown-picker UI in as an
+  alternate ad-hoc entry path** (for rolls with no pre-built pool button — its real use case),
+  building the SAME `pi` object shape `char-pools.js` already produces, not a competing shape.
+  #1039's per-power chips are a proven-pattern extension, not a new capability —
+  `state.WP`/`state.MOD`/`state.ROTE` in `roll-v2.js` are already independent toggleable layers on
+  the base pool; a chip is structurally one more layer, generated from a list instead of hardcoded.
+  Authorship check: Angelus wrote `char-pools.js` originally (2026-04-04, Story 6.2); Peter
+  contributed 6 of its 10 commits afterward with real improvements — "Peter made it smarter" holds,
+  "Peter built it" doesn't. Full findings: `dice-roller-harmonisation-audit.md` §4d. rlv.3/rlv.4's
+  own scope is rewritten below to match — see those rows.
 
 ---
 
@@ -64,15 +99,15 @@ briefly here so this table's own "blocked on" column is legible without cross-re
 
 | ID | Title | Phase | Status | Blocked on |
 |----|-------|-------|--------|------------|
-| rlv.1 | Fix `combat-tab.js`'s silent Quick Roll failure under the new-roller flag | Immediate, standalone | **ready-for-dev** | Nothing — independent bug fix |
-| rlv.2 | Promote `roll-v2.js` to the sole player roller; delete `roll.js` and the flag outright (D3 resolved: direct cutover) | Mechanics merge | **ready-for-dev** — D2 and D3 both confirmed, no further decisions block dev-story | Nothing — D2 confirmed (rlv-d2-decision-record), D3 confirmed 2026-08-24 |
-| rlv.3 | Reconcile pool-source state model (push vs compositional) | Design pass | **backlog** | D5 |
-| rlv.4 | Port `dice-engine.js`'s builder UX + `char-pools.js`'s picker into the unified roller | Builder port | **backlog** | rlv.2, rlv.3 |
-| rlv.5 | Repoint external consumers (`contested-roll.js`, `combat-tab.js`, `challenge-notification.js`) onto the unified module's real exports | Interface cleanup | **backlog** | rlv.2 (D2 decision), D4 |
+| rlv.1 | Fix `combat-tab.js`'s silent Quick Roll failure under the new-roller flag | Immediate, standalone | **done** — dev-storied, internally reviewed, PR #1196 open against `main` (not yet merged) | Nothing — independent bug fix |
+| rlv.2 | Promote `roll-v2.js` to the sole player roller; delete `roll.js` and the flag outright (D3 resolved: direct cutover) | Mechanics merge | **done** — dev-storied, internally reviewed, merged to `main` 2026-08-24 (PR #1198, commit `a8860617`) | Nothing — shipped |
+| rlv.3 | ~~Reconcile pool-source state model~~ | Design pass | **superseded** — D5 resolved 2026-08-24 answers the question this design pass existed to ask; no separate story needed | — |
+| rlv.4 | Port `dice-engine.js`'s dropdown-picker UI in as an alternate ad-hoc entry path, building the same `pi` shape `char-pools.js` already produces (NOT porting its data model — that would be a downgrade, see D5) | Builder port | **backlog** | rlv.2 (done) |
+| rlv.5 | Repoint external consumers (`contested-roll.js`, `combat-tab.js`) onto the unified module's real DOM-contract interface (`getPool()`/`onRollComplete()`/`mountInto()`, per D2) instead of the shared-ID convention — `challenge-notification.js` dropped from scope, deleted by crd-2 | Interface cleanup | **backlog** | rlv.2 (done) — D4 resolved 2026-08-24 (`contested-roll.js` stays separate, but still consumes `roll-v2.js`'s render helpers and still wants the real interface) |
 | rlv.6 | Delete `dice-engine.js`'s standalone dice math once ported (rlv.4) | Cleanup | **backlog** | rlv.4, rlv.5 — narrowed 2026-08-24: `roll.js` and the flag mechanism are now deleted by rlv.2 itself, not held for this story |
-| rlv.7 | Persistent per-power modifier chips (#1039 net-new) | New feature | **backlog** | rlv.4 |
-| rlv.8 | Status-difference auto-mods for social manoeuvring (#1039 net-new) | New feature | **backlog** | rlv.4 |
-| rlv.9 | Rote rules fix | Rules correctness | **backlog** | D1 |
+| rlv.7 | Persistent per-power modifier chips (#1039 net-new) — a generated toggle layer alongside `roll-v2.js`'s existing `state.WP`/`state.MOD`/`state.ROTE` layers, on top of `char-pools.js`'s existing pool-breakdown state | New feature | **backlog** | rlv.2 (done) — loosened 2026-08-24 from rlv.4: D5's own finding is that chips sit on the model `char-pools.js` already produces, not on the ad-hoc dropdown entry path rlv.4 builds; re-confirm this when rlv.7 is actually storied rather than trusting it indefinitely |
+| rlv.8 | Status-difference auto-mods for social manoeuvring (#1039 net-new) | New feature | **backlog** | rlv.2 (done) — same loosening as rlv.7, same caveat to re-confirm at story time |
+| rlv.9 | ~~Rote rules fix~~ | Rules correctness | **superseded** — D1 resolved 2026-08-24, the "bug" is a deliberate house rule, nothing to fix | — |
 | — | Special pools (initiative/frenzy/lashing-out), websocket targeted rolls | Explicitly out of this epic | **not scheduled** | #1039 itself scopes these as separate/later slices |
 
 ---
@@ -93,8 +128,7 @@ directly. Whoever storys rlv.4/rlv.7/rlv.8 should re-confirm this is still curre
 ## Sequencing notes
 
 Per the roundtable's near-total convergence (full detail in the audit doc §3): mechanics merge
-(rlv.2) lands **before** any #1039 new-surface work (rlv.7/rlv.8) — shipping new UI on top of five
-still-separate engines makes the underlying fragmentation harder to spot, not safer. rlv.1 is
-independent and can land any time — it's a live, silent, already-confirmed bug, not part of the
-consolidation risk. rlv.9 (Rote) is independent of everything else in this epic and should not wait
-on it, pending D1.
+(rlv.2, shipped) lands **before** any #1039 new-surface work (rlv.7/rlv.8) — shipping new UI on top
+of five still-separate engines makes the underlying fragmentation harder to spot, not safer. rlv.1
+is independent and can land any time — it's a live, silent, already-confirmed bug, not part of the
+consolidation risk. rlv.9 (Rote) is superseded — D1 resolved 2026-08-24, no fix needed.
