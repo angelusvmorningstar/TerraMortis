@@ -110,7 +110,7 @@ the `async` keyword; everything from `if (eff <= 0)` onward is unchanged. **No l
 bug between v1 and v2** — players on either roller get identical outcomes for identical inputs. The
 risk here was UI/feature parity and the flag mechanism, not silent rule disagreement.
 
-### 4b. `shared/dice.js` vs `dice-engine.js` vs official rules text — one real bug found, shared not divergent
+### 4b. `shared/dice.js` vs `dice-engine.js` vs official rules text — Rote is a deliberate house rule, not a bug
 Full 3-way comparison against `st-working/reference/Vampire the Requiem 2e Rulebook.md`:
 
 | Mechanic | Verdict |
@@ -120,24 +120,20 @@ Full 3-way comparison against `st-working/reference/Vampire the Requiem 2e Ruleb
 | Chance die (pool ≤0, 10=success, 1=dramatic failure) | All agree |
 | Exceptional success (≥5 successes) | All agree |
 | Dramatic failure (not auto-applied to a normal 0-success roll) | All agree, correctly |
-| **Rote quality** | **⚠️ WRONG — but identically wrong everywhere, so no cross-engine divergence** |
+| **Rote quality** | Departs from RAW, identically everywhere — **confirmed intentional, D1 RESOLVED 2026-08-24** |
 
-**The Rote bug**: official rule is *reroll only the individual dice that failed, once each, keeping
-original successes*. What's coded everywhere (`shared/dice.js`'s callers AND `dice-engine.js`
-independently) is *roll the entire pool a second, fully independent time, keep whichever complete
-pool has more successes*. These are not equivalent — the coded version is strictly worse for the
-player (a 5-die pool with 2 early successes and 3 failures should reroll just those 3 while banking
-the 2; instead the whole 5 dice get rerolled from scratch and the original successes aren't
-preserved). **Predates the roller fork entirely** — baked into whatever the original single-roller
-implementation was before `roll.js` was extracted. Has been resolving every Rote roll (PT dot 5)
-less favourably than the rules say, for as long as Rote has existed in this codebase, in every game
-played. **This is a standalone rules-correctness decision for Angelus, independent of the
-harmonisation work** — fixing it changes real outcomes going forward, and raises the (separate)
-question of whether past Rote rolls need any retroactive accounting.
+**Rote quality — RULED, not a bug.** Official RAW is *reroll only the individual dice that failed,
+once each, keeping original successes*. What's coded everywhere (`shared/dice.js`'s callers AND
+`dice-engine.js` independently) is *roll the entire pool a second, fully independent time, keep
+whichever complete pool has more successes*. This audit originally flagged the difference as a
+defect needing a decision — **Angelus confirmed 2026-08-24 this is a deliberate house-rule shift
+from RAW, not a mistake: "roll twice take best result is what we're using."** No code change, no
+retroactive accounting for past Rote rolls. D1 is closed; rlv.9 (which existed solely to fix this)
+is superseded — see the epic file's own D1/rlv.9 rows.
 
-Not checked in this pass: whether `game/contested-roll.js`, `game/combat-tab.js`, or
-`game/challenge-notification.js` implement Rote at all, and if so whether they share the same bug —
-flagged for whoever does the fix to confirm before patching only one call site.
+Not relevant now that D1 is resolved, kept for the historical record only: whether
+`game/contested-roll.js`, `game/combat-tab.js`, or `game/challenge-notification.js` implement Rote
+at all was never checked in this pass — moot, since there is no fix to apply consistently.
 
 ### 4c. Real call graph of the five external consumers — confirms 3 engines is an undercount
 - **`app.js`** — the only file importing both rollers; boot-time DOM-subtree removal per the flag;

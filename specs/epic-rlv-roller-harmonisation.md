@@ -34,9 +34,13 @@ rlv.3-9 pending the decisions named below.**
 These are named in full, with evidence, in `specs/dice-roller-harmonisation-audit.md` §5. Restated
 briefly here so this table's own "blocked on" column is legible without cross-referencing:
 
-- **D1 — Rote rules fix.** Standalone rules-correctness bug (wrong in all five engines, identically,
-  predates this epic entirely). Ship independent of this epic's sequencing, or fold in? Any
-  retroactive-accounting question for past Rote rolls?
+- **D1 — Rote rules fix. RESOLVED 2026-08-24 (Angelus): NOT a bug, a deliberate house rule.** The
+  Phase 0 audit found every engine (identically) implements Rote as "reroll the entire pool a second
+  time, keep whichever attempt has more successes" rather than RAW's "reroll only the failed dice,
+  keep the original successes," and had flagged this as a rules-correctness defect needing a
+  decision. Angelus's own words: "roll twice take best result is what we're using... this is an
+  intentional shift from rules." No code change, no retroactive accounting for past rolls. rlv.9
+  (which existed solely to fix this) is superseded — see that row below.
 - **D2 — DOM-contract cleanup timing.** Land the merge with existing shared IDs untouched, converting
   to a real `getPool()`/`onRollComplete()`/`mountInto()` interface as a *separate* later story
   (Winston's recommendation) — confirm, or do both in one pass?
@@ -65,7 +69,7 @@ briefly here so this table's own "blocked on" column is legible without cross-re
 
 | ID | Title | Phase | Status | Blocked on |
 |----|-------|-------|--------|------------|
-| rlv.1 | Fix `combat-tab.js`'s silent Quick Roll failure under the new-roller flag | Immediate, standalone | **ready-for-dev** | Nothing — independent bug fix |
+| rlv.1 | Fix `combat-tab.js`'s silent Quick Roll failure under the new-roller flag | Immediate, standalone | **done** — dev-storied, internally reviewed, PR #1196 open against `main` (not yet merged) | Nothing — independent bug fix |
 | rlv.2 | Promote `roll-v2.js` to the sole player roller; delete `roll.js` and the flag outright (D3 resolved: direct cutover) | Mechanics merge | **done** — dev-storied, internally reviewed, merged to `main` 2026-08-24 (PR #1198, commit `a8860617`) | Nothing — shipped |
 | rlv.3 | Reconcile pool-source state model (push vs compositional) | Design pass | **backlog** | D5 |
 | rlv.4 | Port `dice-engine.js`'s builder UX + `char-pools.js`'s picker into the unified roller | Builder port | **backlog** | rlv.2, rlv.3 |
@@ -73,7 +77,7 @@ briefly here so this table's own "blocked on" column is legible without cross-re
 | rlv.6 | Delete `dice-engine.js`'s standalone dice math once ported (rlv.4) | Cleanup | **backlog** | rlv.4, rlv.5 — narrowed 2026-08-24: `roll.js` and the flag mechanism are now deleted by rlv.2 itself, not held for this story |
 | rlv.7 | Persistent per-power modifier chips (#1039 net-new) | New feature | **backlog** | rlv.4 |
 | rlv.8 | Status-difference auto-mods for social manoeuvring (#1039 net-new) | New feature | **backlog** | rlv.4 |
-| rlv.9 | Rote rules fix | Rules correctness | **backlog** | D1 |
+| rlv.9 | ~~Rote rules fix~~ | Rules correctness | **superseded** — D1 resolved 2026-08-24, the "bug" is a deliberate house rule, nothing to fix | — |
 | — | Special pools (initiative/frenzy/lashing-out), websocket targeted rolls | Explicitly out of this epic | **not scheduled** | #1039 itself scopes these as separate/later slices |
 
 ---
@@ -94,8 +98,7 @@ directly. Whoever storys rlv.4/rlv.7/rlv.8 should re-confirm this is still curre
 ## Sequencing notes
 
 Per the roundtable's near-total convergence (full detail in the audit doc §3): mechanics merge
-(rlv.2) lands **before** any #1039 new-surface work (rlv.7/rlv.8) — shipping new UI on top of five
-still-separate engines makes the underlying fragmentation harder to spot, not safer. rlv.1 is
-independent and can land any time — it's a live, silent, already-confirmed bug, not part of the
-consolidation risk. rlv.9 (Rote) is independent of everything else in this epic and should not wait
-on it, pending D1.
+(rlv.2, shipped) lands **before** any #1039 new-surface work (rlv.7/rlv.8) — shipping new UI on top
+of five still-separate engines makes the underlying fragmentation harder to spot, not safer. rlv.1
+is independent and can land any time — it's a live, silent, already-confirmed bug, not part of the
+consolidation risk. rlv.9 (Rote) is superseded — D1 resolved 2026-08-24, no fix needed.
