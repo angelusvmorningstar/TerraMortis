@@ -39,7 +39,10 @@ export const contestedRollRequestSchema = {
     // roll_type categorises the CONTEST for session-log/display purposes.
     // It is a different axis from defender_aspect below (which Resistance
     // Attribute feeds the defender's pool) — do not derive one from the other.
-    roll_type:    { type: 'string', enum: ['territory', 'social', 'resistance', 'custom'] },
+    // 'territory' removed 2026-08-24: territory disputes are resolved by
+    // influence bid comparison (suite/territory.js), never by dice — there
+    // was never a real contested roll for this category to model.
+    roll_type:    { type: 'string', enum: ['social', 'resistance', 'custom'] },
     challenger_pool: { type: 'integer', minimum: 0, maximum: 30 },
     // crd.1: no longer REQUIRED. It used to be attacker-submitted at creation
     // time, which meant the opposing player asserted the defender's own

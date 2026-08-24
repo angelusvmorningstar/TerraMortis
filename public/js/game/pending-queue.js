@@ -50,7 +50,6 @@ export const POLL_MS = 10_000;
  *  keeps its own richer copy of this list (it also holds per-type pool notes);
  *  that file is out of this story's scope and is deliberately untouched. */
 export const ROLL_LABELS = {
-  territory:  'Territory Bid',
   social:     'Social Manoeuvre',
   resistance: 'Resistance Check',
   custom:     'Custom Roll',

@@ -121,7 +121,7 @@ function pendingDoc(overrides = {}) {
     challenger_character_name: 'Mammon',
     target_character_id: CHAR_A._id,
     target_character_name: 'Yusuf Kalusicj',
-    roll_type: 'territory',
+    roll_type: 'social',
     challenger_pool: 6,
     created_at: '2026-08-22T10:11:12.345Z',
     updated_at: '2026-08-22T10:11:12.345Z',
@@ -505,7 +505,7 @@ describe.skipIf(!dbAvailable)('crd.2 AC6 (server half) — GET /mine only ever r
         challenger_character_id: '000000000000000000000c99',
         challenger_character_name: `${PREFIX} Challenger`,
         target_character_id: mine, target_character_name: `${PREFIX} Mine`,
-        roll_type: 'territory', challenger_pool: 5,
+        roll_type: 'social', challenger_pool: 5,
         created_at: new Date().toISOString(), updated_at: new Date().toISOString(),
       },
       {
@@ -513,7 +513,7 @@ describe.skipIf(!dbAvailable)('crd.2 AC6 (server half) — GET /mine only ever r
         challenger_character_id: '000000000000000000000c99',
         challenger_character_name: `${PREFIX} Challenger`,
         target_character_id: theirs, target_character_name: `${PREFIX} Theirs`,
-        roll_type: 'territory', challenger_pool: 5,
+        roll_type: 'social', challenger_pool: 5,
         created_at: new Date().toISOString(), updated_at: new Date().toISOString(),
       },
     ]);

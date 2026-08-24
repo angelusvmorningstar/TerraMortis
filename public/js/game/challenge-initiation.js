@@ -8,7 +8,6 @@ import { apiGet, apiPost } from '../data/api.js';
 import { esc, displayName, dropdownName } from '../data/helpers.js';
 
 const ROLL_TYPES = [
-  { id: 'territory',  label: 'Territory Bid',      atkNote: 'Presence + Intimidation', defNote: 'Presence + Intimidation' },
   { id: 'social',     label: 'Social Manoeuvre',    atkNote: 'Presence + Persuasion',   defNote: 'Composure + Blood Potency' },
   { id: 'resistance', label: 'Resistance Check',    atkNote: 'Loaded pool',             defNote: 'Stamina + Resolve' },
   { id: 'custom',     label: 'Custom Roll',          atkNote: 'As agreed',               defNote: 'As agreed' },

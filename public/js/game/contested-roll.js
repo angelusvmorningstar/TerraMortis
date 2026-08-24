@@ -1,5 +1,8 @@
 /* Game app — contested roll overlay.
-   Three roll types with pre-loaded character pools and auto-logging. */
+   Two roll types with pre-loaded character pools and auto-logging.
+   Territory Bid removed (2026-08-24, D4/rlv follow-up): territory
+   disputes are resolved by influence bid comparison (suite/territory.js),
+   never by dice — there was no real contested roll here to model. */
 
 import suiteState from '../suite/data.js';
 import { getAttrEffective, getAttrBonus, skDots, skBonus } from '../data/accessors.js';
@@ -10,13 +13,6 @@ import { mkDieEl, mkColsEl } from '../suite/roll-v2.js';
 // ── Roll type definitions ──
 
 const TYPES = {
-  territory: {
-    label:    'Territory Bid',
-    atkPool:  c => aval(c,'Presence') + sk(c,'Intimidation'),
-    atkLabel: 'Pre+Itm',
-    defPool:  c => aval(c,'Presence') + sk(c,'Intimidation'),
-    defLabel: 'Pre+Itm',
-  },
   social: {
     label:    'Social Manoeuvre',
     atkPool:  c => aval(c,'Presence') + sk(c,'Persuasion'),
@@ -38,7 +34,7 @@ function sk(c, skill)  { return skDots(c, skill) + skBonus(c, skill); }
 
 // ── Module state ──
 
-let _type = 'territory';
+let _type = 'social';
 let _atk  = { name: '', pool: 0 };
 let _def  = { name: '', pool: 0 };
 
@@ -73,7 +69,7 @@ function countSuc(cols) {
 export function openContestedRoll() {
   const overlay = document.getElementById('cr-overlay');
   if (!overlay) return;
-  _type = 'territory';
+  _type = 'social';
   _atk  = { name: '', pool: 0 };
   _def  = { name: '', pool: 0 };
   overlay.style.display = 'flex';
