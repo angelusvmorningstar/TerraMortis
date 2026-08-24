@@ -1,9 +1,12 @@
 # Story rlv.2: promote roll-v2.js to the sole player roller; retire roll.js
 
-Status: review — dev-story complete 2026-08-24. All ACs implemented, full changed-area regression
-green (see Dev Agent Record). NOT committed, NOT pushed, NOT deployed to `dev` — the story's own
-smoke-test task is deliberately left undone pending Angelus's explicit push/deploy instruction, per
-`CLAUDE.md`'s hard rule.
+Status: review — dev-story complete 2026-08-24, code review closed the same day (internal 3-layer,
+no unresolved High/Medium — see Senior Developer Review below). Committed `666a1005` on a fresh
+`ms/rlv-2-promote-roll-v2-retire-roll-v1` branch off `origin/main`; pushed and PR #1198 opened
+against `main` 2026-08-24 per Angelus's own explicit instruction:
+https://github.com/angelusvmorningstar/TerraMortisGame/pull/1198. **NOT merged, NOT deployed to
+`dev`** — the story's own smoke-test task is deliberately left undone pending Angelus's explicit
+deploy instruction, per `CLAUDE.md`'s hard rule; status stays `review` even with the PR open.
 
 D2/D3 confirmed 2026-08-24, no further decisions blocked dev-story. D2: DOM-contract cleanup
 deferred to rlv.5, existing shared IDs untouched here. D3:
