@@ -121,7 +121,7 @@ import { installStModPopover } from './editor/st-mod-popover.js';
 // behind are retired outright, not soaked or dead-code-fenced). Every
 // external touch-point (pickChar, shared/resist.js, contested-roll) reads
 // the same DOM ids as before, unchanged by this promotion.
-import { loadPool, chgPool, chgMod, updPool, setAgain, setAgainSeg, togMod, togSpec, doRoll, clrHist, effPool, togEquipChip, updWeaponRef, spendVitae, spendWillpower } from './suite/roll-v2.js';
+import { loadPool, chgPool, chgMod, updPool, setAgain, setAgainSeg, togMod, togSpec, doRoll, clrHist, effPool, togEquipChip, updWeaponRef, spendVitae, spendWillpower, addPowerChip, togPowerChip, removePowerChip } from './suite/roll-v2.js';
 import { onSheetChar, renderSheet as suiteRenderSheet, repaintSheetTrackers } from './suite/sheet.js';
 import { toggleExp as suiteToggleExp, toggleDisc as suiteToggleDisc } from './suite/sheet-helpers.js';
 import { updResist, showResistSec } from './shared/resist.js';
@@ -1444,6 +1444,9 @@ Object.assign(window, {
   updWeaponRef,
   spendVitae,
   spendWillpower,
+  addPowerChip,
+  togPowerChip,
+  removePowerChip,
 
   // Suite sheet tab
   onSheetChar,

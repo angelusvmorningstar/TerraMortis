@@ -34,6 +34,10 @@ import { isCombatGearWeaponShaped, isEquipmentOnMe } from '../data/equipment-der
 // on the rule itself, via pools.js — see spendableCost below).
 import { getGlobalSettings } from '../data/app-settings.js';
 import { trackerAdj, trackerRead, ensureLoaded as ensureTrackerLoaded } from '../game/tracker.js';
+// rlv.7 (#1039 item 2): persistent per-power modifier chips — one more
+// toggleable layer on state.MOD, generated from a localStorage-backed list
+// instead of hardcoded (same shape as state.WP/state.ROTE, D5).
+import { loadChips, addChip, toggleChip, removeChip, clampChipValue } from '../game/power-mod-chips.js';
 
 // ── Imports from other suite modules (will exist once extracted) ──
 // showResistSec / updResist live in shared/resist.js
@@ -186,6 +190,13 @@ export function loadPool(total, name, pi) {
   state.activeEquipBonus = null;
   state.activeWeaponId = null;
   state.POOL_INFO = pi || null;
+  // rlv.7 (#1039): restore this power's persisted mod chips, folding
+  // currently-on ones into MOD — same reset-then-rebuild pattern as
+  // specBonuses/activeEquipBonus above, just sourced from localStorage
+  // instead of starting empty.
+  state.POOL_NAME = name;
+  state.powerChips = state.rollChar ? loadChips(String(state.rollChar._id), name) : [];
+  state.MOD += state.powerChips.filter(c => c.on).reduce((sum, c) => sum + c.value, 0);
   // Auto-set 9-Again when the pool source grants it
   if (pi?.nineAgain) setAgain(9);
   else setAgain(10);
@@ -398,8 +409,41 @@ export function updPool() {
     }
   }
 
+  // Persistent per-power mod chips (rlv.7, #1039 item 2). Not gated on
+  // pi.skill — a chip can attach to any loaded pool (discipline power,
+  // Common Action, Custom Pool), not just skill pools.
+  if (state.powerChips && state.powerChips.length) {
+    html += '<div class="effpool-specs">' + state.powerChips.map(chip => {
+      const cls = 'effpool-spec' + (chip.on ? ' on' : '');
+      const safeId = String(chip.id).replace(/"/g, '&quot;');
+      const safeLabel = String(chip.label).replace(/</g, '&lt;').replace(/>/g, '&gt;');
+      const sign = chip.value > 0 ? '+' : '';
+      return `<span class="${cls}" data-chip="${safeId}" `
+           + `onclick="togPowerChip('${safeId}')" title="Click to toggle">`
+           + `${safeLabel} <span class="effpool-spec-bonus">${sign}${chip.value}</span>`
+           + `<span class="effpool-spec-del" onclick="event.stopPropagation();removePowerChip('${safeId}')" title="Remove">×</span>`
+           + `</span>`;
+    }).join('') + '</div>';
+  }
+
   el.innerHTML = html;
   updWeaponRef();
+
+  // Add-mod row (rlv.7): static markup outside #effline's own innerHTML
+  // rewrite (see the story's Dev Notes — a live text input inside this
+  // rewrite would lose focus/value on every unrelated toggle), only its
+  // enabled/disabled state is painted here.
+  const addModRow = document.getElementById('rv2-addmod-row');
+  if (addModRow) {
+    const enabled = !!(state.rollChar && state.POOL_NAME);
+    addModRow.classList.toggle('disabled', !enabled);
+    const labelEl = document.getElementById('pmc-label');
+    const valueEl = document.getElementById('pmc-value');
+    const btnEl = document.querySelector('.rv2-addmod-btn');
+    if (labelEl) labelEl.disabled = !enabled;
+    if (valueEl) valueEl.disabled = !enabled;
+    if (btnEl) btnEl.disabled = !enabled;
+  }
 }
 
 // ── SPECIALTY TOGGLE ──
@@ -444,6 +488,50 @@ export function togEquipChip(badge) {
     state.MOD += bonus;
     state.activeEquipBonus = { catalogueId: id, bonus };
   }
+  updPool();
+}
+
+// ── PERSISTENT PER-POWER MOD CHIPS (rlv.7, #1039 item 2) ──
+
+/** Add a new chip to the currently-loaded pool, on by default (AC2). Value
+ *  is clamped to power-mod-chips.js's own -10..+10 cap (AC9) before it's
+ *  applied — a clamped-to-0 or empty-label submission silently no-ops,
+ *  matching togSpec's own silent-guard style above. Clears the add-mod
+ *  row's own inputs on success, matching this file's existing direct-DOM
+ *  style (e.g. togMod's rote-c/wp-c classList writes). */
+export function addPowerChip(label, value) {
+  if (!state.rollChar || !state.POOL_NAME) return;
+  const v = clampChipValue(value);
+  if (!v) return;
+  state.powerChips = addChip(String(state.rollChar._id), state.POOL_NAME, label, v);
+  state.MOD += v;
+  const labelEl = document.getElementById('pmc-label');
+  const valueEl = document.getElementById('pmc-value');
+  if (labelEl) labelEl.value = '';
+  if (valueEl) valueEl.value = '';
+  updPool();
+}
+
+/** Toggle a chip on/off — same sign logic as togSpec (toggling off
+ *  subtracts, toggling on adds). */
+export function togPowerChip(id) {
+  if (!state.rollChar || !state.POOL_NAME) return;
+  const chip = state.powerChips.find(c => c.id === id);
+  if (!chip) return;
+  state.MOD += chip.on ? -chip.value : chip.value;
+  state.powerChips = toggleChip(String(state.rollChar._id), state.POOL_NAME, id);
+  updPool();
+}
+
+/** Permanently remove a chip (curation, distinct from toggling off). If it
+ *  was on, its value is subtracted from MOD first so an active chip's
+ *  bonus never lingers after deletion. */
+export function removePowerChip(id) {
+  if (!state.rollChar || !state.POOL_NAME) return;
+  const chip = state.powerChips.find(c => c.id === id);
+  if (!chip) return;
+  if (chip.on) state.MOD -= chip.value;
+  state.powerChips = removeChip(String(state.rollChar._id), state.POOL_NAME, id);
   updPool();
 }
 

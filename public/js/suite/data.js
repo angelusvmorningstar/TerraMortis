@@ -91,6 +91,16 @@ const state = {
   // applied to MOD. Populated by togSpec, cleared by loadPool.
   specBonuses: {},
   activeEquipBonus: null,
+  // rlv.7 (#1039): the currently-loaded pool's own display label (the `name`
+  // argument every loadPool() call site already passes) — the persistence
+  // key for power-mod-chips.js. Populated by loadPool(), cleared by nothing
+  // (stays set to the last-loaded pool's name, same lifetime as POOL_INFO).
+  POOL_NAME: null,
+  // Persistent per-power mod chips for the currently-loaded pool (rlv.7,
+  // #1039). Array of { id, label, value, on }. Populated by loadPool() from
+  // power-mod-chips.js's localStorage-backed store; mutated by
+  // addPowerChip/togPowerChip/removePowerChip.
+  powerChips: [],
   activeWeaponId: null,
   hist: [],
   chars: [],

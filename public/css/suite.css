@@ -148,6 +148,20 @@ body.desktop-mode .view-toggle-btn{display:inline-flex !important;}
 .effpool-seg--wp{color:var(--green2);}
 .effpool-seg--resist{color:var(--info);}
 
+/* rlv.7 (#1039 item 2): persistent per-power mod chips — the "×" remove
+   affordance nested inside an .effpool-spec badge, and the add-mod row
+   below the breakdown. No --space-* scale exists in this app (theme.css's
+   own port note) — spacing here matches the plain-px convention every
+   neighbouring .effpool-*/.mchip rule in this file already uses. */
+.effpool-spec-del{margin-left:4px;color:var(--txt3);}
+.effpool-spec-del:hover{color:var(--crim2);}
+.effpool-spec.on .effpool-spec-del{color:var(--bg);}
+.rv2-addmod-row{display:flex;gap:6px;margin-top:8px;}
+.rv2-addmod-label{flex:2;}
+.rv2-addmod-value{flex:1;}
+.rv2-addmod-row .rv2-addmod-btn{flex:0 0 auto;height:36px;padding:0 12px;}
+.rv2-addmod-row.disabled{opacity:.5;}
+
 /* Resistance */
 .resist-sel{width:100%;background:var(--surf2);border:1px solid var(--bdr2);color:var(--txt);border-radius: var(--radius-md);padding:6px 10px;font-family:var(--ft);font-size:13px;cursor:pointer;margin-top:2px;}
 .resist-sel:focus{outline:none;border-color:var(--gold);}
