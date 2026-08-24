@@ -34,7 +34,20 @@ to repoint (see D2). rlv.6 done 2026-08-24 (dead-code deletion, Codex-reviewed, 
 found and patched, NOT yet committed). rlv.7 done 2026-08-24 (dev-storied + externally Codex-reviewed —
 4 High + 6 Medium findings, all real, all found and patched, including a genuine cross-character
 data-leak and a hidden-dice-modifier bug on combat quick-rolls; 1 pre-existing Medium deferred). rlv.8
-still unblocked, not yet storied. No open decisions remain in this epic.**
+**SUPERSEDED 2026-08-25: Social Manoeuvring is being retired as a mechanic (Angelus/ST team ruling,
+surfaced mid-`bmad-loop` while attempting rlv.8's own `create-story`), not just deferred — there is
+nothing left for status-difference auto-mods to automate. Never storied (no `rlv-8-*.md` file exists).
+Epic RLV is therefore DONE — every row is now done or superseded, nothing left backlog. The actual
+removal of the `social` roll-type is a SEPARATE, not-yet-scoped piece of work living in Epic CRD's own
+files (`challenge-initiation.js`'s `CHALLENGE_TYPES`, `contested-roll.js`'s own type list,
+`pending-queue.js`'s label map, `contested_roll_request.schema.js`'s `roll_type` enum), not a new rlv
+row — confirmed via live grep before recording this, not assumed from the epic's own D4 note. One
+finding from that scoping pass worth keeping: `defender_aspect`'s own separate `mental/social/physical`
+enum (`contested-rolls.js`, used at resolve time to pick which Resistance stat defends) is a DIFFERENT
+axis from `roll_type:'social'` — a Resistance Check can still resolve with a social defence with Social
+Manoeuvre itself gone, so removing the roll-type does not automatically mean stripping that enum value
+too; whoever scopes the removal should re-confirm this rather than trust it secondhand.** No open
+decisions remain in this epic.
 
 ---
 
@@ -124,7 +137,7 @@ briefly here so this table's own "blocked on" column is legible without cross-re
 | rlv.5 | ~~Repoint external consumers (`contested-roll.js`, `combat-tab.js`) onto the unified module's real DOM-contract interface~~ | Interface cleanup | **superseded** — D2 resolved 2026-08-24: investigated before storying, both files already interact via clean function calls (`mkDieEl`/`mkColsEl` render helpers; `loadPool()`), neither touches the shared-ID surface (`#pval`/`#mval`/`#roll-btn`) at all. Nothing to repoint. The real shared-ID coupling is `roll-v2.js`↔`app.js`, a much larger refactor with no forcing bug — out of scope, needs its own fresh story if ever wanted | — |
 | rlv.6 | Delete `dice-engine.js` and its dead sidecar wiring — re-scoped 2026-08-24: investigated before storying, this was never a "migration completion" cleanup: `dice-engine.js` is already fully unreachable (no admin-nav entry, no `#engine-content` mount point since the whole Engine domain was removed under #836) and was already flagged as dead code in a 2026-06-17 investigation note (#846, "zero callers, confirmed") — independent of anything rlv.4 ported | Dead-code cleanup | **done** — dev-storied + Codex-reviewed 2026-08-24 (1 real Medium regression found and patched — this diff's own CSS deletion broke a surviving mobile touch-target test, repointed to the real live roll button rather than deleted). NOT yet committed/pushed | Nothing — shipped locally |
 | rlv.7 | Persistent per-power modifier chips (#1039 net-new) — a generated toggle layer alongside `roll-v2.js`'s existing `state.WP`/`state.MOD`/`state.ROTE` layers, on top of `char-pools.js`'s existing pool-breakdown state | New feature | **done** — storied, dev-storied, and externally Codex-reviewed 2026-08-24 (`specs/stories/rlv-7-persistent-per-power-mod-chips.md`). Review found 4 High + 6 Medium real defects, all patched: a cross-character data leak on character switch (a stale chip badge could persist one character's chip into another's own storage slot), a hidden dice modifier on combat quick-rolls (a persisted chip's value was folded into the roll but never rendered), plus MOD-arithmetic/storage/injectivity/injection/CSS-comment fixes. 1 pre-existing Medium (unrelated pool-tile fallback gap) deferred, not fixed here. 43/43 + 13/13 own tests, 234/234 regression. Committed, NOT pushed/merged | Nothing — shipped locally |
-| rlv.8 | Status-difference auto-mods for social manoeuvring (#1039 net-new) | New feature | **backlog** | rlv.2 (done) — same loosening as rlv.7, same caveat to re-confirm at story time |
+| rlv.8 | ~~Status-difference auto-mods for social manoeuvring~~ (#1039 net-new) | New feature | **superseded** — 2026-08-25, Social Manoeuvring itself is being retired as a mechanic (Angelus/ST team ruling), nothing left to automate. Never storied. Actual removal is separate, unscoped Epic CRD work, not a new rlv row | — |
 | rlv.9 | ~~Rote rules fix~~ | Rules correctness | **superseded** — D1 resolved 2026-08-24, the "bug" is a deliberate house rule, nothing to fix | — |
 | — | Special pools (initiative/frenzy/lashing-out), websocket targeted rolls | Explicitly out of this epic | **not scheduled** | #1039 itself scopes these as separate/later slices |
 
