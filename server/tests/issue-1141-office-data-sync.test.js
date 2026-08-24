@@ -31,8 +31,8 @@ const EXPECTED = {
     manoeuvres: [
       { name: 'Due Diligence', effect: "Each Court, a number of times equal to your City Status; spend 1 Influence to learn the rating of one named merit, Kindred or mortal, held by a Kindred you can see. They will know this was done, unless you also spend Influence equal to their City Status." },
       { name: 'Call in a Favour', effect: "Each Court, a number of times equal to your City Status; spend 1 Influence to require any Court Position holder to use an ability from their own sheet on your behalf. You pay its cost." },
-      { name: 'Sovereignty Inviolate', effect: "Spend 1 Influence to remove a Door. Once per instance of Social Manoeuvring." },
-      { name: 'Willing Coalition', effect: "Spend 1 Influence to add your Clan Status to your Covenant Status, or the reverse, for a relevant social contest." },
+      { name: 'Sovereignty Inviolate', effect: "Once per Court; spend Influence equal to Clan Status or Covenant Status to add to City Status for a single role (this can influence Blood Potency for resistance)." },
+      { name: 'Willing Coalition', effect: "Once per Court; spend Influence equal to a Court Position holder's City Status to force them use an equal amount of Influence in a vote of your choosing." },
       { name: 'Executive Order', effect: "Spend Influence equal to the City Status of a target you can see to order them to act. The target chooses between compliance and a Condition of the Storyteller's choice." },
     ],
   },
