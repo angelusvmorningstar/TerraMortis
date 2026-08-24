@@ -1,0 +1,851 @@
+diff --git a/public/css/admin-layout.css b/public/css/admin-layout.css
+index 5e929fa5..232700eb 100644
+--- a/public/css/admin-layout.css
++++ b/public/css/admin-layout.css
+@@ -2567,193 +2567,6 @@ body {
+   border-color: var(--accent);
+ }
+ 
+-/* ── Engine split layout ── */
+-.engine-split {
+-  display: grid;
+-  grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+-  gap: 20px;
+-  align-items: start;
+-}
+-.engine-left, .engine-right {
+-  min-width: 0;
+-}
+-
+-/* ── Dice Engine (reuses suite roll classes from theme) ── */
+-#dice-engine {
+-  display: flex;
+-  flex-direction: column;
+-  gap: 18px;
+-  padding: 20px;
+-  background: var(--bg);
+-  border-radius: 8px;
+-  border: 1px solid var(--bdr);
+-}
+-#dice-engine > * { width: 100%; }
+-
+-/* Shared roll classes — suite.css defines these for mobile; we redefine for admin */
+-#dice-engine .slabel { font-family: var(--fl); font-size: 13px; letter-spacing: .2em; text-transform: uppercase; color: var(--txt2); margin-bottom: 8px; }
+-#dice-engine .crow { display: flex; align-items: center; gap: 8px; }
+-#dice-engine .cbtn { width: 48px; height: 48px; border-radius: 8px; flex-shrink: 0; border: 1px solid var(--bdr2); background: var(--surf2); color: var(--accent); font-size: 22px; display: flex; align-items: center; justify-content: center; cursor: pointer; user-select: none; }
+-#dice-engine .cbtn:hover { background: var(--surf3); }
+-#dice-engine .cval { flex: 1; height: 48px; border-radius: 8px; border: 1px solid var(--bdr); background: var(--surf2); display: flex; align-items: center; justify-content: center; font-size: 28px; font-weight: 500; color: var(--txt); }
+-#dice-engine .cval.chance { color: var(--err); }
+-#dice-engine .effline { text-align: center; font-family: var(--fl); font-size: 12px; color: var(--txt3); letter-spacing: .05em; margin-top: 8px; }
+-#dice-engine .effline span { color: var(--txt2); }
+-#dice-engine .bbtn { width: 48px; height: 48px; border-radius: 8px; flex-shrink: 0; border: 1px solid var(--bdr); background: var(--surf2); color: var(--txt3); font-size: 20px; display: flex; align-items: center; justify-content: center; cursor: pointer; user-select: none; }
+-#dice-engine .bbtn:hover { background: var(--surf3); }
+-#dice-engine .bval { flex: 1; height: 48px; border-radius: 8px; border: 1px solid var(--bdr); background: var(--surf2); display: flex; align-items: center; justify-content: center; font-size: 22px; color: var(--txt2); }
+-#dice-engine .bval.pos { color: var(--green2); }
+-#dice-engine .bval.neg { color: var(--err); }
+-#dice-engine .arow { display: flex; gap: 6px; }
+-#dice-engine .abtn { flex: 1; height: 42px; border-radius: 6px; border: 1px solid var(--bdr); background: var(--surf2); color: var(--txt3); font-family: var(--fl); font-size: 12px; letter-spacing: .04em; cursor: pointer; }
+-#dice-engine .abtn.on { border-color: var(--bdr2); color: var(--accent); background: var(--accent-a8); }
+-#dice-engine .mrow { display: flex; gap: 6px; }
+-#dice-engine .mchip { flex: 1; height: 42px; border-radius: 6px; border: 1px solid var(--bdr); background: var(--surf2); color: var(--txt3); font-family: var(--fl); font-size: 12px; letter-spacing: .06em; text-transform: uppercase; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+-#dice-engine .mchip.on { border-color: var(--crim-a55); color: var(--accent); background: var(--crim-a15); }
+-
+-/* Roll button */
+-.de-roll-btn { height: 50px; min-height: 48px; min-width: 120px; border-radius: 8px; background: var(--crim); border: 1px solid var(--crim-a70); color: var(--txt-on-dark); font-family: var(--fl); font-size: 15px; letter-spacing: .22em; text-transform: uppercase; cursor: pointer; }
+-.de-roll-btn:hover { background: var(--crim2); }
+-@media (max-width: 768px) { .de-roll-btn { width: 100%; font-size: 15px; } }
+-
+-/* Result area */
+-.de-res-area { border: 1px solid var(--bdr); border-radius: 8px; background: var(--surf-a6); }
+-#de-res-hdr { padding: 12px 16px 8px; border-bottom: 1px solid var(--bdr); display: none; }
+-#de-res-hdr.on { display: block; }
+-#dice-engine .rcnt { font-size: 36px; font-weight: 600; margin-right: 8px; }
+-#dice-engine .rcnt.s { color: var(--green2); } #dice-engine .rcnt.e { color: var(--accent); } #dice-engine .rcnt.f { color: var(--txt3); } #dice-engine .rcnt.d { color: var(--err); }
+-#dice-engine .rlbl { font-family: var(--fl); font-size: 15px; }
+-#dice-engine .rlbl.s { color: var(--green2); } #dice-engine .rlbl.e { color: var(--accent); } #dice-engine .rlbl.f { color: var(--txt3); } #dice-engine .rlbl.d { color: var(--err); }
+-#dice-engine .rverd { font-family: var(--fl); font-size: 13px; color: var(--txt3); letter-spacing: .04em; margin-top: 4px; }
+-.de-dice-wrap { padding: 10px 14px; display: flex; flex-wrap: wrap; gap: 5px; min-height: 50px; align-content: flex-start; }
+-#dice-engine .die { width: 36px; height: 36px; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 600; animation: dp .2s ease both; }
+-@keyframes dp { from { transform: scale(.6); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+-#dice-engine .die.sd { background: var(--green6-a40); border: 1px solid var(--green6-a70); color: var(--green4); }
+-#dice-engine .die.fd { background: var(--surf2-a8); border: 1px solid var(--bdr); color: var(--txt3); }
+-#dice-engine .die.ed { background: var(--info4-a30); border: 1px solid var(--info4-a60); color: var(--info2); }
+-#dice-engine .die.xd { border-color: var(--gdim); }
+-#dice-engine .die.cd { background: var(--crim3-a30, rgba(139,0,0,.3)); border: 1px solid var(--crim3-a60, rgba(139,0,0,.6)); color: var(--err); }
+-#dice-engine .dcol { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+-#dice-engine .xconn { width: 2px; height: 5px; background: var(--gold-a20); }
+-#dice-engine .rote-blk { width: 100%; border-top: 1px solid var(--bdr); padding-top: 7px; margin-top: 2px; }
+-#dice-engine .rote-lbl { font-family: var(--fl); font-size: 8px; letter-spacing: .15em; color: var(--txt3); margin-bottom: 5px; }
+-#dice-engine .rote-blk.win { border-left: 2px solid var(--gold); padding-left: 5px; }
+-#dice-engine .empty-d { font-family: var(--fl); font-size: 12px; color: var(--txt3); letter-spacing: .1em; width: 100%; text-align: center; padding: 14px 0; }
+-
+-/* Character & pool builder */
+-.de-shortcut-row { display: flex; gap: 8px; }
+-.de-sc-btn { flex: 1; height: 44px; border-radius: 8px; padding: 0 14px; border: 1px solid var(--bdr2); background: var(--surf2); color: var(--accent); font-family: var(--fl); font-size: 12px; letter-spacing: .06em; cursor: pointer; appearance: none; -webkit-appearance: none; }
+-.de-sc-btn:focus { outline: none; border-color: var(--gold); }
+-
+-.de-pool-builder { display: flex; flex-direction: column; gap: 8px; }
+-.de-pb-row { display: flex; gap: 6px; }
+-.de-pb-sel { flex: 1; height: 38px; border-radius: 6px; border: 1px solid var(--bdr); background: var(--surf2); color: var(--txt); font-family: var(--ft); font-size: 13px; padding: 0 8px; cursor: pointer; appearance: none; -webkit-appearance: none; }
+-.de-pb-sel:focus { outline: none; border-color: var(--gold); }
+-
+-.de-spec-row { display: flex; flex-wrap: wrap; gap: 6px; }
+-.de-spec-chip { border-radius: 10px; padding: 4px 10px; border: 0.5px solid var(--bdr); background: var(--surf2); color: var(--txt2); font-family: var(--fl); font-size: 12px; letter-spacing: .04em; cursor: pointer; }
+-.de-spec-chip.on { border-color: var(--accent-a40); background: var(--accent-a8); color: var(--accent); }
+-.de-spec-bonus { color: var(--accent); margin-left: 2px; }
+-
+-.de-load-btn { height: 34px; border-radius: 6px; border: 1px solid var(--bdr2); background: var(--surf2); color: var(--accent); font-family: var(--fl); font-size: 13px; letter-spacing: .06em; cursor: pointer; }
+-.de-load-btn:hover { background: var(--surf3); }
+-
+-/* Power info banner */
+-.de-power-info {
+-  background: var(--crim-a12);
+-  border: 1px solid var(--crim-a25);
+-  border-radius: 6px;
+-  padding: 10px 14px;
+-}
+-.de-power-name { font-family: var(--fl); font-size: 13px; color: var(--accent); letter-spacing: .04em; }
+-.de-power-stats { font-family: var(--fl); font-size: 12px; color: var(--txt3); letter-spacing: .04em; margin-top: 3px; }
+-.de-power-effect { font-size: 12px; color: var(--txt2); margin-top: 4px; line-height: 1.4; }
+-.de-hist-item {
+-  display: flex; justify-content: space-between; align-items: center;
+-  padding: 4px 0; border-bottom: 1px solid var(--surf2); font-size: 13px;
+-}
+-.de-hist-meta { color: var(--txt3); }
+-.de-hist-res { font-weight: 600; }
+-
+-/* Roll history panel (right pane — reuses suite .hitem/.hmeta/.hres classes) */
+-.de-history {
+-  background: var(--bg);
+-  border: 1px solid var(--bdr);
+-  border-radius: 8px;
+-  padding: 16px 20px;
+-  margin-bottom: 20px;
+-}
+-.de-history .hist-hdr { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+-.de-history .hist-clr { font-family: var(--fl); font-size: 13px; letter-spacing: .08em; text-transform: uppercase; color: var(--txt3); background: none; border: none; cursor: pointer; padding: 10px 6px; }
+-.de-history .hist-clr:hover { color: var(--txt); }
+-.de-history .hlist { display: flex; flex-direction: column; gap: 3px; max-height: 500px; overflow-y: auto; }
+-.de-history .hitem { display: flex; justify-content: space-between; align-items: center; padding: 5px 10px; border-radius: 6px; background: var(--surf2); border: 1px solid var(--bdr); }
+-.de-history .hmeta { font-family: var(--fl); font-size: 13px; color: var(--txt3); letter-spacing: .02em; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+-.de-history .hres { font-family: var(--fl); font-size: 13px; letter-spacing: .03em; flex-shrink: 0; margin-left: 10px; }
+-.de-history .hres.s { color: var(--green2); } .de-history .hres.e { color: var(--accent); } .de-history .hres.f { color: var(--txt3); } .de-history .hres.d { color: var(--err); }
+-.de-history .hempty { font-family: var(--fl); font-size: 12px; color: var(--txt3); letter-spacing: .08em; text-align: center; padding: 14px; }
+-
+-/* ── Feeding Engine ── */
+-.fe-wrap {
+-  background: var(--bg);
+-  border: 1px solid var(--bdr);
+-  border-radius: 8px;
+-  padding: 20px;
+-}
+-.fe-methods { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 10px; }
+-.fe-disc-row { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+-.fe-vitae-bar {
+-  display: flex; justify-content: space-between; align-items: center;
+-  padding: 8px 14px; margin-bottom: 10px;
+-  background: var(--crim-a12); border: 1px solid var(--crim-a30); border-radius: 4px;
+-}
+-.fe-vitae-label { font-family: var(--fl); font-size: 12px; letter-spacing: .14em; text-transform: uppercase; color: var(--txt3); }
+-.fe-vitae-val { font-family: var(--fl); font-size: 20px; color: var(--err4-a9, #dc9696); }
+-.fe-apply-section {
+-  padding: 12px 14px; background: var(--crim-a8); border: 1px solid var(--crim-a30); border-top: none; border-radius: 0 0 4px 4px;
+-  display: flex; flex-direction: column; gap: 8px;
+-}
+-.fe-warn {
+-  font-family: var(--fl); font-size: 12px; color: var(--err); letter-spacing: .04em;
+-}
+-
+-/* Reuse suite feed classes in admin context */
+-#feeding-engine .feed-method-card { padding: 10px; border: 1px solid var(--bdr); background: var(--surf2); cursor: pointer; text-align: left; border-radius: 4px; }
+-#feeding-engine .feed-method-card.selected { border-color: var(--accent); background: var(--accent-a8); }
+-#feeding-engine .feed-method-card:hover { border-color: var(--bdr2); }
+-#feeding-engine .feed-method-name { font-family: var(--fl); font-size: 12px; color: var(--txt); letter-spacing: .04em; margin-bottom: 2px; }
+-#feeding-engine .feed-method-desc { font-size: 13px; color: var(--txt3); font-style: italic; }
+-#feeding-engine .feed-pool-box { display: flex; align-items: center; justify-content: space-between; padding: 12px 14px; background: var(--surf); border: 1px solid var(--bdr); border-radius: 4px; margin-bottom: 10px; }
+-#feeding-engine .feed-pool-breakdown { font-family: var(--fl); font-size: 13px; color: var(--txt2); letter-spacing: .04em; line-height: 1.8; }
+-#feeding-engine .feed-pool-breakdown span { color: var(--accent); }
+-#feeding-engine .feed-pool-breakdown .feed-dim { color: var(--txt3); }
+-#feeding-engine .feed-pool-total { text-align: right; }
+-#feeding-engine .feed-pool-n { font-family: var(--fl); font-size: 36px; color: var(--accent); line-height: 1; }
+-#feeding-engine .feed-pool-lbl { display: block; font-family: var(--fl); font-size: 12px; letter-spacing: .2em; text-transform: uppercase; color: var(--txt3); }
+-#feeding-engine .feed-disc-lbl { font-family: var(--fl); font-size: 12px; letter-spacing: .12em; text-transform: uppercase; color: var(--txt3); white-space: nowrap; }
+-#feeding-engine .feed-roll-btn { width: 100%; height: 48px; background: var(--crim-a25); border: 1px solid var(--crim-a60); border-radius: 6px; color: var(--err4-a95, #daa); font-family: var(--fl); font-size: 12px; letter-spacing: .18em; text-transform: uppercase; cursor: pointer; margin-bottom: 10px; }
+-#feeding-engine .feed-roll-btn:hover { background: var(--crim-a40); }
+-#feeding-engine .feed-result-box { background: var(--surf); border: 1px solid var(--bdr); border-radius: 4px; }
+-#feeding-engine .feed-suc { font-family: var(--fl); font-size: 40px; color: var(--accent); line-height: 1; }
+-#feeding-engine .feed-suc-lbl { font-family: var(--fl); font-size: 12px; letter-spacing: .2em; text-transform: uppercase; color: var(--txt3); margin-top: 2px; }
+-#feeding-engine .feed-suc-row { display: flex; align-items: center; padding: 12px 14px 4px; }
+-#feeding-engine .feed-dice-row { display: flex; flex-wrap: wrap; gap: 5px; padding: 8px 14px 12px; }
+-#feeding-engine .feed-die { display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; border: 1px solid var(--bdr); background: var(--surf2); border-radius: 4px; font-family: var(--fl); font-size: 13px; color: var(--txt3); }
+-#feeding-engine .feed-die.fd-s { border-color: var(--gold); color: var(--accent); background: var(--gold-a10); }
+-#feeding-engine .feed-die.fd-1 { border-color: var(--crim-a50); color: var(--err6, #c86464); }
+-#feeding-engine .feed-vessel-row { background: var(--surf2); border: 1px solid var(--bdr); border-top: none; border-radius: 0 0 4px 4px; }
+-#feeding-engine .feed-v-num { font-family: var(--fl); font-size: 28px; color: var(--err4-a9, #dc9696); line-height: 1; }
+-#feeding-engine .feed-v-lbl { font-family: var(--fl); font-size: 12px; letter-spacing: .16em; text-transform: uppercase; color: var(--txt3); margin-top: 2px; }
+-#feeding-engine .feed-v-lbl b { color: var(--err4-a9, #dc9696); }
+-#feeding-engine .feed-apply-lbl { font-family: var(--fl); font-size: 12px; letter-spacing: .18em; text-transform: uppercase; color: var(--txt3); }
+-#feeding-engine .feed-apply-controls { display: flex; align-items: center; gap: 10px; }
+-#feeding-engine .feed-adj { width: 40px; height: 40px; background: var(--surf); border: 1px solid var(--bdr); border-radius: 4px; color: var(--txt2); font-size: 20px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+-#feeding-engine .feed-adj:hover { border-color: var(--gold); }
+-#feeding-engine .feed-adj-val { font-family: var(--fl); font-size: 28px; color: var(--err4-a9, #dc9696); min-width: 40px; text-align: center; }
+-#feeding-engine .feed-apply-cap { font-family: var(--fl); font-size: 12px; color: var(--txt3); letter-spacing: .08em; }
+-#feeding-engine .feed-apply-btn { height: 44px; background: var(--crim-a25); border: 1px solid var(--crim-a60); border-radius: 4px; color: var(--err4-a95, #daa); font-family: var(--fl); font-size: 13px; letter-spacing: .14em; text-transform: uppercase; cursor: pointer; padding: 0 16px; }
+-#feeding-engine .feed-apply-btn:hover { background: var(--crim-a40); }
+-
+ /* ── Player View link on character detail ── */
+ .cd-player-view { text-decoration: none; }
+ 
+diff --git a/public/js/admin.js b/public/js/admin.js
+index 7beabc58..3d410c0d 100644
+--- a/public/js/admin.js
++++ b/public/js/admin.js
+@@ -34,8 +34,9 @@ import { initSpheresView } from './admin/spheres-view.js';
+ import { initDowntimeView, renderCityOverview } from './admin/downtime-views.js';
+ import { initNpcRegister } from './admin/npc-register.js';
+ import { initAttendance } from './admin/attendance.js';
+-import { initDiceEngine } from './admin/dice-engine.js';
+-// #836: initFeedingEngine / initSessionTracker imports removed — both
++// rlv.6 (#846): initDiceEngine / dice-engine.js import removed — zero
++// callers, the Engine domain's own nav entry was already gone from
++// admin.html. #836: initFeedingEngine / initSessionTracker imports removed — both
+ // admin/feeding-engine.js and admin/session-tracker.js were dead-imported
+ // (init functions never called from anywhere) and their localStorage-keyed
+ // legacy tracker persistence was deprecated. Files deleted.
+@@ -317,7 +318,6 @@ function switchDomain(domain) {
+   if (btn) btn.classList.add('on');
+ 
+   if (domain === 'players') initPlayersView(chars);
+-  if (domain === 'engine') { /* Engine tab removed — dice, feeding, session tracker were Engine-only tools */ }
+   if (domain === 'city') initCityView();
+   if (domain === 'spheres') initSpheresView();
+   if (domain === 'downtime') {
+diff --git a/public/js/admin/dice-engine.js b/public/js/admin/dice-engine.js
+deleted file mode 100644
+index b046df6a..00000000
+--- a/public/js/admin/dice-engine.js
++++ /dev/null
+@@ -1,495 +0,0 @@
+-/**
+- * Dice rolling engine for admin Engine domain.
+- * Matches the suite roller aesthetic. Supports character pool building
+- * (attribute + skill + discipline + specialisation).
+- */
+-
+-import { esc, displayName, dropdownName } from '../data/helpers.js';
+-import { ALL_ATTRS, ALL_SKILLS, SKILLS_MENTAL } from '../data/constants.js';
+-import { getRulesByCategory, getRuleByKey } from '../data/loader.js';
+-
+-// ── Dice math (decoupled from suite/data.js) ──
+-
+-let again = 10;
+-let noAgain = false;
+-
+-function d10() { return Math.floor(Math.random() * 10) + 1; }
+-function mkDie(v) { return { v, s: v >= 8, x: !noAgain && v >= again }; }
+-function mkChain(rv) {
+-  const r = mkDie(rv); const ch = [];
+-  if (!noAgain) { let l = r; while (l.x) { const c = mkDie(d10()); ch.push(c); l = c; } }
+-  return { r, ch };
+-}
+-function rollPool(n) { const c = []; for (let i = 0; i < n; i++) c.push(mkChain(d10())); return c; }
+-function cntSuc(cols) { let s = 0; cols.forEach(col => { if (col.r.s) s++; col.ch.forEach(d => { if (d.s) s++; }); }); return s; }
+-
+-// ── State ──
+-
+-let chars = [];
+-let poolSize = 5;
+-let mod = 0;
+-let rote = false;
+-let selectedChar = null;
+-let selAttr = '';
+-let selSkill = '';
+-let selDisc = '';
+-let selSpec = '';
+-let selPower = '';  // selected discipline power key
+-let hist = [];
+-
+-// ── Init ──
+-
+-export function initDiceEngine(allChars) {
+-  chars = allChars.filter(c => !c.retired);
+-  const container = document.getElementById('engine-content');
+-  if (!container) return;
+-
+-  if (!document.getElementById('engine-left')) {
+-    container.innerHTML = '';
+-    const left = document.createElement('div');
+-    left.id = 'engine-left';
+-    left.className = 'engine-left';
+-    left.innerHTML = '<div id="dice-engine"></div><div id="feeding-engine" style="margin-top:20px;"></div>';
+-
+-    const right = document.createElement('div');
+-    right.id = 'engine-right';
+-    right.className = 'engine-right';
+-
+-    container.appendChild(left);
+-    container.appendChild(right);
+-  }
+-
+-  render();
+-}
+-
+-// ── Pool calculation ──
+-
+-const _DISC_ATTR = { Dexterity: 'Celerity', Strength: 'Vigour', Stamina: 'Resilience' };
+-function getAttrVal(name) {
+-  if (!selectedChar || !name) return 0;
+-  const a = selectedChar.attributes?.[name];
+-  const base = a ? (a.dots || 0) + (a.bonus || 0) : 0;
+-  const disc = _DISC_ATTR[name] ? (selectedChar.disciplines?.[_DISC_ATTR[name]]?.dots || 0) : 0;
+-  return base + disc;
+-}
+-function getSkillVal(name) {
+-  if (!selectedChar || !name) return 0;
+-  const s = selectedChar.skills?.[name];
+-  return s ? (s.dots || 0) + (s.bonus || 0) : 0;
+-}
+-function getDiscVal(name) {
+-  if (!selectedChar || !name) return 0;
+-  return selectedChar.disciplines?.[name]?.dots || 0;
+-}
+-function getSpecBonus() {
+-  if (!selSpec || !selectedChar) return 0;
+-  return specBonusFor(selectedChar, selSpec);
+-}
+-
+-function specBonusFor(char, spec) {
+-  const aoe = (char.merits || []).some(m =>
+-    m.name?.toLowerCase() === 'area of expertise' && m.qualifier &&
+-    m.qualifier.toLowerCase() === spec.toLowerCase()
+-  );
+-  return aoe ? 2 : 1;
+-}
+-
+-function calcPool() {
+-  return getAttrVal(selAttr) + getSkillVal(selSkill) + getDiscVal(selDisc) + (selSpec ? getSpecBonus() : 0);
+-}
+-
+-/** Get powers available to the selected character. Tries rules cache, falls back to DISC. */
+-function getCharPowers() {
+-  if (!selectedChar) return [];
+-  const charDiscs = selectedChar.disciplines || {};
+-  // Devotion/rite/pact names from c.powers (character-specific picks, NOT discipline powers)
+-  const ownedPowerNames = new Set((selectedChar.powers || [])
+-    .filter(p => p.category === 'devotion' || p.category === 'rite' || p.category === 'pact')
+-    .map(p => p.name));
+-  const results = [];
+-
+-  // Discipline powers: derive from rules cache, capped to character's dots
+-  const discRules = getRulesByCategory('discipline');
+-  const devRules = getRulesByCategory('devotion');
+-  const riteRules = getRulesByCategory('rite');
+-  if (discRules.length) {
+-    for (const rule of [...discRules, ...riteRules]) {
+-      const dots = charDiscs[rule.parent]?.dots || 0;
+-      if (rule.parent && dots > 0 && (rule.rank == null || rule.rank <= dots)) {
+-        results.push({ name: rule.name, info: { d: rule.parent, a: rule.pool?.attr, s: rule.pool?.skill, r: rule.resistance, c: rule.cost, ac: rule.action, du: rule.duration, ef: rule.description } });
+-      }
+-    }
+-    for (const rule of devRules) {
+-      if (ownedPowerNames.has(rule.name)) {
+-        results.push({ name: rule.name, info: { d: rule.parent, a: rule.pool?.attr, s: rule.pool?.skill, r: rule.resistance, c: rule.cost, ac: rule.action, du: rule.duration, ef: rule.description } });
+-      }
+-    }
+-  }
+-  results.sort((a, b) => (a.info.d || '').localeCompare(b.info.d || '') || a.name.localeCompare(b.name));
+-  return results;
+-}
+-
+-/** Load a power's pool into the roller state. Tries rules cache, falls back to DISC. */
+-function loadPower(powerName) {
+-  // Try rules cache
+-  const slug = powerName.toLowerCase().replace(/['']/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+-  const rule = getRuleByKey(slug) || getRuleByKey('rite-' + slug) || getRuleByKey('devotion-' + slug);
+-  let info;
+-  if (rule) {
+-    info = { d: rule.parent, a: rule.pool?.attr, s: rule.pool?.skill, r: rule.resistance, c: rule.cost, ac: rule.action, du: rule.duration, ef: rule.description };
+-  } else {
+-    return;
+-  }
+-  if (!info || !selectedChar) return;
+-  if (!info.a || !info.s) return;
+-
+-  const attrV = getAttrVal(info.a);
+-  const skillV = getSkillVal(info.s);
+-  const unskilled = (info.s && skillV === 0) ? (SKILLS_MENTAL.includes(info.s) ? -3 : -1) : 0;
+-  const discV = info.d ? getDiscVal(info.d) : 0;
+-
+-  selAttr = info.a;
+-  selSkill = info.s;
+-  selDisc = info.d || '';
+-  selSpec = '';
+-  poolSize = attrV + skillV + discV + unskilled;
+-  mod = 0;
+-}
+-
+-function effPool() {
+-  return Math.max(0, poolSize + mod);
+-}
+-
+-function getSpecs() {
+-  if (!selectedChar || !selSkill) return [];
+-  const s = selectedChar.skills?.[selSkill];
+-  return s?.specs || [];
+-}
+-
+-// ── Render ──
+-
+-function render() {
+-  const el = document.getElementById('dice-engine');
+-  if (!el) return;
+-
+-  const eff = effPool();
+-
+-  let h = '';
+-
+-  // Character + Power selector row
+-  h += '<div class="de-shortcut-row">';
+-  h += `<select class="de-sc-btn" id="de-char">`;
+-  h += '<option value="">Character</option>';
+-  for (const c of chars) {
+-    const sel = selectedChar && selectedChar._id === c._id ? ' selected' : '';
+-    h += `<option value="${esc(c._id)}"${sel}>${esc(dropdownName(c))}</option>`;
+-  }
+-  h += '</select>';
+-
+-  // Power/discipline dropdown
+-  if (selectedChar) {
+-    const powers = getCharPowers();
+-    h += `<select class="de-sc-btn" id="de-power">`;
+-    h += '<option value="">Discipline</option>';
+-    let lastDisc = '';
+-    for (const p of powers) {
+-      const disc = p.info.d || 'Other';
+-      if (disc !== lastDisc) {
+-        if (lastDisc) h += '</optgroup>';
+-        h += `<optgroup label="${esc(disc)}">`;
+-        lastDisc = disc;
+-      }
+-      const sel = selPower === p.name ? ' selected' : '';
+-      const rollable = p.info.a && p.info.s;
+-      h += `<option value="${esc(p.name)}"${sel}${rollable ? '' : ' disabled'}>${esc(p.name)}</option>`;
+-    }
+-    if (lastDisc) h += '</optgroup>';
+-    h += '</select>';
+-  }
+-  h += '</div>';
+-
+-  // Power info banner
+-  if (selPower) {
+-    const slug = selPower.toLowerCase().replace(/['']/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+-    const rule = getRuleByKey(slug) || getRuleByKey('rite-' + slug) || getRuleByKey('devotion-' + slug);
+-    const pi = rule ? { c: rule.cost, ac: rule.action, du: rule.duration, r: rule.resistance, ef: rule.description } : null;
+-    if (pi) {
+-      h += '<div class="de-power-info">';
+-      h += `<div class="de-power-name">${esc(selPower)}</div>`;
+-      const details = [];
+-      if (pi.c) details.push(`Cost: ${pi.c}`);
+-      if (pi.ac) details.push(pi.ac);
+-      if (pi.du) details.push(pi.du);
+-      if (pi.r) details.push(pi.r);
+-      if (details.length) h += `<div class="de-power-stats">${esc(details.join(' · '))}</div>`;
+-      if (pi.ef) h += `<div class="de-power-effect">${esc(pi.ef)}</div>`;
+-      h += '</div>';
+-    }
+-  }
+-
+-  // Pool builder (attribute + skill + discipline) — shown when character selected
+-  if (selectedChar) {
+-    h += '<div class="de-pool-builder">';
+-
+-    // Attribute
+-    h += '<div class="de-pb-row">';
+-    h += '<select class="de-pb-sel" id="de-attr">';
+-    h += '<option value="">Attribute</option>';
+-    for (const a of ALL_ATTRS) {
+-      const v = getAttrVal(a);
+-      if (!v) continue;
+-      const sel = selAttr === a ? ' selected' : '';
+-      h += `<option value="${esc(a)}"${sel}>${esc(a)} (${v})</option>`;
+-    }
+-    h += '</select>';
+-
+-    // Skill
+-    h += '<select class="de-pb-sel" id="de-skill">';
+-    h += '<option value="">Skill</option>';
+-    for (const s of ALL_SKILLS) {
+-      const v = getSkillVal(s);
+-      if (!v) continue;
+-      const sel = selSkill === s ? ' selected' : '';
+-      h += `<option value="${esc(s)}"${sel}>${esc(s)} (${v})</option>`;
+-    }
+-    h += '</select>';
+-
+-    // Discipline
+-    h += '<select class="de-pb-sel" id="de-disc">';
+-    h += '<option value="">Discipline</option>';
+-    const discs = Object.entries(selectedChar.disciplines || {}).filter(([, v]) => (v?.dots || 0) > 0);
+-    for (const [d, v] of discs) {
+-      const sel = selDisc === d ? ' selected' : '';
+-      h += `<option value="${esc(d)}"${sel}>${esc(d)} (${v.dots})</option>`;
+-    }
+-    h += '</select>';
+-    h += '</div>';
+-
+-    // Specialisations (shown when a skill with specs is selected)
+-    const specs = getSpecs();
+-    if (specs.length) {
+-      h += '<div class="de-spec-row">';
+-      for (const sp of specs) {
+-        const on = selSpec === sp ? ' on' : '';
+-        h += `<button class="de-spec-chip${on}" data-spec="${esc(sp)}">${esc(sp)} <span class="de-spec-bonus">+${specBonusFor(selectedChar, sp)}</span></button>`;
+-      }
+-      h += '</div>';
+-    }
+-
+-    // Load pool button
+-    const cp = calcPool();
+-    if (cp > 0) {
+-      h += `<button class="de-load-btn" id="de-load-pool">Load Pool (${cp} dice)</button>`;
+-    }
+-    h += '</div>';
+-  }
+-
+-  // ── Dice Pool ──
+-  h += '<div class="slabel">Dice Pool</div>';
+-  h += '<div class="crow">';
+-  h += '<button class="cbtn" id="de-pool-down">\u2212</button>';
+-  h += `<div class="cval${poolSize <= 0 ? ' chance' : ''}" id="de-pool-val">${poolSize <= 0 ? 'Chance' : poolSize}</div>`;
+-  h += '<button class="cbtn" id="de-pool-up">+</button>';
+-  h += '</div>';
+-  h += `<div class="effline" id="de-effline">Effective pool: <span>${eff <= 0 ? '<span style="color:var(--err)">Chance die</span>' : eff + (eff === 1 ? ' die' : ' dice')}</span></div>`;
+-
+-  // ── Bonus / Penalty ──
+-  h += '<div class="slabel">Bonus / Penalty</div>';
+-  h += '<div class="crow">';
+-  h += '<button class="bbtn" id="de-mod-down">\u2212</button>';
+-  const modStr = mod === 0 ? '0' : mod > 0 ? '+' + mod : String(mod);
+-  const modCls = mod > 0 ? ' pos' : mod < 0 ? ' neg' : '';
+-  h += `<div class="bval${modCls}" id="de-mod-val">${modStr}</div>`;
+-  h += '<button class="bbtn" id="de-mod-up">+</button>';
+-  h += '</div>';
+-
+-  // ── Again Rule ──
+-  h += '<div class="slabel">Again Rule</div>';
+-  h += '<div class="arow">';
+-  for (const v of [8, 9, 10]) {
+-    const on = again === v ? ' on' : '';
+-    h += `<button class="abtn${on}" data-again="${v}">${v}-again</button>`;
+-  }
+-  h += '</div>';
+-
+-  // ── Rote / No Again ──
+-  h += '<div class="mrow">';
+-  h += `<button class="mchip${rote ? ' on' : ''}" id="de-rote">Rote</button>`;
+-  h += `<button class="mchip${noAgain ? ' on' : ''}" id="de-no-again">No Again</button>`;
+-  h += '</div>';
+-
+-  // ── Roll Button ──
+-  h += '<button class="de-roll-btn" id="de-roll">Roll the Dice</button>';
+-
+-  // ── Result Area ──
+-  h += '<div id="de-res-area" class="de-res-area">';
+-  h += '<div id="de-res-hdr"></div>';
+-  h += '<div id="de-dice-area" class="de-dice-wrap"><div class="empty-d">No rolls yet</div></div>';
+-  h += '</div>';
+-
+-  el.innerHTML = h;
+-  wireEvents();
+-}
+-
+-function wireEvents() {
+-  const $ = id => document.getElementById(id);
+-
+-  $('de-char').addEventListener('change', e => {
+-    const id = e.target.value;
+-    selectedChar = id ? chars.find(c => c._id === id) : null;
+-    selAttr = ''; selSkill = ''; selDisc = ''; selSpec = ''; selPower = '';
+-    render();
+-  });
+-
+-  $('de-power')?.addEventListener('change', e => {
+-    selPower = e.target.value;
+-    if (selPower) loadPower(selPower);
+-    render();
+-  });
+-
+-  $('de-pool-down').addEventListener('click', () => { poolSize = Math.max(-5, poolSize - 1); render(); });
+-  $('de-pool-up').addEventListener('click', () => { poolSize = Math.min(40, poolSize + 1); render(); });
+-  $('de-mod-down').addEventListener('click', () => { mod = Math.max(-10, mod - 1); render(); });
+-  $('de-mod-up').addEventListener('click', () => { mod = Math.min(10, mod + 1); render(); });
+-  $('de-rote').addEventListener('click', () => { rote = !rote; render(); });
+-  $('de-no-again').addEventListener('click', () => { noAgain = !noAgain; render(); });
+-  $('de-roll').addEventListener('click', doRoll);
+-
+-  document.querySelectorAll('#dice-engine [data-again]').forEach(btn => {
+-    btn.addEventListener('click', () => { again = parseInt(btn.dataset.again, 10); render(); });
+-  });
+-
+-  // Pool builder events
+-  if (selectedChar) {
+-    $('de-attr')?.addEventListener('change', e => { selAttr = e.target.value; render(); });
+-    $('de-skill')?.addEventListener('change', e => { selSkill = e.target.value; selSpec = ''; render(); });
+-    $('de-disc')?.addEventListener('change', e => { selDisc = e.target.value; render(); });
+-    $('de-load-pool')?.addEventListener('click', () => { poolSize = calcPool(); mod = 0; render(); });
+-
+-    document.querySelectorAll('#dice-engine [data-spec]').forEach(btn => {
+-      btn.addEventListener('click', () => {
+-        selSpec = selSpec === btn.dataset.spec ? '' : btn.dataset.spec;
+-        render();
+-      });
+-    });
+-  }
+-}
+-
+-// ── Roll ──
+-
+-function doRoll() {
+-  const eff = effPool();
+-  const hdr = document.getElementById('de-res-hdr');
+-  const area = document.getElementById('de-dice-area');
+-  hdr.innerHTML = '';
+-  area.innerHTML = '';
+-
+-  if (eff <= 0) {
+-    const v = d10();
+-    const suc = v === 10;
+-    const dram = v === 1;
+-    const cls = dram ? 'd' : suc ? 'e' : 'f';
+-    const lbl = dram ? 'Dramatic Failure' : suc ? 'Success (Chance)' : 'Failure (Chance)';
+-    const cnt = dram ? '\u2014' : suc ? '1' : '0';
+-    hdr.innerHTML = `<div><span class="rcnt ${cls}">${cnt}</span><span class="rlbl ${cls}">${lbl}</span></div><div class="rverd">Chance die</div>`;
+-    hdr.classList.add('on');
+-    area.innerHTML = `<div class="die cd">${v}</div>`;
+-    addHist('Chance', cls, lbl, cnt, 'Chance die');
+-    return;
+-  }
+-
+-  const cA = rollPool(eff);
+-  const cB = rote ? rollPool(eff) : null;
+-  const sA = cntSuc(cA);
+-  const sB = rote ? cntSuc(cB) : 0;
+-  let wC, wS, lC, lS;
+-
+-  if (rote && sB > sA) { wC = cB; wS = sB; lC = cA; lS = sA; }
+-  else { wC = cA; wS = sA; if (rote) { lC = cB; lS = sB; } }
+-
+-  const mods = [];
+-  if (rote) mods.push('rote');
+-  if (noAgain) mods.push('no again');
+-  const poolParts = [];
+-  if (selAttr) poolParts.push(`${selAttr} ${getAttrVal(selAttr)}`);
+-  if (selSkill) poolParts.push(`${selSkill} ${getSkillVal(selSkill)}`);
+-  if (selDisc) poolParts.push(`${selDisc} ${getDiscVal(selDisc)}`);
+-  const poolStr = poolParts.length ? poolParts.join(' + ') : `${eff}d10`;
+-  const verd = `${poolStr} \u00B7 ${again}-again${mods.length ? ' \u00B7 ' + mods.join(', ') : ''}`;
+-
+-  const exc = wS >= 5;
+-  const cls = wS === 0 ? 'f' : exc ? 'e' : 's';
+-  const lbl = wS === 0 ? 'Failure' : exc ? 'Exceptional Success' : 'Success';
+-  hdr.innerHTML = `<div><span class="rcnt ${cls}">${wS}</span><span class="rlbl ${cls}">${lbl}</span></div><div class="rverd">${esc(verd)}</div>`;
+-  hdr.classList.add('on');
+-
+-  if (rote) {
+-    const wb = document.createElement('div'); wb.className = 'rote-blk win';
+-    wb.innerHTML = `<div class="rote-lbl">Roll 1 \u2014 ${wS} success${wS !== 1 ? 'es' : ''} (selected)</div>`;
+-    wb.appendChild(mkColsEl(wC, 0)); area.appendChild(wb);
+-    const lb = document.createElement('div'); lb.className = 'rote-blk';
+-    lb.innerHTML = `<div class="rote-lbl">Roll 2 \u2014 ${lS} success${lS !== 1 ? 'es' : ''}</div>`;
+-    lb.appendChild(mkColsEl(lC, wC.length + 2)); area.appendChild(lb);
+-  } else {
+-    area.appendChild(mkColsEl(wC, 0));
+-  }
+-
+-  addHist(eff + 'd10', cls, lbl, wS, verd);
+-}
+-
+-function mkDieEl(d, delay, isX) {
+-  const el = document.createElement('div');
+-  let cls = isX ? 'die ed' : (d.s ? 'die sd' : 'die fd');
+-  if (d.x) cls += ' xd';
+-  el.className = cls;
+-  el.textContent = d.v;
+-  el.style.animationDelay = (delay * 40) + 'ms';
+-  return el;
+-}
+-
+-function mkColsEl(cols, base) {
+-  const w = document.createElement('div');
+-  w.style.cssText = 'display:flex;flex-wrap:wrap;gap:5px;';
+-  let delay = base;
+-  cols.forEach(col => {
+-    const ce = document.createElement('div'); ce.className = 'dcol';
+-    ce.appendChild(mkDieEl(col.r, delay++, false));
+-    col.ch.forEach(child => {
+-      const conn = document.createElement('div'); conn.className = 'xconn';
+-      ce.appendChild(conn);
+-      ce.appendChild(mkDieEl(child, delay++, true));
+-    });
+-    w.appendChild(ce);
+-  });
+-  return w;
+-}
+-
+-// ── History (right pane) ──
+-
+-function ensureHistPanel() {
+-  if (document.getElementById('de-history')) return;
+-  const right = document.getElementById('engine-right');
+-  if (!right) return;
+-  const panel = document.createElement('div');
+-  panel.id = 'de-history';
+-  panel.className = 'de-history';
+-  panel.innerHTML = '<div class="hist-hdr"><div class="slabel">History</div><button class="hist-clr" id="de-clear-hist">Clear</button></div><div id="de-hist-list" class="hlist"><div class="hempty">No rolls yet</div></div>';
+-  right.prepend(panel);
+-  document.getElementById('de-clear-hist').addEventListener('click', () => { hist = []; renderHist(); });
+-}
+-
+-function addHist(pool, cls, lbl, cnt, verd) {
+-  hist.unshift({ pool, lbl, cnt, cls, verd });
+-  if (hist.length > 20) hist.pop();
+-  renderHist();
+-}
+-
+-function renderHist() {
+-  ensureHistPanel();
+-  const hEl = document.getElementById('de-hist-list');
+-  if (!hEl) return;
+-  if (!hist.length) { hEl.innerHTML = '<div class="hempty">No rolls yet</div>'; return; }
+-  hEl.innerHTML = hist.map(r =>
+-    `<div class="hitem"><span class="hmeta">${esc(r.verd)}</span><span class="hres ${r.cls}">${r.cnt} ${esc(r.lbl)}</span></div>`
+-  ).join('');
+-}
+diff --git a/tests/admin.spec.js b/tests/admin.spec.js
+index a6521ecd..ce78cbb7 100644
+--- a/tests/admin.spec.js
++++ b/tests/admin.spec.js
+@@ -153,11 +153,6 @@ test.describe('Admin — Sidebar', () => {
+     await expect(page.locator('#d-player')).not.toHaveClass(/active/);
+   });
+ 
+-  test('clicking Engine switches domain', async ({ page }) => {
+-    await page.click('.sidebar-btn[data-domain="engine"]');
+-    await expect(page.locator('#d-engine')).toHaveClass(/active/);
+-  });
+-
+   test('cross-app nav buttons exist', async ({ page }) => {
+     await expect(page.locator('.sidebar-app-nav .app-nav-btn')).toHaveCount(2);
+     await expect(page.locator('.sidebar-app-nav .app-nav-btn >> text=Game App')).toBeVisible();
+@@ -331,40 +326,6 @@ test.describe('Admin — City Domain', () => {
+   });
+ });
+ 
+-// ══════════════════════════════════════
+-//  ENGINE DOMAIN
+-// ══════════════════════════════════════
+-
+-test.describe('Admin — Engine Domain', () => {
+-  test.beforeEach(async ({ page }) => {
+-    await loginAsST(page);
+-    await page.goto('/admin.html');
+-    await page.waitForSelector('#admin-app:not([style*="display: none"])');
+-    await page.click('.sidebar-btn[data-domain="engine"]');
+-    await page.waitForSelector('#engine-content', { timeout: 5000 });
+-  });
+-
+-  test('dice engine renders', async ({ page }) => {
+-    await expect(page.locator('#dice-engine')).toBeVisible();
+-  });
+-
+-  test('feeding engine renders', async ({ page }) => {
+-    await expect(page.locator('#feeding-engine')).toBeVisible();
+-  });
+-
+-  test('session tracker renders', async ({ page }) => {
+-    await expect(page.locator('#session-tracker')).toBeVisible();
+-  });
+-
+-  test('dice engine has character selector', async ({ page }) => {
+-    await expect(page.locator('#de-char')).toBeVisible();
+-  });
+-
+-  test('dice engine has roll button', async ({ page }) => {
+-    await expect(page.locator('#de-roll')).toBeVisible();
+-  });
+-});
+-
+ // ══════════════════════════════════════
+ //  THEME
+ // ══════════════════════════════════════
+diff --git a/server/tests/rlv-6-dice-engine-removed.test.js b/server/tests/rlv-6-dice-engine-removed.test.js
+new file mode 100644
+index 00000000..6acbf347
+--- /dev/null
++++ b/server/tests/rlv-6-dice-engine-removed.test.js
+@@ -0,0 +1,65 @@
++/**
++ * rlv.6 — dice-engine.js and its dead sidecar wiring removed.
++ *
++ * dice-engine.js was already fully unreachable before this story (no
++ * admin-nav entry, no #engine-content mount point — the Engine domain's own
++ * nav entry was already gone from admin.html, per a 2026-06-17 investigation
++ * note, issue #846, "zero callers, confirmed"). This story deletes the file
++ * itself plus its now-pointless import and no-op switchDomain() branch in
++ * admin.js, and the orphaned #dice-engine/#feeding-engine CSS block.
++ *
++ * Structured as source-text checks (not a live import) for the same reason
++ * as server/tests/issue-836-legacy-tracker-cache-removed.test.js: admin.js
++ * transitively pulls in browser globals (location via api.js) and cannot be
++ * imported in a node test environment.
++ */
++
++import { describe, it, expect } from 'vitest';
++import fs from 'node:fs';
++import path from 'node:path';
++import { fileURLToPath } from 'node:url';
++
++const __dirname = path.dirname(fileURLToPath(import.meta.url));
++const REPO_ROOT = path.resolve(__dirname, '..', '..');
++function read(rel) { return fs.readFileSync(path.join(REPO_ROOT, rel), 'utf8'); }
++function exists(rel) { return fs.existsSync(path.join(REPO_ROOT, rel)); }
++
++describe('rlv.6 — dice-engine.js removed', () => {
++  it('public/js/admin/dice-engine.js no longer exists', () => {
++    expect(exists('public/js/admin/dice-engine.js')).toBe(false);
++  });
++});
++
++describe('rlv.6 — admin.js drops dead Engine-domain wiring', () => {
++  const src = read('public/js/admin.js');
++  it('no longer imports initDiceEngine', () => {
++    expect(src).not.toMatch(/import\s*\{\s*initDiceEngine\s*\}/);
++    expect(src).not.toMatch(/from\s*['"]\.\/admin\/dice-engine\.js['"]/);
++  });
++  it('switchDomain() no longer has an engine branch', () => {
++    expect(src).not.toMatch(/domain\s*===\s*['"]engine['"]/);
++  });
++});
++
++describe('rlv.6 — admin-layout.css drops dead Engine-domain rules', () => {
++  const css = read('public/css/admin-layout.css');
++  it('no longer contains #dice-engine rules', () => {
++    expect(css).not.toMatch(/#dice-engine/);
++  });
++  it('no longer contains #feeding-engine rules', () => {
++    expect(css).not.toMatch(/#feeding-engine/);
++  });
++});
++
++describe('rlv.6 — tests/admin.spec.js drops the stale Engine Domain describe block', () => {
++  const src = read('tests/admin.spec.js');
++  it('no longer has an "Admin — Engine Domain" describe block', () => {
++    expect(src).not.toMatch(/Admin — Engine Domain/);
++  });
++  it('no longer has a "clicking Engine switches domain" test', () => {
++    expect(src).not.toMatch(/clicking Engine switches domain/);
++  });
++  // The "Admin — Next Session Panel" block's own data-domain="engine" clicks
++  // are a separate, pre-existing, out-of-scope bug (flagged in the story's
++  // own "What this story is NOT") — deliberately NOT asserted against here.
++});

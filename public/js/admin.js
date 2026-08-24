@@ -34,8 +34,9 @@ import { initSpheresView } from './admin/spheres-view.js';
 import { initDowntimeView, renderCityOverview } from './admin/downtime-views.js';
 import { initNpcRegister } from './admin/npc-register.js';
 import { initAttendance } from './admin/attendance.js';
-import { initDiceEngine } from './admin/dice-engine.js';
-// #836: initFeedingEngine / initSessionTracker imports removed — both
+// rlv.6 (#846): initDiceEngine / dice-engine.js import removed — zero
+// callers, the Engine domain's own nav entry was already gone from
+// admin.html. #836: initFeedingEngine / initSessionTracker imports removed — both
 // admin/feeding-engine.js and admin/session-tracker.js were dead-imported
 // (init functions never called from anywhere) and their localStorage-keyed
 // legacy tracker persistence was deprecated. Files deleted.
@@ -317,7 +318,6 @@ function switchDomain(domain) {
   if (btn) btn.classList.add('on');
 
   if (domain === 'players') initPlayersView(chars);
-  if (domain === 'engine') { /* Engine tab removed — dice, feeding, session tracker were Engine-only tools */ }
   if (domain === 'city') initCityView();
   if (domain === 'spheres') initSpheresView();
   if (domain === 'downtime') {

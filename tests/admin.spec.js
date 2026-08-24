@@ -153,11 +153,6 @@ test.describe('Admin — Sidebar', () => {
     await expect(page.locator('#d-player')).not.toHaveClass(/active/);
   });
 
-  test('clicking Engine switches domain', async ({ page }) => {
-    await page.click('.sidebar-btn[data-domain="engine"]');
-    await expect(page.locator('#d-engine')).toHaveClass(/active/);
-  });
-
   test('cross-app nav buttons exist', async ({ page }) => {
     await expect(page.locator('.sidebar-app-nav .app-nav-btn')).toHaveCount(2);
     await expect(page.locator('.sidebar-app-nav .app-nav-btn >> text=Game App')).toBeVisible();
@@ -328,40 +323,6 @@ test.describe('Admin — City Domain', () => {
   test('prestige section shows top characters', async ({ page }) => {
     const prestige = page.locator('.city-left .infl-table');
     await expect(prestige).toBeVisible();
-  });
-});
-
-// ══════════════════════════════════════
-//  ENGINE DOMAIN
-// ══════════════════════════════════════
-
-test.describe('Admin — Engine Domain', () => {
-  test.beforeEach(async ({ page }) => {
-    await loginAsST(page);
-    await page.goto('/admin.html');
-    await page.waitForSelector('#admin-app:not([style*="display: none"])');
-    await page.click('.sidebar-btn[data-domain="engine"]');
-    await page.waitForSelector('#engine-content', { timeout: 5000 });
-  });
-
-  test('dice engine renders', async ({ page }) => {
-    await expect(page.locator('#dice-engine')).toBeVisible();
-  });
-
-  test('feeding engine renders', async ({ page }) => {
-    await expect(page.locator('#feeding-engine')).toBeVisible();
-  });
-
-  test('session tracker renders', async ({ page }) => {
-    await expect(page.locator('#session-tracker')).toBeVisible();
-  });
-
-  test('dice engine has character selector', async ({ page }) => {
-    await expect(page.locator('#de-char')).toBeVisible();
-  });
-
-  test('dice engine has roll button', async ({ page }) => {
-    await expect(page.locator('#de-roll')).toBeVisible();
   });
 });
 

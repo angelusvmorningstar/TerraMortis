@@ -363,24 +363,26 @@ test('EPB.4 — sidebar close button is at least 44×44px on tablet', async ({ p
   expect(box?.height).toBeGreaterThanOrEqual(44);
 });
 
-// ── EPB.3 — Dice roll button in admin ────────────────────────────────────────
+// ── EPB.3 — Dice roll button touch-target size ───────────────────────────────
 
-test('EPB.3 — admin dice engine roll button min-height on mobile', async ({ page }) => {
+test('EPB.3 — Roll tab roll button min-height on mobile', async ({ page }) => {
+  // rlv.6 (#846): the admin app's own dice-engine.js roller (.de-roll-btn)
+  // was already-dead code, deleted outright — the admin Engine domain's own
+  // nav entry had already been removed from admin.html before this repoint,
+  // so this test's original synthetic .de-roll-btn element (never actually
+  // rendered in a real page, just floated detached in the DOM to read its
+  // CSS rule) tested a class nothing renders any more. The player Roll
+  // tab's #roll-btn is the one real, live roll button left in the app —
+  // repointed here to test THAT element's real, rendered min-height,
+  // preserving EPB.3's actual touch-target-size guard rather than deleting
+  // the coverage outright.
   await page.setViewportSize({ width: 390, height: 844 });
-  await setupAdminPage(page);
+  await setupSuitePage(page);
+  await page.evaluate(() => window.goTab('roll'));
+  await page.waitForSelector('#t-roll.active', { state: 'visible', timeout: 5000 });
 
-  // Navigate to engine where .de-roll-btn lives
-  // (Engine tab was removed; dice engine now only in suite app #roll-btn)
-  // Test CSS directly: .de-roll-btn has min-height via media query
-  const hasMinHeight = await page.evaluate(() => {
-    const el = document.createElement('button');
-    el.className = 'de-roll-btn';
-    document.body.appendChild(el);
-    const h = parseFloat(window.getComputedStyle(el).minHeight) || 0;
-    document.body.removeChild(el);
-    return h;
-  });
-  expect(hasMinHeight).toBeGreaterThanOrEqual(48);
+  const box = await page.locator('#roll-btn').boundingBox();
+  expect(box?.height).toBeGreaterThanOrEqual(48);
 });
 
 // ── nav-1-3 — More grid app launcher ─────────────────────────────────────────
