@@ -229,9 +229,14 @@ look for race/staleness risk once a chip-toggle layer is added, when rlv.3 is ac
 4. **`combat-tab.js`'s Quick Roll bug** — worth an immediate, narrow fix (make it flag-aware, or route
    through the active roller's real API) independent of the larger consolidation, given it's already
    live and silent.
-5. **`contested-roll.js`'s scope** — stays a deliberately-simplified third engine (its own header
-   already says so), or gets folded into the unified roller's math with its own pool-building `TYPES`
-   table preserved as a distinct entry mode? Its working server-side roll log is relevant to gdx-8.
+5. ~~**`contested-roll.js`'s scope**~~ — **D4 RESOLVED 2026-08-24: stays separate.** Confirmed it is
+   NOT a near-duplicate of Epic CRD's `challenge-initiation.js` despite sharing the same three
+   roll-type labels — `contested-roll.js` is an ST-only, no-persistence, in-session quick-tool
+   (`#btn-contested` hidden from players, `app.js:1631-1632`); CRD's system is player-initiated and
+   asynchronous, with no stated intent anywhere in its own docs to replace this file. The
+   simplification is a real feature of its use case, not a limitation — not folded in. Its working
+   server-side roll log remains relevant to gdx-8. See `epic-rlv-roller-harmonisation.md`'s own D4
+   line for the full record.
 6. **Staged-rollout mechanism** — reuse the existing (imperfect) flag infrastructure for one more
    soak cycle with a visible "which build is active" signal (Winston's proposal), or a different
    approach given the flag itself already caused one incident.

@@ -25,9 +25,9 @@ deleted, USF Phase 0 Stage B, commit `5fdaa032`), so none of USF's named shards 
 No sequencing dependency either direction — this epic can proceed independently.
 
 **Status: rlv.1 (PR #1196, open) and rlv.2 (merged to main 2026-08-24, PR #1198) both shipped.
-D1, D2, D3, D5 all resolved 2026-08-24 — rlv.9 superseded (no fix needed), rlv.3 superseded (D5
-answered its whole question), rlv.4/rlv.7/rlv.8 unblocked and ready to story. Only D4 remains open,
-blocking rlv.5.**
+ALL FIVE open decisions (D1-D5) resolved 2026-08-24 — rlv.9 and rlv.3 both superseded (nothing left
+to fix/design for either), rlv.4/rlv.5/rlv.7/rlv.8 all unblocked and ready to story whenever picked
+up. No open decisions remain in this epic.**
 
 ---
 
@@ -57,9 +57,23 @@ briefly here so this table's own "blocked on" column is legible without cross-re
   means rlv.2 absorbs the `roll.js`-deletion half of what rlv.6 was scoped to do (see that row below,
   narrowed accordingly) and the Game 7 failure mode (per-device silent mismatch) cannot recur at all
   once this ships, by construction — there is no second roller left to be silently on.
-- **D4 — `contested-roll.js`'s scope.** Stays a deliberately-simplified third engine with its own
-  header already disclaiming it ("always 10-again, ignores Roll tab state"), or gets folded into the
-  unified roller's math with its `TYPES` pool-building table preserved as a distinct entry mode?
+- **D4 — `contested-roll.js`'s scope. RESOLVED 2026-08-24: stays separate, not folded in.**
+  Investigated before asking: is this actually a near-duplicate of Epic CRD's newer
+  `challenge-initiation.js` (same three roll-type labels — Territory Bid, Social Manoeuvre,
+  Resistance Check)? **No — confirmed genuinely different use cases, not two maturity stages of the
+  same feature.** `contested-roll.js`'s own trigger (`#btn-contested`) is ST-only
+  (`app.js:1631-1632`) — a quick, no-persistence, in-session tool: an ST instantly rolls two
+  characters against each other with zero setup, deliberately ignoring whatever either player has
+  loaded on their own Roll tab. `challenge-initiation.js`/Epic CRD is player-initiated and
+  asynchronous — queued, accepted/declined/resolved later, possibly across sessions, with a full
+  pool-builder UI (crd.3b). Checked the CRD epic's own docs for any stated intent to replace
+  `contested-roll.js`: none found. They only *look* related because the same three roll-type labels
+  were copy-pasted from one into the other when CRD was built — which is exactly how the Territory
+  Bid bug (see below) ended up duplicated in both. **Decision: `contested-roll.js` stays a
+  deliberately-simplified third engine as-is** — its simplification is a real feature for its ST
+  quick-tool use case, not a limitation, and folding its math into the unified roller buys nothing
+  (no shared-bug risk exists; its own header already discloses the simplification rather than
+  claiming parity with the Roll tab).
 - **D5 — State-model reconciliation. RESOLVED 2026-08-24.** There was never a real two-model
   conflict — investigated at Angelus's request (full read of `char-pools.js`, `dice-engine.js`,
   `shared/pools.js`, plus `git log`/`git blame` on authorship). `char-pools.js`/`shared/pools.js`
@@ -89,7 +103,7 @@ briefly here so this table's own "blocked on" column is legible without cross-re
 | rlv.2 | Promote `roll-v2.js` to the sole player roller; delete `roll.js` and the flag outright (D3 resolved: direct cutover) | Mechanics merge | **done** — dev-storied, internally reviewed, merged to `main` 2026-08-24 (PR #1198, commit `a8860617`) | Nothing — shipped |
 | rlv.3 | ~~Reconcile pool-source state model~~ | Design pass | **superseded** — D5 resolved 2026-08-24 answers the question this design pass existed to ask; no separate story needed | — |
 | rlv.4 | Port `dice-engine.js`'s dropdown-picker UI in as an alternate ad-hoc entry path, building the same `pi` shape `char-pools.js` already produces (NOT porting its data model — that would be a downgrade, see D5) | Builder port | **backlog** | rlv.2 (done) |
-| rlv.5 | Repoint external consumers (`contested-roll.js`, `combat-tab.js`, `challenge-notification.js`) onto the unified module's real exports | Interface cleanup | **backlog** | rlv.2 (D2 decision), D4 |
+| rlv.5 | Repoint external consumers (`contested-roll.js`, `combat-tab.js`) onto the unified module's real DOM-contract interface (`getPool()`/`onRollComplete()`/`mountInto()`, per D2) instead of the shared-ID convention — `challenge-notification.js` dropped from scope, deleted by crd-2 | Interface cleanup | **backlog** | rlv.2 (done) — D4 resolved 2026-08-24 (`contested-roll.js` stays separate, but still consumes `roll-v2.js`'s render helpers and still wants the real interface) |
 | rlv.6 | Delete `dice-engine.js`'s standalone dice math once ported (rlv.4) | Cleanup | **backlog** | rlv.4, rlv.5 — narrowed 2026-08-24: `roll.js` and the flag mechanism are now deleted by rlv.2 itself, not held for this story |
 | rlv.7 | Persistent per-power modifier chips (#1039 net-new) — a generated toggle layer alongside `roll-v2.js`'s existing `state.WP`/`state.MOD`/`state.ROTE` layers, on top of `char-pools.js`'s existing pool-breakdown state | New feature | **backlog** | rlv.2 (done) — loosened 2026-08-24 from rlv.4: D5's own finding is that chips sit on the model `char-pools.js` already produces, not on the ad-hoc dropdown entry path rlv.4 builds; re-confirm this when rlv.7 is actually storied rather than trusting it indefinitely |
 | rlv.8 | Status-difference auto-mods for social manoeuvring (#1039 net-new) | New feature | **backlog** | rlv.2 (done) — same loosening as rlv.7, same caveat to re-confirm at story time |
