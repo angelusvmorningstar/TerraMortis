@@ -181,6 +181,39 @@ async function _manualSpend(field, label) {
 export function spendVitae() { return _manualSpend('vitae', 'Vitae'); }
 export function spendWillpower() { return _manualSpend('willpower', 'Willpower'); }
 
+// ── RESET POOL (rlv.7 review fix — Pass 2/3a/3b) ──
+
+/**
+ * Clear ALL Roll-tab pool/chip state. Call this whenever `state.rollChar`
+ * changes WITHOUT a fresh `loadPool()` immediately following (character
+ * switch via `pickChar`/`openChar` in app.js, or `onSheetChar` in
+ * suite/sheet.js) — otherwise the PREVIOUS character's `POOL_NAME`,
+ * `powerChips` and `MOD` stay live under the NEW character.
+ *
+ * Review finding (Pass 2/3a/3b, reproduced live in Chromium): without this,
+ * a stale chip badge from character A remains rendered and clickable after
+ * switching to character B. Because `togPowerChip`/`removePowerChip` read
+ * `state.rollChar` fresh at click time, clicking that stale badge persists
+ * A's chip data into B's OWN localStorage slot for a pool B never loaded —
+ * a real cross-character data leak, not just a stale display. `POOL_INFO`
+ * has the same staleness risk (a leftover breakdown from A rendered as if
+ * it were B's), so it resets here too, alongside `POOL_NAME`/`powerChips`/
+ * `MOD`. `updPool()` repaints immediately so the add-mod row and any chip
+ * badges disappear the moment the character changes, satisfying AC1's
+ * "hidden/inert when no character or no pool is loaded" the instant a
+ * switch happens, not only on the next real pool load.
+ */
+export function resetRollPool() {
+  state.MOD = 0;
+  state.POOL_INFO = null;
+  state.POOL_NAME = null;
+  state.powerChips = [];
+  state.specBonuses = {};
+  state.activeEquipBonus = null;
+  state.activeWeaponId = null;
+  updPool();
+}
+
 // ── LOAD POOL ──
 
 export function loadPool(total, name, pi) {
@@ -338,80 +371,101 @@ export function updPool() {
   const el = document.getElementById('effline');
   const pi = state.POOL_INFO;
 
-  if (!pi || !pi.attr) {
-    if (eff <= 0) {
-      el.innerHTML = 'Effective pool: <span class="effpool-seg effpool-seg--neg">Chance die</span>';
-    } else {
-      el.innerHTML = 'Effective pool: <span>' + eff + (eff === 1 ? ' die' : ' dice') + '</span>';
-    }
-    return;
-  }
-
+  // rlv.7 review fix (Pass 2/3b): this used to `return` here, which skipped
+  // the power-chip rendering block AND the add-mod row painting below for
+  // any pool with no `.attr` — a real case, not hypothetical: combat.js's
+  // `quickRoll()` calls `loadPool(pool, label, { total: pool })`, a `pi`
+  // with no `.attr` at all. `loadPool()` still folds a persisted chip's
+  // value into `state.MOD` in that case, so the roll WAS already using it —
+  // it just never rendered, leaving the ST unable to see, toggle, or remove
+  // a modifier that's silently affecting a combat roll. Restructured so the
+  // attr/skill/disc breakdown is skipped for a no-`.attr` pool, but chips
+  // and the add-mod row still render below — the two are independent.
   const segs = [];
-  if (pi.attr) segs.push('<span class="effpool-seg">' + pi.attr + ' <b>' + pi.attrV + '</b></span>');
-  if (pi.skill) segs.push('<span class="effpool-seg">' + pi.skill + ' <b>' + pi.skillV + '</b></span>');
-  if (pi.unskilled) segs.push('<span class="effpool-seg effpool-seg--neg">unskilled <b>' + pi.unskilled + '</b></span>');
-  if (pi.discName && pi.discV) segs.push('<span class="effpool-seg">' + pi.discName + ' <b>' + pi.discV + '</b></span>');
-  if (pi.meritBonus && pi.meritLabel) segs.push('<span class="effpool-seg effpool-seg--merit">' + pi.meritLabel + ' <b>+' + pi.meritBonus + '</b></span>');
-  if (pi.roteEligible && !state.ROTE) segs.push('<span class="effpool-seg effpool-seg--rote" onclick="togMod(\'rote\')" title="PT dot 5: spend 1 WP for Rote quality">Rote \u2713</span>');
-  if (state.WP) segs.push('<span class="effpool-seg effpool-seg--wp">WP <b>+3</b></span>');
-  if (state.RESIST_MODE === '-' && state.RESIST_VAL > 0) {
-    segs.push('<span class="effpool-seg effpool-seg--resist">\u2212Resist <b>' + state.RESIST_VAL + '</b></span>');
-  }
+  let html;
 
-  let html = segs.join('<span class="effpool-sep"> + </span>');
-
-  if (pi.skill && state.rollChar) {
-    const rc = state.rollChar;
-    const specs = skSpecs(rc, pi.skill);
-    const na = skNineAgain(rc, pi.skill);
-    if (specs.length) {
-      html += '<div class="effpool-specs">' + specs.map(s => {
-        const aoe = hasAoE(rc, s);
-        const bonusN = na || aoe ? 2 : 1;
-        const bonusLbl = na ? '2 (9-again)' : aoe ? '2 (AoE)' : '1';
-        const isOn = state.specBonuses[s] !== undefined;
-        const cls = 'effpool-spec' + (isOn ? ' on' : '');
-        const safe = String(s).replace(/"/g, '&quot;');
-        return `<span class="${cls}" data-spec="${safe}" data-bonus="${bonusN}" `
-             + `onclick="togSpec(this)" title="Click to add this specialty's bonus to your modifier">`
-             + `${s} <span class="effpool-spec-bonus">+${bonusLbl}</span></span>`;
-      }).join('') + '</div>';
+  if (!pi || !pi.attr) {
+    html = eff <= 0
+      ? 'Effective pool: <span class="effpool-seg effpool-seg--neg">Chance die</span>'
+      : 'Effective pool: <span>' + eff + (eff === 1 ? ' die' : ' dice') + '</span>';
+  } else {
+    if (pi.attr) segs.push('<span class="effpool-seg">' + pi.attr + ' <b>' + pi.attrV + '</b></span>');
+    if (pi.skill) segs.push('<span class="effpool-seg">' + pi.skill + ' <b>' + pi.skillV + '</b></span>');
+    if (pi.unskilled) segs.push('<span class="effpool-seg effpool-seg--neg">unskilled <b>' + pi.unskilled + '</b></span>');
+    if (pi.discName && pi.discV) segs.push('<span class="effpool-seg">' + pi.discName + ' <b>' + pi.discV + '</b></span>');
+    if (pi.meritBonus && pi.meritLabel) segs.push('<span class="effpool-seg effpool-seg--merit">' + pi.meritLabel + ' <b>+' + pi.meritBonus + '</b></span>');
+    if (pi.roteEligible && !state.ROTE) segs.push('<span class="effpool-seg effpool-seg--rote" onclick="togMod(\'rote\')" title="PT dot 5: spend 1 WP for Rote quality">Rote ✓</span>');
+    if (state.WP) segs.push('<span class="effpool-seg effpool-seg--wp">WP <b>+3</b></span>');
+    if (state.RESIST_MODE === '-' && state.RESIST_VAL > 0) {
+      segs.push('<span class="effpool-seg effpool-seg--resist">−Resist <b>' + state.RESIST_VAL + '</b></span>');
     }
-  }
 
-  // Equipment bonus chips (EQ-3): one-active-at-a-time gear bonuses
-  if (pi.skill && state.rollChar) {
-    const rc = state.rollChar;
-    const equip = (rc.equipment || []).filter(item => {
-      const entry = getCatalogueEntry(item.catalogue_id);
-      // #752: 'active' is the strongest in-use state — treat it identically
-      // to carried/worn for chip eligibility (Khepri's option (a) — preserves
-      // 'active' as a semantically-stronger marker an ST may have already used).
-      // EQC-1 (#1152): old 'equipment' bucket -> 'skill_gear', unchanged meaning.
-      // EQC-2 (#1153): state check consolidated onto isEquipmentOnMe.
-      return entry && entry.bucket === 'skill_gear' &&
-             entry.bonus_dice > 0 &&
-             entry.skill_domain === pi.skill &&
-             isEquipmentOnMe(item);
-    });
-    if (equip.length) {
-      html += '<div class="effpool-specs">' + equip.map(item => {
+    html = segs.join('<span class="effpool-sep"> + </span>');
+
+    if (pi.skill && state.rollChar) {
+      const rc = state.rollChar;
+      const specs = skSpecs(rc, pi.skill);
+      const na = skNineAgain(rc, pi.skill);
+      if (specs.length) {
+        html += '<div class="effpool-specs">' + specs.map(s => {
+          const aoe = hasAoE(rc, s);
+          const bonusN = na || aoe ? 2 : 1;
+          const bonusLbl = na ? '2 (9-again)' : aoe ? '2 (AoE)' : '1';
+          const isOn = state.specBonuses[s] !== undefined;
+          const cls = 'effpool-spec' + (isOn ? ' on' : '');
+          const safe = String(s).replace(/"/g, '&quot;');
+          return `<span class="${cls}" data-spec="${safe}" data-bonus="${bonusN}" `
+               + `onclick="togSpec(this)" title="Click to add this specialty's bonus to your modifier">`
+               + `${s} <span class="effpool-spec-bonus">+${bonusLbl}</span></span>`;
+        }).join('') + '</div>';
+      }
+    }
+
+    // Equipment bonus chips (EQ-3): one-active-at-a-time gear bonuses
+    if (pi.skill && state.rollChar) {
+      const rc = state.rollChar;
+      const equip = (rc.equipment || []).filter(item => {
         const entry = getCatalogueEntry(item.catalogue_id);
-        const isOn = state.activeEquipBonus &&
-                     state.activeEquipBonus.catalogueId === entry.id;
-        const cls = 'effpool-spec' + (isOn ? ' on' : '');
-        const safe = String(entry.id).replace(/"/g, '&quot;');
-        return `<span class="${cls}" data-equip="${safe}" data-bonus="${entry.bonus_dice}" `
-             + `onclick="togEquipChip(this)" title="${entry.name}">`
-             + `${entry.name} <span class="effpool-spec-bonus">+${entry.bonus_dice}</span></span>`;
-      }).join('') + '</div>';
+        // #752: 'active' is the strongest in-use state — treat it identically
+        // to carried/worn for chip eligibility (Khepri's option (a) — preserves
+        // 'active' as a semantically-stronger marker an ST may have already used).
+        // EQC-1 (#1152): old 'equipment' bucket -> 'skill_gear', unchanged meaning.
+        // EQC-2 (#1153): state check consolidated onto isEquipmentOnMe.
+        return entry && entry.bucket === 'skill_gear' &&
+               entry.bonus_dice > 0 &&
+               entry.skill_domain === pi.skill &&
+               isEquipmentOnMe(item);
+      });
+      if (equip.length) {
+        html += '<div class="effpool-specs">' + equip.map(item => {
+          const entry = getCatalogueEntry(item.catalogue_id);
+          const isOn = state.activeEquipBonus &&
+                       state.activeEquipBonus.catalogueId === entry.id;
+          const cls = 'effpool-spec' + (isOn ? ' on' : '');
+          const safe = String(entry.id).replace(/"/g, '&quot;');
+          return `<span class="${cls}" data-equip="${safe}" data-bonus="${entry.bonus_dice}" `
+               + `onclick="togEquipChip(this)" title="${entry.name}">`
+               + `${entry.name} <span class="effpool-spec-bonus">+${entry.bonus_dice}</span></span>`;
+        }).join('') + '</div>';
+      }
     }
   }
 
-  // Persistent per-power mod chips (rlv.7, #1039 item 2). Not gated on
-  // pi.skill — a chip can attach to any loaded pool (discipline power,
-  // Common Action, Custom Pool), not just skill pools.
+  // Persistent per-power mod chips (rlv.7, #1039 item 2). Rendered
+  // unconditionally (not nested in the `pi.attr` branch above) — a chip's
+  // value is already folded into `state.MOD` by `loadPool()` regardless of
+  // whether this pool has an attr/skill breakdown (e.g. combat.js's
+  // quickRoll()), so it must stay visible/toggleable here too.
+  //
+  // Review fix (Pass 1, Medium): the id used to be interpolated directly
+  // into the onclick attribute's own single-quoted JS argument
+  // (`togPowerChip('${safeId}')`), escaped for `"` only — a chip id
+  // containing an apostrophe (a malformed/imported payload; `loadChips()`
+  // now also rejects those, see power-mod-chips.js) could break out of
+  // that string and inject arbitrary script. Switched to this file's own
+  // existing `togSpec(this)`/`togEquipChip(this)` pattern instead: the id
+  // is read via `.dataset.chip` from the clicked element, never embedded
+  // as executable JS text at all, so no escaping scheme can be bypassed.
   if (state.powerChips && state.powerChips.length) {
     html += '<div class="effpool-specs">' + state.powerChips.map(chip => {
       const cls = 'effpool-spec' + (chip.on ? ' on' : '');
@@ -419,9 +473,9 @@ export function updPool() {
       const safeLabel = String(chip.label).replace(/</g, '&lt;').replace(/>/g, '&gt;');
       const sign = chip.value > 0 ? '+' : '';
       return `<span class="${cls}" data-chip="${safeId}" `
-           + `onclick="togPowerChip('${safeId}')" title="Click to toggle">`
+           + `onclick="togPowerChip(this)" title="Click to toggle">`
            + `${safeLabel} <span class="effpool-spec-bonus">${sign}${chip.value}</span>`
-           + `<span class="effpool-spec-del" onclick="event.stopPropagation();removePowerChip('${safeId}')" title="Remove">×</span>`
+           + `<span class="effpool-spec-del" onclick="event.stopPropagation();removePowerChip(this.closest('[data-chip]'))" title="Remove">×</span>`
            + `</span>`;
     }).join('') + '</div>';
   }
@@ -439,7 +493,7 @@ export function updPool() {
     addModRow.classList.toggle('disabled', !enabled);
     const labelEl = document.getElementById('pmc-label');
     const valueEl = document.getElementById('pmc-value');
-    const btnEl = document.querySelector('.rv2-addmod-btn');
+    const btnEl = document.getElementById('pmc-add-btn');
     if (labelEl) labelEl.disabled = !enabled;
     if (valueEl) valueEl.disabled = !enabled;
     if (btnEl) btnEl.disabled = !enabled;
@@ -519,26 +573,49 @@ export function addPowerChip(label, value) {
   updPool();
 }
 
-/** Toggle a chip on/off — same sign logic as togSpec (toggling off
- *  subtracts, toggling on adds). */
-export function togPowerChip(id) {
-  if (!state.rollChar || !state.POOL_NAME) return;
-  const chip = state.powerChips.find(c => c.id === id);
-  if (!chip) return;
-  state.MOD += chip.on ? -chip.value : chip.value;
-  state.powerChips = toggleChip(String(state.rollChar._id), state.POOL_NAME, id);
+/** Sum of the on-chips' values in a chip list — shared by togPowerChip/
+ *  removePowerChip so both recompute the SAME way. */
+function _onSum(chips) {
+  return chips.filter(c => c.on).reduce((sum, c) => sum + c.value, 0);
+}
+
+/** Toggle a chip on/off.
+ *
+ *  Review fix (Pass 1/2, Medium): the original version read `chip.on`
+ *  from the LOCAL `state.powerChips` copy to decide the MOD sign, then
+ *  separately called `toggleChip()`, which independently re-reads from
+ *  `localStorage` and mutates based on THAT fresh read. If the two ever
+ *  disagreed (e.g. another same-origin tab changed this same character's
+ *  chips in between), the local-read sign and the storage-write outcome
+ *  could point opposite ways, leaving `state.MOD` wrong. Recomputing the
+ *  MOD delta as (fresh on-sum) minus (local on-sum) is correct regardless
+ *  of whether local and storage agree — it reflects the NET change
+ *  `state.powerChips` is about to undergo, not an assumption about which
+ *  single chip caused it. */
+export function togPowerChip(badge) {
+  if (!badge) return;
+  const id = badge.dataset.chip;
+  if (!id || !state.rollChar || !state.POOL_NAME) return;
+  if (!state.powerChips.some(c => c.id === id)) return;
+  const before = _onSum(state.powerChips);
+  const updated = toggleChip(String(state.rollChar._id), state.POOL_NAME, id);
+  state.MOD += _onSum(updated) - before;
+  state.powerChips = updated;
   updPool();
 }
 
-/** Permanently remove a chip (curation, distinct from toggling off). If it
- *  was on, its value is subtracted from MOD first so an active chip's
- *  bonus never lingers after deletion. */
-export function removePowerChip(id) {
-  if (!state.rollChar || !state.POOL_NAME) return;
-  const chip = state.powerChips.find(c => c.id === id);
-  if (!chip) return;
-  if (chip.on) state.MOD -= chip.value;
-  state.powerChips = removeChip(String(state.rollChar._id), state.POOL_NAME, id);
+/** Permanently remove a chip (curation, distinct from toggling off).
+ *  Same before/after-sum recomputation as togPowerChip, for the same
+ *  reason (review fix, Pass 1/2, Medium). */
+export function removePowerChip(badge) {
+  if (!badge) return;
+  const id = badge.dataset.chip;
+  if (!id || !state.rollChar || !state.POOL_NAME) return;
+  if (!state.powerChips.some(c => c.id === id)) return;
+  const before = _onSum(state.powerChips);
+  const updated = removeChip(String(state.rollChar._id), state.POOL_NAME, id);
+  state.MOD += _onSum(updated) - before;
+  state.powerChips = updated;
   updPool();
 }
 

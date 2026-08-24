@@ -121,7 +121,7 @@ import { installStModPopover } from './editor/st-mod-popover.js';
 // behind are retired outright, not soaked or dead-code-fenced). Every
 // external touch-point (pickChar, shared/resist.js, contested-roll) reads
 // the same DOM ids as before, unchanged by this promotion.
-import { loadPool, chgPool, chgMod, updPool, setAgain, setAgainSeg, togMod, togSpec, doRoll, clrHist, effPool, togEquipChip, updWeaponRef, spendVitae, spendWillpower, addPowerChip, togPowerChip, removePowerChip } from './suite/roll-v2.js';
+import { loadPool, chgPool, chgMod, updPool, setAgain, setAgainSeg, togMod, togSpec, doRoll, clrHist, effPool, togEquipChip, updWeaponRef, spendVitae, spendWillpower, addPowerChip, togPowerChip, removePowerChip, resetRollPool } from './suite/roll-v2.js';
 import { onSheetChar, renderSheet as suiteRenderSheet, repaintSheetTrackers } from './suite/sheet.js';
 import { toggleExp as suiteToggleExp, toggleDisc as suiteToggleDisc } from './suite/sheet-helpers.js';
 import { updResist, showResistSec } from './shared/resist.js';
@@ -330,6 +330,13 @@ function openChar(idx) {
   const poolsEl = document.getElementById('gcp-panel');
   if (poolsEl) {
     suiteState.rollChar = c;
+    // rlv.7 review fix: this changes rollChar without a loadPool() to
+    // follow, so any stale POOL_NAME/powerChips/MOD from the previously
+    // loaded character must be cleared here too (see roll-v2.js's
+    // resetRollPool() — a stale chip badge left clickable after this
+    // switch could otherwise persist old data into the new character's own
+    // storage slot).
+    resetRollPool();
     renderCharPools(poolsEl, c, (p) => {
       goTab('roll');
       if (p.opensPanel) { openPanel(p.opensPanel); return; }
@@ -1131,12 +1138,17 @@ function pickChar(c) {
   if (scDisc) scDisc.classList.remove('loaded');
   const poolBanner = document.getElementById('pool-banner');
   if (poolBanner) poolBanner.classList.remove('on');
-  suiteState.POOL_INFO = null;
   suiteState.RESIST_CHAR = null;
   suiteState.RESIST_VAL = 0;
   suiteState.RESIST_MODE = null;
   const sec = document.getElementById('resist-sec');
   if (sec) sec.style.display = 'none';
+  // rlv.7 review fix: resets POOL_INFO/POOL_NAME/powerChips/MOD together and
+  // repaints — placed AFTER the RESIST_* resets above so its own updPool()
+  // repaint doesn't briefly show a stale resistance segment. See
+  // roll-v2.js's resetRollPool() for why leaving any one of these stale
+  // after a character switch is a real bug, not cosmetic.
+  resetRollPool();
 
   // Reset and re-init feeding (ST only — section hidden for players)
   // Legacy feed init removed — feeding is now in More grid (nav-2-5)

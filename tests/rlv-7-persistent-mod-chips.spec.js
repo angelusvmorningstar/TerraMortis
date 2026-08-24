@@ -76,6 +76,19 @@ const CHIP_CHAR = {
   disciplines: {}, merits: [], powers: [], ordeals: [],
 };
 
+// A second, distinct character for the character-switch regression test —
+// deliberately has no Occult (or any of CHIP_CHAR's skills) so a stray
+// stale pool tile match is impossible.
+const OTHER_CHAR = {
+  _id: 'char-rlv7-other', name: 'Switch Target', moniker: null, honorific: null,
+  clan: 'Ventrue', covenant: 'Carthian Movement', player: 'Test Player',
+  blood_potency: 1, humanity: 7, humanity_base: 7, court_title: null, retired: false,
+  status: { city: 1, clan: 1, covenant: {} },
+  attributes: attrs(),
+  skills: { Politics: { dots: 2, bonus: 0, specs: [], nine_again: false } },
+  disciplines: {}, merits: [], powers: [], ordeals: [],
+};
+
 async function setupSuite(page, chars) {
   await page.addInitScript((user) => {
     localStorage.setItem('tm_auth_token', 'local-test-token');
@@ -257,4 +270,65 @@ test('rlv.7 — a value above +10 is clamped to +10 once added (AC9)', async ({ 
   await expect(chip).toContainText('+10');
   await expect(chip).not.toContainText('+99');
   await expect(page.locator('#rv2-eff')).toHaveText('16'); // 6 base + 10 clamped
+});
+
+// ── Review fix regression (Pass 2/3b): combat quick-rolls must not hide
+// a persisted chip. combat-tab.js's quickRoll() calls exactly
+// loadPool(pool, label, { total: pool }) — a pi with no .attr at all.
+// updPool() used to `return` before the chip-rendering block for any pool
+// with no .attr, so a chip's value was already folded into the roll
+// (loadPool() itself doesn't gate on .attr) but never rendered — a hidden
+// dice modifier the ST could not see, toggle, or remove.
+test('rlv.7 — a persisted chip stays visible on a combat-quick-roll-shaped pool with no .attr (review fix)', async ({ page }) => {
+  await setupSuite(page, [CHIP_CHAR]);
+  await pickCharacter(page, CHIP_CHAR);
+  await loadSkillPool(page, 'Occult');
+  await page.locator('#pmc-label').fill('Combat Mod');
+  await page.locator('#pmc-value').fill('2');
+  await page.locator('.rv2-addmod-btn').click();
+  await expect(page.locator('#effline .effpool-spec[data-chip]')).toHaveCount(1);
+
+  // Simulate combat-tab.js's quickRoll() exactly: loadPool(pool, label,
+  // { total: pool }) — same power name ("Occult"), no .attr on the pi.
+  await page.evaluate(() => window.loadPool(5, 'Occult', { total: 5 }));
+
+  const chip = page.locator('#effline .effpool-spec[data-chip]');
+  await expect(chip).toHaveCount(1);
+  await expect(chip).toHaveClass(/\bon\b/);
+  await expect(chip).toContainText('Combat Mod');
+  await expect(page.locator('#rv2-eff')).toHaveText('7'); // 5 base + 2 chip
+
+  // The add-mod row must also stay live (enabled), not stuck from before.
+  await expect(page.locator('#pmc-label')).toBeEnabled();
+});
+
+// ── Review fix regression (Pass 2/3a/3b): switching character must clear
+// the previous character's stale pool/chip state, not leave it live under
+// the new character. Without this, a stale chip badge stays clickable and
+// (since togPowerChip/removePowerChip read state.rollChar fresh) a click
+// would persist the OLD character's chip data into the NEW character's own
+// localStorage slot for a pool the new character never loaded — a real
+// cross-character data leak, reproduced live during the Codex review.
+test('rlv.7 — switching character clears the previous character\'s pool/chips (review fix, AC1)', async ({ page }) => {
+  await setupSuite(page, [CHIP_CHAR, OTHER_CHAR]);
+  await pickCharacter(page, CHIP_CHAR);
+  await loadSkillPool(page, 'Occult');
+  await page.locator('#pmc-label').fill('Air of Menace');
+  await page.locator('#pmc-value').fill('2');
+  await page.locator('.rv2-addmod-btn').click();
+  await expect(page.locator('#effline .effpool-spec[data-chip]')).toHaveCount(1);
+  await expect(page.locator('#rv2-eff')).toHaveText('8');
+
+  // Switch to a different character WITHOUT loading a pool for them.
+  await pickCharacter(page, OTHER_CHAR);
+
+  // No stale chip badge, no stale effective-pool number, add row disabled.
+  await expect(page.locator('#effline .effpool-spec[data-chip]')).toHaveCount(0);
+  await expect(page.locator('#rv2-eff')).not.toHaveText('8');
+  await expect(page.locator('#pmc-label')).toBeDisabled();
+
+  // Loading a pool for the NEW character shows no chips — proves the old
+  // character's chip was never silently carried over/persisted onto B.
+  await loadSkillPool(page, 'Politics');
+  await expect(page.locator('#effline .effpool-spec[data-chip]')).toHaveCount(0);
 });

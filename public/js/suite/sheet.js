@@ -4,6 +4,11 @@
 
 import state from './data.js';
 import { displayName, getWillpower, redactPlayer, shDotsWithBonus, formatSpecs, hasAoE } from '../data/helpers.js';
+// rlv.7 review fix: onSheetChar() below reassigns state.rollChar without a
+// loadPool() following — resetRollPool() clears the previous character's
+// stale POOL_NAME/powerChips/MOD so a leftover chip badge can't persist
+// data into the new character's own storage slot (Pass 2/3a/3b finding).
+import { resetRollPool } from './roll-v2.js';
 import { markerFor } from '../editor/st-mod-popover.js';
 import {
   ICONS, COV_ICON_MAP, CITY_SVG, OTHER_SVG, BP_SVG, HUM_SVG, STAT_SVG,
@@ -168,6 +173,7 @@ export function onSheetChar(name) {
   state.sheetChar = state.chars.find(c => c.name === name) || null;
   if (!state.sheetChar) return;
   state.rollChar = state.sheetChar;
+  resetRollPool();
   document.getElementById('sh-empty').style.display = 'none';
   document.getElementById('sh-content-suite').style.display = '';
   renderSheet();

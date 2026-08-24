@@ -65,7 +65,7 @@ if (!hadDocument) {
   };
 }
 
-const { addPowerChip } = await import('../../public/js/suite/roll-v2.js');
+const { addPowerChip, togPowerChip, removePowerChip } = await import('../../public/js/suite/roll-v2.js');
 const { default: state } = await import('../../public/js/suite/data.js');
 
 describe('rlv.7 — addPowerChip (roll-v2.js integration, MOD/persistence must never disagree)', () => {
@@ -106,6 +106,101 @@ describe('rlv.7 — addPowerChip (roll-v2.js integration, MOD/persistence must n
     addPowerChip('Air of Menace', 2);
     expect(state.MOD).toBe(0);
     expect(state.powerChips).toHaveLength(0);
+  });
+
+  it('review fix: a storage-write failure leaves MOD/powerChips untouched too (addChip returns the unchanged list, so the before/after length check correctly no-ops)', () => {
+    const original = localStorage.setItem;
+    localStorage.setItem = () => { throw new Error('QuotaExceededError'); };
+    try {
+      addPowerChip('Never Persisted', 2);
+    } finally {
+      localStorage.setItem = original;
+    }
+    expect(state.MOD).toBe(0);
+    expect(state.powerChips).toHaveLength(0);
+  });
+});
+
+describe('rlv.7 — togPowerChip/removePowerChip (roll-v2.js integration, badge-based invocation)', () => {
+  beforeEach(() => {
+    state.rollChar = { _id: 'char-integration-2' };
+    state.POOL_NAME = 'Nightmare';
+    state.MOD = 0;
+    state.powerChips = [];
+    addPowerChip('Chip A', 2);
+    addPowerChip('Chip B', 3);
+  });
+
+  function badgeFor(id) {
+    return { dataset: { chip: id } };
+  }
+
+  it('toggling a chip off via its badge subtracts its value from MOD', () => {
+    const id = state.powerChips[0].id;
+    expect(state.MOD).toBe(5); // 2 + 3, both on by default
+    togPowerChip(badgeFor(id));
+    expect(state.MOD).toBe(3);
+    expect(state.powerChips.find(c => c.id === id).on).toBe(false);
+  });
+
+  it('toggling the same chip back on restores its value', () => {
+    const id = state.powerChips[0].id;
+    togPowerChip(badgeFor(id));
+    togPowerChip(badgeFor(id));
+    expect(state.MOD).toBe(5);
+    expect(state.powerChips.find(c => c.id === id).on).toBe(true);
+  });
+
+  it('removing an on chip subtracts its value and drops it entirely', () => {
+    const id = state.powerChips[0].id;
+    removePowerChip(badgeFor(id));
+    expect(state.MOD).toBe(3);
+    expect(state.powerChips).toHaveLength(1);
+    expect(state.powerChips.find(c => c.id === id)).toBeUndefined();
+  });
+
+  it('removing an off chip does not double-subtract', () => {
+    const id = state.powerChips[0].id;
+    togPowerChip(badgeFor(id)); // now off, MOD 5 -> 3
+    removePowerChip(badgeFor(id)); // was already off, contributes 0
+    expect(state.MOD).toBe(3);
+  });
+
+  it('no-ops when the badge has no dataset.chip', () => {
+    togPowerChip({ dataset: {} });
+    removePowerChip({ dataset: {} });
+    expect(state.MOD).toBe(5);
+    expect(state.powerChips).toHaveLength(2);
+  });
+
+  it('no-ops when passed a falsy badge', () => {
+    togPowerChip(null);
+    removePowerChip(undefined);
+    expect(state.MOD).toBe(5);
+    expect(state.powerChips).toHaveLength(2);
+  });
+
+  it('review fix: recomputes MOD from a full before/after on-sum, correct even if storage changed underneath the local state.powerChips copy', () => {
+    // Simulate a same-origin-tab race: storage now has chip A OFF and a
+    // brand-new chip C ON, but state.powerChips (the local, potentially
+    // stale copy) still shows the original A-on/B-on pair.
+    const idA = state.powerChips[0].id;
+    const charId = String(state.rollChar._id);
+    toggleChip(charId, state.POOL_NAME, idA); // flips A off in storage directly
+    addChip(charId, state.POOL_NAME, 'Chip C', 4); // adds C, on, in storage directly
+    // state.MOD/state.powerChips are still the STALE pre-race view (5, [A-on, B-on]).
+    expect(state.MOD).toBe(5);
+
+    // Toggling B off should still land MOD on the CORRECT total: storage
+    // now holds A-off(2) + B-on(3) + C-on(4) = 7 on-sum; toggling B off
+    // brings it to A-off(2) + B-off + C-on(4) = 4.
+    const idB = state.powerChips[1].id;
+    togPowerChip(badgeFor(idB));
+    expect(state.MOD).toBe(4);
+    const fresh = state.powerChips;
+    expect(fresh.find(c => c.id === idA).on).toBe(false);
+    expect(fresh.find(c => c.id === idB).on).toBe(false);
+    expect(fresh.find(c => c.label === 'Chip C').on).toBe(true);
   });
 });
 
@@ -205,19 +300,58 @@ describe('rlv.7 — loadChips (AC6, AC7)', () => {
     expect(loadChips('char-1', 'Nightmare')).toEqual([]);
   });
   it('returns [] (not a throw) for a corrupted stored payload', () => {
-    localStorage.setItem('tm-rlv7-chips-char-1-Nightmare', 'not json{{{');
+    localStorage.setItem('tm-rlv7-chips-char-1|Nightmare', 'not json{{{');
     expect(() => loadChips('char-1', 'Nightmare')).not.toThrow();
     expect(loadChips('char-1', 'Nightmare')).toEqual([]);
   });
   it('returns [] for a wrong-version stored payload', () => {
-    localStorage.setItem('tm-rlv7-chips-char-1-Nightmare', JSON.stringify({ v: 999, chips: [{ id: 'x', label: 'x', value: 1, on: true }] }));
+    localStorage.setItem('tm-rlv7-chips-char-1|Nightmare', JSON.stringify({ v: 999, chips: [{ id: 'x', label: 'x', value: 1, on: true }] }));
     expect(loadChips('char-1', 'Nightmare')).toEqual([]);
   });
-  it('round-trips a real addChip write correctly', () => {
-    addChip('char-1', 'Nightmare', 'Air of Menace', 2);
+  it('review fix: drops individual malformed entries instead of trusting them field-for-field', () => {
+    localStorage.setItem('tm-rlv7-chips-char-1|Nightmare', JSON.stringify({
+      v: 1,
+      chips: [
+        { id: 'good', label: 'Valid', value: 2, on: true },
+        { id: 'markup-value', label: 'Injected markup as value', value: '<img src=x>', on: true },
+        { id: '', label: 'Empty id', value: 2, on: true },
+        { id: 'bad-label', label: '', value: 2, on: true },
+        { id: 'zero-value', label: 'Zero after clamp', value: 0, on: true },
+        null,
+        'not-an-object',
+      ],
+    }));
     const loaded = loadChips('char-1', 'Nightmare');
     expect(loaded).toHaveLength(1);
-    expect(loaded[0].label).toBe('Air of Menace');
+    expect(loaded[0]).toMatchObject({ id: 'good', label: 'Valid', value: 2, on: true });
+  });
+  it('review fix: a numeric-STRING value is coerced to a real number, not dropped or left as a string (prevents state.MOD += value from doing string concatenation)', () => {
+    localStorage.setItem('tm-rlv7-chips-char-1|Nightmare', JSON.stringify({
+      v: 1, chips: [{ id: 'x', label: 'Stored as a string', value: '7', on: true }],
+    }));
+    const loaded = loadChips('char-1', 'Nightmare');
+    expect(loaded).toHaveLength(1);
+    expect(loaded[0].value).toBe(7);
+    expect(typeof loaded[0].value).toBe('number');
+  });
+  it('review fix: clamps an out-of-range stored value on load, same as addChip does on write', () => {
+    localStorage.setItem('tm-rlv7-chips-char-1|Nightmare', JSON.stringify({
+      v: 1, chips: [{ id: 'x', label: 'Huge', value: 999, on: true }],
+    }));
+    expect(loadChips('char-1', 'Nightmare')[0].value).toBe(10);
+  });
+  it('review fix: normalizes on to a strict boolean (a truthy-but-not-true value becomes false)', () => {
+    localStorage.setItem('tm-rlv7-chips-char-1|Nightmare', JSON.stringify({
+      v: 1, chips: [{ id: 'x', label: 'Maybe on', value: 2, on: 'yes' }],
+    }));
+    expect(loadChips('char-1', 'Nightmare')[0].on).toBe(false);
+  });
+  it('round-trips a real addChip write correctly — id, label, value, and on all survive, not just the label', () => {
+    const written = addChip('char-1', 'Nightmare', 'Air of Menace', 2);
+    const loaded = loadChips('char-1', 'Nightmare');
+    expect(loaded).toHaveLength(1);
+    expect(loaded[0]).toEqual(written[0]);
+    expect(loaded[0]).toMatchObject({ id: written[0].id, label: 'Air of Menace', value: 2, on: true });
   });
   it('returns [] for missing charId or powerName', () => {
     expect(loadChips(null, 'Nightmare')).toEqual([]);
@@ -244,5 +378,49 @@ describe('rlv.7 — composite-key isolation (AC8)', () => {
     expect(loadChips('char-A', 'Intimidation')[0].label).toBe('A-Intimidation chip');
     expect(loadChips('char-B', 'Nightmare')).toHaveLength(1);
     expect(loadChips('char-B', 'Nightmare')[0].label).toBe('B-Nightmare chip');
+  });
+  it('review fix: a hyphenated charId/powerName pair no longer collides with a differently-split pair (key was not injective)', () => {
+    // Before the fix, `${charId}-${powerName}` gave BOTH of these the same
+    // key: "tm-rlv7-chips-a-b-c". encodeURIComponent + a `|` delimiter
+    // (escaped by encodeURIComponent, so it can't appear inside either
+    // encoded component) makes the two keys distinct.
+    addChip('a-b', 'c', 'Chip for (a-b, c)', 2);
+    addChip('a', 'b-c', 'Chip for (a, b-c)', 3);
+    expect(loadChips('a-b', 'c')).toHaveLength(1);
+    expect(loadChips('a-b', 'c')[0].label).toBe('Chip for (a-b, c)');
+    expect(loadChips('a', 'b-c')).toHaveLength(1);
+    expect(loadChips('a', 'b-c')[0].label).toBe('Chip for (a, b-c)');
+  });
+});
+
+describe('rlv.7 — storage-write failure is a genuine no-op (review fix, Medium)', () => {
+  it('addChip returns the UNCHANGED list when the write itself throws, not a phantom-success list', () => {
+    const original = localStorage.setItem;
+    localStorage.setItem = () => { throw new Error('QuotaExceededError'); };
+    try {
+      const before = loadChips('char-fail', 'Nightmare');
+      const after = addChip('char-fail', 'Nightmare', 'Never Persisted', 2);
+      expect(after).toEqual(before);
+      expect(loadChips('char-fail', 'Nightmare')).toEqual([]);
+    } finally {
+      localStorage.setItem = original;
+    }
+  });
+  it('toggleChip/removeChip likewise return the unchanged list on a write failure', () => {
+    addChip('char-fail2', 'Nightmare', 'Real Chip', 2);
+    const before = loadChips('char-fail2', 'Nightmare');
+    const id = before[0].id;
+    const original = localStorage.setItem;
+    localStorage.setItem = () => { throw new Error('QuotaExceededError'); };
+    try {
+      const toggled = toggleChip('char-fail2', 'Nightmare', id);
+      expect(toggled).toEqual(before);
+      const removed = removeChip('char-fail2', 'Nightmare', id);
+      expect(removed).toEqual(before);
+    } finally {
+      localStorage.setItem = original;
+    }
+    // Still there, still on — nothing was actually mutated in storage.
+    expect(loadChips('char-fail2', 'Nightmare')).toEqual(before);
   });
 });

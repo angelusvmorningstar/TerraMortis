@@ -1,6 +1,6 @@
 # Story rlv.7: Persistent per-power modifier chips
 
-Status: review
+Status: done
 
 ## Story
 
@@ -456,17 +456,22 @@ Claude Sonnet 5 (`bmad-dev-story`, 2026-08-24)
   Admin/TM Story) — every neighbouring `.effpool-*`/`.mchip` rule in `suite.css` already uses plain px
   for spacing. New rules (`.effpool-spec-del`, `.rv2-addmod-row` and its children) match that real
   convention instead. Colours are still all `var(--...)` tokens, satisfying AC11's actual requirement.
-- Task 6: `server/tests/rlv-7-persistent-mod-chips.test.js` — 23 tests, all passing, covering
+- Task 6: `server/tests/rlv-7-persistent-mod-chips.test.js` — originally 23 tests covering
   `clampChipValue`/`addChip`/`toggleChip`/`removeChip`/`loadChips` plus composite-key isolation
-  (AC8 proved at the module level). No `location`/`document` stub needed — the module only touches
-  real Node 20+ globals (`localStorage`, `crypto.randomUUID`).
-- Task 7: `tests/rlv-7-persistent-mod-chips.spec.js` — 11 tests. One real gap found and fixed during
-  this task (not a source defect): the add-mod row sits inside a collapsed-by-default `<details>`
-  disclosure, so the spec's `loadSkillPool()` helper now opens it (`summary.click()` if not already
-  open) before any `.fill()` call — the same step a real player has to take, since the row was
-  deliberately placed there per AC1/AC8 (visible pool-breakdown disclosure, "stays visible to STs").
-- Task 8: full regression — see Debug Log References above. No High/Medium findings; the one
-  Task-5 assumption correction is a Dev Notes accuracy fix, not a defect requiring a patch.
+  (AC8 proved at the module level; the module itself needs no `location`/`document` stub, only real
+  Node 20+ globals). Grew to **43 tests** across this story's own two review rounds (self-check, then
+  the external Codex pass below) — see the Senior Developer Review section for the added coverage.
+- Task 7: `tests/rlv-7-persistent-mod-chips.spec.js` — originally 11 tests, grew to **13** during the
+  Codex review round (2 new regression tests, see Senior Developer Review). One real gap found and
+  fixed during this task's ORIGINAL authoring (not a source defect): the add-mod row sits inside a
+  collapsed-by-default `<details>` disclosure, so the spec's `loadSkillPool()` helper opens it
+  (`summary.click()` if not already open) before any `.fill()` call — the same step a real player has
+  to take, since the row was deliberately placed there per AC1/AC8 (visible pool-breakdown disclosure,
+  "stays visible to STs").
+- Task 8: full regression — see Debug Log References above and the Senior Developer Review section
+  below. The dev-story pass's OWN regression run had no High/Medium findings; the external Codex
+  review that followed found real ones (4 High, 6 Medium — all patched, see below). The Task-5
+  assumption correction remains a Dev Notes accuracy fix, not a defect requiring a patch.
 - **Real bug found and fixed during this session's own pre-review self-check** (before handing off to
   Codex, not a review finding): `addPowerChip` (`roll-v2.js`) applied the clamped value to `state.MOD`
   **unconditionally** after calling `addChip()`, but `addChip()` has its own, independent
@@ -490,12 +495,209 @@ Claude Sonnet 5 (`bmad-dev-story`, 2026-08-24)
 
 ### File List
 
-- `public/js/game/power-mod-chips.js` — new (persistence module).
+- `public/js/game/power-mod-chips.js` — new (persistence module); modified again during Codex review
+  (injective composite key, honest storage-failure-as-no-op, per-entry load validation/normalization).
 - `public/js/suite/roll-v2.js` — modified (import, `loadPool()`/`updPool()` edits, three new exported
-  functions).
+  functions); modified again during Codex review (new `resetRollPool()` export, `updPool()`
+  restructured so chip rendering/add-row painting no longer sit behind the `pi.attr` early return,
+  `togPowerChip`/`removePowerChip` switched to badge-element + `dataset.chip` instead of an
+  interpolated id string, both recompute MOD from a full before/after on-sum instead of a
+  single-chip delta, `pmc-add-btn` id added so its lookup uses `getElementById` like every other
+  element in this file instead of the file's only `querySelector` call).
 - `public/js/suite/data.js` — modified (two new state fields).
-- `public/index.html` — modified (static add-mod row inside the breakdown disclosure).
-- `public/js/app.js` — modified (three new imports, three new `window` exposure entries).
-- `public/css/suite.css` — modified (`.effpool-spec-del`, `.rv2-addmod-row` and children).
-- `server/tests/rlv-7-persistent-mod-chips.test.js` — new (23 tests).
-- `tests/rlv-7-persistent-mod-chips.spec.js` — new (11 tests).
+- `public/index.html` — modified (static add-mod row inside the breakdown disclosure; `id="pmc-add-btn"`
+  added to the add-mod button during Codex review).
+- `public/js/app.js` — modified (three new imports, three new `window` exposure entries); modified
+  again during Codex review (`resetRollPool` imported and called from `pickChar()` and `openChar()`).
+- `public/js/suite/sheet.js` — modified during Codex review (`resetRollPool` imported and called from
+  `onSheetChar()` — a fourth character-switch site the story's own original research missed, only
+  found because Codex searched beyond `app.js`).
+- `public/css/suite.css` — modified (`.effpool-spec-del`, `.rv2-addmod-row` and children); modified
+  again during Codex review (comment rephrased to remove an embedded `*/` that was prematurely
+  closing it and corrupting the `.effpool-spec-del` rule).
+- `server/tests/rlv-7-persistent-mod-chips.test.js` — new (23 tests); grew to 43 during review (see
+  Senior Developer Review).
+- `tests/rlv-7-persistent-mod-chips.spec.js` — new (11 tests); grew to 13 during review.
+- `specs/deferred-work.md` — modified (one genuinely pre-existing, review-found issue logged, not
+  fixed — see that file's own "Deferred from: code review of rlv-7…" entry).
+
+## Senior Developer Review (AI)
+
+**Reviewed:** 2026-08-24. **Mode:** EXTERNAL — Codex CLI (`codex exec -C <repo> -s workspace-write
+-c model_reasoning_effort=high`), a real 3-pass review (Blind Hunter / Edge Case Hunter / Acceptance
+Auditor), with a genuine 3b sub-pass that ran the suites itself, reproduced findings live in
+Chromium, and prove-discriminated its own claims (SHA-256 hash checks before/after a temporary
+revert). Diff scoped to source + tooling only (`specs/stories/code-review/rlv-7-diff.txt`, against
+base commit `66424fb2` — `origin/main` right after PR #1203 merged), story/tracking files
+deliberately excluded. Full prompt and findings persisted at
+`specs/stories/code-review/rlv-7-codex-review.md` / `rlv-7-codex-findings.md` / `rlv-7-codex-run.log`.
+
+**Outcome: this was a genuinely high-value external pass — 4 High findings, all real, all patched
+with proven regression tests; 6 Medium findings, all real, all patched; several Low findings, mostly
+resolved as a side effect of the same fixes. The Dev Agent Record's original "No High/Medium
+findings" line (written after this story's own internal regression pass, before external review) was
+itself flagged by Codex's own Pass 3b as false and overstated — correctly so; that claim described
+this session's own regression run, not an adversarial review, and the distinction should have been
+stated more carefully the first time.**
+
+### Findings — High (4, all patched)
+
+1. **[Pass 2/3a/3b, High]** Switching character (`pickChar()`, `openChar()` in `app.js`; `onSheetChar()`
+   in `suite/sheet.js` — a fourth site this story's own research never found, only surfaced because
+   Codex searched beyond `app.js`) left the PREVIOUS character's `POOL_NAME`/`powerChips`/`MOD`/
+   `POOL_INFO` fully live under the NEW character. Reproduced live in Chromium: load character A's
+   6-die Occult pool with an on `+2` chip, switch to character B without loading a pool — the UI
+   stayed at effective 8, the stale chip badge remained clickable, and clicking it would call
+   `togPowerChip`/`removePowerChip` with `state.rollChar` already reassigned to B — persisting A's
+   chip data into **B's own localStorage slot** for a pool B never loaded. A real cross-character
+   data leak, not just a stale display, and a routine flow (every character switch), not an exotic
+   edge case. **Fix**: new exported `resetRollPool()` in `roll-v2.js` clears `POOL_INFO`/`POOL_NAME`/
+   `powerChips`/`MOD`/`specBonuses`/`activeEquipBonus`/`activeWeaponId` together and repaints via
+   `updPool()`; called from all three real character-reassignment sites (the fourth,
+   `app.js:1265`→`pickChar()`, was already redundant with `pickChar()`'s own reset). Proven by a new
+   e2e test (`tests/rlv-7-persistent-mod-chips.spec.js`, "switching character clears the previous
+   character's pool/chips") that reproduces the exact Chromium scenario Codex found and asserts the
+   stale chip/effective-pool/enabled-row are all gone immediately after the switch.
+2. **[Pass 2/3b, High]** `combat-tab.js`'s `quickRoll()` calls exactly `loadPool(pool, label, { total:
+   pool })` — a `pi` with no `.attr` at all. `loadPool()` still folded a persisted on-chip's value
+   into `state.MOD` in that case (chip restoration never gated on `.attr`), but `updPool()` used to
+   `return` before the chip-rendering block AND the add-mod-row painting for any `pi` without
+   `.attr` — so the roll silently included a modifier the ST could not see, toggle, or remove.
+   Reproduced live: an attr-less Brawl reload showed effective 7 (5 base + a persisted `+2` chip)
+   while rendering zero chip badges. **Fix**: restructured `updPool()` so the attr/skill/disc/merit
+   segment breakdown is still skipped for a no-`.attr` pool, but power-chip rendering and the
+   add-mod-row enable/disable painting now run unconditionally, below and independent of that
+   branch. Proven by a new e2e test ("a persisted chip stays visible on a combat-quick-roll-shaped
+   pool with no .attr") that calls `window.loadPool(5, 'Occult', { total: 5 })` — the exact shape
+   `quickRoll()` uses — and asserts the chip badge renders, stays toggleable, and the add-mod row
+   stays enabled.
+3. **[Pass 3a, High]** Direct consequence of finding 1: AC1's literal wording ("hidden/inert when no
+   character or no pool is loaded") was violated the instant a character switch happened without a
+   fresh pool load — the add-mod row stayed visible and enabled against the wrong character. Resolved
+   by the same `resetRollPool()` fix as finding 1 (same root cause, independently surfaced by a
+   different pass reading the AC text literally rather than the code).
+4. **[Pass 3b, High]** The record's own "No High/Medium findings" conclusion, read literally, implied
+   ship-as-is readiness — false, given findings 1-2 above were both reproduced live in Chromium with
+   the repository's own Playwright-managed server. Resolved by this review round itself; the record
+   now states plainly (this section) that the *internal* regression pass found nothing, but the
+   *external* pass found real, patched defects — a distinction worth being explicit about going
+   forward, per this project's own established convention of naming which findings came from outside
+   the authoring session.
+
+### Findings — Medium (6, all patched)
+
+5. **[Pass 1/2, Medium]** `togPowerChip`/`removePowerChip` computed the MOD delta from the LOCALLY
+   held `state.powerChips` copy's `chip.on` value, then separately called `toggleChip`/`removeChip`,
+   which independently re-read `localStorage` fresh. If local and storage ever disagreed (a
+   same-origin multi-tab race on the same character), the sign/delta could be wrong. **Fix**: both
+   functions now recompute the on-chip value SUM before and after the storage call and apply the
+   NET difference — correct regardless of what else changed underneath. Proven by a new unit test
+   simulating exactly this race (toggle chip A and add chip C directly via the module while
+   `state.powerChips` still holds the stale pre-race view, then toggle chip B via the roller and
+   confirm MOD lands on the mathematically correct total, not the naively-assumed one).
+6. **[Pass 1/3a, Medium]** `saveChips()` swallowed a `localStorage.setItem` exception (quota
+   exceeded, storage disabled) and every caller still returned the "next" list as if the write had
+   succeeded — a failed persistent write was presented to the roller as a successful one, silently
+   reverting only on reload. Contradicted this story's own Task 1 spec, which explicitly called for
+   "degrade to a silent no-op." **Fix**: `saveChips()` now returns whether the write actually
+   succeeded; `addChip`/`toggleChip`/`removeChip` return the UNCHANGED list on failure, making it a
+   genuine no-op end-to-end (in-memory state and storage both stay as they were) rather than a
+   divergent one. `addPowerChip`'s existing before/after-length check (from this story's own earlier
+   self-found fix) now correctly no-ops on a save failure for free, with a new test proving it.
+7. **[Pass 1, Medium]** `key(charId, powerName)` was a plain `` `tm-rlv7-chips-${charId}-${powerName}`
+   `` template with no delimiter escaping — not injective: `(charId:"a-b", powerName:"c")` and
+   `(charId:"a", powerName:"b-c")` both produced the identical key, letting two distinct
+   character/pool pairs overwrite each other's chip list. (Pass 2 correctly narrowed this to Low
+   real-world reachability today, since production character ids are fixed-width MongoDB
+   `ObjectId`s — but the function's own contract was still broken for any non-`ObjectId` source,
+   including this story's own test fixtures.) **Fix**: `encodeURIComponent` each component and join
+   with `|`, which `encodeURIComponent` itself escapes (to `%7C`) and therefore can never appear
+   literally inside either encoded half — genuinely injective now. Proven by a new unit test using
+   the exact collision example from the finding.
+8. **[Pass 1, Medium]** A chip id was interpolated directly into the `onclick` attribute's own
+   single-quoted JS argument (`togPowerChip('${id}')`), escaped for `"` only. A malformed/imported
+   id containing an apostrophe could break out of that string and inject script. **Fix**: switched
+   to this file's OWN existing, safer pattern (`togSpec(this)`/`togEquipChip(this)`) — the clicked
+   element is passed directly and the id is read via `.dataset.chip`, never embedded as executable
+   JS text at all, so no escaping scheme can be bypassed. (Also closed at the data layer:
+   `loadChips()`'s new per-entry validation, finding 9, rejects any id that isn't a non-empty
+   string.)
+9. **[Pass 1, Medium]** A stored payload passing the outer shape check (`v === VERSION`, `chips` is
+   an array) was trusted field-for-field with no per-entry validation — a corrupted-but-parseable
+   payload with a non-numeric `value` could coerce `state.MOD += value` into string concatenation
+   instead of numeric addition. **Fix**: every loaded entry now passes through a new
+   `normalizeChip()` — `value` runs through the same `clampChipValue()` `addChip()` already uses on
+   write (so a numeric STRING like `"7"` is correctly coerced to the number `7`, while genuinely
+   non-numeric text is dropped), `id`/`label` must be non-empty strings, `on` is normalized to a
+   strict boolean. Malformed entries are dropped individually, not the whole payload. Proven by new
+   unit tests: mixed valid/invalid entries in one payload, a numeric-string value being coerced
+   (not dropped), an out-of-range stored value being clamped on load, and a non-`true` `on` value
+   normalizing to `false`.
+10. **[Pass 3a/3b, Medium]** `suite.css`'s new comment block contained the literal phrase
+    `.effpool-*/.mchip` — the `*/` inside it prematurely closed the CSS comment, corrupting the
+    `.effpool-spec-del` rule that followed (Codex reproduced this live: computed `margin-left` came
+    back `0px`, not the intended `4px`). Directly falsified this story's own Task 5/AC11 claim that
+    the new CSS satisfied the remove-affordance styling. **Fix**: comment rephrased to avoid any
+    `*/` sequence in its body.
+
+### Findings — Low (6: 2 addressed as a side effect, 1 test strengthened, 3 self-resolved/moot)
+
+11. **[Pass 1, Low]** Several test assertions were weaker than their titles claimed (e.g. the
+    round-trip test only checked `label`, not `id`/`value`/`on`). Strengthened the round-trip test to
+    assert full equality against the write's own return value. The other named cases (source-fetch
+    smokes proving spelling not wiring; the add-mod-row structural placement) are already backed by
+    the live e2e suite's own real DOM interactions, which is a stronger proof than strengthening the
+    smoke tests themselves would add — left as-is, accepted trade-off.
+12. **[Pass 1, Low]** The add-success check in `addPowerChip` is a list-length heuristic, not proof a
+    specific invocation added a chip. Sound given `addChip()`'s append-only invariant (confirmed by
+    reading it); a dedicated save-failure test now proves the heuristic correctly catches that case
+    too. No further change.
+13. **[Pass 1, Low]** Storage-failure code comments contradicted the actual (pre-fix) behaviour.
+    Resolved as a direct side effect of finding 6's fix — the comments now describe what the code
+    actually does.
+14. **[Pass 2, Low]** The original `addPowerChip` integration test harness never set `state.POOL_INFO`,
+    so it exercised the no-`.attr` early-return path, and its fake `document` lacked the
+    `querySelector` the successful branch called. **Self-resolved**: finding 2's fix made chip
+    rendering/add-row painting unconditional (no longer behind the `pi.attr` branch), and this
+    story's OWN earlier fix (switching `document.querySelector('.rv2-addmod-btn')` to
+    `document.getElementById('pmc-add-btn')` for consistency with every other DOM lookup in this
+    file) removed the missing-stub gap entirely — both the vitest and vanilla-DOM paths now use only
+    `getElementById`, which every stub in this codebase already implements.
+15. **[Pass 2, Low]** Pass 1's key-collision example needs non-`ObjectId` character ids to be
+    reachable via the real API today. **Moot** — finding 7 fixed the underlying injectivity issue
+    directly rather than leaving it as a documented-but-unreachable risk.
+16. **[Pass 3b, Low]** The Dev Agent Record's Task 6 completion note was stale (claimed 23 tests, no
+    stub needed) and contradicted its own later self-fix paragraph (28 tests, stub needed). Corrected
+    above (Task 6/7/8 notes and File List now state the real, current counts and reasons).
+
+### Deferred (1, genuinely pre-existing, not caused by this story)
+
+- **[Pass 2, Medium in isolation, deferred not patched]** The pre-built skill-tile fallback in three
+  `app.js` `onTap` callsites drops `roteEligible`/`meritBonus`/`meritLabel` even though the source
+  pool object (`char-pools.js`) already carries them — a real, pre-existing gap (all three callsites
+  predate this story) that shows up as a missing Rote cue / missing merit-bonus segment on load for
+  an otherwise numerically-correct pool. Logged to `specs/deferred-work.md` with the exact fix,
+  rather than folded into this story's own scope.
+
+### Regression re-verification after all patches
+
+New vitest: 43/43 (`server/tests/rlv-7-persistent-mod-chips.test.js`, up from 23 — 20 new tests
+across the self-found fix and this review round). New Playwright: 13/13
+(`tests/rlv-7-persistent-mod-chips.spec.js`, up from 11 — 2 new regression tests reproducing the two
+High findings live). Combined vitest regression (the 7 named sibling suites + this story's own file):
+**234/234**. `tests/rlv-4-custom-pool-builder.spec.js`: 12/12, unaffected by the `roll-v2.js`/
+`char-pools.js`-adjacent changes. `tests/rlv-2-single-roller-retirement.spec.js`: 6/6, Roll-tab
+baseline unaffected. `tests/feature-662-eq3-roll-calc-equipment-chips.spec.js`: 5 passed / 7 failed,
+re-confirmed byte-identical to `CLAUDE.md`'s own documented pre-existing baseline (same 7 test names:
+AC-1, AC-2, AC-3, AC-4, AC-7, AC-8, AC-10) after every review patch, not just before.
+
+### Outcome
+
+Story status: `done`. All 4 High and all 6 Medium findings patched and prove-discriminated (either
+via a dedicated new regression test reproducing the exact failure mode, or via `git stash`-based
+before/after verification for the two findings this session self-found before external review).
+1 Low finding's test strengthened; the rest resolved as direct side effects of the High/Medium
+patches or judged sound as originally implemented. 1 genuinely pre-existing Medium-in-isolation
+finding deferred with a named fix, not silently absorbed into this story's scope. NOT committed, NOT
+pushed, NOT merged — per this project's hard rule, only on the user's own explicit instruction in a
+current message.

@@ -1000,3 +1000,25 @@ two below were judged real but out of proportion to fix in this pass, or not thi
   (`#hdr-nav` visibility) are unrelated and untouched. If phone bottom-nav role gating was ever
   meant to hide the Roll tab from players specifically, that's a product decision for Angelus, not
   something to infer from a test that has been wrong on at least one side since before this story.
+
+## Deferred from: code review of rlv-7-persistent-per-power-mod-chips (2026-08-24, external Codex)
+
+- **Pre-built skill-tile fallback drops `roteEligible`/`meritBonus`/`meritLabel` even though the
+  source pool object already carries them** (Medium, found not caused — pre-existing, all three
+  `app.js` call sites predate rlv.7). `char-pools.js`'s skill-pool loop places `roteEligible`,
+  `meritBonus`, and `meritLabel` directly on each pushed pool object (`char-pools.js:129`) but
+  deliberately sets that same object's `pi: null` (rlv.4's own review-fixed design — the ad-hoc
+  Custom Pool path builds its own `pi` shape). Every `app.js` `onTap` callback that loads one of
+  these tiles (`app.js:1149`, `336`, `1286`) falls back to `p.pi || { total, attr, attrV, skill,
+  skillV, nineAgain, resistance }` when `p.pi` is falsy — a fallback object that never carries
+  `roteEligible`/`meritBonus`/`meritLabel`, even though `p` (the pool object one level up) has them
+  right there. Concretely: loading a pre-built Intimidation tile for a character with the "Air of
+  Menace" merit shows the numerically-correct boosted total (the merit bonus is already baked into
+  `poolTotal` before the tile is built), but `#effline`'s breakdown never shows the "AoM +N" segment,
+  and a Professional-Training-5 character's Rote-eligible tile loses its clickable "Rote ✓" cue on
+  load (both segments are gated on `pi.meritBonus`/`pi.roteEligible` in `updPool()`, `roll-v2.js`).
+  Not fixed here — genuinely pre-existing (confirmed: none of the three call sites were touched by
+  this diff, and the same fallback-drops-fields shape exists identically at all three), out of this
+  story's own scope (persistent mod chips, not pool-tile fallback completeness). Fix is small when
+  picked up: add `roteEligible: p.roteEligible, meritBonus: p.meritBonus, meritLabel: p.meritLabel`
+  to each of the three fallback object literals.
