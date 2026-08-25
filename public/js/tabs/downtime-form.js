@@ -1838,23 +1838,9 @@ function _writeHidden(hiddenId, value) {
 }
 
 function _makeCharPickerOnChange(site, hiddenId, cardinality) {
-  if (site === 'shoutout') {
-    // 3-pick cap preserved from prior behaviour. Locked picker signature has
-    // no max-N parameter, so over-cap selections are reverted by remounting
-    // the picker with the trimmed list.
-    return (next) => {
-      const arr = Array.isArray(next) ? next : [];
-      if (arr.length > 3) {
-        const trimmed = arr.slice(0, 3);
-        _writeHidden(hiddenId, JSON.stringify(trimmed));
-        scheduleSave();
-        _remountShoutoutPicker(trimmed);
-        return;
-      }
-      _writeHidden(hiddenId, JSON.stringify(arr));
-      scheduleSave();
-    };
-  }
+  // dtui-20: the 'shoutout' site (Court "Acknowledge Peers") no longer mounts
+  // through the generic charPicker system - it's a .dt-chip-grid now, with
+  // its own delegated click handler (see the [data-shoutout-chip] branch).
   if (cardinality === 'multi') {
     return (next) => {
       const arr = Array.isArray(next) ? next : [];
@@ -1866,25 +1852,6 @@ function _makeCharPickerOnChange(site, hiddenId, cardinality) {
     _writeHidden(hiddenId, typeof next === 'string' ? next : '');
     scheduleSave();
   };
-}
-
-function _remountShoutoutPicker(trimmed) {
-  const cur = document.querySelector('[data-cp-mounted-site="shoutout"]');
-  if (!cur) return;
-  const hiddenId = cur.dataset.cpMountedHidden || '';
-  const placeholderText = cur.dataset.cpMountedPlaceholder || '';
-  const fresh = charPicker({
-    scope: 'attendees',
-    cardinality: 'multi',
-    initial: trimmed,
-    onChange: _makeCharPickerOnChange('shoutout', hiddenId, 'multi'),
-    placeholder: placeholderText,
-    excludeIds: [],
-  });
-  fresh.dataset.cpMountedSite = 'shoutout';
-  if (hiddenId) fresh.dataset.cpMountedHidden = hiddenId;
-  if (placeholderText) fresh.dataset.cpMountedPlaceholder = placeholderText;
-  cur.replaceWith(fresh);
 }
 
 // dt-form.17 (ADR-003 §Q1, §Q2): MINIMAL vs ADVANCED mode gate.
@@ -3163,8 +3130,31 @@ function renderForm(container) {
       scheduleSave();
       return;
     }
-    // dt-form.16: shoutout chip handler removed — universal charPicker mounted
-    // in the shoutout_picks case handles selection and 3-pick cap via remount.
+    // dtui-20 (FR3): Court "Acknowledge Peers" chip grid. Multi-select, up to
+    // 3 — the first multi-select .dt-chip-grid in this file, so this toggle
+    // logic is new (every other .dt-chip-grid consumer here is single-select
+    // and just swaps which one chip carries dt-chip--selected). Disabled
+    // (non-attendee) chips never reach this handler — the browser doesn't
+    // fire click on a real `disabled` button — so no explicit disabled check
+    // is needed here beyond what the `!shoutoutChip.disabled` guard already
+    // gives belt-and-braces.
+    const shoutoutChip = e.target.closest('[data-shoutout-chip]');
+    if (shoutoutChip && !shoutoutChip.disabled) {
+      const grid = shoutoutChip.closest('[data-shoutout-grid]');
+      const key = grid?.dataset.shoutoutGrid;
+      const hidden = key ? document.getElementById(`dt-${key}`) : null;
+      const alreadySelected = shoutoutChip.classList.contains('dt-chip--selected');
+      const selectedCount = grid ? grid.querySelectorAll('.dt-chip--selected').length : 0;
+      if (!alreadySelected && selectedCount >= 3) return; // AC4: a 4th pick is ignored
+      shoutoutChip.classList.toggle('dt-chip--selected');
+      shoutoutChip.setAttribute('aria-checked', String(!alreadySelected));
+      if (grid && hidden) {
+        const ids = [...grid.querySelectorAll('.dt-chip--selected')].map(el => el.dataset.charId);
+        hidden.value = JSON.stringify(ids);
+      }
+      scheduleSave();
+      return;
+    }
 
     const sphereCharChip = e.target.closest('[data-sphere-char-target]');
     if (sphereCharChip && !sphereCharChip.disabled) {
@@ -7106,19 +7096,27 @@ function renderQuestion(q, value) {
       break;
 
     case 'shoutout_picks': {
-      // Universal char picker (ADR-003 §Q6) — site #4 (attendees scope, multi).
-      // Max-3 cap preserved via consumer-side onChange (see _makeCharPickerOnChange).
+      // dtui-20 (FR3): .dt-chip-grid over the full roster, non-attendees
+      // visibly disabled (not excluded from a search box, which is what the
+      // old charPicker(scope:'attendees') combobox did — see the story's own
+      // Context section for why that didn't satisfy FR3). First multi-select
+      // .dt-chip-grid in this file; see the delegated click handler below for
+      // the toggle-and-cap logic no existing single-select grid needed.
       let picks = [];
       if (value) { try { picks = JSON.parse(value); } catch { /* ignore */ } }
-      const initialIds = picks.map(String).filter(Boolean);
-      const initialJson = esc(JSON.stringify(initialIds));
-      const savedJson = esc(JSON.stringify(initialIds));
-      h += `<input type="hidden" id="dt-${esc(q.key)}" value="${savedJson}">`;
-      h += `<div data-cp-mount data-cp-site="shoutout"`
-         + ` data-cp-scope="attendees" data-cp-cardinality="multi"`
-         + ` data-cp-hidden="dt-${esc(q.key)}"`
-         + ` data-cp-initial="${initialJson}"`
-         + ` data-cp-placeholder="Pick up to 3 attendees"></div>`;
+      const selectedIds = new Set(picks.map(String).filter(Boolean));
+      const attendeeIds = new Set(lastGameAttendees.map(a => String(a.id)));
+      h += `<input type="hidden" id="dt-${esc(q.key)}" value="${esc(JSON.stringify([...selectedIds]))}">`;
+      h += `<div class="dt-chip-grid" role="group" aria-label="Acknowledge peers" data-shoutout-grid="${esc(q.key)}">`;
+      for (const c of allCharacters) {
+        const id = String(c.id);
+        const isAttendee = attendeeIds.has(id);
+        const isSelected = selectedIds.has(id);
+        const disabledAttr = isAttendee ? '' : ' disabled aria-disabled="true" title="Wasn\'t at last game session"';
+        const selectedClass = isSelected ? ' dt-chip--selected' : '';
+        h += `<button type="button" class="dt-chip${selectedClass}" role="checkbox" aria-checked="${isSelected}"${disabledAttr} data-shoutout-chip data-char-id="${esc(id)}">${esc(c.name)}</button>`;
+      }
+      h += '</div>';
       h += '<p class="qf-desc dt-shoutout-limit-hint">Up to 3 picks. A 4th will be ignored.</p>';
       break;
     }
