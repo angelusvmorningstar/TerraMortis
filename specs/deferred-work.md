@@ -1465,3 +1465,27 @@ two below were judged real but out of proportion to fix in this pass, or not thi
   branch `ms/issue-ordeal-cascade-atomic-write`). Needs a scoped conversation with Angelus on
   approach before anyone builds it, not an improvised fix. Cross-referenced in TM Admin's own
   liaison notes from the same review.
+
+- **Roughly ten `public/js/admin/*.js` modules are confirmed redundant with TM Admin and safe to
+  retire, at Angelus's discretion — not urgent, dead code rather than dangerous code** (unlike the
+  two entries above). Confirmed via an independent fork reading TM Admin's own `specs/sprint-status.yaml`
+  and cross-checking each module against it: `players-view.js` (2.1 Players, done), `city-views.js`
+  + `spheres-view.js` (2.4 City+Spheres, done — Prestige/Influence calc specifically flagged
+  "PARTIALLY IN" by TM Admin's own story, blocked on porting `meritEffectiveRating`, so don't touch
+  that one sub-piece yet), `attendance.js` (2.3 Attendance & XP, done), `ordeals-admin.js` (Epic 3/4,
+  done), `equipment-catalogue-admin.js` (4.1, done), `rules-data-view.js` + `rules-view.js` (4.2/4.3,
+  done), `st-mods-panel*.js` + `st-mods-audit.js` (4.4a/4.4b, done), `bloodlines-admin.js` (6.1,
+  done), `devlog-admin.js` (6.2, done). `cycle-views.js`/`next-session.js`/`session-log.js` likely
+  covered by 2.5 Chapters & Stories (done) but session-log specifically wasn't verified — check
+  before retiring. **Do NOT touch**: the character editor (`admin.js`'s own sheet-edit path — TM
+  Admin's 2.2b port covers only ~11 of ~60 handlers as of 2026-08-25, still `review` not `done`, and
+  TM Admin's own session explicitly said not to retire this yet), the Downtime admin modules
+  (`downtime-*.js`, TM Admin's Epic 5 is `not-storied`, gated behind a tm_game→tm_story storage
+  migration not yet reached), and `data-portability*.js`/`excel-merge.js`/`excel-parser.js` (TM
+  Admin deliberately dropped the Excel-merge tool as legacy rather than porting it — Angelus already
+  called it dead weight, but that's a separate call from "TM Admin replaced it"). Not retired here —
+  deliberately deferred rather than rushed at the end of an already-large session; do as its own
+  scoped pass, probably one module (or a few related ones) at a time rather than one big sweep, per
+  Angelus's own explicit steer 2026-08-25. See also `specs/architecture/adr-008-admin-merge.md`
+  (marked superseded the same day — TM Admin's separate-app approach is the actual direction, not
+  ADR-008's merge-into-one-app plan) for the broader architectural context this sits inside.
