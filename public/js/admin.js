@@ -611,8 +611,11 @@ function renderCharGrid() {
     const ordeals = c.ordeals || [];
     const ordDone = ordeals.filter(o => o.complete).length;
     const ordTotal = ordeals.length;
+    // Read-only since the ordeals modal's own edit path was retired 2026-08-25
+    // (see the comment above async function init()) — Ordeals are managed in
+    // TM Admin now, this is just a status badge.
     const ordChip = ordTotal > 0
-      ? `<span class="cc-ordeals cc-tag" onclick="event.stopPropagation(); window._openOrdealsModal('${c._id}')" title="Manage ordeals">Ord ${ordDone}/${ordTotal}</span>`
+      ? `<span class="cc-ordeals cc-tag" title="Managed in TM Admin">Ord ${ordDone}/${ordTotal}</span>`
       : '';
 
     const unlinked = !linkedCharIds.has(String(c._id));
@@ -974,10 +977,18 @@ function buildSaveBody(c) {
   // Strip _id (goes in URL), all ephemeral _-prefixed runtime fields, legacy v2 fields,
   // deprecated derived fields (#837 — xp_total/xp_spent/xp_left), c.current (tracker-state
   // namespace), and c.derived (render-time materialised cache from ADR-006; never stored).
+  //
+  // `ordeals` is ALSO stripped (2026-08-25): TM Admin's Epic 3 review flow now owns writes
+  // to this field via its own atomic cascade (server/lib/ordeal-xp-cascade.js). This PUT
+  // route does a blind `$set: updates` (server/routes/characters.js) — every save from this
+  // editor, not just an ordeals-specific one, used to resend whatever `ordeals[]` was loaded
+  // into memory at page-open, silently clobbering any concurrent cascade write. The in-memory
+  // `chars[]` entry still carries `ordeals` for display (the char-card badge reads it), it
+  // just never round-trips back out through this save path any more.
   const body = {};
   for (const [k, v] of Object.entries(c)) {
     if (k === '_id' || k.startsWith('_') || k === 'current' || k === 'derived' || k === 'assets'
-        || _LEGACY_FIELDS.has(k) || _DEPRECATED_FIELDS.has(k)) continue;
+        || k === 'ordeals' || _LEGACY_FIELDS.has(k) || _DEPRECATED_FIELDS.has(k)) continue;
     body[k] = v;
   }
   // N-1 (ADR-005 Rev 2, Concern #3): merit-level `_`-prefixed fields
@@ -1167,120 +1178,13 @@ window._plmCreate = async (charId) => {
   }
 };
 
-// ── Ordeals modal (ST tooling from char card) ──
-
-const ORDEAL_TYPES = ['questionnaire', 'rules', 'lore', 'history', 'covenant'];
-const ORDEAL_LABELS = {
-  questionnaire: 'Questionnaire',
-  rules: 'Rules',
-  lore: 'Lore',
-  history: 'History',
-  covenant: 'Covenant',
-};
-
-function openOrdealsModal(c) {
-  document.getElementById('ordeals-modal')?.remove();
-
-  const overlay = document.createElement('div');
-  overlay.id = 'ordeals-modal';
-  overlay.className = 'plm-overlay om-overlay';
-  overlay.dataset.charId = String(c._id);
-  document.getElementById('admin-app').appendChild(overlay);
-  overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
-
-  _renderOrdealsModal(c);
-}
-
-function _renderOrdealsModal(c) {
-  const overlay = document.getElementById('ordeals-modal');
-  if (!overlay) return;
-  const ordeals = c.ordeals || [];
-  const done = ordeals.filter(o => o.complete).length;
-
-  // Lookup map of existing ordeal entries by their normalised key
-  const existingByKey = {};
-  ordeals.forEach((o, i) => {
-    const k = (o.name || '').toLowerCase();
-    if (ORDEAL_TYPES.includes(k)) existingByKey[k] = i;
-  });
-
-  // Build a fixed row for each ordeal type — present or not
-  const rows = ORDEAL_TYPES.map(key => {
-    const idx = existingByKey[key];
-    const o = idx !== undefined ? ordeals[idx] : null;
-    const present = o !== null;
-    const complete = present && !!o.complete;
-    return `<tr class="om-row${present ? '' : ' om-row-absent'}">
-      <td class="om-check">
-        <input type="checkbox" ${complete ? 'checked' : ''} onclick="window._omToggleType('${esc(String(c._id))}','${key}',this.checked)" />
-      </td>
-      <td class="om-name">${ORDEAL_LABELS[key]}</td>
-      <td class="om-xp">${complete ? '3 XP' : '\u2014'}</td>
-    </tr>`;
-  }).join('');
-
-  overlay.innerHTML = `<div class="plm-dialog om-dialog">
-    <div class="plm-header om-header">
-      <h3>Ordeals \u2014 ${esc(cardName(c))}</h3>
-      <button class="cd-close" onclick="document.getElementById('ordeals-modal').remove()">&times;</button>
-    </div>
-    <p class="om-summary">${done} of ${ORDEAL_TYPES.length} complete \u2014 ${done * 3} XP awarded</p>
-    <div class="om-table-wrap"><table class="plm-table om-table">
-      <thead><tr><th style="width:50px">Done</th><th>Ordeal</th><th style="width:70px">XP</th></tr></thead>
-      <tbody>${rows}</tbody>
-    </table></div>
-    <p id="om-err" class="plm-error" style="display:none"></p>
-  </div>`;
-}
-
-async function _omSave(c) {
-  const idx = chars.indexOf(c);
-  if (idx < 0 || !c._id) return;
-  // Recompute xp_log.earned.ordeals for consistency with sheet editor path
-  if (!c.xp_log) c.xp_log = { earned: {}, spent: {} };
-  if (!c.xp_log.earned) c.xp_log.earned = {};
-  c.xp_log.earned.ordeals = (c.ordeals || []).reduce((s, o) => s + (o.xp || 0), 0);
-  try {
-    const { _id } = c;
-    const updated = await apiPut('/api/characters/' + _id, buildSaveBody(c));
-    Object.assign(chars[idx], updated);
-    renderCharGrid();
-  } catch (err) {
-    const errEl = document.getElementById('om-err');
-    if (errEl) { errEl.textContent = 'Save failed: ' + err.message; errEl.style.display = ''; }
-  }
-}
-
-window._omToggleType = async (charId, key, checked) => {
-  const c = chars.find(ch => String(ch._id) === String(charId));
-  if (!c) return;
-  if (!c.ordeals) c.ordeals = [];
-
-  // Find existing entry for this ordeal type (case-insensitive)
-  const idx = c.ordeals.findIndex(o => (o.name || '').toLowerCase() === key);
-
-  if (checked) {
-    // Mark complete — create entry if missing
-    if (idx >= 0) {
-      c.ordeals[idx].complete = true;
-      c.ordeals[idx].xp = 3;
-      if (!c.ordeals[idx].approved_at) c.ordeals[idx].approved_at = new Date().toISOString();
-    } else {
-      c.ordeals.push({ name: key, complete: true, xp: 3, approved_at: new Date().toISOString() });
-    }
-  } else {
-    // Unticked — remove the entry entirely
-    if (idx >= 0) c.ordeals.splice(idx, 1);
-  }
-
-  await _omSave(c);
-  _renderOrdealsModal(c);
-};
-
-window._openOrdealsModal = (charId) => {
-  const c = chars.find(ch => String(ch._id) === String(charId));
-  if (c) openOrdealsModal(c);
-};
+// Ordeals modal (ST tooling from char card) retired 2026-08-25: TM Admin's
+// Epic 3 rubric-based review flow is now the sole write path for `ordeals`.
+// This modal saved via buildSaveBody(), which PUTs the character's full
+// in-memory `ordeals` array -- a save from here (or any other admin.js save,
+// since buildSaveBody() is shared) could silently clobber a concurrent write
+// from TM Admin's atomic ordeal-XP cascade. See buildSaveBody()'s own comment
+// for the other half of this fix.
 
 async function init() {
   // Load rules data (purchasable powers) — non-blocking, cached.
