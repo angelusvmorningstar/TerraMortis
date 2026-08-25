@@ -1385,3 +1385,43 @@ two below were judged real but out of proportion to fix in this pass, or not thi
   story's own scope (persistent mod chips, not pool-tile fallback completeness). Fix is small when
   picked up: add `roteEligible: p.roteEligible, meritBonus: p.meritBonus, meritLabel: p.meritLabel`
   to each of the three fallback object literals.
+
+## Deferred from: code review of dtui-22-mandragora-visibility-vitae-calc (2026-08-25, external Codex)
+
+- **`meritEffectiveRating()`'s `CAP_DOMAIN` branch (Haven, Mandragora Garden) doesn't zero the
+  result for an unattached anchor, despite the editor's own UI copy claiming it does** (Medium,
+  confirmed pre-existing — `public/js/editor/domain.js:363-403`, unrelated to and untouched by this
+  story's diff). `_havenCap(c, m)` returns `0` when a Haven/Mandragora Garden merit has no
+  `attached_to` anchor set. But `meritEffectiveRating()`'s own arithmetic for that branch is
+  `Math.min(effectiveStored, cap || stored)` — when `cap` is `0` (a legitimate falsy return, not
+  "unset"), the `||` substitutes `stored` instead, so an unattached merit with e.g. `cp: 2` returns
+  effective rating `2`, not `0`. This directly contradicts `editor/sheet.js:1364`'s own warning text
+  ("Needs an attached Safe Place or Sepulcher — contributes 0 dots until linked"). Confirmed via
+  direct Node import trace of `meritEffectiveRating()` for an unattached `{ cp: 2, xp: 0 }`
+  Mandragora Garden: returns `2`. Not fixed here — `meritEffectiveRating()` is the shared, canonical
+  effective-rating helper ("use this everywhere", per its own doc comment) used across Haven, the
+  editor sheet, and every other domain-merit consumer; a fix belongs to whoever next works in
+  `domain.js`, with its own investigation into what Haven's own unattached-anchor behaviour is
+  supposed to be (this may be intentional slack during character build, not a bug — needs a ruling,
+  not a guess). Likely fix when picked up: `Math.min(effectiveStored, cap > 0 ? cap : 0)` for the
+  no-anchor case specifically, while leaving the has-anchor cap logic (`cap || stored` when `cap` is
+  a genuine positive number) untouched.
+
+- **The same `CAP_DOMAIN` branch (and the generic non-domain merit path beside it) never reads
+  `m.bonus`, even though the editor sheet exposes a working "Bonus" stepper on every domain merit
+  row** (Medium, confirmed pre-existing — same file/lines as above). `meritBdRow()`
+  (`public/js/editor/xp.js:207-275`) renders a Bonus +/- control for domain merits by default
+  (`opts.hideBonus` is only set true for standing merits) and stores it as `mc.bonus`; a SEPARATE
+  helper, `domMeritContribSingle()` (`domain.js:43-53`, used for Safe Place/Feeding Grounds'
+  multi-instance summing), does read `m.bonus` into its total. But `meritEffectiveRating()` itself —
+  the helper `effectiveDomainDots()` (and therefore this session's dtui-22 story) calls for
+  Mandragora Garden — sums only `cp + xp + meritFreeSum(m)` in both its `CAP_DOMAIN` branch and its
+  generic fallback, omitting `m.bonus` entirely. Confirmed via direct Node trace: an attached
+  Mandragora Garden with `{ cp: 0, xp: 0, bonus: 1 }` returns effective rating `0`, even though the
+  character sheet displays one usable bonus dot on that row. Not fixed here for the same reason as
+  the unattached-anchor gap above — shared helper, cross-cutting, needs its own scoped investigation
+  (in particular: is `m.bonus` even meant to count toward CAP_DOMAIN/singleton merits' effective
+  rating, or is the Bonus stepper itself a latent no-op for these merit types the way it already
+  is — by explicit design — for standing merits like MCI/PT? `xp.js:266-269`'s own comment shows
+  this exact "control renders, doesn't actually do anything" pattern has happened at least once
+  before and was handled by hiding the control, not by wiring it up).
