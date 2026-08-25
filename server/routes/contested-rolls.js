@@ -4,6 +4,9 @@ import { getCollection } from '../db.js';
 import { validate } from '../middleware/validate.js';
 import { requireRole } from '../middleware/auth.js';
 import { contestedRollRequestSchema } from '../schemas/contested_roll_request.schema.js';
+import { calcEffectiveCityStatus } from '../../public/js/data/city-status-calc.js';
+import { findRegentTerritory } from '../../public/js/data/helpers.js';
+import { currentCycleInGamePhase } from '../../public/js/downtime/cycle-phase.js';
 
 const router = Router();
 const col     = () => getCollection('contested_roll_requests');
@@ -114,6 +117,68 @@ function _meritBonus(merit) {
   return 0;
 }
 
+// crd.4a: the at-Court City Status advantage gate. Short-circuits on the
+// cheapest check first (power_name) so the overwhelming majority of
+// /resolve calls (any non-power contest) never touch chapters/game_sessions/
+// territories at all. Returns null when the gate is closed for this
+// challenge, or { eligible: true, bp_value, city_value } when open — the
+// three conditions (power, game mode, both-sides attendance) plus the
+// City-Status-higher requirement, all evaluated fresh from live data, never
+// cached or client-asserted (AC1).
+async function _statusChoiceEligibility(challenge, defenderChar) {
+  if (!challenge.power_name || typeof challenge.power_name !== 'string' || !challenge.power_name.trim()) {
+    return null;
+  }
+
+  // Game mode active — mirrors office-actions.js's own GATED_TYPES check
+  // (lines ~164-168) exactly, same import, no second (deriveStatus) arg
+  // needed server-side.
+  const cycles = await getCollection('chapters').find().toArray();
+  if (!currentCycleInGamePhase(cycles)) return null;
+
+  // At Court — both challenger and defender attended:true in the SAME most
+  // recent game session. Mirrors server/routes/attendance.js's own live
+  // lookup (session-selection + id-then-name matching), same-process, not a
+  // self-call over HTTP.
+  const sessions = await getCollection('game_sessions').find({}).sort({ session_date: -1 }).limit(1).toArray();
+  const latestSession = sessions[0] || null;
+  if (!latestSession) return null;
+  const attendance = latestSession.attendance || [];
+  function attendedIn(charId, charName) {
+    const entry = attendance.find(a =>
+      String(a.character_id) === String(charId)
+      || (charName && (a.character_name === charName || a.name === charName))
+    );
+    return entry?.attended === true;
+  }
+
+  let challengerChar;
+  try {
+    challengerChar = await getCollection('characters').findOne({ _id: new ObjectId(challenge.challenger_character_id) });
+  } catch { return null; }
+  if (!challengerChar) return null;
+
+  if (!attendedIn(challenge.challenger_character_id, challengerChar.name)) return null;
+  if (!attendedIn(challenge.target_character_id, defenderChar.name)) return null;
+
+  // City Status — same territories/regentAmbience/calcEffectiveCityStatus
+  // pattern office-actions.js already uses for its own budget check (lines
+  // ~316-319).
+  const territories = await getCollection('territories').find({}).toArray();
+  const defenderAmbience   = findRegentTerritory(territories, defenderChar)?.ambience;
+  const challengerAmbience = findRegentTerritory(territories, challengerChar)?.ambience;
+  const defenderStatus   = calcEffectiveCityStatus(defenderChar, defenderAmbience);
+  const challengerStatus = calcEffectiveCityStatus(challengerChar, challengerAmbience);
+
+  if (!(defenderStatus > challengerStatus)) return null;
+
+  return {
+    eligible:  true,
+    bp_value:   defenderChar.blood_potency || 0,
+    city_value: defenderStatus - challengerStatus,
+  };
+}
+
 // PUT /api/contested_roll_requests/:id/resolve — defender computes their own
 // server-verified pool from live character state; does not roll dice or
 // change status (see this story's own "resolving is not accepting" decision).
@@ -191,27 +256,52 @@ router.put('/:id/resolve', async (req, res) => {
     if (merit) pool += _meritBonus(merit);
   }
 
+  // crd.4a: the at-Court City Status advantage. Gate is closed for the
+  // overwhelming majority of resolves (any non-power contest) — statusChoice
+  // is null and finalPool/defenderStatusTerm fall straight through unchanged.
+  const statusChoice = await _statusChoiceEligibility(challenge, character);
+  let finalPool = pool;
+  let defenderStatusTerm = null;
+  if (statusChoice) {
+    const { defender_status_term } = req.body || {};
+    if (defender_status_term === 'bp' || defender_status_term === 'city') {
+      defenderStatusTerm = defender_status_term;
+      finalPool = pool + (defender_status_term === 'bp' ? statusChoice.bp_value : statusChoice.city_value);
+    } else {
+      // AC3: required-but-not-yet-chosen — NOT a 400. The aspect/WP/merit
+      // portion above is already legitimately computed and worth showing;
+      // only the final total is withheld, the same null-means-"not resolved
+      // yet" signal already established for a missing defender_aspect.
+      finalPool = null;
+    }
+  }
+
   // Defensive clamp to the collection's own declared domain
   // (contested_roll_request.schema.js: defender_pool is 0-30). This route has
   // no validate() middleware, and a character's attribute `bonus` and a
   // merit's `rating` both have NO declared maximum, so a schema-valid
   // character can genuinely drive the computed total outside the range this
   // collection's own schema promises everywhere else (crd.3a code review,
-  // external Codex, Pass 1/2).
-  pool = Math.max(0, Math.min(30, pool));
+  // external Codex, Pass 1/2). Skipped when finalPool is null (AC3) — Math.min
+  // would otherwise silently coerce null to 0, a real total rather than "not
+  // resolved yet".
+  if (finalPool != null) finalPool = Math.max(0, Math.min(30, finalPool));
 
   await col().updateOne(
     { _id: challenge._id },
     { $set: {
-        defender_pool:      pool,
+        defender_pool:         finalPool,
         defender_aspect,
-        defender_wp_spent:  spendWp,
-        defender_merit_ids: resolvedMeritIds,
-        updated_at:         new Date().toISOString(),
+        defender_wp_spent:     spendWp,
+        defender_merit_ids:    resolvedMeritIds,
+        defender_status_term:  defenderStatusTerm,
+        updated_at:            new Date().toISOString(),
       } }
   );
 
-  res.json(await col().findOne({ _id: challenge._id }));
+  const updated = await col().findOne({ _id: challenge._id });
+  if (statusChoice) updated.status_choice = statusChoice;
+  res.json(updated);
 });
 
 // PUT /api/contested_roll_requests/:id/accept — target accepts; dice rolled server-side

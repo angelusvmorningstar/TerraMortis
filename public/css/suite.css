@@ -2564,6 +2564,45 @@ body.desktop-mode.sidebar-collapsed .sb-collapse-btn { width: 100%; justify-cont
 .cr-wp-toggle.on .cr-wp-bonus { background: var(--bg); color: var(--accent); }
 .cr-wp-toggle.disabled { opacity: .5; cursor: default; }
 
+/* crd.4a — the at-Court City Status advantage choice. Only ever rendered
+   when the server says the gate is open for this challenge. Same button
+   shape/tokens/`.on` treatment as `.cr-aspect-seg` above so it reads as the
+   same control family, but scoped under its own class (mirrors that exact
+   precedent: a future change to one control must not ripple into the
+   other). NEITHER option carries `.on` by default, even when one value is
+   obviously larger — the "Higher" pill is guidance only, never a selection. */
+.cr-status-seg {
+  display: flex; background: var(--surf2); border: 1px solid var(--bdr);
+  border-radius: var(--radius-md); padding: 3px; gap: 3px;
+}
+.cr-status-seg button {
+  flex: 1; display: flex; flex-direction: column; align-items: center; gap: 2px;
+  padding: 10px 4px; min-height: 52px; border: none; background: transparent;
+  border-radius: var(--radius-md); color: var(--txt2);
+  font-family: var(--fl); font-size: 12px; font-weight: 700; cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+.cr-status-seg button:hover:not(.on) { background: var(--surf3); }
+.cr-status-seg button.on { background: var(--accent-a25); color: var(--accent); }
+.cr-status-term-val { font-family: var(--fh); font-size: 15px; font-weight: 900; }
+.cr-status-seg button.on .cr-status-term-val { color: var(--accent); }
+.cr-status-pill {
+  font-family: var(--fl); font-size: 9px; font-weight: 700; letter-spacing: .05em;
+  text-transform: uppercase; padding: 1px 6px; border-radius: var(--radius-sm);
+  background: var(--gold2); color: var(--bg);
+}
+.cr-status-unselected-warn { font-size: 11px; color: var(--crim); font-style: italic; }
+/* The pool-preview placeholder while the status term is still outstanding
+   (AC8) — deliberately NOT the display font (var(--fh)) .cr-pool-value
+   otherwise uses for the numeral. This app's own type rule reserves Cinzel
+   for numerals/display only, never words, no matter how prominent — caught
+   during this story's own design-lock when the first mockup draft used the
+   display font for this exact placeholder text. */
+.cr-pool-pending {
+  font-family: var(--fl); font-size: 13px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: .04em; color: var(--txt3);
+}
+
 /* Merit chips — extends .char-chip's 44px touch-target sizing (components.css
    declares no selected state to build from) with the same .on treatment the
    two controls above already use. */
