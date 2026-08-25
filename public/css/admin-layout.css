@@ -280,6 +280,22 @@ body {
   border-radius: 8px;
 }
 
+/* Appended to .login-box by admin.js when location.hostname === 'localhost', so
+   no deployed user ever renders it. It used to carry its greys inline
+   (#333/#aaa/#555), which meant a dark-theme button on the admin login screen
+   whose default theme is Parchment. Tokenised, so it now follows the theme. */
+.dev-preview-btn {
+  margin-top: 12px;
+  padding: 8px 16px;
+  background: var(--surf2);
+  color: var(--txt3);
+  border: 1px solid var(--bdr2);
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+  width: 100%;
+}
+
 .login-eyebrow {
   font-family: var(--fl);
   font-size: 12px;
@@ -517,6 +533,15 @@ body {
   text-transform: uppercase;
   padding: 4px 10px;
   text-decoration: none;
+}
+
+/* xpl.1: the optional XP-change-reason input sits inline among the header
+   action buttons - bounded width, matching the buttons' own compact sizing
+   rather than .sh-edit-input's block-context width:100% default. */
+.cd-header-actions .sh-edit-input {
+  width: 220px;
+  font-size: 11px;
+  padding: 4px 8px;
 }
 
 .cd-header-actions .dt-btn:hover {
@@ -10196,3 +10221,13 @@ html:not([data-theme="dark"]) .btn-danger {
 .cy-att-c { width: 60px; text-align: center; }
 .cy-att-xp { font-weight: 600; }
 .cy-att-total { font-weight: 700; border-top: 1px solid var(--bdr); }
+
+/* ── Next Session panel (public/js/admin/next-session.js) ── */
+/* The field row. Was built inline in the JS template until gdx-4; it is a plain
+   responsive grid with nothing overriding it, so it belongs here. */
+.ns-field-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 1rem;
+  margin-bottom: 1rem;
+}

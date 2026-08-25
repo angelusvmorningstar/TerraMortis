@@ -248,6 +248,25 @@
 
   /* Registration / confirmation state (admin scheduling) */
   --reg-confirmed-fg:#5dc86a;
+
+  /* Type-size floors (gdx-2). Legibility floors for the player app, expressed in
+     rem so they compose with the browser/OS text-size preference. There is no
+     html{font-size} override anywhere in public/css/, so 1rem is the browser
+     default and the px-to-rem divisor is 16.
+     --fs-floor-body  = 12px-equivalent: prose, values, table cells, button text.
+     --fs-floor-micro = 11px-equivalent: badges, chips, pills, uppercase micro-labels.
+     Theme-invariant, so declared in :root only, never in [data-theme="dark"]. */
+  --fs-floor-body:0.75rem;--fs-floor-micro:0.6875rem;
+
+  /* Touch-target floor (gdx-3). WCAG 2.5.5 Target Size (AAA), and the figure this
+     repo already standardised on in epic-unified-nav NFR2/UX-DR8, css-4, epb-4 and
+     nav-1-2/1-3. Every hit-area expansion this story makes uses this token, so the
+     floor stays greppable and the regression test has one hook.
+     Deliberately px, NOT rem, unlike the two type floors directly above: a touch
+     target is a physical fingertip, not text, so it must not shrink when a user
+     lowers their OS text-size preference. The unit difference is intentional.
+     Theme-invariant, so declared in :root only, never in [data-theme="dark"]. */
+  --tap-min:44px;
 }
 
 /* ── Dark mode override ── */

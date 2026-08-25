@@ -5776,6 +5776,14 @@ function renderProcessingMode(container) {
       const eightAgainChecked = rightPanel?.querySelector('.proc-proj-8a')?.checked  ?? (review?.eight_again || false);
       const again = eightAgainChecked ? 8 : nineAgainChecked ? 9 : 10;
       const sub = submissions.find(s => s._id === subId);
+      // id-then-name fallback, matching the resolution pool_mod_spec was computed
+      // with (line ~5741) and _updatePoolTotal's own on-page total — _charForSub's
+      // id-only match would silently under-augment the label vs. the actual roll
+      // whenever character_id is stale but character_name still resolves (#791 review).
+      const _feedChar = sub
+        ? (characters.find(c => String(c._id) === String(sub.character_id)) || charMap.get((sub.character_name || '').toLowerCase().trim()))
+        : null;
+      const _feedAugBase = _augmentPoolWithSpecs(poolValidated, review?.active_feed_specs || [], _feedChar);
       // Read vitae tally data attrs from the rendered panel
       const vitaePanel = container.querySelector(`.proc-feed-vitae-panel[data-proc-key="${key}"]`);
       const vtHerd    = vitaePanel ? (parseInt(vitaePanel.dataset.herd,   10) || 0) : 0;
@@ -5798,7 +5806,7 @@ function renderProcessingMode(container) {
       };
 
       showRollModal(
-        { size: diceCount, expression: `Feeding: ${poolValidated}`, existingRoll: sub?.feeding_roll,
+        { size: diceCount, expression: `Feeding: ${_feedAugBase || poolValidated}`, existingRoll: sub?.feeding_roll,
           again, rote: isRote },
         async result => {
           // STM-8 (issue #415): snapshot the active mod state alongside
@@ -5915,8 +5923,9 @@ function renderProcessingMode(container) {
       const nineAgainChecked = rightPanel?.querySelector('.proc-proj-9a')?.checked    || false;
       const eightAgainChecked = rightPanel?.querySelector('.proc-proj-8a')?.checked   || false;
       const again = eightAgainChecked ? 8 : nineAgainChecked ? 9 : 10;
+      const augExpr = _augmentPoolWithSpecs(poolValidated, review?.active_feed_specs || [], _specChar);
       showRollModal({
-        size: diceCount, expression: poolValidated,
+        size: diceCount, expression: augExpr || poolValidated,
         existingRoll: review?.roll || null,
         again, initialRote: roteChecked,
       }, async result => {

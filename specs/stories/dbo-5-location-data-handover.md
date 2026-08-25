@@ -1,6 +1,6 @@
 # Story DBO.5: Location data handover to TM Wiki (joint with Wiki 31-2)
 
-Status: in-progress
+Status: done
 
 ## Story
 
@@ -80,13 +80,21 @@ collection. *(Verified 2026-08-18 — met.)*
 
 **Given** the six `_reveal-*.mjs` scripts in `server/scripts/`
 **Then** they have been ported into TM Wiki and removed from (or clearly marked deprecated in)
-this repo. *(Not verifiable this pass — see Context.)*
+this repo. *(Verified 2026-08-19 — met. No `_reveal-*.mjs` file exists anywhere in the current
+`server/scripts/` checkout, tracked or untracked; matches TM Story's own 31-2 record that all six
+were ported and confirmed equivalent before deletion. The earlier "genuine blind spot" note above
+is resolved.)*
 
 **Given** the Wiki has verified a real end-to-end read of the migrated location data
 **Then** the Suite-side drop script (`server/scripts/_drop-31-2-location-data.mjs`, on branch
 `ms/31-2-suite-location-data-drop-script-onmain`) is run with `--apply`/`--write` against production
-by Angelus, and both source collections are confirmed empty/absent afterward. *(Not done — Angelus's
-own action, gated on Wiki-side verification this session cannot check.)*
+by Angelus, and both source collections are confirmed empty/absent afterward. *(Met — 2026-08-19.
+`--write` run for real against production: the script's own live re-verify immediately before
+dropping reported st_map_locations 130/130 and locations 42/42, both CLEAN; both collections then
+dropped. Independently re-confirmed via a direct `listCollections` query against `tm_suite`
+afterward — neither collection exists among the remaining 43. Pre-drop backup:
+`server/scripts/_backups/dbo-5-6-predrop-*-2026-08-19T08-16-04-152Z.json`, parse-verified,
+130/42 docs.)*
 
 ---
 
@@ -107,10 +115,12 @@ own action, gated on Wiki-side verification this session cannot check.)*
 ## Definition of Done
 
 - This repo has zero readers/writers for `st_map_locations`/`locations`. **Met.**
-- The six `_reveal-*.mjs` scripts are confirmed ported/removed. **Blocked — needs sibling-repo
-  access this session doesn't have.**
-- Wiki confirms a real end-to-end read of the migrated data. **Owned by the Wiki side.**
-- Production drop run by Angelus, both collections confirmed empty/absent. **Not started.**
+- The six `_reveal-*.mjs` scripts are confirmed ported/removed. **Met (2026-08-19).**
+- Wiki confirms a real end-to-end read of the migrated data. **Met (2026-08-19) — production
+  cutover complete, independently re-verified live against `tm_wiki` directly, not just trusted
+  from the Wiki session's own report.**
+- Production drop run by Angelus, both collections confirmed empty/absent. **Met (2026-08-19) —
+  `--write` run for real, both collections dropped, independently re-confirmed absent.**
 
 ---
 
@@ -121,3 +131,10 @@ own action, gated on Wiki-side verification this session cannot check.)*
   reader/writer state and the drop-script branch's real commit/push status directly. Flagged the
   `_reveal-*.mjs` handover step as unverifiable from this session's environment rather than guessed
   at. No code changed. Status stays `in-progress` — real, cross-repo work remains outstanding.
+- 2026-08-19: `_reveal-*.mjs` blind spot resolved (confirmed gone from this checkout, matching TM
+  Story's own port-then-delete record). Wiki-side production cutover confirmed complete and
+  independently re-verified live against `tm_wiki` directly (130/42, exact match). Drop script's
+  dry run re-run against production: clean. Pre-drop `tm_suite` backup taken and parse-verified.
+- 2026-08-19 (later, same day): Angelus ran `--write` for real. Both collections dropped from
+  production `tm_suite`, independently re-confirmed absent via a direct `listCollections` query.
+  All Definition-of-Done items met. Status: in-progress -> done.

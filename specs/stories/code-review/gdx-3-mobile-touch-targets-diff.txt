@@ -1,0 +1,857 @@
+diff --git a/public/css/components.css b/public/css/components.css
+index 229fa423..97c285a9 100644
+--- a/public/css/components.css
++++ b/public/css/components.css
+@@ -172,6 +172,27 @@ html:not([data-theme="dark"]) .edit-icon {
+ .edit-back:hover{color:var(--gold);}
+ .edit-tabs{display:flex;gap:2px;margin-left:24px;}
+ .edit-tab{background:none;border:none;font-family:var(--fl);font-size:0.625rem;letter-spacing:.12em;text-transform:uppercase;color:var(--txt3);padding:8px 14px;cursor:pointer;border-radius:4px 4px 0 0;transition:color .15s,background .15s;}
++/* gdx-3 (#984) — Technique T2 hit-area overlay. Unlike every other gdx-3 T2
++   rule (which lives in one block at the end of suite.css), this one has to be
++   here: .edit-tab renders on admin.html as well as inside index.html's ST
++   editor, and admin.html does not load suite.css. The visible tab is untouched
++   at every width, so the admin editor header is pixel-identical; the 8px of
++   vertical expansion on each side of the 28px box lands inside .edit-header's
++   own padding:12px 24px and .edit-tabs' 2px gap is horizontal only, so no two
++   expanded areas overlap. See the technique block in suite.css for the full
++   rationale and the four traps. */
++.edit-tab{position:relative;}
++.edit-tab::after{
++  content:'';
++  position:absolute;
++  top:50%;
++  left:50%;
++  transform:translate(-50%,-50%);
++  width:100%;
++  height:100%;
++  min-width:var(--tap-min);
++  min-height:var(--tap-min);
++}
+ .edit-tab:hover{color:var(--txt2);}
+ .edit-tab.on{color:var(--accent);background:var(--accent-a8);border-bottom:2px solid var(--accent);}
+ .edit-dirty{font-family:var(--fl);font-size:0.625rem;color:var(--accent);letter-spacing:.08em;margin-left:auto;opacity:0;transition:opacity .2s;}
+@@ -6078,12 +6099,26 @@ html:not([data-theme="dark"]) .char-picker__pill { font-weight: 600; }
+ .pref-axes-table .pref-axis-row:last-of-type td { border-bottom: none; }
+ .pref-axis-lbl { width: 170px; color: var(--txt2); }
+ .pref-dots-cell .dot-stepper { display: flex; gap: 8px; }
++/* gdx-3 (#984) — Technique T1 on .pref-dot: the player-facing rating dot the
++   issue was reaching for when it named `.dot` (which is ST-editor-only and
++   stays carved out).
++   The box is genuinely invisible - no background, border, shadow or radius, and
++   .filled only recolours the 30px glyph - so growing it to --tap-min shows
++   nothing new in itself. What WOULD show is the knock-on: six more pixels per
++   dot would spread the glyph pitch and six more would move the row's separator
++   rule. The negative margin gives those six pixels back to the layout, so the
++   dot OCCUPIES the 38px it always did (pitch 46px, run 222px, row 66px, all
++   unchanged) while its hit area is a true 44 by 44. Adjacent hit areas end up
++   2px apart, so nothing overlaps, which is AC2.
++   Written as a calc off the token rather than a bare -3px so the compensation
++   tracks --tap-min if the floor ever moves. */
+ .pref-dot {
+   display: inline-flex;
+   align-items: center;
+   justify-content: center;
+-  width: 38px;
+-  height: 38px;
++  margin: calc((38px - var(--tap-min)) / 2);
++  width: var(--tap-min);
++  height: var(--tap-min);
+   font-size:1.875rem;
+   line-height: 1;
+   cursor: pointer;
+diff --git a/public/css/suite.css b/public/css/suite.css
+index d62ce919..51171824 100644
+--- a/public/css/suite.css
++++ b/public/css/suite.css
+@@ -1699,8 +1699,7 @@ html:not([data-theme="dark"]) .more-app-icon-svg svg {
+ #t-downtime .qf-carthian-chip { display: inline-flex; align-items: center; gap: 8px; padding: 4px 6px 4px 12px; border: 1px solid var(--bdr2); border-radius: 999px; background: var(--surf2); color: var(--txt); font-size:0.8125rem; }
+ #t-downtime .qf-carthian-remove { border: none; background: none; cursor: pointer; color: var(--txt3); font-size:0.8125rem; line-height: 1; padding: 2px 5px; border-radius: 50%; }
+ #t-downtime .qf-carthian-remove:hover { color: var(--crim); background: var(--surf3); }
+-#t-downtime .qf-radio-label,
+-#t-downtime .qf-checkbox-label { color: var(--txt); }
++#t-downtime #t-downtime .qf-checkbox-label { color: var(--txt); }
+ #t-downtime .qf-radio-label:hover,
+ #t-downtime .qf-checkbox-label:hover { background: var(--surf2); }
+ #t-downtime .qf-btn-submit { background: var(--crim); color: var(--txt-on-dark); border: 1px solid var(--crim-a70); }
+@@ -2705,3 +2704,273 @@ body.desktop-mode.sidebar-collapsed .sb-collapse-btn { width: 100%; justify-cont
+ .dom-inherited-card-title{font-size:var(--fs-floor-micro);}
+ .infl-edit-row select,.infl-edit-row input[type=text]{font-size:var(--fs-floor-body);}
+ .infl-edit-row .infl-area-fixed{font-size:var(--fs-floor-body);}
++
++/* ══════════════════════════════════════════
++   TOUCH TARGETS — 44px effective hit areas (gdx-3, #984, AC1/AC3/AC4)
++
++   WCAG 2.5.5 Target Size (AAA). The floor is var(--tap-min) (theme.css :root),
++   declared in px on purpose: a fingertip is not text and must not shrink with
++   the OS text-size preference.
++
++   THREE TECHNIQUES, in order of preference. Measure, then choose.
++
++   T1  direct box growth (min-height / width / height). The repo's existing
++       convention (.char-chip, .exp-row, .sh-stat-icon, #t-territory .adj,
++       .feed-adj, .gcp-pool-chip). Only safe where the box is genuinely
++       invisible: no background, border, box-shadow or visible radius, AND no
++       state variant (.on / :hover / :active / .filled) that paints one.
++       Used by gdx-3 for .pref-dot only (its rule stays in components.css).
++
++   T2  a transparent, TAPPABLE ::after overlay centred on the visible box and
++       never smaller than --tap-min. The visible box is untouched at every
++       width, so AC3 (desktop unchanged) and AC4 (phone unchanged) hold by
++       construction. This technique is NEW to this codebase - before gdx-3 there
++       was not one ::after{content:''} hit-area overlay in public/css/ - so it
++       lives here as ONE commented block rather than sprinkled per selector.
++       Do NOT add pointer-events:none to the overlay; that defeats the point.
++
++   T3  phone-tier box growth, inside @media (max-width:599px). Only where T1 and
++       T2 are both unsafe. See the T3 block further down for the three cases and
++       why each one needs it.
++
++   FOUR TRAPS, all real in this tree, all handled below:
++   1. overflow:hidden on an ancestor clips the overlay. .svt-toggle has it, so
++      .svt-btn takes T3. .hdr-char-menu-item has its own, so it takes T3 too.
++   2. .tab{overflow-x:hidden} clips horizontal expansion at the tab edge. .tab is
++      position:absolute;inset:0, so vertical expansion is unaffected.
++   3. the element must not already own the pseudo-element. Two do:
++      .hdr-icon-wrap.has-menu (its chevron badge) and .status-summary--toggle
++      (its phone-drawer chevron), so those two take the ::before variant. The
++      only ::before collision in scope is .qf-section-title's own caret, which
++      is why the default variant here is ::after and not ::before.
++   4. the overlay can cover a SIBLING control. It never steals a click from its
++      own element (the handler is on the element), but it does sit over whatever
++      is beside it. Every selector below was hit-tested at the four edge
++      midpoints of its intended 44px area, in its real ancestor chain, at 360px
++      (tests/desktop-and-css.spec.js, the gdx-3 group).
++   ══════════════════════════════════════════ */
++
++/* T2 — elements that need position:relative to anchor the overlay. */
++.trk-adj,
++.trk-card-hd,
++.trk-chip-rm,
++.trk-cond-add,
++.trk-reset-btn,
++.sh-tracker-info-btn,
++.effpool-seg--rote,
++.effpool-spec,
++.attr-carousel-badge,
++.panel-close,
++.panel-section .cp-showall-btn,
++.auspex-insight-btn,
++.rl-sec-hd,
++#btn-contested,
++.cr-type-btn,
++.gcp-collapse-btn,
++.hist-clr,
++.rv2-adj,
++.rv2-again-seg button,
++.rv2-breakdown summary,
++.rv2-stake-btn,
++.ch-btn,
++.sheet-char-chip,
++.cs-step-btn,
++.status-chip-st,
++.status-ranking-save,
++.rank-mode-btn,
++.rank-pill,
++.feed-toggle,
++.feed-method-card,
++.ordeal-card[data-form],
++.archive-card,
++.login-crim-btn,
++.hdr-profile,
++.pnl-confirm-btn,
++.import-banner-clr,
++.lifecycle-card,
++.sidebar-collapse-btn,
++.settings-toggle-btn,
++.settings-btn,
++.settings-checkbox-row,
++.sheet-topbar button,
++.rules-expander-toggle,
++.qf-section-title,
++.qf-radio-label,
++.qf-checkbox-label,
++.qf-btn,
++.qf-back-btn,
++.qf-dynlist-add,
++.char-picker__chip-remove,
++.char-picker__pill-clear,
++.feed-confirm-btn,
++.feed-reconfirm-btn,
++.feeding-defer-btn{position:relative;}
++
++/* T2 — elements that are ALREADY positioned. Re-declaring position:relative on
++   these would move them, so they are listed separately and only get the
++   overlay. .cs-edit-close and .qf-dynlist-remove are position:absolute;
++   .more-app-icon and .sidebar-app-tile are already position:relative.
++
++   NOT on either list, deliberately: .gcp-pool-btn. It already measures 320x64
++   at 360px, so it needs no expansion at all, and giving it position:relative
++   would become the containing block for .gcp-rote-badge (suite.css, absolute,
++   top:-4px right:14px), which today anchors to .tab instead because only the
++   .gcp-9a variant declares position:relative. Moving that badge is a visual
++   change gdx-3 has no mandate for. Logged as a gdx-4 candidate.
++
++   Also NOT here: every <select> in the inventory (.resist-sel, .trk-cond-sel,
++   .status-ranking-sel, .qf-select, .list-filter, .form-select). Chromium does
++   not generate ::before/::after boxes on form controls, so T2 is silently
++   inert on them - getComputedStyle reports the declared 44px while nothing is
++   rendered or hit-tested. Measured, not assumed: the pseudo-element's computed
++   width/height came back as the literal string "100%" rather than a used px
++   value, which is the tell. They take T3 instead. */
++
++/* T2 — the overlay itself. */
++.trk-adj::after,
++.trk-card-hd::after,
++.trk-chip-rm::after,
++.trk-cond-add::after,
++.trk-reset-btn::after,
++.sh-tracker-info-btn::after,
++.effpool-seg--rote::after,
++.effpool-spec::after,
++.attr-carousel-badge::after,
++.panel-close::after,
++.panel-section .cp-showall-btn::after,
++.auspex-insight-btn::after,
++.rl-sec-hd::after,
++#btn-contested::after,
++.cr-type-btn::after,
++.gcp-collapse-btn::after,
++.hist-clr::after,
++.rv2-adj::after,
++.rv2-again-seg button::after,
++.rv2-breakdown summary::after,
++.rv2-stake-btn::after,
++.ch-btn::after,
++.sheet-char-chip::after,
++.cs-edit-close::after,
++.cs-step-btn::after,
++.status-chip-st::after,
++.status-ranking-save::after,
++.rank-mode-btn::after,
++.rank-pill::after,
++.feed-toggle::after,
++.feed-method-card::after,
++.ordeal-card[data-form]::after,
++.archive-card::after,
++.login-crim-btn::after,
++.hdr-profile::after,
++.pnl-confirm-btn::after,
++.import-banner-clr::after,
++.more-app-icon::after,
++.lifecycle-card::after,
++.sidebar-app-tile::after,
++.sidebar-collapse-btn::after,
++.settings-toggle-btn::after,
++.settings-btn::after,
++.settings-checkbox-row::after,
++.sheet-topbar button::after,
++.rules-expander-toggle::after,
++.qf-section-title::after,
++.qf-checkbox-label::after,
++.qf-btn::after,
++.qf-back-btn::after,
++.qf-dynlist-add::after,
++.qf-dynlist-remove::after,
++.char-picker__chip-remove::after,
++.char-picker__pill-clear::after,
++.feed-confirm-btn::after,
++.feed-reconfirm-btn::after,
++.feeding-defer-btn::after{
++  content:'';
++  position:absolute;
++  top:50%;
++  left:50%;
++  transform:translate(-50%,-50%);
++  width:100%;
++  height:100%;
++  min-width:var(--tap-min);
++  min-height:var(--tap-min);
++}
++
++/* T2, ::before variant — trap 3. These two already own ::after (the header
++   chevron badge at the top of this file, and the phone status-drawer chevron in
++   the max-width:599px block), so the overlay uses the free pseudo-element
++   instead. Neither declares a ::before of its own. */
++.hdr-icon-wrap.has-menu,
++.status-summary--toggle{position:relative;}
++.hdr-icon-wrap.has-menu::before,
++.status-summary--toggle::before{
++  content:'';
++  position:absolute;
++  top:50%;
++  left:50%;
++  transform:translate(-50%,-50%);
++  width:100%;
++  height:100%;
++  min-width:var(--tap-min);
++  min-height:var(--tap-min);
++}
++
++/* T3 — phone-tier box growth. Named here and in the story's Completion Notes
++   because AC4 requires every visible phone-side change to be listed.
++   Desktop (>=600px) is untouched by construction, which is AC3.
++
++   .tbox    the sheet's health / vitae / willpower / influence boxes. T2 is
++            unsafe: .sh-tracker-boxes is a 5px-gap wrap grid, so a 44px overlay
++            on a 34x30 box overlaps its neighbours on BOTH axes, and every
++            neighbour is another tracker box. A mis-tap would mark the wrong
++            point of damage, which is worse than the small target. The box grows
++            instead, so the run stays collision-free.
++   .svt-btn parent .svt-toggle is overflow:hidden (it clips the segmented
++            control's 4px corner radius), which clips any overlay - trap 1.
++            The parent is left alone so the corners still clip.
++   .hdr-char-menu-item carries its OWN overflow:hidden (for the name ellipsis),
++            so its overlay is clipped to its own box - trap 1 again.
++   the six <select> controls - Chromium generates no pseudo-element box on a
++            form control at all, so T2 is inert on them (see the note above the
++            T2 overlay list). Each is between 33 and 43px today, so this is a
++            1 to 11px growth on phone only.
++   the stacked list rows - .arc-doc-item, .char-picker__option, .hdr-menu-item
++            and .qf-radio-label are consecutive siblings on a pitch shorter than
++            44px, so a T2 overlay would reach into the row above and below. That
++            is the exact trade AC2 forbids: it swaps one mis-tap for another,
++            and the neighbour is another live control. Growing the row is the
++            only honest fix, and it is what the repo already does for .exp-row
++            and .char-chip. */
++@media (max-width: 599px) {
++  .tbox{width:var(--tap-min);height:var(--tap-min);}
++  .svt-btn{min-height:var(--tap-min);}
++  .hdr-char-menu-item{min-height:var(--tap-min);}
++  .resist-sel,
++  .trk-cond-sel,
++  .status-ranking-sel,
++  .qf-select,
++  .list-filter,
++  .form-select{min-height:var(--tap-min);}
++  .arc-doc-item,
++  .char-picker__option,
++  .hdr-menu-item,
++  .qf-radio-label{min-height:var(--tap-min);}
++  /* The two that are not already flex rows need to be, or their label would
++     sit against the top of the taller box instead of staying centred. */
++  .char-picker__option,
++  .hdr-menu-item{display:flex;align-items:center;}
++  /* Five more instances of trap 1, each with a DIFFERENT clipping ancestor,
++     all confirmed by hit test rather than by reading the CSS:
++       .prestige-toggle    inside .prestige-board{overflow:hidden}
++       .st-char-dismiss    inside .st-char-row{overflow:hidden}
++       .rules-panel-close  inside .rules-panel{overflow:hidden}
++       .cr-close, .cr-adj  inside .cr-box{overflow-y:auto}, a scroll container,
++                           which clips its overflow just as hidden does.
++     Every one of those five ancestors is load-bearing (three clip a rounded
++     corner, one is the contested-roll sheet's own scroller), so none of them is
++     relaxed. */
++  .prestige-toggle,
++  .rules-panel-close{min-height:var(--tap-min);}
++  .st-char-dismiss,
++  .cr-close{min-width:var(--tap-min);min-height:var(--tap-min);}
++  .cr-adj{width:var(--tap-min);height:var(--tap-min);}
++}
+diff --git a/public/css/theme.css b/public/css/theme.css
+index 94407e75..b9394918 100644
+--- a/public/css/theme.css
++++ b/public/css/theme.css
+@@ -178,6 +178,16 @@
+      --fs-floor-micro = 11px-equivalent: badges, chips, pills, uppercase micro-labels.
+      Theme-invariant, so declared in :root only, never in [data-theme="dark"]. */
+   --fs-floor-body:0.75rem;--fs-floor-micro:0.6875rem;
++
++  /* Touch-target floor (gdx-3). WCAG 2.5.5 Target Size (AAA), and the figure this
++     repo already standardised on in epic-unified-nav NFR2/UX-DR8, css-4, epb-4 and
++     nav-1-2/1-3. Every hit-area expansion this story makes uses this token, so the
++     floor stays greppable and the regression test has one hook.
++     Deliberately px, NOT rem, unlike the two type floors directly above: a touch
++     target is a physical fingertip, not text, so it must not shrink when a user
++     lowers their OS text-size preference. The unit difference is intentional.
++     Theme-invariant, so declared in :root only, never in [data-theme="dark"]. */
++  --tap-min:44px;
+ }
+ 
+ /* ── Dark mode override ── */
+diff --git a/specs/architecture/coding-standards.md b/specs/architecture/coding-standards.md
+index 5e694964..f59fcb90 100644
+--- a/specs/architecture/coding-standards.md
++++ b/specs/architecture/coding-standards.md
+@@ -109,6 +109,11 @@ Token families (see `public/css/theme.css` for the full set and per-theme values
+ 
+ **Rule:** never write bare hex in rule bodies. Tokens are the only colour source. The only hex allowed is inside `:root` / `[data-theme]` declarations in `theme.css`.
+ 
++**Touch targets:** every interactive control on a player surface needs a hit area of at least
++`var(--tap-min)` (44px, WCAG 2.5.5 AAA, declared in `theme.css`'s `:root`). Use the token, never a
++bare `44px`. The three techniques and their traps are documented in one block at the end of
++`public/css/suite.css` (search "TOUCH TARGETS"); read it before adding a new control.
++
+ ### Shared Chrome Pattern
+ 
+ When multiple classes share visual chrome (background, border, radius, padding) or shared text style (font, size, weight, letter-spacing), declare it once via a grouped selector rather than duplicating rule bodies.
+diff --git a/tests/desktop-and-css.spec.js b/tests/desktop-and-css.spec.js
+index 4e8b1601..52712de4 100644
+--- a/tests/desktop-and-css.spec.js
++++ b/tests/desktop-and-css.spec.js
+@@ -948,3 +948,466 @@ for (const gdx2LabelWidth of [320, 360, 375]) {
+     expect(worst.px, 'label "' + worst.label + '" spills past its card').toBeLessThanOrEqual(0);
+   });
+ }
++
++// ── gdx-3: 44px effective hit areas (AC1, AC2, AC3, AC5) ──────────────────────
++//
++// Like the gdx-2 group above, these deliberately do NOT use setupSuite(): that
++// helper waits on #app becoming visible and is the root cause of this file's 12
++// documented pre-existing failures. A bare page.goto('/') is enough, because the
++// stylesheets are <link>ed in <head> and index.html's real #t-<tab> containers
++// are in the static markup.
++//
++// Two things gdx-2's own review flagged, fixed here rather than repeated:
++//   1. Fixtures mount inside the REAL #t-<tab> element rather than a synthetic
++//      <div class="tab active"> on document.body, so the tab's own padding, its
++//      overflow-x:hidden and its width cap all apply to the measurement.
++//   2. The assertion is the EFFECTIVE hit area, not the visible box. A test that
++//      measured only getBoundingClientRect() would fail every Technique T2 fix
++//      and pass every no-op, i.e. it would be exactly backwards.
++
++const GDX3_TAP_MIN = 44;
++
++// Each probe mounts `html` inside the real `#${tab}`, then measures `sel`.
++// `tech` records which technique the selector took, so a failure names it.
++const GDX3_PROBES = [
++  // ── Group 1: the issue's own named targets ──
++  { sel: '.svt-btn', tech: 'T3', tab: 't-sheets',
++    html: '<div class="sheet-topbar"><div class="svt-toggle"><button class="svt-btn on">Sheet</button><button class="svt-btn">DT Report</button></div></div>' },
++  { sel: '.edit-tab', tech: 'T2', tab: 't-edit',
++    html: '<div class="edit-header"><div class="edit-tabs"><button class="edit-tab on">Identity</button><button class="edit-tab">Attributes</button><button class="edit-tab">Skills</button></div></div>' },
++  { sel: '.pref-dot', tech: 'T1', tab: 't-ordeals',
++    html: '<div class="xpl-panel player-prefs-panel"><table class="pref-axes-table"><tr class="pref-axis-row"><td class="pref-axis-lbl">Sexual content</td><td class="pref-dots-cell"><div class="dot-stepper"><span class="pref-dot filled">●</span><span class="pref-dot filled">●</span><span class="pref-dot empty">●</span><span class="pref-dot empty">●</span><span class="pref-dot empty">●</span></div></td></tr></table></div>' },
++  { sel: '.tbox', tech: 'T3', tab: 't-stats',
++    html: '<div class="sh-tracker-boxes">' + '<div class="tbox"></div>'.repeat(9) + '</div>' },
++  { sel: '.sh-tracker-info-btn', tech: 'T2', tab: 't-stats',
++    html: '<div class="sh-sec"><span>Health</span><button class="sh-tracker-info-btn">?</button></div>' },
++  { sel: '.trk-adj', tech: 'T2', tab: 't-tracker',
++    html: '<div class="trk-wrap"><div class="trk-card"><div class="trk-row"><span class="trk-lbl">Vitae</span><div class="trk-ctr"><button class="trk-adj">−</button><span class="trk-cur">7</span><span class="trk-sep">/</span><span class="trk-max">10</span><button class="trk-adj">+</button></div></div></div></div>' },
++  { sel: '.trk-adj.sm', tech: 'T2', tab: 't-tracker',
++    html: '<div class="trk-wrap"><div class="trk-card"><div class="trk-row trk-row-hp"><span class="trk-lbl">Bashing</span><div class="trk-ctr"><button class="trk-adj sm">−</button><span class="trk-cur">2</span><button class="trk-adj sm">+</button></div></div></div></div>' },
++  { sel: '.trk-card-hd', tech: 'T2', tab: 't-tracker',
++    html: '<div class="trk-wrap"><div class="trk-card"><button class="trk-card-hd"><span class="trk-name">Aurelia</span><span class="trk-chev">›</span></button></div></div>' },
++  { sel: '.trk-chip-rm', tech: 'T2', tab: 't-tracker',
++    html: '<div class="trk-wrap"><div class="trk-conds"><div class="trk-cond-card"><div class="trk-cond-card-hdr"><span class="trk-cond-name">Shaken</span><button class="trk-chip-rm">× Resolve</button></div></div></div></div>' },
++  { sel: '.trk-cond-sel', tech: 'T3', tab: 't-tracker',
++    html: '<div class="trk-wrap"><div class="trk-conds"><div class="trk-cond-row"><select class="trk-cond-sel"><option>Shaken</option></select><button class="trk-cond-add">Add</button></div></div></div>' },
++  { sel: '.trk-cond-add', tech: 'T2', tab: 't-tracker',
++    html: '<div class="trk-wrap"><div class="trk-conds"><div class="trk-cond-row"><select class="trk-cond-sel"><option>Shaken</option></select><button class="trk-cond-add">Add</button></div></div></div>' },
++  { sel: '.trk-reset-btn', tech: 'T2', tab: 't-tracker',
++    html: '<div class="trk-wrap"><div class="trk-toolbar"><button class="trk-reset-btn">Reset all</button><span class="trk-toolbar-hint">Tap a card</span></div></div>' },
++
++  // ── Group 2: Dice / Roll tabs ──
++  { sel: '.effpool-seg--rote', tech: 'T2', tab: 't-dice',
++    html: '<div class="effline"><span class="effpool-seg">Pool 7</span> <span class="effpool-seg--rote">Rote</span></div>' },
++  { sel: '.effpool-spec', tech: 'T2', tab: 't-dice',
++    html: '<div class="effpool-specs"><span class="effpool-spec">Interrogation</span><span class="effpool-spec on">Streetwise</span><span class="effpool-spec">Occult</span></div>' },
++  { sel: '.resist-sel', tech: 'T3', tab: 't-dice',
++    html: '<div class="res-hdr"><select class="resist-sel"><option>No resistance</option></select></div>' },
++  { sel: '.attr-carousel-badge', tech: 'T2', tab: 't-stats',
++    html: '<div class="attr-carousel-badges"><button class="attr-carousel-badge active">Mental</button><button class="attr-carousel-badge">Physical</button><button class="attr-carousel-badge">Social</button></div>' },
++  { sel: '.panel-close', tech: 'T2', tab: 't-dice',
++    html: '<div class="panel-section"><button class="panel-close">✕ Close</button></div>' },
++  { sel: '.panel-section .cp-showall-btn', tech: 'T2', tab: 't-dice',
++    html: '<div class="panel-section"><button class="cp-showall-btn">Show all</button></div>' },
++  { sel: '.auspex-insight-btn', tech: 'T2', tab: 't-stats',
++    html: '<div class="sh-sec"><button class="auspex-insight-btn">Auspex insight</button></div>' },
++  { sel: '.rl-sec-hd', tech: 'T2', tab: 't-info',
++    html: '<div class="rl-wrap"><div class="rl-section"><button class="rl-sec-hd"><span class="rl-sec-title">Combat</span><span class="rl-sec-chev">›</span></button></div></div>' },
++  { sel: '.rules-panel-close', tech: 'T3', tab: 't-info',
++    html: '<div class="rules-panel"><button class="rules-panel-close">Close</button></div>' },
++  { sel: '#btn-contested', tech: 'T2', tab: 't-roll',
++    html: '<button id="btn-contested">Contested Roll</button>' },
++  { sel: '.cr-close', tech: 'T3', tab: 't-roll',
++    html: '<div class="cr-box"><div class="cr-hdr"><span>Contested</span><button class="cr-close">✕</button></div></div>' },
++  { sel: '.cr-type-btn', tech: 'T2', tab: 't-roll',
++    html: '<div class="cr-box"><div class="cr-types"><button class="cr-type-btn on">Contested</button><button class="cr-type-btn">Resisted</button></div></div>' },
++  { sel: '.cr-adj', tech: 'T3', tab: 't-roll',
++    html: '<div class="cr-box"><div class="cr-ctr"><button class="cr-adj">−</button><span>4</span><button class="cr-adj">+</button></div></div>' },
++  { sel: '.gcp-collapse-btn', tech: 'T2', tab: 't-roll',
++    html: '<div id="roll-char-pools"><button class="gcp-collapse-btn">Hide pools</button></div>' },
++  { sel: '.gcp-pool-btn', tech: 'none', tab: 't-roll',
++    html: '<div id="roll-char-pools"><button class="gcp-pool-btn"><span class="gcp-pool-lbl">Dominate</span><span class="gcp-stats">7 dice</span></button></div>' },
++  { sel: '.hist-clr', tech: 'T2', tab: 't-dice',
++    html: '<div class="hhdr"><span>History</span><button class="hist-clr">Clear</button></div>' },
++  { sel: '.rv2-adj', tech: 'T2', tab: 't-roll',
++    html: '<div class="rv2-row"><button class="rv2-adj">−</button><span class="rv2-val">7</span><button class="rv2-adj">+</button></div>' },
++  { sel: '.rv2-again-seg button', tech: 'T2', tab: 't-roll',
++    html: '<div class="rv2-again-seg"><button class="on">10</button><button>9</button><button>8</button><button>None</button></div>' },
++  { sel: '.rv2-breakdown summary', tech: 'T2', tab: 't-roll',
++    html: '<details class="rv2-breakdown"><summary>Breakdown</summary><div>body</div></details>' },
++  { sel: '.rv2-stake-btn', tech: 'T2', tab: 't-roll',
++    html: '<div class="rv2-stake-note"><button class="rv2-stake-btn">Apply torpor</button></div>' },
++  { sel: '.ch-btn', tech: 'T2', tab: 't-roll',
++    html: '<div class="oaq-queue-row-wrap"><div class="oaq-queue-btns"><button class="ch-btn ch-btn-accept">Accept</button><button class="ch-btn ch-btn-decline">Decline</button></div></div>' },
++
++  // ── Group 3: Sheet tabs ──
++  { sel: '.sheet-topbar button', tech: 'T2', tab: 't-sheets',
++    html: '<div class="sheet-topbar"><button>Print</button><button>Export</button></div>' },
++  { sel: '.sheet-char-chip', tech: 'T2', tab: 't-sheets',
++    html: '<div class="sheet-picker"><div class="sheet-picker-grid"><button class="sheet-char-chip"><span class="sheet-char-chip-icon"></span><span class="sheet-char-chip-name">Aurelia</span></button></div></div>' },
++  { sel: '.rules-expander-toggle', tech: 'T2', tab: 't-powers',
++    html: '<div class="rules-expander"><button class="rules-expander-toggle"><span class="rules-expander-arr">›</span>Rules</button></div>' },
++
++  // ── Group 4: Status tab ──
++  { sel: '.prestige-toggle', tech: 'T3', tab: 't-status',
++    html: '<div class="prestige-board"><button class="prestige-toggle"><span>Prestige</span><span>›</span></button></div>' },
++  { sel: '.st-char-dismiss', tech: 'T3', tab: 't-status',
++    html: '<div class="st-char-row"><span class="prestige-name">Aurelia</span><button class="st-char-dismiss">×</button></div>' },
++  { sel: '.cs-edit-close', tech: 'T2', tab: 't-status',
++    html: '<div class="cs-edit-panel" style="position:relative;padding:40px"><button class="cs-edit-close">✕</button></div>' },
++  { sel: '.cs-step-btn', tech: 'T2', tab: 't-status',
++    html: '<div class="cs-step-row"><button class="cs-step-btn">−</button><span>3</span><button class="cs-step-btn">+</button></div>' },
++  { sel: '.status-chip-st', tech: 'T2', tab: 't-status',
++    html: '<div class="status-chips"><span class="status-chip status-chip-st">Invictus</span></div>' },
++  { sel: '.status-ranking-sel', tech: 'T3', tab: 't-status',
++    html: '<div class="status-ranking-row"><select class="status-ranking-sel"><option>Aurelia</option></select><button class="status-ranking-save">Save</button></div>' },
++  { sel: '.status-ranking-save', tech: 'T2', tab: 't-status',
++    html: '<div class="status-ranking-row"><select class="status-ranking-sel"><option>Aurelia</option></select><button class="status-ranking-save">Save</button></div>' },
++  { sel: '.rank-mode-btn', tech: 'T2', tab: 't-status',
++    html: '<div class="rank-modes"><button class="rank-mode-btn active">Clan</button><button class="rank-mode-btn">Covenant</button></div>' },
++  { sel: '.rank-pill', tech: 'T2', tab: 't-status',
++    html: '<div class="rank-pills"><button class="rank-pill active">Ventrue</button><button class="rank-pill">Daeva</button><button class="rank-pill">Mekhet</button></div>' },
++
++  // ── Group 5: Feeding tab ──
++  { sel: '.feed-toggle', tech: 'T2', tab: 't-feeding',
++    html: '<div class="feed-sec"><button class="feed-toggle"><span class="feed-toggle-label">Feeding</span><span>›</span></button></div>' },
++  { sel: '.feed-method-card', tech: 'T2', tab: 't-feeding',
++    html: '<div class="feed-method-grid"><button class="feed-method-card">Hunting</button><button class="feed-method-card selected">Herd</button></div>' },
++  { sel: '.feed-confirm-btn', tech: 'T2', tab: 't-feeding',
++    html: '<button class="feed-confirm-btn">Confirm feeding</button>' },
++  { sel: '.feed-reconfirm-btn', tech: 'T2', tab: 't-feeding',
++    html: '<div class="feed-sec"><button class="feed-reconfirm-btn">Re-confirm</button></div>' },
++  { sel: '.feeding-defer-btn', tech: 'T2', tab: 't-feeding',
++    html: '<div class="feed-sec"><button class="feeding-defer-btn">Defer</button></div>' },
++
++  // ── Group 6: Ordeals / XP, Archive, and the shared .qf- form primitives ──
++  { sel: '.ordeal-card[data-form]', tech: 'T2', tab: 't-ordeals',
++    html: '<div class="ordeal-list"><div class="ordeal-card pending" data-form="ordeal-1"><span class="ordeal-state">Pending</span><span class="ordeal-action">Open</span></div></div>' },
++  { sel: '.archive-card', tech: 'T2', tab: 't-archive',
++    html: '<div class="archive-grid"><div class="archive-card"><span class="archive-card-name">Kirk Grimm</span><span class="archive-card-meta">Retired</span></div></div>' },
++  { sel: '.arc-doc-item', tech: 'T3', tab: 't-archive',
++    html: '<div class="arc-doc-group"><div class="arc-doc-item"><span>Session 4 report</span></div><div class="arc-doc-item"><span>Session 5 report</span></div></div>' },
++  { sel: '.qf-section-title', tech: 'T2', tab: 't-ordeals',
++    html: '<div class="qf-section"><div class="qf-section-title">Details</div></div>' },
++  { sel: '.qf-select', tech: 'T3', tab: 't-ordeals',
++    html: '<div class="qf-field"><select class="qf-select"><option>Choose</option></select></div>' },
++  { sel: '.qf-radio-label', tech: 'T3', tab: 't-ordeals',
++    html: '<div class="qf-radio-group"><label class="qf-radio-label"><input type="radio" name="g">Yes</label><label class="qf-radio-label"><input type="radio" name="g">No</label></div>' },
++  { sel: '.qf-checkbox-label', tech: 'T2', tab: 't-ordeals',
++    html: '<div class="qf-field"><label class="qf-checkbox-label"><input type="checkbox">Agreed</label></div>' },
++  { sel: '.qf-btn', tech: 'T2', tab: 't-ordeals',
++    html: '<div class="qf-actions"><button class="qf-btn qf-btn-save">Save</button><button class="qf-btn qf-btn-submit">Submit</button></div>' },
++  { sel: '.qf-back-btn', tech: 'T2', tab: 't-ordeals',
++    html: '<button class="qf-back-btn">‹ Back</button>' },
++  { sel: '.qf-dynlist-add', tech: 'T2', tab: 't-ordeals',
++    html: '<div class="qf-dynlist"><button class="qf-dynlist-add">+ Add another</button></div>' },
++  { sel: '.qf-dynlist-remove', tech: 'T2', tab: 't-ordeals',
++    html: '<div class="qf-dynlist"><div class="qf-dynlist-row" style="position:relative;padding:40px"><button class="qf-dynlist-remove">×</button></div></div>' },
++  { sel: '.char-picker__option', tech: 'T3', tab: 't-ordeals',
++    html: '<div class="char-picker"><div class="char-picker__menu"><div class="char-picker__option">Aurelia</div><div class="char-picker__option">Mammon</div></div></div>' },
++  { sel: '.char-picker__chip-remove', tech: 'T2', tab: 't-ordeals',
++    html: '<div class="char-picker"><span class="char-picker__chip">Aurelia<button class="char-picker__chip-remove">×</button></span></div>' },
++  { sel: '.char-picker__pill-clear', tech: 'T2', tab: 't-ordeals',
++    html: '<div class="char-picker"><span class="char-picker__pill">Aurelia<button class="char-picker__pill-clear">×</button></span></div>' },
++
++  // ── Group 7: App chrome ──
++  { sel: '.login-crim-btn', tech: 'T2', tab: 't-settings',
++    html: '<button class="login-crim-btn">Login with Discord</button>' },
++  { sel: '.hdr-icon-wrap.has-menu', tech: 'T2-before', tab: 't-settings',
++    html: '<div class="hdr-icon-wrap has-menu"><img class="hdr-icon" alt="" width="24" height="24"></div>' },
++  { sel: '.hdr-char-menu-item', tech: 'T3', tab: 't-settings',
++    html: '<div class="hdr-icon-wrap"><div class="hdr-char-menu" style="display:block"><button class="hdr-char-menu-item active"><span class="hdr-menu-check">✓</span><span class="hdr-char-name">Aurelia</span></button><button class="hdr-char-menu-item"><span class="hdr-menu-check"></span><span class="hdr-char-name">Mammon</span></button></div></div>' },
++  { sel: '.hdr-profile', tech: 'T2', tab: 't-settings',
++    html: '<div class="hdr-profile"><span>Player</span></div>' },
++  { sel: '.hdr-menu-item', tech: 'T3', tab: 't-settings',
++    html: '<div id="hdr-user"><div class="hdr-profile"><span>Player</span></div><div class="hdr-profile-menu"><button class="hdr-menu-item">Settings</button><button class="hdr-menu-item">Log out</button></div></div>' },
++  { sel: '.pnl-confirm-btn', tech: 'T2', tab: 't-dice',
++    html: '<div class="panel-section"><button class="pnl-confirm-btn">Confirm</button></div>' },
++  { sel: '.import-banner-clr', tech: 'T2', tab: 't-settings',
++    html: '<div class="import-banner"><span>Imported</span><button class="import-banner-clr">×</button></div>' },
++  { sel: '.more-app-icon', tech: 'T2', tab: 't-more',
++    html: '<div class="more-app-grid"><button class="more-app-icon"><span class="more-app-icon-svg"></span><span class="more-app-label">Territory</span></button></div>' },
++  { sel: '.lifecycle-card', tech: 'T2', tab: 't-dice',
++    html: '<div class="lifecycle-wrap"><button class="lifecycle-card"><span class="lifecycle-card-icon"></span><span class="lifecycle-card-text"><span class="lifecycle-card-title">Downtime open</span><span class="lifecycle-card-sub">Cycle 12</span></span><span class="lifecycle-card-arr">›</span></button></div>' },
++  { sel: '.settings-toggle-btn', tech: 'T2', tab: 't-settings',
++    html: '<div class="settings-toggle-row"><button class="settings-toggle-btn on">Dark</button><button class="settings-toggle-btn">Parchment</button></div>' },
++  { sel: '.settings-btn', tech: 'T2', tab: 't-settings',
++    html: '<button class="settings-btn">Sign out</button>' },
++  { sel: '.settings-checkbox-row', tech: 'T2', tab: 't-settings',
++    html: '<label class="settings-checkbox-row"><input type="checkbox">Use the new dice roller</label>' },
++  { sel: '.list-filter', tech: 'T3', tab: 't-settings',
++    html: '<div class="list-filters"><select class="list-filter"><option>All clans</option></select></div>' },
++  { sel: '.form-select', tech: 'T3', tab: 't-office',
++    html: '<div class="form-section"><select class="form-select"><option>Choose an office</option></select></div>' },
++];
++
++// Desktop-sidebar chrome. Not reachable at 360px (the sidebar is desktop-mode
++// only), so it is measured in its own desktop-width test rather than folded
++// into the 360px sweep.
++const GDX3_SIDEBAR_PROBES = [
++  { sel: '.sidebar-app-tile', tech: 'T2',
++    html: '<div class="sidebar-app-grid"><button class="sidebar-app-tile"><span class="sidebar-app-tile-icon"></span><span class="sidebar-app-tile-label">Wiki</span></button></div>' },
++  { sel: '.sidebar-collapse-btn', tech: 'T2',
++    html: '<button class="sidebar-collapse-btn"><svg width="16" height="16"></svg></button>' },
++];
++
++// Mount each fixture in the REAL tab container, measure, restore. Returns the
++// element's own box, its effective hit area, and the result of hit-testing the
++// four edge midpoints of that hit area.
++//
++// The effective hit area is the larger of the element's own border box and the
++// used box of a generated, TAPPABLE pseudo-element. pointer-events:none on the
++// overlay disqualifies it: an untappable overlay would otherwise pass the size
++// assertion while fixing nothing.
++//
++// The hit test is what actually proves AC1 and AC2 together. elementFromPoint
++// respects ancestor clipping (so a T2 overlay swallowed by an overflow:hidden
++// parent fails here even though its computed size says 44px) and respects paint
++// order (so an overlay covered by a neighbouring control fails too). The samples
++// are EDGE MIDPOINTS rather than corners on purpose: a corner sample on a
++// rounded box resolves to the parent and would report a false failure.
++async function gdx3Measure(page, probes) {
++  return page.evaluate((list) => {
++    // app.js boots on load, finds no auth token and paints the login overlay
++    // over everything, which would make every hit test resolve to .login-box.
++    // Reveal the real app shell instead. This is display plumbing only: no tab
++    // markup, padding or width cap is touched, so the ancestor chain the
++    // fixtures mount into is the one index.html actually ships.
++    const login = document.getElementById('login-screen');
++    if (login) login.style.display = 'none';
++    const app = document.getElementById('app');
++    if (app) app.style.display = 'flex';
++
++    // app.js:1670 removes whichever of #t-dice / #t-roll the
++    // tm-use-new-dice-roller preference is not using, so one of the two is
++    // always absent from a booted page. Recreate it exactly as index.html
++    // declares it, inside the real .tab-wrap, so the ancestor chain still holds.
++    const ensureTab = (id) => {
++      const found = document.getElementById(id);
++      if (found) return found;
++      const wrap = document.querySelector('.tab-wrap');
++      if (!wrap) return null;
++      const made = document.createElement('div');
++      made.id = id;
++      made.className = 'tab';
++      wrap.appendChild(made);
++      return made;
++    };
++
++    // Every .tab is position:absolute;inset:0, so two active tabs perfectly
++    // overlap and the later one in the DOM wins the hit test. index.html ships
++    // #t-stats with class="tab active" already on it, and it sits near the end
++    // of .tab-wrap, so without this it silently swallowed the hit test for
++    // every probe mounted in an earlier tab. Park them all, restore at the end.
++    const parked = [...document.querySelectorAll('.tab.active')];
++    for (const t of parked) t.classList.remove('active');
++
++    const results = [];
++    for (const p of list) {
++      const tab = ensureTab(p.tab);
++      if (!tab) { results.push({ sel: p.sel, tech: p.tech, error: 'no #' + p.tab + ' and no .tab-wrap in index.html' }); continue; }
++      const saved = { cls: tab.className, html: tab.innerHTML };
++      tab.className = 'tab active';
++      // The fixture is inset inside the tab rather than flush against its
++      // scroll edges. Without this every probe sits at the tab's own top-left
++      // corner, where .tab{overflow-x:hidden} plus the top of the scroll box
++      // clip the expanded area - a property of the fixture, not of the CSS, and
++      // it would report a false failure on every selector at once. Real
++      // surfaces sit inside a padded panel; 60px vertical is simply more than
++      // half of --tap-min so the expansion always has room above and below.
++      // position:relative so any absolutely-positioned menu in a fixture
++      // anchors to the host the way it anchors to #hdr-user in the real DOM.
++      tab.innerHTML = '<div id="gdx3-host" style="padding:60px 16px;position:relative">' + p.html + '</div>';
++
++      const el = tab.querySelector(p.sel);
++      if (!el) {
++        tab.className = saved.cls; tab.innerHTML = saved.html;
++        results.push({ sel: p.sel, tech: p.tech, error: 'fixture did not produce ' + p.sel });
++        continue;
++      }
++      el.scrollIntoView({ block: 'center', inline: 'center' });
++      const r = el.getBoundingClientRect();
++
++      let w = r.width, h = r.height, pseudo = null;
++      for (const which of ['::after', '::before']) {
++        const cs = getComputedStyle(el, which);
++        if (!cs.content || cs.content === 'none' || cs.content === 'normal') continue;
++        if (cs.pointerEvents === 'none') continue;
++        const pw = parseFloat(cs.width), ph = parseFloat(cs.height);
++        if (Number.isFinite(pw) && pw > w) { w = pw; pseudo = which; }
++        if (Number.isFinite(ph) && ph > h) { h = ph; pseudo = which; }
++      }
++
++      // The overlay is top:50%/left:50% + translate(-50%,-50%), which centres it
++      // on the PADDING box, not the border box. .edit-tab.on carries a 2px
++      // border-bottom, so sampling from the border-box centre put the bottom
++      // probe exactly 1px outside the overlay and reported a false failure.
++      const cs = getComputedStyle(el);
++      const bt = parseFloat(cs.borderTopWidth) || 0, bb = parseFloat(cs.borderBottomWidth) || 0;
++      const bl = parseFloat(cs.borderLeftWidth) || 0, br = parseFloat(cs.borderRightWidth) || 0;
++      const cx = r.left + bl + (r.width - bl - br) / 2;
++      const cy = r.top + bt + (r.height - bt - bb) / 2;
++      const pts = [
++        ['centre', cx, cy],
++        ['top', cx, cy - h / 2 + 1],
++        ['bottom', cx, cy + h / 2 - 1],
++        ['left', cx - w / 2 + 1, cy],
++        ['right', cx + w / 2 - 1, cy],
++      ];
++      const missed = [];
++      for (const [name, x, y] of pts) {
++        const hit = document.elementFromPoint(x, y);
++        if (!hit || !(hit === el || el.contains(hit))) {
++          missed.push(name + ' -> ' + (hit ? (hit.tagName.toLowerCase() + '.' + (hit.className || '').toString().split(' ')[0]) : 'null'));
++        }
++      }
++
++      tab.className = saved.cls; tab.innerHTML = saved.html;
++      results.push({
++        sel: p.sel, tech: p.tech, pseudo,
++        boxW: Math.round(r.width * 100) / 100, boxH: Math.round(r.height * 100) / 100,
++        hitW: Math.round(w * 100) / 100, hitH: Math.round(h * 100) / 100,
++        missed,
++      });
++    }
++    for (const t of parked) t.classList.add('active');
++    return results;
++  }, probes);
++}
++
++test('css-audit — the touch-target token is declared in theme.css :root as 44px (gdx-3 AC5)', async ({ page }) => {
++  await page.goto('/');
++  const tap = await page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue('--tap-min').trim());
++  expect(tap).toBe('44px');
++});
++
++test('css-audit — every in-scope control has a >=44px effective hit area at 360px (gdx-3 AC1)', async ({ page }) => {
++  await page.setViewportSize({ width: 360, height: 900 });
++  await page.goto('/');
++  const measured = await gdx3Measure(page, GDX3_PROBES);
++  expect(measured.length).toBe(GDX3_PROBES.length);
++
++  const offenders = measured
++    .filter((m) => m.error || m.hitW < GDX3_TAP_MIN || m.hitH < GDX3_TAP_MIN)
++    .map((m) => (m.error ? m.sel + ': ' + m.error
++      : m.sel + ' [' + m.tech + '] hit area ' + m.hitW + 'x' + m.hitH + ' (box ' + m.boxW + 'x' + m.boxH + ')'));
++  expect(offenders, 'sub-44px hit area on a player game-night control').toEqual([]);
++});
++
++test('css-audit — every in-scope hit area is genuinely tappable across its full 44px at 360px (gdx-3 AC1, AC2)', async ({ page }) => {
++  await page.setViewportSize({ width: 360, height: 900 });
++  await page.goto('/');
++  const measured = await gdx3Measure(page, GDX3_PROBES);
++
++  const offenders = measured
++    .filter((m) => m.error || m.missed.length)
++    .map((m) => (m.error ? m.sel + ': ' + m.error
++      : m.sel + ' [' + m.tech + '] not tappable at ' + m.missed.join(', ')));
++  expect(offenders, 'hit area clipped by an ancestor or covered by a neighbour').toEqual([]);
++});
++
++test('css-audit — the desktop sidebar chrome has a >=44px hit area (gdx-3 AC1)', async ({ page }) => {
++  await page.setViewportSize({ width: 1280, height: 900 });
++  await page.goto('/');
++  const measured = await page.evaluate((list) => {
++    const login = document.getElementById('login-screen');
++    if (login) login.style.display = 'none';
++    const app = document.getElementById('app');
++    if (app) app.style.display = 'flex';
++    document.body.classList.add('desktop-mode');
++    const sidebar = document.getElementById('desktop-sidebar');
++    const out = [];
++    for (const p of list) {
++      if (!sidebar) { out.push({ sel: p.sel, error: 'no #desktop-sidebar' }); continue; }
++      const host = document.createElement('div');
++      host.innerHTML = p.html;
++      sidebar.appendChild(host);
++      const el = host.querySelector(p.sel);
++      const r = el.getBoundingClientRect();
++      let w = r.width, h = r.height;
++      const cs = getComputedStyle(el, '::after');
++      if (cs.content && cs.content !== 'none' && cs.pointerEvents !== 'none') {
++        w = Math.max(w, parseFloat(cs.width) || 0);
++        h = Math.max(h, parseFloat(cs.height) || 0);
++      }
++      out.push({ sel: p.sel, hitW: Math.round(w * 100) / 100, hitH: Math.round(h * 100) / 100 });
++      sidebar.removeChild(host);
++    }
++    document.body.classList.remove('desktop-mode');
++    return out;
++  }, GDX3_SIDEBAR_PROBES);
++
++  const offenders = measured
++    .filter((m) => m.error || m.hitW < GDX3_TAP_MIN || m.hitH < GDX3_TAP_MIN)
++    .map((m) => m.error || (m.sel + ' hit area ' + m.hitW + 'x' + m.hitH));
++  expect(offenders).toEqual([]);
++});
++
++// AC3, the other half of the story: the hit area grew, the VISIBLE box did not.
++//
++// Measured at 1280px, where none of the three Technique T3 media-query rules
++// apply, so every one of these boxes must still be exactly what its own rule
++// authored. A future "simplification" that swaps a T2 overlay for a min-height
++// turns this red, which is the whole point: T2 exists precisely because these
++// boxes are painted and must not grow.
++const GDX3_UNCHANGED_AT_DESKTOP = [
++  { sel: '.svt-btn', tab: 't-sheets', h: 24 },
++  { sel: '.edit-tab', tab: 't-edit', h: 30 },
++  { sel: '.tbox', tab: 't-stats', w: 34, h: 30 },
++
++  { sel: '.rv2-adj', tab: 't-roll', w: 36, h: 36 },
++  { sel: '.trk-adj', tab: 't-tracker', w: 28, h: 28 },
++  { sel: '.sh-tracker-info-btn', tab: 't-stats', w: 16, h: 16 },
++];
++
++test('css-audit — the T1/T2 fixes did not grow the visible box on desktop (gdx-3 AC3)', async ({ page }) => {
++  await page.setViewportSize({ width: 1280, height: 900 });
++  await page.goto('/');
++  const byName = new Map(GDX3_PROBES.map((p) => [p.sel, p]));
++  const probes = GDX3_UNCHANGED_AT_DESKTOP.map((u) => ({ ...byName.get(u.sel), tab: u.tab }));
++  const measured = await gdx3Measure(page, probes);
++
++  const drift = [];
++  measured.forEach((m, i) => {
++    const want = GDX3_UNCHANGED_AT_DESKTOP[i];
++    if (m.error) { drift.push(m.sel + ': ' + m.error); return; }
++    if (want.w !== undefined && Math.abs(m.boxW - want.w) > 0.5) drift.push(m.sel + ' visible width ' + m.boxW + ', expected ' + want.w);
++    if (want.h !== undefined && Math.abs(m.boxH - want.h) > 0.5) drift.push(m.sel + ' visible height ' + m.boxH + ', expected ' + want.h);
++  });
++  expect(drift, 'a hit-area fix changed the visible box on desktop').toEqual([]);
++});
++
++// AC3's companion for the one T1 fix. .pref-dot really does grow (38 -> 44), so
++// the guarantee is not "the box is unchanged" but "the LAYOUT is unchanged": the
++// stepper gap and the row padding were each reduced by exactly the same amount,
++// so the glyph pitch and the row height are what they were before gdx-3.
++test('css-audit — .pref-dot keeps its pre-gdx-3 pitch and row height (gdx-3 AC3, AC4)', async ({ page }) => {
++  await page.setViewportSize({ width: 360, height: 900 });
++  await page.goto('/');
++  const m = await page.evaluate((html) => {
++    const login = document.getElementById('login-screen');
++    if (login) login.style.display = 'none';
++    const app = document.getElementById('app');
++    if (app) app.style.display = 'flex';
++    const tab = document.getElementById('t-ordeals');
++    const saved = { cls: tab.className, html: tab.innerHTML };
++    tab.className = 'tab active';
++    tab.innerHTML = html;
++    const rects = [...tab.querySelectorAll('.pref-dot')].map((d) => d.getBoundingClientRect());
++    const row = tab.querySelector('.pref-axis-row .pref-dots-cell').getBoundingClientRect();
++    const stepper = tab.querySelector('.pref-dots-cell .dot-stepper').getBoundingClientRect();
++    const out = {
++      pitch: Math.round((rects[1].left - rects[0].left) * 100) / 100,
++      firstGlyphOffset: Math.round((rects[0].left + rects[0].width / 2 - stepper.left) * 100) / 100,
++      rowHeight: Math.round(row.height * 100) / 100,
++      overlaps: rects.slice(1).filter((r, i) => r.left < rects[i].right - 0.5).length,
++    };
++    tab.className = saved.cls; tab.innerHTML = saved.html;
++    return out;
++  }, GDX3_PROBES.find((p) => p.sel === '.pref-dot').html);
++
++  expect(m.pitch, 'glyph pitch drifted from its pre-gdx-3 46px').toBeCloseTo(46, 1);
++  expect(m.firstGlyphOffset, 'the first dot glyph shifted from its pre-gdx-3 19px inset').toBeCloseTo(19, 1);
++  expect(m.rowHeight, 'the preference row got taller than its pre-gdx-3 66px').toBeCloseTo(66, 1);
++  expect(m.overlaps, 'two .pref-dot hit areas overlap').toBe(0);
++});

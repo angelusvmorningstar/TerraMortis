@@ -23,7 +23,7 @@ function buildPanel() {
     <h3 style="font-family:var(--fh2);font-size:.8rem;letter-spacing:.12em;text-transform:uppercase;color:var(--accent);margin:0;">Next Session</h3>
     <span id="ns-status" style="font-size:.78rem;color:var(--muted);font-style:italic;"></span>
   </div>
-  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:1rem;margin-bottom:1rem;">
+  <div class="ns-field-grid">
     <label class="dt-deadline-edit">
       <span>Game Date</span>
       <input type="date" id="ns-date">

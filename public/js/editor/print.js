@@ -17,7 +17,7 @@ export function printSheet() {
   const d = serialiseForPrint(c);
 
   const attrsHtml = Object.entries(d.attributes).map(([name, a]) => {
-    const bonusTag = a.bonus ? ` <span style="color:#888">(+${a.bonus} bonus)</span>` : '';
+    const bonusTag = a.bonus ? ` <span class="print-muted">(+${a.bonus} bonus)</span>` : '';
     return `<tr><td>${esc(name)}</td><td>${dots(a.effective)} (${a.effective})${bonusTag}</td></tr>`;
   }).join('');
 
@@ -42,9 +42,9 @@ export function printSheet() {
   }).join('');
 
   const discsHtml = d.disciplines.map(disc => {
-    let h = `<tr><td colspan="2" style="font-weight:bold;padding-top:8px">${esc(disc.name)} ${dots(disc.dots)}${disc.in_clan ? ' <span style="color:#888;font-weight:normal">(in-clan)</span>' : ''}</td></tr>`;
+    let h = `<tr><td colspan="2" style="font-weight:bold;padding-top:8px">${esc(disc.name)} ${dots(disc.dots)}${disc.in_clan ? ' <span class="print-muted print-normal">(in-clan)</span>' : ''}</td></tr>`;
     disc.powers.forEach(p => {
-      h += `<tr><td style="padding-left:16px">${esc(p.name)}</td><td style="font-size:9pt;color:#555">${esc(p.stats)}</td></tr>`;
+      h += `<tr><td style="padding-left:16px">${esc(p.name)}</td><td class="print-note">${esc(p.stats)}</td></tr>`;
     });
     return h;
   }).join('');
@@ -66,18 +66,23 @@ export function printSheet() {
   ).join('');
 
   const touchHtml = d.touchstones.map(t =>
-    `<tr><td>Humanity ${t.humanity}: ${esc(t.name)}</td><td style="font-size:9pt;color:#555">${esc(t.desc || '')}</td></tr>`
+    `<tr><td>Humanity ${t.humanity}: ${esc(t.name)}</td><td class="print-note">${esc(t.desc || '')}</td></tr>`
   ).join('');
 
   const xb = d.xp.breakdown;
 
   const html = `<!DOCTYPE html>
 <html><head><title>${esc(d.identity.name)} - Character Sheet</title>
+<!-- Exempt from the token rule: this is a standalone print document; it does not link theme.css and must render dark ink on white paper in either app theme. See specs/architecture/coding-standards.md -> CSS Standards -> Documented exemptions. -->
 <style>
   body { font-family: Georgia, serif; max-width: 700px; margin: 20px auto; color: #222; font-size: 11pt; }
   h1 { font-family: 'Cinzel', serif; margin: 0 0 4px; font-size: 18pt; }
   .subtitle { color: #555; margin-bottom: 16px; }
   h2 { font-family: 'Cinzel', serif; font-size: 12pt; border-bottom: 1px solid #999; margin: 16px 0 6px; padding-bottom: 2px; }
+  .print-muted { color: #888; }
+  .print-normal { font-weight: normal; }
+  .print-note { font-size: 9pt; color: #555; }
+  .xp-row-total { font-weight: bold; border-top: 1px solid #999; margin-top: 4px; padding-top: 4px; }
   table { width: 100%; border-collapse: collapse; }
   td { padding: 2px 6px; vertical-align: top; }
   td:first-child { width: 55%; }
@@ -126,7 +131,7 @@ ${banesHtml ? '<h2>Banes</h2><table>' + banesHtml + '</table>' : ''}
 <div class="xp-row"><span>Humanity Drops</span><span>${xb.humanity_drops}</span></div>
 <div class="xp-row"><span>Ordeals</span><span>${xb.ordeals}</span></div>
 <div class="xp-row"><span>Game Attendance</span><span>${xb.game}</span></div>
-<div class="xp-row" style="font-weight:bold;border-top:1px solid #999;margin-top:4px;padding-top:4px"><span>Total Earned</span><span>${d.xp.earned}</span></div>
+<div class="xp-row xp-row-total"><span>Total Earned</span><span>${d.xp.earned}</span></div>
 
 <h2>Influence Breakdown</h2>
 ${d.influence_breakdown.map(l => '<div>' + esc(l) + '</div>').join('')}

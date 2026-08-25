@@ -38,7 +38,13 @@ ANY markup or styling:
 3. **Styling from JavaScript:** render functions build HTML strings. Apply a
    **class**, never an inline `style="color:#..."`. If the needed style does not
    exist as a class, add it to the right stylesheet using tokens, then apply the
-   class. Do not inline.
+   class. Do not inline. This applies equally to the DOM API: `el.style.cssText`
+   and `el.style.color = '#fff'` are the same violation in different syntax, and
+   `var(--token, #hex)` is the only compliant literal shape. Two standing
+   exemptions exist (`print.js`'s embedded print stylesheet, `console.log('%c')`
+   banners); both are registered under `coding-standards.md` → CSS Standards →
+   Documented exemptions, and `server/tests/gdx-4-css-standards-grep.test.js`
+   enforces the whole rule.
 4. **New shared chrome goes in a grouped selector**, not duplicated rule bodies
    (see `coding-standards.md` → Shared Chrome Pattern).
 

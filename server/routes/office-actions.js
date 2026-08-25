@@ -115,10 +115,13 @@ router.get('/latest_session', async (req, res) => {
 // GET /api/office_actions/pending
 // oaq.3: ST-only. Lists every pending Status Action for the approval-queue
 // tab, oldest-first so nothing gets buried once a second pending-item type
-// (Epic OXP) starts sharing this same collection.
+// starts sharing this same collection. gdx.12: widened to also surface
+// pending Humanity Checks (request_type: 'humanity_check') in the same
+// queue, per office-approvals.js's own extension-point design — no second
+// GET route, the client only ever calls this one.
 router.get('/pending', requireRole('st'), async (req, res) => {
   const docs = await pendingCol()
-    .find({ request_type: 'status_action', status: 'pending' })
+    .find({ request_type: { $in: ['status_action', 'humanity_check'] }, status: 'pending' })
     .sort({ created_at: 1 })
     .toArray();
   res.json(docs);

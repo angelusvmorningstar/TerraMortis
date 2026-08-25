@@ -1,0 +1,838 @@
+diff --git a/server/schemas/character_dossier.schema.js b/server/schemas/character_dossier.schema.js
+new file mode 100644
+index 00000000..3b925152
+--- /dev/null
++++ b/server/schemas/character_dossier.schema.js
+@@ -0,0 +1,173 @@
++/**
++ * JSON Schema (Draft-07) for TM character dossiers.
++ * Collection: character_dossier
++ *
++ * WHY THIS FILE DID NOT EXIST UNTIL DBO-2 (2026-08-14). It was cited as
++ * authority by two sites while being a phantom: `server/scripts/_dossier-
++ * audit.js:3` imports `DOSSIER_TAGS` from here (confirmed unrunnable, the
++ * import threw ERR_MODULE_NOT_FOUND), and TM Wiki's `server/routes/
++ * characters.js` cited this path for `character_id`'s type. TM Wiki has since
++ * self-corrected its own half (their Story 31-1); this file closes ours and
++ * gives that citation something real to point back at.
++ *
++ * DOCUMENTATION AND TEST CONTRACT, NOT A RUNTIME VALIDATOR. Nothing under
++ * `server/routes/` reads or writes `character_dossier` at all - the only
++ * writers in this repo are one-off `server/scripts/_*.js` tools - and the live
++ * collection carries no MongoDB `$jsonSchema` validator (which is exactly what
++ * `_dossier-audit.js:50` prints). Adding one is a separate, riskier decision
++ * and is deliberately out of scope. Everything declared here is derived from a
++ * full read-only inventory of live `tm_suite` on 2026-08-14 (30 documents,
++ * 442 facts), not guessed. Full investigation:
++ * `specs/epic-dbo-database-ownership.md`, DBO-2 section.
++ *
++ * THE `fact_key` CONTRACT, and it is an upstream contract this repo owes TM
++ * Wiki rather than a local convenience. Their `tm_wiki.visibility_prefs`
++ * mechanism (fact-level reveal, three tiers, named reveals/conceals) is built
++ * and shipped but gated dark behind `wiki_config.fact_level_enabled: false`
++ * for exactly one reason, quoted from `../TM Wiki/specs/tm-wiki-schema.md`:
++ * canonical `facts[]` entries are POSITIONALLY addressed, so any reorder,
++ * insert or delete silently repoints every reference. Three invariants
++ * follow, and every future writer of a dossier fact is bound by them:
++ *
++ *   1. Minted ONCE AT CREATION.
++ *   2. NEVER the array index, and NEVER a hash of the value.
++ *   3. PRESERVED ACROSS ST RE-AUTHORING - editing, reordering, inserting or
++ *      deleting other facts must never change or recycle an existing key.
++ *
++ * The mint is `randomUUID()` from `node:crypto` (no new dependency; neither
++ * `nanoid` nor `ulid` is a declared production dependency here, and no
++ * first-party opaque-ID minting precedent existed in this repo before DBO-2).
++ * TM Wiki declares `subject_ref.fact_key` as `{ type: 'string', minLength: 1 }`,
++ * which a UUID string satisfies unchanged, so their spec's "ULID/nanoid"
++ * wording names the class of key rather than mandating a format.
++ *
++ * KNOWN TRANSITIONAL STATE, stated here rather than discovered later: until
++ * `server/scripts/dbo-2-dossier-fact-key-backfill.mjs` has been run with
++ * `--apply` against live `tm_suite`, ALL 442 live facts fail this schema's
++ * `required` on `fact_key`. That is intended and visible, not an oversight.
++ * Because nothing validates this collection at runtime, `required` here has no
++ * live blast radius - the backfill is the thing that closes the gap.
++ *
++ * `st_hidden` IS REQUIRED, AND THE REASON IS A LIVE FAIL-OPEN READER. TM
++ * Wiki's shipped `filterVisibleFacts` (`../TM Wiki/server/routes/
++ * characters.js:210-214`) reads `if (fact.st_hidden !== true) return true` -
++ * fail-open - so a fact minted WITHOUT `st_hidden` is silently visible to
++ * everyone. All 442 live facts carry it, so requiring it costs nothing today
++ * and closes a real default-open hazard for every future writer. (TM Wiki's
++ * newer `visibility_prefs` projection is allowlist / fail-closed by design;
++ * the `filterVisibleFacts` path described here is the one live today.)
++ */
++
++/**
++ * The 26 tags observed across all 442 live facts, ordered by live frequency.
++ *
++ * A KNOWN-TAG SET FOR DRIFT REPORTING, NOT A REJECTION LIST. `_dossier-
++ * audit.js:13-14` prints `<DRIFT>` beside any tag outside this array; that is
++ * drift reporting, not drift rejection. `tag` is therefore declared as a plain
++ * string below, deliberately NOT `enum: DOSSIER_TAGS` - enum-ing it would turn
++ * adding a tag into a schema change and would contradict the very script this
++ * export exists to serve.
++ */
++export const DOSSIER_TAGS = [
++  'aspiration', 'worldview', 'motivation', 'notable_event', 'sire',
++  'embrace_event', 'touchstone', 'notable_enemy', 'hunting_method',
++  'faction_history', 'family_member', 'key_location', 'haven',
++  'notable_ally', 'mortal_vocation', 'secret', 'embrace_location',
++  'current_activity', 'mortal_faction', 'birthplace', 'signature_ability',
++  'debt', 'boon', 'birth_year', 'brood_sibling', 'early_nights',
++];
++
++/**
++ * The four `source` values observed on live facts (excel:357, history:51,
++ * downtime:18, questionnaire:16).
++ *
++ * A DOCUMENTED INVENTORY, NOT A CLOSED VOCABULARY. `source` is likewise NOT
++ * enumed below: `server/scripts/_rene-disambig.js:11` filters on
++ * `source: 'st'`, a value no live fact carries, which is direct evidence the
++ * vocabulary is still open.
++ */
++export const DOSSIER_FACT_SOURCES = ['excel', 'history', 'downtime', 'questionnaire'];
++
++/**
++ * `severity` IS a genuinely closed, ordered vocabulary (live: major:10,
++ * life_threatening:2, minor:1 - all on secret-tagged facts), so it is the one
++ * field here that is enumed.
++ */
++export const DOSSIER_SEVERITIES = ['minor', 'major', 'life_threatening'];
++
++const factSchema = {
++  type: 'object',
++  // `fact_key` sits alongside the four fields all 442 live facts already
++  // carry. See the header for why requiring it is intended to fail live data
++  // until the backfill runs.
++  required: ['tag', 'value', 'source', 'st_hidden', 'fact_key'],
++  additionalProperties: false,
++  properties: {
++    tag:    { type: 'string', minLength: 1 },   // see DOSSIER_TAGS - not enumed on purpose
++    value:  { type: 'string' },
++    source: { type: 'string', minLength: 1 },   // see DOSSIER_FACT_SOURCES - not enumed on purpose
++    st_hidden: { type: 'boolean' },
++
++    // Durable opaque per-fact key. Minted once at creation, never the array
++    // index, never a value hash, preserved across ST re-authoring. See header.
++    fact_key: { type: 'string', minLength: 1 },
++
++    // Declared, never written by anything in this repo. Its only current
++    // reader is TM Wiki's shipped `filterVisibleFacts`, so this is a live
++    // reader contract rather than a dead field. Zero live facts carry one.
++    revealed_to: { type: 'array', items: { type: 'string' } },
++
++    note:        { type: 'string' },
++    sheet_field: { type: 'string' },
++    sheet_value: { type: 'string' },
++    clash:       { type: 'boolean' },
++
++    // Holds a NAME, not a reference - `_dossier-audit.js:27` already reports
++    // every live value as `(NAME - not a ref)`. Turning it into a real
++    // reference is DBO-7's problem, not this schema's.
++    counterparty: { type: 'string' },
++
++    // Both shapes are live (string:18, null:6).
++    npc_id: { type: ['string', 'null'] },
++
++    since:       { type: 'string' },
++    severity:    { type: 'string', enum: DOSSIER_SEVERITIES },
++    compromised: { type: 'boolean' },
++
++    // NOT enumed. Only one live value exists (`outstanding`, on 9 boon/debt
++    // facts), nothing reads it, and a debt plausibly gains `settled` or
++    // `forgiven` later - enum-ing a single observed value would turn a data
++    // edit into a schema change.
++    status: { type: 'string', minLength: 1 },
++  },
++};
++
++export const characterDossierSchema = {
++  $schema: 'http://json-schema.org/draft-07/schema#',
++  title:   'TM Character Dossier',
++  type:    'object',
++  required: ['character_id', 'facts'],
++  additionalProperties: false,
++
++  properties: {
++    // Live `_id` is a BSON ObjectId on all 30 documents; the same tolerance
++    // as `character_id` applies, for the same reason.
++    _id: { type: ['string', 'object'] },
++
++    // ALL 30 LIVE DOCUMENTS STORE A BSON ObjectId here, not a string. This
++    // declaration is the authority TM Wiki's `server/routes/characters.js`
++    // was reaching for, and why their `['string', 'object']` tolerance plus
++    // `String()` normalisation is correct rather than defensive noise.
++    // Ajv cannot express BSON ObjectId directly, so `'object'` is the honest
++    // declaration, not a shrug: consumers normalise with `String()`.
++    character_id: { type: ['string', 'object'] },
++
++    facts: { type: 'array', items: factSchema },
++
++    // Provenance of the dossier as a whole (excel:23, history:4,
++    // questionnaire:2, absent on 1).
++    source:      { type: 'string' },
++    source_note: { type: 'string' },   // present on exactly 1 live document
++    updated_at:  { type: 'string' },   // ISO-8601 string, e.g. '2026-06-21T14:00:00Z'
++  },
++};
+diff --git a/server/scripts/dbo-2-dossier-fact-key-backfill.mjs b/server/scripts/dbo-2-dossier-fact-key-backfill.mjs
+new file mode 100644
+index 00000000..225980f1
+--- /dev/null
++++ b/server/scripts/dbo-2-dossier-fact-key-backfill.mjs
+@@ -0,0 +1,243 @@
++/**
++ * DBO-2 - stamp a durable opaque `fact_key` onto every `character_dossier`
++ * fact that does not already have one. Manual, ST-invoked, one-off. Nothing
++ * calls this on server boot and nothing calls it in test setup; the vitest
++ * suite imports its exported functions and runs them against `tm_suite_test`
++ * only.
++ *
++ * NOTE FOR ANYONE TIDYING THIS FILE: there is deliberately NO
++ * `#!/usr/bin/env node` shebang, for the same reason
++ * `dbo-1-purchasable-powers-field-cleanup.mjs` and
++ * `dbo-8-orphaned-touchstone-edges-cleanup.mjs` have none - a shebang breaks
++ * vitest's transform for any file importing this one.
++ *
++ * ==========================================================================
++ *   RUNNING THIS FOR REAL IS ANGELUS'S ACTION, NOT AN AGENT'S.
++ * ==========================================================================
++ *
++ *   Connection comes from `../db.js` (MONGODB_URI via config.js, database
++ *   name from MONGODB_DB, defaulting to `tm_suite`). Running this bare from
++ *   `server/` with `server/.env` in place therefore targets LIVE Atlas. What
++ *   makes that survivable is the DRY-RUN DEFAULT: without `--apply` this only
++ *   reads, and prints exactly what it would do.
++ *
++ *   Per epic-dbo's own hard constraint, do not run `--apply` against live
++ *   `tm_suite` before the 2026-08-15 game (no migration/backfill/restructure
++ *   against production before it).
++ *
++ * BACKGROUND (specs/stories/dbo-2-character-dossier-schema-and-reveal.md):
++ * TM Wiki's fact-level reveal mechanism is built and shipped but gated dark
++ * behind `wiki_config.fact_level_enabled: false`, for exactly one documented
++ * reason - `character_dossier.facts[]` is POSITIONALLY addressed with no
++ * stable key, so any reorder / insert / delete silently repoints every
++ * reference. Their spec names an upstream TM Suite mint of a durable opaque
++ * per-fact key as "the single dependency this foundation cannot satisfy
++ * itself". This script is the one-off backfill half of that mint; the schema
++ * half is `../schemas/character_dossier.schema.js`.
++ *
++ * WHEN THIS HAS BEEN RUN WITH `--apply`, TM WIKI MUST BE TOLD, so they can
++ * backfill-verify and decide when to flip `wiki_config.fact_level_enabled`.
++ * That flag is their repo, their database, their action - never this one's.
++ *
++ * WHAT IT DOES, per document in `character_dossier`, per fact:
++ *   - fact has no `fact_key`  -> $set exactly that one field to a fresh
++ *                                `randomUUID()`.
++ *   - fact already has one    -> NEVER touched. Never overwritten, never
++ *                                regenerated, never normalised.
++ * A document with nothing to stamp is omitted from the plan entirely - an
++ * empty plan means nothing to do, the same "empty = clean" contract the two
++ * prior DBO cleanup scripts use.
++ *
++ * WHAT IT DELIBERATELY DOES NOT DO: it never touches `st_hidden` (all 442
++ * live facts are `true`, and that is Angelus's stated intent, not a bug), it
++ * never writes `revealed_to`, and it never $sets the whole `facts` array.
++ *
++ * WRITE SHAPE, AND THIS IS LOAD-BEARING RATHER THAN STYLE. The whole problem
++ * `fact_key` exists to solve is that `facts[]` is positionally addressed, so
++ * this migration must not itself be vulnerable to the hazard it is fixing.
++ * Each write is per-index and filtered on
++ * `{ 'facts.N.fact_key': { $exists: false } }`, which makes it self-guarding:
++ * a no-op if that slot gained a key since planning, and a single-field $set
++ * so it can never clobber a concurrent edit to any other field of that fact.
++ *
++ * SAFETY: DRY-RUN BY DEFAULT. `--apply` writes a full-document JSON backup to
++ * `server/scripts/_backups/dbo-2-dossier-fact-key-<ISO>.json` BEFORE issuing
++ * any update, and aborts (writes nothing) if the backup write throws. The
++ * write decisions are re-derived from that same fresh read, not from the
++ * possibly-stale plan. Idempotent: re-running `planBackfill` after a
++ * successful `--apply` returns an empty array.
++ *
++ * Usage, from `server/` so that cwd-relative `dotenv/config` picks up
++ * `server/.env`:
++ *
++ *   # preview against the configured database, no writes (the default):
++ *   node scripts/dbo-2-dossier-fact-key-backfill.mjs
++ *
++ *   # write:
++ *   node scripts/dbo-2-dossier-fact-key-backfill.mjs --apply
++ *
++ *   # write to the throwaway test database instead of live:
++ *   MONGODB_DB=tm_suite_test node scripts/dbo-2-dossier-fact-key-backfill.mjs --apply
++ */
++
++import 'dotenv/config';
++import { randomUUID } from 'node:crypto';
++import { mkdirSync, writeFileSync } from 'node:fs';
++import { join, dirname } from 'node:path';
++import { fileURLToPath, pathToFileURL } from 'node:url';
++import { connectDb, getCollection, closeDb } from '../db.js';
++
++const __dirname = dirname(fileURLToPath(import.meta.url));
++const BACKUP_DIR = join(__dirname, '_backups');
++
++/**
++ * The mint. `randomUUID()` from `node:crypto`: built in, no new dependency,
++ * available under this repo's declared `engines.node: ">=20.19.0"`. Opaque by
++ * construction - it encodes neither the fact's position nor its value, which
++ * is the whole point (see the schema's header for the three invariants).
++ *
++ * @returns {string}
++ */
++function mint() {
++  return randomUUID();
++}
++
++/**
++ * Classify every document in `character_dossier`. PURE: reads only, no
++ * writes, no side effects, so `main()` can print the whole plan before anyone
++ * decides whether to run it.
++ *
++ * The collection is taken as an ARGUMENT rather than resolved internally, so
++ * a test can hand over a `tm_suite_test` collection and this can never reach
++ * live data by accident.
++ *
++ * A document with no unkeyed fact is omitted entirely - an empty result means
++ * nothing to do.
++ *
++ * @param {import('mongodb').Collection} collection
++ * @returns {Promise<Array<{_id:*, character_id:*, indices:number[]}>>}
++ */
++export async function planBackfill(collection) {
++  const docs = await collection.find({}).toArray();
++  const rows = [];
++
++  for (const doc of docs) {
++    const facts = Array.isArray(doc.facts) ? doc.facts : [];
++    const indices = [];
++    facts.forEach((fact, i) => {
++      if (!fact || typeof fact !== 'object') return;
++      if (!Object.prototype.hasOwnProperty.call(fact, 'fact_key')) indices.push(i);
++    });
++
++    if (!indices.length) continue;
++    rows.push({ _id: doc._id, character_id: doc.character_id, indices });
++  }
++
++  return rows;
++}
++
++/**
++ * Carry out (or, by default, merely narrate) the plan.
++ *
++ * @param {import('mongodb').Collection} collection
++ * @param {Array<object>} rows - the output of `planBackfill`
++ * @param {{ apply?: boolean, log?: Function }} opts
++ * @returns {Promise<{documentsTouched:number, factsStamped:number, backedUp:number}>}
++ */
++export async function applyBackfill(collection, rows, { apply = false, log = () => {} } = {}) {
++  if (!rows.length) {
++    log('Nothing to backfill - every fact already carries a fact_key.');
++    return { documentsTouched: 0, factsStamped: 0, backedUp: 0 };
++  }
++
++  if (!apply) {
++    let wouldStamp = 0;
++    for (const row of rows) {
++      wouldStamp += row.indices.length;
++      log(`  [DRY RUN] would stamp ${row.indices.length} fact(s) on character_dossier/${row._id} (character ${row.character_id})`);
++    }
++    log(`\n${wouldStamp} fact(s) across ${rows.length} document(s) would gain a fact_key. Re-run with --apply to write.`);
++    return { documentsTouched: 0, factsStamped: 0, backedUp: 0 };
++  }
++
++  mkdirSync(BACKUP_DIR, { recursive: true });
++  const stamp = new Date().toISOString().replace(/[:.]/g, '-');
++  const backupPath = join(BACKUP_DIR, `dbo-2-dossier-fact-key-${stamp}.json`);
++  const originals = await collection.find({ _id: { $in: rows.map(r => r._id) } }).toArray();
++  writeFileSync(backupPath, JSON.stringify(originals, null, 2));
++  log(`Backup written: ${backupPath}`);
++
++  // Re-derive what to stamp from `originals` (fetched just now), not from
++  // `rows` (fetched by planBackfill, which may be stale by the time we get
++  // here) - the same pattern DBO-1's and DBO-8's own reviews established. The
++  // per-index `$exists: false` filter on each update is a second, DB-level
++  // guard against the same gap between this re-read and the write itself, so
++  // a slot that gained a key out of band is silently skipped rather than
++  // re-minted.
++  const byId = new Map(originals.map(doc => [String(doc._id), doc]));
++
++  let documentsTouched = 0;
++  let factsStamped = 0;
++
++  for (const row of rows) {
++    const current = byId.get(String(row._id));
++    if (!current) continue; // deleted since planning
++
++    const facts = Array.isArray(current.facts) ? current.facts : [];
++    let stampedHere = 0;
++
++    for (const i of row.indices) {
++      const fact = facts[i];
++      // Index no longer exists, or already carries a key as of the fresh read.
++      if (!fact || typeof fact !== 'object') continue;
++      if (Object.prototype.hasOwnProperty.call(fact, 'fact_key')) continue;
++
++      const result = await collection.updateOne(
++        { _id: row._id, [`facts.${i}.fact_key`]: { $exists: false } },
++        { $set: { [`facts.${i}.fact_key`]: mint() } }
++      );
++      if (result.modifiedCount === 1) stampedHere += 1;
++    }
++
++    if (stampedHere) {
++      documentsTouched += 1;
++      factsStamped += stampedHere;
++      log(`  stamped ${stampedHere} fact(s) on ${row._id}`);
++    }
++  }
++
++  return { documentsTouched, factsStamped, backedUp: originals.length };
++}
++
++export async function main(argv = process.argv) {
++  const apply = argv.includes('--apply');
++  const dbName = process.env.MONGODB_DB || 'tm_suite';
++
++  console.log(`Mode     : ${apply ? 'APPLY (will backup + write)' : 'DRY RUN (read only; pass --apply to write)'}`);
++  console.log(`Target DB: ${dbName}`);
++  console.log('');
++
++  await connectDb();
++  try {
++    const collection = getCollection('character_dossier');
++    const rows = await planBackfill(collection);
++    const factCount = rows.reduce((n, r) => n + r.indices.length, 0);
++    console.log(`character_dossier: ${rows.length} document(s) / ${factCount} fact(s) need a fact_key.`);
++    console.log('');
++
++    const result = await applyBackfill(collection, rows, { apply, log: msg => console.log(msg) });
++    console.log('');
++    console.log(`Totals: ${result.factsStamped} fact(s) stamped across ${result.documentsTouched} document(s), ${result.backedUp} document(s) backed up.`);
++    if (apply) {
++      console.log('Idempotency check: re-run with --apply and confirm "0 document(s) / 0 fact(s) need a fact_key".');
++      console.log('Then tell TM Wiki the mint has landed, so they can backfill-verify and decide when to flip wiki_config.fact_level_enabled.');
++    }
++  } finally {
++    await closeDb();
++  }
++}
++
++// Auto-run only when invoked directly, never when imported by a test.
++if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
++  main().catch(err => { console.error(err.message); process.exit(1); });
++}
+diff --git a/server/tests/dbo-2-dossier-fact-key.test.js b/server/tests/dbo-2-dossier-fact-key.test.js
+new file mode 100644
+index 00000000..99be1ceb
+--- /dev/null
++++ b/server/tests/dbo-2-dossier-fact-key.test.js
+@@ -0,0 +1,404 @@
++/**
++ * DBO-2 - `character_dossier` schema plus the `fact_key` mint TM Wiki's
++ * fact-level reveal path is waiting on.
++ *
++ * Three halves:
++ *   1. Schema validation (AC7): direct Ajv tests against
++ *      `characterDossierSchema`, using fixtures shaped like the real live
++ *      documents (30 docs / 442 facts) rather than bare stubs.
++ *   2. `_dossier-audit.js`'s dead import proven fixed (AC8), two ways. The
++ *      audit script itself is NEVER imported here - it connects to Mongo with
++ *      a top-level await at module load and hard-codes `db('tm_suite')`, so
++ *      importing it in a test would reach LIVE data.
++ *   3. The backfill script (AC6), exercised through its exported functions
++ *      against `tm_suite_test` only, never by shelling out. The load-bearing
++ *      assertions are the NON-mutations: every `st_hidden` still true, no
++ *      fact gained a `revealed_to`, every pre-existing `fact_key` byte-for-
++ *      byte unchanged.
++ *
++ * DB-backed for part 3: real MongoDB required. A skipped suite is not a
++ * passing suite - read the summary line, not the exit code.
++ */
++
++import { describe, it, expect, beforeAll, beforeEach, afterAll } from 'vitest';
++import Ajv from 'ajv';
++import { readFileSync } from 'node:fs';
++import { fileURLToPath } from 'node:url';
++import { dirname, join } from 'node:path';
++// AC8 proof one: this is the SAME specifier `server/scripts/_dossier-audit.js`
++// uses, from the same relative depth (`server/tests/` and `server/scripts/`
++// are siblings), so a module-resolution failure fails this whole file.
++import { characterDossierSchema, DOSSIER_TAGS, DOSSIER_FACT_SOURCES, DOSSIER_SEVERITIES } from '../schemas/character_dossier.schema.js';
++import { setupDb, isDbAvailable } from './helpers/db-setup.js';
++import { getCollection } from '../db.js';
++import { planBackfill, applyBackfill } from '../scripts/dbo-2-dossier-fact-key-backfill.mjs';
++
++const __dirname = dirname(fileURLToPath(import.meta.url));
++const SERVER_ROOT = join(__dirname, '..');
++const read = rel => readFileSync(join(SERVER_ROOT, rel), 'utf8');
++
++// ─────────────────────────────────────────────────────────────────────────────
++// AC7 - schema validation against the real live shapes
++// ─────────────────────────────────────────────────────────────────────────────
++
++describe('DBO-2: characterDossierSchema describes the real live documents', () => {
++  const ajv = new Ajv({ allErrors: true, strict: false });
++  const validate = ajv.compile(characterDossierSchema);
++
++  // A minimal fact carrying exactly the five required fields.
++  const baseFact = () => ({
++    tag: 'aspiration',
++    value: 'Wants the Prince gone before the century turns.',
++    source: 'excel',
++    st_hidden: true,
++    fact_key: '11111111-2222-4333-8444-555555555555',
++  });
++
++  // Shaped like a real live document: ObjectId-ish character_id, a doc-level
++  // `source`, an ISO `updated_at` string, and a facts array.
++  const baseDoc = (facts = [baseFact()]) => ({
++    character_id: { _bsontype: 'ObjectId' },
++    source: 'excel',
++    updated_at: '2026-06-21T14:00:00Z',
++    facts,
++  });
++
++  it('validates a document shaped like a real live one, fact_key present on every fact', () => {
++    const doc = baseDoc([
++      baseFact(),
++      { ...baseFact(), fact_key: 'k2', tag: 'secret', severity: 'major', compromised: true, note: 'Only two others know.' },
++      { ...baseFact(), fact_key: 'k3', tag: 'debt', counterparty: 'Henry St. John', status: 'outstanding', since: '2024' },
++      { ...baseFact(), fact_key: 'k4', tag: 'haven', sheet_field: 'haven', sheet_value: 'Warehouse, Pyrmont', clash: false },
++      { ...baseFact(), fact_key: 'k5', tag: 'sire', npc_id: null },
++      { ...baseFact(), fact_key: 'k6', tag: 'sire', npc_id: '664b1f0e0e0e0e0e0e0e0e0e' },
++      { ...baseFact(), fact_key: 'k7', revealed_to: ['664b1f0e0e0e0e0e0e0e0e0e'] },
++    ]);
++    expect(validate(doc)).toBe(true);
++  });
++
++  it('validates the one live document that carries source_note', () => {
++    expect(validate({ ...baseDoc(), source_note: 'Reconstructed from the 2026-06 history pass.' })).toBe(true);
++  });
++
++  it('AC2 - fails when fact_key is absent from one fact, and the failing keyword is `required`', () => {
++    const { fact_key: _dropped, ...keyless } = baseFact();
++    expect(validate(baseDoc([baseFact(), keyless]))).toBe(false);
++    const missing = (validate.errors || [])
++      .filter(e => e.keyword === 'required')
++      .map(e => e.params?.missingProperty);
++    expect(missing).toContain('fact_key');
++  });
++
++  it('AC3 - fails when st_hidden is absent from one fact (TM Wiki\'s filterVisibleFacts is fail-open)', () => {
++    const { st_hidden: _dropped, ...open } = baseFact();
++    expect(validate(baseDoc([open]))).toBe(false);
++    const missing = (validate.errors || [])
++      .filter(e => e.keyword === 'required')
++      .map(e => e.params?.missingProperty);
++    expect(missing).toContain('st_hidden');
++  });
++
++  it('validates character_id as a plain string AND as an object - both are the declared tolerance', () => {
++    expect(validate({ ...baseDoc(), character_id: '664b1f0e0e0e0e0e0e0e0e0e' })).toBe(true);
++    expect(validate({ ...baseDoc(), character_id: { _bsontype: 'ObjectId' } })).toBe(true);
++  });
++
++  it('rejects an undeclared field ON A FACT, naming it as the additionalProperty', () => {
++    expect(validate(baseDoc([{ ...baseFact(), not_a_real_field: 'x' }]))).toBe(false);
++    const additional = (validate.errors || []).map(e => e.params?.additionalProperty);
++    expect(additional).toContain('not_a_real_field');
++  });
++
++  it('rejects an undeclared field on the document', () => {
++    expect(validate({ ...baseDoc(), not_a_real_top_level_field: 'x' })).toBe(false);
++    const additional = (validate.errors || []).map(e => e.params?.additionalProperty);
++    expect(additional).toContain('not_a_real_top_level_field');
++  });
++
++  it('AC1 - severity IS enumed: `catastrophic` fails, the three live values pass', () => {
++    expect(validate(baseDoc([{ ...baseFact(), severity: 'catastrophic' }]))).toBe(false);
++    for (const sev of ['minor', 'major', 'life_threatening']) {
++      expect(validate(baseDoc([{ ...baseFact(), severity: sev }]))).toBe(true);
++    }
++  });
++
++  it('AC1 - status is NOT enumed: `settled` validates even though only `outstanding` exists live', () => {
++    expect(validate(baseDoc([{ ...baseFact(), status: 'settled' }]))).toBe(true);
++    expect(validate(baseDoc([{ ...baseFact(), status: 'outstanding' }]))).toBe(true);
++  });
++
++  it('AC4 - tag is NOT enumed: a tag outside DOSSIER_TAGS still validates (drift is reported, not rejected)', () => {
++    expect(validate(baseDoc([{ ...baseFact(), tag: 'brand_new_tag' }]))).toBe(true);
++  });
++
++  it('AC4 - fact source is NOT enumed: `st` validates (it exists in _rene-disambig.js but in no live fact)', () => {
++    expect(validate(baseDoc([{ ...baseFact(), source: 'st' }]))).toBe(true);
++  });
++
++  it('revealed_to is declared and optional: an array of strings validates, absent validates', () => {
++    expect(validate(baseDoc([{ ...baseFact(), revealed_to: ['someid'] }]))).toBe(true);
++    expect(validate(baseDoc([{ ...baseFact(), revealed_to: [] }]))).toBe(true);
++    expect(validate(baseDoc([baseFact()]))).toBe(true);
++    expect(validate(baseDoc([{ ...baseFact(), revealed_to: 'someid' }]))).toBe(false);
++  });
++
++  it('rejects an empty fact_key - it is opaque but never blank', () => {
++    expect(validate(baseDoc([{ ...baseFact(), fact_key: '' }]))).toBe(false);
++  });
++
++  it('requires character_id and facts at the document level', () => {
++    const { character_id: _c, ...noChar } = baseDoc();
++    expect(validate(noChar)).toBe(false);
++    const { facts: _f, ...noFacts } = baseDoc();
++    expect(validate(noFacts)).toBe(false);
++  });
++});
++
++// ─────────────────────────────────────────────────────────────────────────────
++// AC4 / AC8 - the exported inventories, and _dossier-audit.js's dead import
++// ─────────────────────────────────────────────────────────────────────────────
++
++describe('DBO-2: DOSSIER_TAGS export closes _dossier-audit.js:3\'s dead import', () => {
++  it('exports exactly the 26 live tags', () => {
++    expect(Array.isArray(DOSSIER_TAGS)).toBe(true);
++    expect(DOSSIER_TAGS).toHaveLength(26);
++    expect(new Set(DOSSIER_TAGS).size).toBe(26);
++    // Spot-check both ends of the live frequency distribution.
++    expect(DOSSIER_TAGS).toEqual(expect.arrayContaining([
++      'aspiration', 'worldview', 'motivation', 'notable_event', 'sire', 'embrace_event',
++      'touchstone', 'notable_enemy', 'hunting_method', 'faction_history', 'family_member',
++      'key_location', 'haven', 'notable_ally', 'mortal_vocation', 'secret', 'embrace_location',
++      'current_activity', 'mortal_faction', 'birthplace', 'signature_ability', 'debt', 'boon',
++      'birth_year', 'brood_sibling', 'early_nights',
++    ]));
++  });
++
++  it('exports the four observed fact sources and the three severities as documented inventories', () => {
++    expect(DOSSIER_FACT_SOURCES).toEqual(['excel', 'history', 'downtime', 'questionnaire']);
++    expect(DOSSIER_SEVERITIES).toEqual(['minor', 'major', 'life_threatening']);
++  });
++
++  it('_dossier-audit.js still imports DOSSIER_TAGS from ../schemas/character_dossier.schema.js', () => {
++    const src = read('scripts/_dossier-audit.js');
++    // Anchored to line-start with the `m` flag so a commented-out or
++    // string-embedded import cannot false-pass - the exact false-pass DBO-9's
++    // own external review found and fixed.
++    expect(src).toMatch(/^import\s*\{[^}]*\bDOSSIER_TAGS\b[^}]*\}\s*from\s*['"]\.\.\/schemas\/character_dossier\.schema\.js['"]/m);
++  });
++});
++
++// ─────────────────────────────────────────────────────────────────────────────
++// AC5 / AC6 - the backfill script, against tm_suite_test only
++// ─────────────────────────────────────────────────────────────────────────────
++
++const dbAvailable = await isDbAvailable();
++
++describe.skipIf(!dbAvailable)('DBO-2: dbo-2-dossier-fact-key-backfill.mjs', () => {
++  const ID_PREFIX = 'dbo-2-test-';
++  const ids = {
++    mixed: `${ID_PREFIX}doc-mixed`,   // every live fact shape, one already keyed
++    stale: `${ID_PREFIX}doc-stale`,   // used for the stale-plan guard
++    clean: `${ID_PREFIX}doc-clean`,   // fully keyed already - must not be planned at all
++  };
++  const PRE_EXISTING_KEY = 'dbo-2-pre-existing-key-do-not-touch';
++
++  // Every shape observed in the live inventory (2026-08-14, 30 docs / 442
++  // facts), not simplified stand-ins.
++  const fixtures = () => ([
++    {
++      _id: ids.mixed,
++      character_id: '664b1f0e0e0e0e0e0e0e0e01',
++      source: 'excel',
++      updated_at: '2026-06-21T14:00:00Z',
++      facts: [
++        // 0 - the four required fields only
++        { tag: 'aspiration', value: 'Wants the Prince gone.', source: 'excel', st_hidden: true },
++        // 1 - secret-tagged: severity / compromised / note
++        { tag: 'secret', value: 'Fed on a Sheriff\'s ghoul.', source: 'history', st_hidden: true, severity: 'major', compromised: true, note: 'Two others know.' },
++        // 2 - obligation: counterparty / status / since
++        { tag: 'debt', value: 'Owes a boon for the Pyrmont favour.', source: 'downtime', st_hidden: true, counterparty: 'Henry St. John', status: 'outstanding', since: '2024' },
++        // 3 - sheet cross-reference: sheet_field / sheet_value / clash
++        { tag: 'haven', value: 'A disused wool store.', source: 'excel', st_hidden: true, sheet_field: 'haven', sheet_value: 'Warehouse, Pyrmont', clash: false },
++        // 4 - npc_id: null (6 live facts carry the null form)
++        { tag: 'sire', value: 'Sired by a Nosferatu long since gone.', source: 'questionnaire', st_hidden: true, npc_id: null },
++        // 5 - npc_id: string (18 live facts carry the string form)
++        { tag: 'notable_ally', value: 'Runs errands for the Harpy.', source: 'excel', st_hidden: true, npc_id: '664b1f0e0e0e0e0e0e0e0e02' },
++        // 6 - ALREADY carries a fact_key: must survive byte-for-byte
++        { tag: 'worldview', value: 'The city keeps its own accounts.', source: 'excel', st_hidden: true, fact_key: PRE_EXISTING_KEY },
++      ],
++    },
++    {
++      _id: ids.stale,
++      character_id: '664b1f0e0e0e0e0e0e0e0e03',
++      source: 'history',
++      updated_at: '2026-06-21T14:00:00Z',
++      facts: [
++        { tag: 'motivation', value: 'Fear of being forgotten.', source: 'history', st_hidden: true },
++        { tag: 'birthplace', value: 'Glasgow.', source: 'history', st_hidden: true },
++      ],
++    },
++    {
++      _id: ids.clean,
++      character_id: '664b1f0e0e0e0e0e0e0e0e04',
++      source: 'excel',
++      updated_at: '2026-06-21T14:00:00Z',
++      facts: [
++        { tag: 'boon', value: 'Holds a minor boon over the Seneschal.', source: 'excel', st_hidden: true, fact_key: 'already-keyed-a', counterparty: 'Cassian', status: 'outstanding' },
++      ],
++    },
++  ]);
++
++  const fixtureIds = Object.values(ids);
++  const col = () => getCollection('character_dossier');
++
++  // `planBackfill` scans the whole shared tm_suite_test collection by design
++  // (that is the real, production-matching behaviour under test) - but every
++  // WRITE below must stay scoped to this suite's own fixtures, or a stray
++  // document left by another suite sharing this database gets stamped too.
++  // (DBO-1's own external review found exactly this defect in DBO-1's tests.)
++  const ownRows = rows => rows.filter(r => fixtureIds.includes(r._id));
++
++  async function cleanupFixtures() {
++    await col().deleteMany({ _id: { $in: fixtureIds } });
++  }
++
++  beforeAll(async () => { await setupDb(); });
++  beforeEach(async () => {
++    await cleanupFixtures();
++    await col().insertMany(fixtures());
++  });
++  afterAll(async () => { await cleanupFixtures(); });
++
++  it('plans exactly the unkeyed fact indices, omitting the fully-keyed document entirely', async () => {
++    const rows = ownRows(await planBackfill(col()));
++    const byId = Object.fromEntries(rows.map(r => [r._id, r]));
++
++    expect(byId[ids.mixed].indices).toEqual([0, 1, 2, 3, 4, 5]); // 6 is already keyed
++    expect(byId[ids.stale].indices).toEqual([0, 1]);
++    expect(byId[ids.clean]).toBeUndefined();
++    expect(byId[ids.mixed].character_id).toBe('664b1f0e0e0e0e0e0e0e0e01');
++  });
++
++  it('dry run (the default) writes nothing', async () => {
++    const rows = ownRows(await planBackfill(col()));
++    const result = await applyBackfill(col(), rows, { apply: false });
++
++    expect(result).toEqual({ documentsTouched: 0, factsStamped: 0, backedUp: 0 });
++    const after = await col().findOne({ _id: ids.mixed });
++    expect(after.facts.filter(f => f.fact_key !== undefined)).toHaveLength(1);
++  });
++
++  it('AC6 - apply stamps every unkeyed fact and mutates nothing else, byte-for-byte', async () => {
++    const before = await col().find({ _id: { $in: fixtureIds } }).toArray();
++    const beforeById = Object.fromEntries(before.map(d => [d._id, d]));
++
++    const rows = ownRows(await planBackfill(col()));
++    const result = await applyBackfill(col(), rows, { apply: true });
++
++    expect(result.documentsTouched).toBe(2);
++    expect(result.factsStamped).toBe(8); // 6 on mixed + 2 on stale
++    expect(result.backedUp).toBe(2);
++
++    const after = await col().find({ _id: { $in: fixtureIds } }).toArray();
++    for (const doc of after) {
++      const original = beforeById[doc._id];
++      // Every top-level field except `facts` is untouched.
++      const { facts: _af, ...restAfter } = doc;
++      const { facts: _bf, ...restBefore } = original;
++      expect(restAfter).toEqual(restBefore);
++      expect(doc.facts).toHaveLength(original.facts.length);
++
++      doc.facts.forEach((fact, i) => {
++        expect(typeof fact.fact_key).toBe('string');
++        expect(fact.fact_key.length).toBeGreaterThan(0);
++        // st_hidden untouched, and no fact acquired a revealed_to.
++        expect(fact.st_hidden).toBe(true);
++        expect(fact).not.toHaveProperty('revealed_to');
++        // Everything except fact_key is byte-for-byte identical.
++        const { fact_key: _ak, ...restFactAfter } = fact;
++        const { fact_key: _bk, ...restFactBefore } = original.facts[i];
++        expect(restFactAfter).toEqual(restFactBefore);
++      });
++    }
++
++    // The already-keyed fact kept its ORIGINAL key, not a fresh mint.
++    const mixed = after.find(d => d._id === ids.mixed);
++    expect(mixed.facts[6].fact_key).toBe(PRE_EXISTING_KEY);
++    // The fully-keyed document was never planned, so never written.
++    const clean = after.find(d => d._id === ids.clean);
++    expect(clean.facts[0].fact_key).toBe('already-keyed-a');
++  });
++
++  it('AC6 - minted keys are unique across every fact in the fixture set', async () => {
++    const rows = ownRows(await planBackfill(col()));
++    await applyBackfill(col(), rows, { apply: true });
++
++    const after = await col().find({ _id: { $in: fixtureIds } }).toArray();
++    const keys = after.flatMap(d => d.facts.map(f => f.fact_key));
++    expect(keys).toHaveLength(10);
++    expect(new Set(keys).size).toBe(10);
++  });
++
++  it('AC6 - is idempotent: a second plan is empty and a re-applied stale plan stamps zero', async () => {
++    const firstPlan = ownRows(await planBackfill(col()));
++    await applyBackfill(col(), firstPlan, { apply: true });
++    const stamped = await col().find({ _id: { $in: fixtureIds } }).toArray();
++
++    const secondPlan = ownRows(await planBackfill(col()));
++    expect(secondPlan).toEqual([]);
++
++    // Re-running the ORIGINAL plan is the harder idempotency case: the stale
++    // indices all still exist, so only the $exists:false guard stops a re-mint.
++    const second = await applyBackfill(col(), firstPlan, { apply: true });
++    expect(second.factsStamped).toBe(0);
++
++    const reread = await col().find({ _id: { $in: fixtureIds } }).toArray();
++    const keysOf = docs => Object.fromEntries(docs.map(d => [d._id, d.facts.map(f => f.fact_key)]));
++    expect(keysOf(reread)).toEqual(keysOf(stamped));
++  });
++
++  it('AC6 - a stale plan never overwrites a key stamped out of band between plan and apply', async () => {
++    const rows = ownRows(await planBackfill(col()));
++    expect(rows.find(r => r._id === ids.stale).indices).toEqual([0, 1]);
++
++    // Another actor stamps facts.0 after planning, before applying.
++    const OUT_OF_BAND = 'stamped-by-someone-else';
++    await col().updateOne({ _id: ids.stale }, { $set: { 'facts.0.fact_key': OUT_OF_BAND } });
++
++    await applyBackfill(col(), rows, { apply: true });
++
++    const after = await col().findOne({ _id: ids.stale });
++    expect(after.facts[0].fact_key).toBe(OUT_OF_BAND);
++    expect(after.facts[1].fact_key).not.toBe(OUT_OF_BAND);
++    expect(typeof after.facts[1].fact_key).toBe('string');
++  });
++
++  it('does not touch a foreign document sharing this tm_suite_test collection', async () => {
++    const foreignId = 'not-a-dbo-2-fixture';
++    await col().insertOne({
++      _id: foreignId,
++      character_id: '664b1f0e0e0e0e0e0e0e0e09',
++      facts: [{ tag: 'aspiration', value: 'Unrelated.', source: 'excel', st_hidden: true }],
++    });
++    try {
++      const rows = ownRows(await planBackfill(col()));
++      await applyBackfill(col(), rows, { apply: true });
++
++      const foreign = await col().findOne({ _id: foreignId });
++      expect(foreign.facts[0]).not.toHaveProperty('fact_key');
++    } finally {
++      await col().deleteOne({ _id: foreignId });
++    }
++  });
++
++  it('a document whose facts array is missing or empty is omitted from the plan', async () => {
++    const emptyId = `${ID_PREFIX}doc-empty`;
++    await col().insertOne({ _id: emptyId, character_id: '664b1f0e0e0e0e0e0e0e0e08', facts: [] });
++    try {
++      const rows = await planBackfill(col());
++      expect(rows.find(r => r._id === emptyId)).toBeUndefined();
++    } finally {
++      await col().deleteOne({ _id: emptyId });
++    }
++  });
++});

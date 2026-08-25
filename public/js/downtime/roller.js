@@ -5,6 +5,8 @@
  * Converted from downtime_helper/js/roller.js (Peter's original).
  */
 
+import { esc } from '../data/helpers.js';
+
 // ── Core roller ─────────────────────────────────────────────────────────────
 
 export function rollPool(size, again = 10, success = 8, exc = 5, rote = false) {
@@ -124,7 +126,7 @@ export function showRollModal(pool, onSave) {
       <div class="roll-header">
         <div>
           <div class="roll-title">Dice Roller${isRote ? ' <span class="rote-tag">Rote</span>' : ''}</div>
-          <div class="roll-subtitle">${pool.expression || pool.size + ' dice'}</div>
+          <div class="roll-subtitle">${pool.expression ? esc(pool.expression) : pool.size + ' dice'}</div>
         </div>
         <button class="roll-close-btn" id="roll-close-btn">\u2715</button>
       </div>`;

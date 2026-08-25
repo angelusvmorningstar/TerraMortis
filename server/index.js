@@ -35,6 +35,7 @@ import {
 } from './routes/rules-engine.js';
 import adminMigrationsRouter from './routes/admin-migrations.js';
 import contestedRollsRouter from './routes/contested-rolls.js';
+import humanityCheckRouter from './routes/humanity-check.js';
 import stModsRouter, { auditRouter as stModAuditRouter } from './routes/st_mods.js';
 import appSettingsRouter from './routes/app-settings.js';
 import devlogRouter from './routes/devlog.js';
@@ -159,6 +160,10 @@ app.use('/api/rules/status_floor',           ...RE_ST, CACHE_5MIN, statusFloorRo
 app.use('/api/rules/aggregate',              ...RE_ST, CACHE_5MIN, rulesAggregateRouter);
 app.use('/api/rules', requireAuth, CACHE_5MIN, rulesRouter);
 app.use('/api/contested_roll_requests', requireAuth, contestedRollsRouter);
+// gdx.12: Humanity Check submit/accept/decline — shares the
+// contested_roll_requests collection (request_type: 'humanity_check') but
+// has its own route file/schema, same pattern as office_actions below.
+app.use('/api/humanity_check_requests', requireAuth, noCache(), humanityCheckRouter);
 
 // /api/pdf removed — PDF generation moved client-side to public/js/print/.
 // Stale browsers calling the old endpoint get a 410 Gone with a refresh hint.

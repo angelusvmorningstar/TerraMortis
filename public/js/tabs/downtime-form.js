@@ -4341,11 +4341,16 @@ function getItemsForCategory(category) {
     }
     case 'devotion': {
       const discs = c.disciplines || {};
+      const cults = (c.merits || [])
+        .filter(m => m.name === 'Mystery Cult Initiation' && m.active !== false)
+        .map(m => m.cult_name)
+        .filter(Boolean);
       // Try rules cache first
       const devRules = getRulesByCategory('devotion');
       return devRules
         .filter(rule => {
           if (rule.bloodline && rule.bloodline !== c.bloodline) return false;
+          if (rule.cult && !cults.includes(rule.cult)) return false;
           if (!rule.prereq) return true;
           return meetsPrereq(c, rule.prereq);
         })
@@ -5490,7 +5495,7 @@ function renderEquipmentRow(n, saved) {
     // over cap regardless of whether the player had actually requested the
     // tweak yet. Gated on isChecked too now.
     const warning = (isChecked && tweakCost > rawMax)
-      ? `<span class="dt-equipment-tweak-warn" style="color:#b23;margin-left:6px;">Above your effective availability (max ${rawMax}) - the ST will need to adjudicate.</span>`
+      ? `<span class="dt-equipment-tweak-warn">Above your effective availability (max ${rawMax}) - the ST will need to adjudicate.</span>`
       : '';
     h += `<div class="dt-equipment-tweak" style="margin-top:4px;">`;
     h += `<label><input type="checkbox" id="dt-equipment_${n}_tweak" class="dt-equip-tweak"${tweakChecked}> Request +1 ${esc(tweakField)} (raises cost to avail ${tweakCost})</label>`;
@@ -7370,7 +7375,9 @@ function renderQuestion(q, value) {
         if (oathBonus > 0) posMods.push({ label: `Oath of Fealty (Invictus Status ${invStatusForOath})`, val: oathBonus });
         if (ghoulCost > 0) negMods.push({ label: 'Ghoul Retainers', val: -ghoulCost });
         if (riteVitaeCost > 0) negMods.push({ label: 'Cruac Rites', val: -riteVitaeCost });
-        if (mandDots > 0) negMods.push({ label: `Mandragora Garden (${'●'.repeat(mandDots)})`, val: -mandDots });
+        // Mandragora Garden maintenance cost REMOVED 2026-08-18 (dtlt-10, Angelus's ruling):
+        // the garden is a flat per-dot Blood Fruit benefit with no vitae upkeep. Do not
+        // reintroduce a cost line here.
 
         const netStarting = posMods.reduce((s, m) => s + m.val, 0) + negMods.reduce((s, m) => s + m.val, 0);
         const projected = Math.max(0, Math.min(vitaeMax, netStarting + avgGathered));

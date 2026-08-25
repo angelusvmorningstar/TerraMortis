@@ -4,6 +4,7 @@ import { getCollection } from '../db.js';
 import { requireRole, isStRole } from '../middleware/auth.js';
 import { validateCharacter, validateCharacterPartial } from '../middleware/validateCharacter.js';
 import { normalizeMeritsMiddleware, normalizeCharacterMerits, validateWhiteAntsTerritoriesMiddleware, validateTrapDoorAnchorMiddleware } from '../lib/normalize-character.js';
+import { diffXpLedgerRows } from '../lib/xp-ledger-diff.js';
 // N-1 (ADR-005 Rev 2): map-fallback shape for per-slug reads. Used in the
 // partner-dots enrichment below so the server's hardcoded subset survives
 // the N-2 backfill from `m.free_<slug>` to `m.free_grants.<slug>`. The
@@ -28,9 +29,19 @@ const col = () => getCollection('characters');
 // downstream systems recognise the qualifier.
 const INFLUENCE_SPHERES = ['Bureaucracy', 'Church', 'Finance', 'Health', 'High Society', 'Industry', 'Legal', 'Media', 'Military', 'Occult', 'Police', 'Politics', 'Street', 'Transportation', 'University', 'Underworld'];
 
-/** Strip ephemeral underscore-prefixed fields from req.body before validation. */
+/**
+ * Strip ephemeral underscore-prefixed fields from req.body before validation.
+ * xpl.1: also pulls `xp_ledger_reason` off the body onto `req.xpLedgerReason`
+ * — it is a signal to the PUT handler's ledger hook, never a character
+ * field, and the character schema's `additionalProperties: false` would
+ * otherwise reject it before the handler ever runs.
+ */
 function stripEphemeral(req, res, next) {
   if (req.body && typeof req.body === 'object') {
+    if (Object.prototype.hasOwnProperty.call(req.body, 'xp_ledger_reason')) {
+      req.xpLedgerReason = req.body.xp_ledger_reason;
+      delete req.body.xp_ledger_reason;
+    }
     for (const key of Object.keys(req.body)) {
       if (key.startsWith('_')) delete req.body[key];
     }
@@ -493,6 +504,9 @@ router.put('/:id', requireRole('st'), stripEphemeral, validateCharacterPartial, 
   if (!oid) return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'Invalid character ID format' });
 
   const { _id, willpower, ...updates } = req.body;
+  // xpl.1: already stripped from req.body by stripEphemeral (before schema
+  // validation ran) - read the stashed value instead of destructuring it.
+  const xp_ledger_reason = req.xpLedgerReason;
 
   // ECM-3 (#870): hydrate equipment[].catalogue_id 24-hex strings back to
   // ObjectId before $set. The schema validation upstream already enforces
@@ -612,6 +626,39 @@ router.put('/:id', requireRole('st'), stripEphemeral, validateCharacterPartial, 
     filter[field] = prior === undefined ? null : prior;
   }
 
+  // xpl.1: diff the incoming trait-object XP totals against the pre-update
+  // document for exactly the four categories this story covers. Every save
+  // round-trips the FULL attributes/skills/disciplines/merits objects
+  // (buildSaveBody, public/js/admin.js:964-991), not a per-field patch, so
+  // comparing against a fresh pre-fetch is required - the PUT body alone
+  // never tells us what changed. This is a SEPARATE read from the write-once
+  // `existingChar` fetch above (that one only projects clan/bloodline) -
+  // deliberately not merged into it, since the two features (write-once
+  // lineage lock, XP ledger) are independent stories with independent scopes.
+  //
+  // Code-review (2026-08-15, Medium): the pre-fetch itself was unguarded,
+  // so a transient read failure would 500 the WHOLE character save - the
+  // opposite of the "ledger machinery never blocks a real save" intent the
+  // insert's own try/catch below already honours. Wrapped the same way: a
+  // failed pre-fetch just means no ledger rows for this save, logged, not
+  // thrown.
+  const TRAIT_KEYS = ['attributes', 'skills', 'disciplines', 'merits'];
+  let xpLedgerRows = [];
+  if (TRAIT_KEYS.some(k => Object.prototype.hasOwnProperty.call(updates, k))) {
+    try {
+      const priorChar = await col().findOne(
+        { _id: oid },
+        { projection: { attributes: 1, skills: 1, disciplines: 1, merits: 1 } }
+      );
+      xpLedgerRows = diffXpLedgerRows(priorChar || {}, updates);
+    } catch (err) {
+      console.error('xp_ledger pre-fetch failed for character', String(oid), err.message);
+    }
+    if (xpLedgerRows.length && typeof xp_ledger_reason === 'string' && xp_ledger_reason.trim() === '') {
+      return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'xp_ledger_reason cannot be blank' });
+    }
+  }
+
   const result = await col().findOneAndUpdate(
     filter,
     { $set: updates },
@@ -641,7 +688,43 @@ router.put('/:id', requireRole('st'), stripEphemeral, validateCharacterPartial, 
     }
     return res.status(404).json({ error: 'NOT_FOUND', message: 'Character not found' });
   }
+
+  // xpl.1: best-effort ledger insert - never blocks or fails the character
+  // save itself (see story Dev Notes -> Design Decisions for why no
+  // transaction). A failure here is logged, not surfaced to the client.
+  if (xpLedgerRows.length) {
+    try {
+      const at = new Date().toISOString();
+      const reason = (typeof xp_ledger_reason === 'string' && xp_ledger_reason.trim()) ? xp_ledger_reason.trim() : undefined;
+      // Code-review (2026-08-15, Medium): req.user.username was assumed
+      // always present; fall back rather than write an unattributed row.
+      const stUsername = req.user?.username || 'unknown';
+      const docs = xpLedgerRows.map(row => {
+        const doc = { character_id: oid, ...row, at, st_username: stUsername };
+        if (reason) doc.reason = reason;
+        return doc;
+      });
+      await getCollection('xp_ledger').insertMany(docs);
+    } catch (err) {
+      console.error('xp_ledger insert failed for character', String(oid), err.message);
+    }
+  }
+
   res.json(result);
+});
+
+// GET /api/characters/:id/xp_ledger — ST only. xpl.1: read-only history of
+// XP-affecting writes to this character, newest first.
+router.get('/:id/xp_ledger', requireRole('st'), async (req, res) => {
+  const oid = parseId(req.params.id);
+  if (!oid) return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'Invalid character ID format' });
+  // _id tiebreak: rows from one save share an identical `at` (see the
+  // insert above), so `at` alone leaves same-save ordering unspecified.
+  const rows = await getCollection('xp_ledger')
+    .find({ character_id: oid })
+    .sort({ at: -1, _id: -1 })
+    .toArray();
+  res.json(rows);
 });
 
 // GET /api/characters/:id/cascade-preview — ST only

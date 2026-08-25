@@ -488,3 +488,112 @@ The 8 patched findings are in the story's Senior Developer Review.
   merging the epic before the seed is applied puts all 13 bloodline-carrying characters on BL-2's
   loud-miss path at once. It lives in the BL-3b story and its Senior Developer Review, and it is
   Angelus's operational act, not a coding task.
+
+## Deferred from: dtlt-10-mandragora-fruit-conditionality internal 3-layer review (2026-08-18)
+
+- **`specs/epic-dtlt-dt2-live-form-triage.md`'s Story 1.10 AC template is stale against the shipped
+  Reading C ruling.** It still describes the old symmetric Reading A/B gating shape ("neither the
+  `-mandDots` cost nor the `+bloodFruit` row appear" when the player opts out) — Reading C's actual
+  shipped behaviour is asymmetric by design: the fruit row is now unconditional and the cost row is
+  gone entirely, with no toggle to opt out of either. The epic doc was never updated when the ruling
+  landed on the story file itself. Not this diff's fault (the epic doc is not in the story's own File
+  List) and not fixed here; a future reader of the epic doc in isolation, without the story file's
+  RULED header, would get the wrong mental model.
+- **External reference memory is stale.** `C:/Users/angel/.claude/projects/D--Terra-Mortis-TM-Suite/memory/reference_vitae_deficit.md`
+  (cited in dtlt-10's own story frontmatter as context) states Mandragora Garden "costs 1 vitae per
+  dot" and "generates 2 fruit per dot" — both now false: Reading C removed the cost entirely, and
+  the fruit multiplier was already 1x dots in the shipped code (`bloodFruit = mandDots`), not 2x, a
+  pre-existing deviation from the errata's "twice that quantity" wording that predates this story
+  and stays out of its scope. Not fixed here — it is a Claude memory file in a different project's
+  namespace (`D--Terra-Mortis-TM-Suite`, the pre-rename project name), not a file this repo's diff
+  touches. Worth a manual purge/update in a future session so it doesn't get cited as ground truth.
+  Angelus's operational act, not a coding task.
+
+## Deferred from: code review of fix.779.contacts-pt-merit-free-sum (2026-08-18, internal 3-layer)
+
+Branch `ms/issue-779-contacts-pt-merit-free-sum` sat stranded from 2026-06-16 to 2026-08-18;
+reconciled onto `dev` after passing internal review. All four items below were independently
+verified against real code before deferral, not taken on a reviewer's word.
+
+- **`meritFreeSum`/`freeOf` map-fallback staleness for evaluator-owned legacy slugs** —
+  `public/js/data/rules-helpers.js` (`meritFreeSum`, `freeOf`). Six legacy slugs (`ohm`, `pt`,
+  `mdb`, `bloodline`, `pet`, `sw`) have a live evaluator that unconditionally clears and
+  rewrites their flat `free_<slug>` field on every render (confirmed by direct read of
+  `ohm-evaluator.js`, `pt-evaluator.js`, `mdb-evaluator.js`, `bloodline-evaluator.js`,
+  `style-retainer-evaluator.js`, `safe-word-evaluator.js`). Once the N-2 backfill script
+  (`server/scripts/backfill-free-grants.js`) migrates one of these slugs into
+  `m.free_grants[slug]`, `freeOf`'s map-wins precedence means that map value is frozen forever
+  — the evaluator keeps recomputing the legacy field, but nothing ever reads it again for that
+  slug on that merit. This is NOT specific to fix-779: the same map-fallback shape is already
+  used identically in `mdb-evaluator.js`'s internal Mentor-rating calc and
+  `safe-word-evaluator.js`'s `_effectivePartnerRating`, both predating this story. Two concrete
+  consequences to design around: `pruneContactsSpheres` (`public/js/editor/domain.js:334-351`)
+  could truncate a live sphere selection using a stale, too-low total (its truncate-only guard
+  exists specifically to prevent data loss, so this would be exactly the failure it was built to
+  avoid); `syncMeritRating` (`domain.js:319-321`) persists the stale total into `m.rating` on
+  every save, so the error compounds instead of self-correcting. Real fix options: per-slug
+  precedence (legacy-wins-on-conflict for evaluator-owned slugs, at the cost of `meritFreeSum`
+  disagreeing with `freeOf`/the evaluator-internal reads unless those are updated too), or moving
+  the six evaluators to write `free_grants` directly instead of the legacy flat field. Either is
+  a real architectural story, not a one-line patch — recommend checking whether any live
+  character currently has a map/legacy *mismatch* (not just both-set-equal) for one of these six
+  slugs before scoping, to know if this is theoretical or already live.
+
+- **AC-1's "displays 5 dots in the sheet editor" has no automated test exercising the actual
+  render path** — `server/tests/fix-779-merit-free-sum.test.js` imports the raw `meritFreeSum`
+  from `rules-helpers.js` directly; it never touches `domain.js`'s own `meritFreeSum` wrapper
+  (the one every real caller — `syncMeritRating`, `pruneContactsSpheres`, `meritEffectiveRating`,
+  `canAllocateCarthianPull` — actually goes through) or any sheet-editor rendering path. The
+  arithmetic is covered; the acceptance criterion's actual display claim is not. Add an
+  integration-level test through `domain.js`'s wrapper (or a render-path test) next time this
+  area is touched.
+
+- **AC-5's DB audit (20/20 characters correct) is stale and unauditable** — run 2026-06-16
+  against then-live data, no script or output log retained in the repo, and not re-run at
+  2026-08-18 merge time (live-DB verification is the user's own call per project convention).
+  If PT/OHM/MDB/Bloodline/Pet-target merits have changed for any of the 20 originally-affected
+  characters in the intervening two months, this claim should be treated as unverified until
+  re-run.
+
+- **Legacy-slug inclusion in `meritFreeSum` uses raw truthiness, not type-checking** —
+  `public/js/data/rules-helpers.js` (`LEGACY_FREE_SLUGS.filter(s => m['free_' + s])`). A stray
+  truthy-but-non-numeric legacy field (e.g. the string `"0"`, or a negative number from a
+  data-entry error) would be included in the slug union and passed to `freeOf`, risking string
+  coercion or an unbounded negative in the total instead of a clean numeric sum. Identical
+  exposure existed in the pre-fix summing code — not introduced by this diff, just not
+  addressed by it either.
+
+## Deferred from: code review of gdx-2-mobile-type-scale (2026-08-20, internal 3-layer)
+
+All six items below were independently verified against the live app (headless Chromium against the
+real page, or direct source read) before deferral, not taken on a reviewer's word.
+
+- **Pre-existing inline `style="font-size:Npx"` sites bypass this story's AC1 audit by construction**
+  (it only scans `suite.css`/`components.css`) — `public/js/suite/territory.js:368` (12px),
+  `public/js/tabs/downtime-form.js:5662` (12px), `public/js/app.js:2034` (11px). Pre-existing, not
+  introduced by gdx-2, and already against this repo's own "no inline `style=`" CSS convention
+  independent of this story. Candidate for a future sweep (e.g. gdx-4 mobile CSS cleanup).
+- **`.npcr-modal`'s narrow-phone fix leaves zero gutter below ~400px** — `min-width:min(360px,100%)`
+  (exactly what gdx-2's own Task 6 prescribed) sits the modal flush to both screen edges. Satisfies
+  the story's literal AC3 (nothing clipped, fits at 360px and narrower); a cosmetic polish gap, not a
+  functional violation. Worth padding the overlay in a future pass if breathing room matters.
+- **200 literal `0.75rem` and 42 literal `0.6875rem` `font-size` values coexist with
+  `var(--fs-floor-body)`/`var(--fs-floor-micro)` at the same computed sizes** in `suite.css` and
+  `components.css` — gdx-2 only tokenised declarations it *raised* to the floor; declarations already
+  at 12px/11px pre-conversion were left as plain rem literals. Retuning either floor token later would
+  not move these ~242 sites. Not swept here — deciding whether "already 12px" was coincidence or the
+  same floor concept is a design call, site by site, that gdx-2's own AC didn't ask for.
+- **`.cc-alert.yellow{font-size:var(--fs-floor-body)}` is now dead** (`public/css/components.css`) —
+  identical to its own base rule `.cc-alert{...font-size:var(--fs-floor-body)}` post-conversion, and
+  `.cc-alert` itself has no live reference anywhere in `public/js/`, suggesting it predates this story
+  as dead CSS. Candidate for gdx-4 (mobile CSS cleanup).
+- **The AC2 sub-floor carve-out allowlist has two entries keyed to Chromium's CSSOM selector
+  serialisation rather than authored source text** (`tests/desktop-and-css.spec.js`) —
+  `:nth-child(2n+1)` for the authored `:nth-child(odd)`, and normalised whitespace/quoting for one
+  attribute selector. Harmless while Playwright is Chromium-only in this repo (per `CLAUDE.md`); would
+  fail for a spurious reason if a firefox/webkit project were ever added to `playwright.config.js`.
+- **The AC3/AC4 Playwright test helpers mount a synthetic `<div class="tab active">` on
+  `document.body`** rather than the real `#app`/tab ancestor chain (`tests/desktop-and-css.spec.js`),
+  so an ancestor's own width cap or padding wouldn't be caught. gdx-2's specific fixes were
+  independently re-verified against the real live page during this review, so this is test-methodology
+  hardening for a future pass, not a live gap today.

@@ -59,6 +59,7 @@ import { openContestedRoll, closeContestedRoll, crSetType, crSetChar, crAdjPool,
 import { initPendingQueue, refreshPendingQueueBadge, hasPendingChallenges } from './game/pending-queue.js';
 import { initContestedResolve } from './game/contested-resolve.js';
 import { openChallengeModal } from './game/challenge-initiation.js';
+import { submitHumanityCheck, checkForResolvedHumanityCheck } from './game/humanity-check.js';
 import { loadDtLookup } from './game/dt-lookup.js';
 import { initTracker, trackerReset, trackerAdj, trackerAddCondition, trackerRemoveCond, trackerToggle, ensureLoaded as ensureTrackerLoaded, refreshTrackerCard } from './game/tracker.js';
 import { initWS } from './data/ws.js';
@@ -124,7 +125,7 @@ import { installStModPopover } from './editor/st-mod-popover.js';
 import { loadPool, chgPool, chgMod, updPool, setAgain, setAgainSeg, togMod, togSpec, doRoll, clrHist, effPool, togEquipChip, updWeaponRef, spendVitae, spendWillpower, addPowerChip, togPowerChip, removePowerChip, resetRollPool } from './suite/roll-v2.js';
 import { onSheetChar, renderSheet as suiteRenderSheet, repaintSheetTrackers } from './suite/sheet.js';
 import { toggleExp as suiteToggleExp, toggleDisc as suiteToggleDisc } from './suite/sheet-helpers.js';
-import { updResist, showResistSec } from './shared/resist.js';
+import { updResist, showResistSec, DISC_ABBR, lashOutPool, bloodBondPool } from './shared/resist.js';
 import { getPool, unskilledPenalty } from './shared/pools.js';
 import { getAttrEffective as getAttrVal, skDots, skTotal } from './data/accessors.js';
 import { SKILLS_MENTAL, ALL_ATTRS, ALL_SKILLS } from './data/constants.js';
@@ -337,7 +338,16 @@ function openChar(idx) {
     // switch could otherwise persist old data into the new character's own
     // storage slot).
     resetRollPool();
-    renderCharPools(poolsEl, c, (p) => {
+    renderCharPools(poolsEl, c, (p, btn) => {
+      // gdx.12: submit tiles (Humanity Check) POST-and-toast in place — no
+      // panel, no roll, no tab switch (nothing is being loaded into the
+      // roller). Checked first, before the goTab('roll') every other tile
+      // kind below still wants.
+      if (p.submitAction === 'humanity_check') { submitHumanityCheck(c, btn); return; }
+      // gdx-11 (#981, Task 8): choice tiles (Lash Out, Clash of Wills, Blood
+      // Bond Resistance, + Custom Pool) push {opensPanel} instead of a
+      // total/pi — route to the scoped panel rather than loadPool(). Target
+      // is 'roll', not the pre-rlv.2 'dice' — #t-dice no longer exists.
       goTab('roll');
       if (p.opensPanel) { openPanel(p.opensPanel); return; }
       loadPool(p.total, p.label, p.pi || { total: p.total, attr: p.attr, attrV: p.attrV, skill: p.skill, skillV: p.skillV, nineAgain: p.nineAgain, resistance: p.resistance });
@@ -1034,6 +1044,149 @@ function openPanel(mode) {
         body.appendChild(el);
       });
     }
+  } else if (mode === 'lashout') {
+    // gdx-11 (#981, AC3): Lash Out — three aspect chips (fixed
+    // Monstrous/Seductive/Competitive -> Power Attribute) + a Kindred/
+    // Mortal toggle. Pool = chosen Power Attribute + Blood Potency;
+    // resistance defaults to 'v ' + <same attribute> + ' + BP' (documented
+    // simplification: assumes a symmetric aspect on both sides).
+    title.textContent = 'Lash Out';
+    if (!suiteState.rollChar) {
+      body.innerHTML = '<div class="hempty" style="padding:24px 16px;">Select a character first</div>';
+    } else {
+      const c = suiteState.rollChar;
+      const ASPECTS = [
+        { label: 'Monstrous', attr: 'Strength' },
+        { label: 'Seductive', attr: 'Presence' },
+        { label: 'Competitive', attr: 'Intelligence' },
+      ];
+      let aspect = null;
+      let kindred = true;
+      const render = () => {
+        const bp = c.blood_potency || 0;
+        const attrV = aspect ? getAttrVal(c, aspect.attr) : 0;
+        const total = aspect ? lashOutPool(c, aspect.attr, kindred).total : 0;
+        let html = '<div class="panel-section">Aspect</div><div class="vm-chip-wrap">';
+        ASPECTS.forEach(a => {
+          html += `<button class="mchip la-aspect-chip${aspect === a ? ' on' : ''}" data-l="${esc(a.label)}">${esc(a.label)}</button>`;
+        });
+        html += '</div><div class="panel-section">Nature</div><div class="vm-chip-wrap">';
+        html += `<button class="mchip la-kindred-chip${kindred ? ' on' : ''}" data-k="1">Kindred (1 WP)</button>`;
+        html += `<button class="mchip la-kindred-chip${!kindred ? ' on' : ''}" data-k="0">Mortal (free)</button>`;
+        html += '</div>';
+        if (aspect) {
+          html += `<div class="panel-total">${esc(aspect.attr)} <b>${attrV}</b> + Blood Potency <b>${bp}</b> = <b>${total}</b> dice</div>`;
+          html += '<button class="pnl-confirm-btn" id="lashout-load">Load Pool</button>';
+        }
+        body.innerHTML = html;
+        body.querySelectorAll('.la-aspect-chip').forEach(btn => btn.addEventListener('click', () => {
+          aspect = ASPECTS.find(a => a.label === btn.dataset.l); render();
+        }));
+        body.querySelectorAll('.la-kindred-chip').forEach(btn => btn.addEventListener('click', () => {
+          kindred = btn.dataset.k === '1'; render();
+        }));
+        document.getElementById('lashout-load')?.addEventListener('click', () => {
+          const { pi } = lashOutPool(c, aspect.attr, kindred);
+          loadPool(pi.total, 'Lash Out', pi);
+        });
+      };
+      render();
+    }
+  } else if (mode === 'clash') {
+    // gdx-11 (#981, AC2): Clash of Wills — "Your Discipline" (always
+    // populatable from the loaded character) and "Their Discipline"
+    // (suiteState.RESIST_CHAR's own disciplines - DISCLOSED LIMITATION, matching
+    // the AC's own wording: this only populates once an opposing character
+    // has already been picked via the existing resist-target dropdown, i.e.
+    // after loading some other pool with a resistance string first; this
+    // panel cannot pick a target itself).
+    title.textContent = 'Clash of Wills';
+    if (!suiteState.rollChar) {
+      body.innerHTML = '<div class="hempty" style="padding:24px 16px;">Select a character first</div>';
+    } else {
+      const c = suiteState.rollChar;
+      const myDiscs = Object.entries(c.disciplines || {}).filter(([, v]) => (v?.dots || 0) > 0).map(([name, v]) => ({ name, dots: v.dots }));
+      let myDisc = null, theirDisc = null;
+      const render = () => {
+        const theirs = suiteState.RESIST_CHAR;
+        const theirDiscs = theirs
+          ? Object.entries(theirs.disciplines || {}).filter(([, v]) => (v?.dots || 0) > 0).map(([name, v]) => ({ name, dots: v.dots }))
+          : [];
+        let html = '<div class="panel-section">Your Discipline</div>';
+        html += myDiscs.length
+          ? '<div class="vm-chip-wrap">' + myDiscs.map(d =>
+              `<button class="mchip cow-my-chip${myDisc === d.name ? ' on' : ''}" data-d="${esc(d.name)}">${esc(d.name)} (${d.dots})</button>`
+            ).join('') + '</div>'
+          : '<div class="hempty" style="padding:0 16px 8px;">No disciplines</div>';
+        html += '<div class="panel-section">Their Discipline</div>';
+        if (!theirs) {
+          html += '<div class="hempty" style="padding:0 16px 8px;">Select an opposing character via the resist-target dropdown first</div>';
+        } else {
+          html += theirDiscs.length
+            ? '<div class="vm-chip-wrap">' + theirDiscs.map(d =>
+                `<button class="mchip cow-their-chip${theirDisc === d.name ? ' on' : ''}" data-d="${esc(d.name)}">${esc(d.name)} (${d.dots})</button>`
+              ).join('') + '</div>'
+            : '<div class="hempty" style="padding:0 16px 8px;">No disciplines</div>';
+        }
+        const bp = c.blood_potency || 0;
+        const myDots = myDisc ? (myDiscs.find(d => d.name === myDisc)?.dots || 0) : 0;
+        const total = bp + myDots;
+        if (myDisc && theirDisc) {
+          html += `<div class="panel-total">Blood Potency <b>${bp}</b> + ${esc(myDisc)} <b>${myDots}</b> = <b>${total}</b> dice</div>`;
+          html += '<button class="pnl-confirm-btn" id="clash-load">Load Pool</button>';
+        }
+        body.innerHTML = html;
+        body.querySelectorAll('.cow-my-chip').forEach(btn => btn.addEventListener('click', () => { myDisc = btn.dataset.d; render(); }));
+        body.querySelectorAll('.cow-their-chip').forEach(btn => btn.addEventListener('click', () => { theirDisc = btn.dataset.d; render(); }));
+        document.getElementById('clash-load')?.addEventListener('click', () => {
+          const abbr = Object.entries(DISC_ABBR).find(([, full]) => full === theirDisc)?.[0] || theirDisc;
+          const pi = { total, attr: 'Blood Potency', attrV: bp, skill: null, skillV: 0, discName: myDisc, discV: myDots, resistance: 'v ' + abbr + ' + BP', noWP: false };
+          loadPool(total, 'Clash of Wills', pi);
+        });
+      };
+      render();
+    }
+  } else if (mode === 'bloodbond') {
+    // gdx-11 (#981, AC5): Blood Bond Resistance — two ST-entered scene-fact
+    // chip rows, no new data model. Pool = max(0, BP - Vitae - Attempts).
+    // pi.noWP = true: spending 1 WP is the cost of ATTEMPTING, never a dice
+    // bonus (same reasoning the carved-out Humanity Check would have used).
+    title.textContent = 'Blood Bond Resistance';
+    if (!suiteState.rollChar) {
+      body.innerHTML = '<div class="hempty" style="padding:24px 16px;">Select a character first</div>';
+    } else {
+      const c = suiteState.rollChar;
+      const VITAE_OPTS = [1, 2, 3, 4];
+      const ATTEMPT_OPTS = [0, 1, 2, 3];
+      let vitae = null, attempts = null;
+      const render = () => {
+        let html = '<div class="panel-section">Vitae Ingested</div><div class="vm-chip-wrap">';
+        VITAE_OPTS.forEach(v => {
+          html += `<button class="mchip bb-vitae-chip${vitae === v ? ' on' : ''}" data-v="${v}">${v}${v === 4 ? '+' : ''}</button>`;
+        });
+        html += '</div><div class="panel-section">Prior Resistance Attempts vs. This Vampire</div><div class="vm-chip-wrap">';
+        ATTEMPT_OPTS.forEach(a => {
+          html += `<button class="mchip bb-attempt-chip${attempts === a ? ' on' : ''}" data-a="${a}">${a}${a === 3 ? '+' : ''}</button>`;
+        });
+        html += '</div>';
+        const bp = c.blood_potency || 0;
+        // Preview computed via the same pure function Load Pool itself calls,
+        // so the two can never drift apart (matches Lash Out's own pattern).
+        const total = (vitae != null && attempts != null) ? bloodBondPool(c, vitae, attempts).total : null;
+        if (total != null) {
+          html += `<div class="panel-total">Blood Potency <b>${bp}</b> − Vitae <b>${vitae}</b> − Attempts <b>${attempts}</b> = <b>${total}</b> dice</div>`;
+          html += '<button class="pnl-confirm-btn" id="bloodbond-load">Load Pool</button>';
+        }
+        body.innerHTML = html;
+        body.querySelectorAll('.bb-vitae-chip').forEach(btn => btn.addEventListener('click', () => { vitae = Number(btn.dataset.v); render(); }));
+        body.querySelectorAll('.bb-attempt-chip').forEach(btn => btn.addEventListener('click', () => { attempts = Number(btn.dataset.a); render(); }));
+        document.getElementById('bloodbond-load')?.addEventListener('click', () => {
+          const { pi } = bloodBondPool(c, vitae, attempts);
+          loadPool(pi.total, 'Blood Bond Resistance', pi);
+        });
+      };
+      render();
+    }
   } else if (mode === 'custom') {
     // rlv.4 (#1039, D5) — free Attribute x Skill x Discipline ad-hoc pool
     // builder, for rolls with no pre-built pool button. Attribute is the
@@ -1057,6 +1210,9 @@ function openPanel(mode) {
         const nonZero = ALL_SKILLS.filter(s => skTotal(c, s) > 0);
         const shown = showAll ? ALL_SKILLS : nonZero;
         html += `<div class="panel-section">Skill <button class="cp-showall-btn" id="cp-showall">${showAll ? 'non-zero only' : 'show all'}</button></div><div class="vm-chip-wrap">`;
+        // Code review finding (Edge Case Hunter): a character with zero
+        // non-zero skills rendered a bare empty row here, with nothing
+        // telling the ST to tap "show all" to see any chips at all.
         if (!shown.length) {
           html += '<div class="hempty" style="padding:0 16px 8px;">No non-zero skills — tap "show all"</div>';
         }
@@ -1074,6 +1230,11 @@ function openPanel(mode) {
         const skillV = skill ? skTotal(c, skill) : 0;
         const unskilled = (skill && skillV === 0) ? unskilledPenalty(skill) : 0;
         const discDots = disc ? (myDiscs.find(d => d.name === disc)?.dots || 0) : 0;
+        // Code review finding (Blind Hunter): a low Attribute + an unskilled
+        // Mental skill (-3) can go negative (loadPool() itself clamps via
+        // Math.max(0,...) on confirm, so this was never a real dice-count
+        // bug, but the live preview text could show a nonsensical negative
+        // number before that). Clamped here too, for display consistency.
         const total = Math.max(0, attrV + skillV + unskilled + discDots);
 
         if (attr) {
@@ -1095,7 +1256,7 @@ function openPanel(mode) {
           // was assembled — roteEligibleFor() is the same function the
           // pre-built skill-pool tiles use, so an eligible skill picked here
           // gets the same Rote cue AC5 promises, not just named pools.
-          const pi = { total, attr, attrV, skill: skill || null, skillV, unskilled: unskilled || null, discName: disc || null, discV: discDots, resistance: null, roteEligible: roteEligibleFor(c, skill) };
+          const pi = { total, attr, attrV, skill: skill || null, skillV, unskilled: unskilled || null, discName: disc || null, discV: discDots, resistance: null, roteEligible: roteEligibleFor(c, skill), noWP: false };
           loadPool(total, label, pi);
         });
       };
@@ -1156,11 +1317,22 @@ function pickChar(c) {
   // Render tappable pool chips in the roll tab for the selected character
   const rollPoolsEl = document.getElementById('roll-char-pools');
   if (rollPoolsEl) {
-    renderCharPools(rollPoolsEl, c, (p) => {
+    renderCharPools(rollPoolsEl, c, (p, btn) => {
+      // gdx.12: submit tiles (Humanity Check) POST-and-toast in place — no
+      // panel, no roll, checked first same as the two gcp-panel call sites.
+      if (p.submitAction === 'humanity_check') { submitHumanityCheck(c, btn); return; }
+      // gdx-11 (#981, Task 8): see the identical routing comment at the
+      // gcp-panel call site above — already on the roll tab here.
       if (p.opensPanel) { openPanel(p.opensPanel); return; }
       loadPool(p.total, p.label, p.pi || { total: p.total, attr: p.attr, attrV: p.attrV, skill: p.skill, skillV: p.skillV, nineAgain: p.nineAgain, resistance: p.resistance });
     });
     rollPoolsEl.style.display = '';
+    // AC7: surfaces a "Load Pool" banner if this character has a resolved,
+    // not-yet-loaded Humanity Check. Fire-and-forget — a convenience
+    // surface, not blocking character load on a network round-trip.
+    // Originally gated behind the (now-retired, rlv.2) new-roller flag —
+    // roll-v2.js is the only player roller now, so this is unconditional.
+    checkForResolvedHumanityCheck(c, rollPoolsEl);
   }
 
   // Show Auspex button if character has Auspex
@@ -1292,7 +1464,12 @@ async function _switchChar(idx) {
   // Pools panel
   const poolsEl = document.getElementById('gcp-panel');
   if (poolsEl) {
-    renderCharPools(poolsEl, c, (p) => {
+    renderCharPools(poolsEl, c, (p, btn) => {
+      // gdx.12: see the identical submitAction check at the openChar() call
+      // site above — same reasoning, checked before goTab('roll') here too.
+      if (p.submitAction === 'humanity_check') { submitHumanityCheck(c, btn); return; }
+      // gdx-11 (#981, Task 8): see the identical routing comment at the
+      // openChar() call site above.
       goTab('roll');
       if (p.opensPanel) { openPanel(p.opensPanel); return; }
       loadPool(p.total, p.label, p.pi || { total: p.total, attr: p.attr, attrV: p.attrV, skill: p.skill, skillV: p.skillV, nineAgain: p.nineAgain, resistance: p.resistance });
