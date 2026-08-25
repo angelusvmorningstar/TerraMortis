@@ -6,6 +6,15 @@
  *   AC2 — (manual) Player Portal path — covered by the same inner-gate fix; no separate E2E surface
  *   AC3 — Regression: character NOT in out_of_window_player_ids on prep cycle still sees "not yet open" gate
  *   AC4 — Regression: active cycle still passes all players regardless of override membership
+ *
+ * SKIPPED 2026-08-25 (D6): the whole out-of-window gate this file exercises lives INSIDE
+ * downtime-tab.js's player render path, behind the new form-retirement.js kill switch, which
+ * short-circuits before any of this window logic runs. Switching the test actor to ST (the fix
+ * applied to sibling downtime-form specs) isn't right here — STs bypass the OOW gate entirely
+ * (`isST ||` in initDowntimeTab), so an ST-actor version of this suite would pass trivially
+ * without exercising anything. This is genuinely dead-for-players code now, not a test needing
+ * a different actor. Un-skip if the OOW gate is ever ported to whatever surface replaces this
+ * form, or if D6 is reversed.
  */
 
 const { test, expect } = require('@playwright/test');
@@ -91,7 +100,7 @@ async function openDtTab(page) {
 
 // ── AC1: Out-of-window override bypasses inner gate on prep cycle ─────────────
 
-test.describe('Issue #306 — AC1: OOW override on prep cycle', () => {
+test.describe.skip('Issue #306 — AC1: OOW override on prep cycle', () => {
 
   test('Form renders for character with out-of-window access on prep cycle', async ({ page }) => {
     await setup(page, { cycle: PREP_CYCLE_WITH_OOW });
@@ -117,7 +126,7 @@ test.describe('Issue #306 — AC1: OOW override on prep cycle', () => {
 
 // ── AC3: Regression — ungated character still blocked on prep cycle ───────────
 
-test.describe('Issue #306 — AC3: Ungated character still blocked on prep cycle', () => {
+test.describe.skip('Issue #306 — AC3: Ungated character still blocked on prep cycle', () => {
 
   test('No form and no submit button for character not in out_of_window_player_ids', async ({ page }) => {
     await setup(page, { cycle: PREP_CYCLE_NO_OOW });
@@ -146,7 +155,7 @@ test.describe('Issue #306 — AC3: Ungated character still blocked on prep cycle
 
 // ── AC4: Regression — active cycle passes all players regardless of OOW list ──
 
-test.describe('Issue #306 — AC4: Active cycle passes all players', () => {
+test.describe.skip('Issue #306 — AC4: Active cycle passes all players', () => {
 
   test('Form renders on active cycle even with empty out_of_window_player_ids', async ({ page }) => {
     await setup(page, { cycle: ACTIVE_CYCLE_306 });

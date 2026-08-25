@@ -5,8 +5,19 @@ import { esc } from '../data/helpers.js';
 import { renderDowntimeTab } from './downtime-form.js';
 import { renderOutcomeWithCards } from './story-tab.js';
 import { isSTRole, getUser } from '../auth/discord.js';
+import { FORM_RETIRED, RETIRED_NOTICE } from '../downtime/form-retirement.js';
 
 export async function initDowntimeTab(el, char, territories = []) {
+  // STs still get the normal tab \u2014 they need it to review/correct existing
+  // submissions filed before this cutover. See form-retirement.js for why.
+  if (FORM_RETIRED && !isSTRole()) {
+    el.innerHTML = `<div class="placeholder-msg dt-retired-notice">
+      <h3>${esc(RETIRED_NOTICE.title)}</h3>
+      ${RETIRED_NOTICE.body.map(p => `<p>${esc(p)}</p>`).join('')}
+    </div>`;
+    return;
+  }
+
   el.innerHTML = '<p class="placeholder-msg">Loading\u2026</p>';
 
   let cycles = [], subs = [];

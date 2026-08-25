@@ -13,6 +13,7 @@
 import editorState from './data/state.js';
 import { ICONS } from './data/icons.js';
 import { isFeedingOpen } from './downtime/db.js';
+import { FORM_RETIRED, RETIRED_TILE_REASON } from './downtime/form-retirement.js';
 import { CLAN_ICON_KEY, covIcon, displayName, dropdownName, sortName, redactPlayer, discordAvatarUrl, esc } from './data/helpers.js';
 import { renderList, filterList, setListLimit } from './editor/list.js';
 import { renderSheet as editorRenderSheet, toggleExp as editorToggleExp, toggleDisc as editorToggleDisc } from './editor/sheet.js';
@@ -2673,6 +2674,20 @@ function _updateSeasonalNav(activeCycle) {
   const isST = effectiveRole() === 'st' || effectiveRole() === 'dev';
   if (isST) {
     btn.style.display = '';
+    btn.classList.remove('nbtn-retired');
+    btn.removeAttribute('title');
+    return;
+  }
+  // Retired overrides the normal seasonal show/hide — visible but dimmed
+  // regardless of cycle state, rather than sometimes-hidden-sometimes-shown
+  // depending on season, which would be a confusing way to say "this form
+  // is gone". Still clickable: the tab itself shows the same notice, for
+  // the other entry points (the "Downtime due" lifecycle card) that bypass
+  // this button entirely.
+  if (FORM_RETIRED) {
+    btn.style.display = '';
+    btn.classList.add('nbtn-retired');
+    btn.title = RETIRED_TILE_REASON;
     return;
   }
   btn.style.display = activeCycle ? '' : 'none';

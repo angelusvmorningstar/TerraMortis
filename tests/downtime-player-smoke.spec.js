@@ -18,7 +18,9 @@ const { test, expect } = require('@playwright/test');
 
 const PLAYER_USER = {
   id: '987654321', username: 'test_player', global_name: 'Test Player',
-  avatar: null, role: 'player', player_id: 'p-dt-smoke',
+  // 2026-08-25 (D6): actor player->st - this form is retired for players (see
+  // public/js/downtime/form-retirement.js); ST still sees it unchanged.
+  avatar: null, role: 'st', player_id: 'p-dt-smoke',
   character_ids: ['char-dt-smoke'], is_dual_role: false,
 };
 
@@ -125,7 +127,15 @@ test.describe('Player DT form — Tab navigation', () => {
 
 test.describe('Player DT form — No active cycle', () => {
 
-  test('Shows a message or empty state when no cycle is open', async ({ page }) => {
+  // SKIPPED 2026-08-25 (D6): this test's own actor was moved player->st
+  // (file-level, see PLAYER_USER above) so the rest of this suite could keep
+  // exercising the form now that it's retired for players. But THIS
+  // assertion is specifically about the player-only "no active cycle" gate
+  // in downtime-tab.js (`isST ||` bypasses it entirely for STs), so an
+  // ST actor makes it fail for the wrong reason — not a form bug, just an
+  // inner gate STs were always meant to skip. Same shape as
+  // issue-306-dt-oow-inner-gate-fix.spec.js, which this test overlaps with.
+  test.skip('Shows a message or empty state when no cycle is open', async ({ page }) => {
     await setup(page, { cycle: null });
     await openDtTab(page);
     const dtPanel = page.locator('#t-downtime');

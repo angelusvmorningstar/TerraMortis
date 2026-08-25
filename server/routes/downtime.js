@@ -36,6 +36,9 @@ import { sendDowntimePublishedEmail } from '../helpers/email.js';
 // the tests (public/js/downtime/cycle-phase.js has no I/O and no browser
 // globals, so the server imports it directly).
 import { FEEDING_ONLY_FIELDS, openCycleVerdict } from '../../public/js/downtime/cycle-phase.js';
+// 2026-08-25: TM Game's own half of the D6 cross-repo decision (see that
+// module's own header). STs pass through unaffected.
+import { FORM_RETIRED } from '../../public/js/downtime/form-retirement.js';
 // cm-2b dual-read shim. See that module's header for the read/write contract.
 import {
   CHAPTER_FK,
@@ -54,6 +57,20 @@ function parseId(id) {
   } catch {
     return null;
   }
+}
+
+// D6: this form is retired for players (form-retirement.js). STs pass
+// through — they still need to correct/annotate submissions filed before
+// the cutover. A stable error code so the client can surface a clear
+// message rather than a generic failure.
+function requireFormNotRetiredForPlayers(req, res, next) {
+  if (FORM_RETIRED && req.user.role === 'player') {
+    return res.status(403).json({
+      error: 'FORM_RETIRED',
+      message: 'This form no longer accepts new downtime submissions. File on the sibling site instead.',
+    });
+  }
+  next();
 }
 
 // dt-form.17 (ADR-003 §Q11): hard server gate on submission edits when the
@@ -165,7 +182,7 @@ function _validatePoolSnapshots(obj, errors = []) {
 // responses blob is open-ended), so ajv would wave a stray `cycle_id` straight
 // through to the writer. The reason a caller needs is "you are running stale
 // code", which is a named refusal, not an unknown-property error.
-submissionsRouter.post('/', rejectLegacyChapterFk, validate(downtimeSubmissionSchema), async (req, res) => {
+submissionsRouter.post('/', requireFormNotRetiredForPlayers, rejectLegacyChapterFk, validate(downtimeSubmissionSchema), async (req, res) => {
   // STM-8 (issue #415): enforce pool_snapshot invariant on create too.
   // Resolution-time writes go via PUT so this path rarely has snapshots,
   // but a future bulk-import flow could send them here; cheaper to guard

@@ -10,7 +10,7 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import request from 'supertest';
 import 'dotenv/config';
 import { ObjectId } from 'mongodb';
-import { createTestApp, playerUser } from './helpers/test-app.js';
+import { createTestApp, stUser } from './helpers/test-app.js';
 import { setupDb, teardownDb } from './helpers/db-setup.js';
 import { getCollection } from '../db.js';
 
@@ -53,7 +53,9 @@ describe('Issue #24: DT submission round-trips personal_story free-text fields',
   it('accepts personal_story_npc_name + personal_story_note without schema rejection', async () => {
     const res = await request(app)
       .post('/api/downtime_submissions')
-      .set('X-Test-User', playerUser([CHAR_ID]))
+      // 2026-08-25 (D6): player POST creation is now gated (form-retirement.js);
+      // ST here is just the test's actor, not what this test is about.
+      .set('X-Test-User', stUser())
       .send({
         chapter_id: CYCLE_ID,
         character_id: CHAR_ID,
@@ -74,7 +76,9 @@ describe('Issue #24: DT submission round-trips personal_story free-text fields',
   it('accepts an empty personal_story (section skipped)', async () => {
     const res = await request(app)
       .post('/api/downtime_submissions')
-      .set('X-Test-User', playerUser([CHAR_ID]))
+      // 2026-08-25 (D6): player POST creation is now gated (form-retirement.js);
+      // ST here is just the test's actor, not what this test is about.
+      .set('X-Test-User', stUser())
       .send({
         chapter_id: CYCLE_ID,
         character_id: CHAR_ID,
@@ -97,7 +101,9 @@ describe('Issue #24: DT submission round-trips personal_story free-text fields',
     const relId = new ObjectId().toHexString();
     const res = await request(app)
       .post('/api/downtime_submissions')
-      .set('X-Test-User', playerUser([CHAR_ID]))
+      // 2026-08-25 (D6): player POST creation is now gated (form-retirement.js);
+      // ST here is just the test's actor, not what this test is about.
+      .set('X-Test-User', stUser())
       .send({
         chapter_id: CYCLE_ID,
         character_id: CHAR_ID,
