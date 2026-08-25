@@ -1,7 +1,7 @@
 ---
 id: dtui.21
 epic: dtui
-status: blocked
+status: will-not-implement
 priority: medium
 depends_on: []
 ---
@@ -12,11 +12,20 @@ As a player writing about my character's off-screen NPC interactions,
 I want my character's existing NPC correspondents to appear as selectable chips alongside the freetext,
 So that I can quickly tag known NPCs without retyping them every cycle.
 
-**STATUS: BLOCKED — this story conflicts with a later, deliberate, still-live product decision to keep
-all NPC/relationship data ST-only and out of player-facing pickers. No code has been implemented.
-See "Blocking conflict" below. This file exists to record the investigation and hand a clear decision
-point back to the ST team, per the project convention (dtui-20/dtui-23) of documenting a real
-discrepancy rather than guessing past it.**
+**STATUS: CLOSED — WILL NOT IMPLEMENT. Ruled by Angelus (2026-08-25):**
+
+> "NPCs are being handled entirely by TM Story. This is a data custody thing that's already been settled."
+
+**This is a cross-repo data-custody decision, not an internal feature-retirement question.**
+NPC/correspondent data belongs to **TM Story** (`../TM Story`, the sibling read-only companion-site
+repo — see the umbrella `CLAUDE.md` at `D:\Terra Mortis\CLAUDE.md`, "Repo topology"). TM Game does not
+own that data and will not build UI over it — not now, not later in this epic, regardless of which
+internal ADR or retirement story happens to be governing the DT form's NPC chrome at any given moment.
+FR4 is closed for this reason. The internal evidence chain this story originally surfaced (ADR-003,
+dt-form.18/.33, commit `8d12cede`) is kept below as supporting context — it happens to point the same
+direction (don't build this here) but it is no longer the *authoritative* reason. The authoritative
+reason is data custody: this data doesn't live in this repo, so no story in TM Game should be reading
+or rendering it, independent of whether TM Game's own internal NPC-suppression policy is ever revisited.
 
 ---
 
@@ -34,7 +43,15 @@ briefly did read from the relationships graph (NPCR-12, implemented 2026-04-24: 
 sourced from `GET /api/relationships/for-character/:myCharId`, grouped by kind family, including the
 `correspondent` relationship kind FR4 is presumably describing).
 
-### Blocking conflict — read this before touching any code
+### Supporting context — internal evidence chain (no longer the primary reason, kept for the record)
+
+The paragraphs below were this story's original finding, written before Angelus's data-custody ruling
+above. They document a genuine, separate internal conflict (TM Game's own ADR-003 policy vs. FR4) and
+remain useful background for anyone auditing the DT form's NPC-chrome history, but they are now
+secondary: even if TM Game's own internal NPC-suppression policy were reversed tomorrow, FR4 would
+still be closed, because the underlying data is not TM Game's to read or render at all — it is
+TM Story's. Do not read the rest of this section as "the blocker" — the blocker is the custody ruling
+above. This is "why the internal signals also happened to point the same way."
 
 **That relationship-backed picker was deliberately removed eight working days later, and the removal
 has not been reversed since.** This is not stale wording (the dtui-23 kind of gap, where the epic
@@ -121,32 +138,25 @@ chip-grid story picked up mechanically off the epic's FR coverage map.
 
 ---
 
-## Options for the ST team (not decided here)
+## Resolution
 
-1. **Defer FR4 entirely.** Treat it as superseded by ADR-003/dt-form.33 the same way dtui-23 found
-   FR7's premise already satisfied and FR9's rename already shipped — except in the opposite direction:
-   here the epic's ask has been actively un-shipped since it was scoped, not incidentally fulfilled.
-   Close dtui-21 as "will not implement" pending a fresh product decision, and correct the epic FR
-   coverage map to say so.
-2. **Re-open NPC-interaction policy for this one surface.** If the ST team wants correspondent chips
-   back specifically for Personal Story, that decision needs to happen explicitly (an ADR-003 revision
-   or a new short ADR), because it reverses `8d12cede`'s direct call and re-opens a route
-   (`for-character` or a scoped variant of it) that was deliberately deleted. Once that call is made,
-   this becomes a normal two-part story: (a) a player-scoped, correspondent-only read endpoint
-   (`GET /api/npcs/for-character/:characterId?is_correspondent=true` or similar, ST-authored NPCs only,
-   never a player's own quick-adds mixed in without thought), and (b) the `.dt-chip-grid` UI this
-   story's own title describes, multi-select, empty-state-safe (per AC2 in the epic's own Story 1.21
-   text) exactly as `dtui-20`/`dtui-11` already demonstrate the pattern for.
-3. **Narrower interpretation using only what's already exposed.** If the ST team wants *something*
-   shipped now without touching the ST-only boundary: the only NPC-adjacent data a player can already
-   reach is their own quick-added NPCs via `GET /api/npcs/directory` (NPCR-14). That endpoint's intent
-   is explicitly the Relationships tab, which is itself hidden from players — reusing it here for
-   Personal Story chips would be exposing a de-facto-hidden feature through a side door, which seems
-   like exactly the kind of workaround the nav-hide commit was trying to prevent. Flagged, not
-   recommended.
+Angelus ruled 2026-08-25 (quoted in full at the top of this file): NPC/correspondent data is owned and
+handled entirely by **TM Story**, per an already-settled cross-repo data-custody decision. This maps to
+what this story originally called "Option 1, defer FR4 entirely" — but the reasoning is sharper than a
+mere deferral: it is not that TM Game *could* build this later if its own internal policy changes, it is
+that TM Game **should not build UI over this data at all**, because the data does not belong to this
+repo. The two options this story originally floated for "bringing NPC chips back into TM Game" (re-open
+the internal suppression policy; reuse the existing quick-add-only directory endpoint) are both moot —
+neither would change which repo owns the data, so neither is a live path forward here regardless of
+TM Game-internal policy. If NPC-correspondent chips for Personal Story are ever wanted, that is a
+TM Story-side feature (or a TM Story-to-TM Game read integration explicitly scoped as such, which is a
+much larger cross-repo decision than a Wave 4 UI story), not something dtui-21 or any of its
+Wave-4 siblings should attempt.
 
-No option was picked unilaterally here. The epic's FR coverage map (`specs/epic-dtui-downtime-form-ux-refactor.md` FR4 row) should be updated once the ST team rules, so the next person to read the epic
-doesn't hit the same investigation from scratch.
+**Follow-up for whoever reopens the epic doc:** `specs/epic-dtui-downtime-form-ux-refactor.md`'s FR4 row
+has been updated (see that file directly) to record will-not-implement and this same custody reasoning,
+so the FR doesn't get mechanically re-picked-up off the coverage map without the context surfacing
+again.
 
 ---
 
@@ -158,9 +168,8 @@ None — no implementation was made. This story file is the only artefact this p
 
 ## Acceptance Criteria
 
-Not evaluated — implementation is blocked pending a product decision (see "Options for the ST team"
-above). The epic's own Story 1.21 ACs are reproduced here for reference only, unchanged from
-`specs/epic-dtui-downtime-form-ux-refactor.md`:
+Not evaluated — will not implement (see "Resolution" above). The epic's own Story 1.21 ACs are
+reproduced here for reference only, unchanged from `specs/epic-dtui-downtime-form-ux-refactor.md`:
 
 - AC1: a character with ≥1 NPC correspondent sees a `.dt-chip-grid` (multi-select) alongside the
   existing freetext when Personal Story renders.
@@ -175,10 +184,12 @@ above). The epic's own Story 1.21 ACs are reproduced here for reference only, un
 
 - [x] Investigation complete: the conflict between FR4 and the live ADR-003/dt-form.33/`8d12cede`
       product direction is documented with primary sources (ADR text, story files, commit hashes).
-- [ ] ST team has ruled on one of the three options above (or a fourth not listed here).
-- [ ] Once ruled, this story is either closed as "will not implement" (Option 1) or re-scoped with a
-      real endpoint + chip-grid implementation plan (Option 2/3) and re-opened as a normal dev pass.
-- No code changed. No tests run (nothing to test). No commit beyond this story file.
+- [x] Angelus ruled on the underlying cause (2026-08-25): data custody — NPC/correspondent data belongs
+      to TM Story, not TM Game. Quoted verbatim at the top of this file.
+- [x] Story closed as `will-not-implement`. Epic doc's FR4 coverage row updated to match. Sprint status
+      updated to `will-not-implement`.
+- No code changed. No tests run (nothing to test). No commit beyond doc updates (this story file, the
+  epic doc's FR4 row, `sprint-status.yaml`).
 
 ---
 
@@ -190,10 +201,10 @@ Not applicable — no UI or data-layer change was made.
 
 ## Dependencies and Ordering
 
-- **Blocked by:** a product decision from the ST team (see "Options" above), not by any other dtui
-  story. Wave 1 (`.dt-chip-grid`) is done and ready to consume whenever this unblocks.
+- **Closed, not blocked.** This is a terminal state, not a pending dependency — see "Resolution" above.
+  Nothing unblocks this story; it will not be picked up again under the dtui epic.
 - **Does not block:** dtui-22 (Mandragora/Vitae Projection) — confirmed disjoint, different section,
-  different files, running concurrently in a sibling worktree this session.
+  different files, ran concurrently in a sibling worktree this session.
 
 ---
 
@@ -227,6 +238,18 @@ No code was written. No branch scope beyond this file. `server/schemas/character
 checked and confirmed untouched/uncommitted in this worktree — left alone per this session's own
 instruction, unrelated to this investigation.
 
+**Closure (same session, follow-up turn):** the investigation above was handed to Angelus, who ruled
+the real cause is cross-repo data custody — NPC/correspondent data belongs to TM Story, not TM Game —
+which subsumes and sharpens the original internal-conflict finding rather than replacing it outright
+(the internal ADR-003/dt-form.33/`8d12cede` chain independently also argued against building this, but
+the custody ruling is now the authoritative reason regardless of that internal history). Story closed
+`will-not-implement`. Updated this file, `specs/epic-dtui-downtime-form-ux-refactor.md`'s FR4 coverage
+row, and `specs/stories/sprint-status.yaml`'s dtui-21 line to match, then committed doc-only.
+
 ### File List
 
-- `specs/stories/dtui-21-personal-story-npc-chips.story.md` — new (this file)
+- `specs/stories/dtui-21-personal-story-npc-chips.story.md` — new, then updated to closed
+  `will-not-implement` with Angelus's ruling
+- `specs/epic-dtui-downtime-form-ux-refactor.md` — FR4 coverage-map row updated to note
+  will-not-implement / data-custody reason
+- `specs/stories/sprint-status.yaml` — dtui-21 line updated to `will-not-implement`
