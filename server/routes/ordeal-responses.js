@@ -9,6 +9,7 @@ import { requireRole, isStRole } from '../middleware/auth.js';
 import { validate } from '../middleware/validate.js';
 import { ordealResponseSchema } from '../schemas/ordeal.schema.js';
 import { upsertOrdeal } from '../lib/ordeal-cascade.js';
+import { requireOrdealNotRetiredForPlayers } from '../middleware/ordeal-retirement.js';
 
 const router = Router();
 const col = () => getCollection('ordeal_responses');
@@ -59,7 +60,7 @@ router.get('/', async (req, res) => {
 });
 
 // POST /api/ordeal-responses — create a new response
-router.post('/', validate(ordealResponseSchema), async (req, res) => {
+router.post('/', requireOrdealNotRetiredForPlayers, validate(ordealResponseSchema), async (req, res) => {
   const { type, responses } = req.body;
   if (!type || !VALID_TYPES.includes(type)) {
     return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'Valid type required' });

@@ -39,10 +39,22 @@ describe('POST /api/ordeal-responses — create (issue #525)', () => {
     expect(res.status).toBe(401);
   });
 
-  it('creates a draft from { type, responses } (the request contract)', async () => {
+  // 2026-08-25: Ordeals retired for players (ordeal-retirement.js) — the rest of
+  // this describe block switched its actor to stUser so it keeps exercising the
+  // create contract; this is the regression guard for the new gate itself.
+  it('403s a player create — Ordeals retired, file on the sibling site', async () => {
     const res = await request(app)
       .post('/api/ordeal-responses')
       .set('X-Test-User', playerUser([]))
+      .send({ type: 'rules', responses: {} });
+    expect(res.status).toBe(403);
+    expect(res.body.error).toBe('ORDEAL_RETIRED');
+  });
+
+  it('creates a draft from { type, responses } (the request contract)', async () => {
+    const res = await request(app)
+      .post('/api/ordeal-responses')
+      .set('X-Test-User', stUser({ player_id: PLAYER_ID }))
       .send({ type: 'rules', responses: { q1: 'an answer' } });
     expect(res.status).toBe(201);
     expect(res.body.ordeal_type).toBe('rules');
@@ -54,7 +66,7 @@ describe('POST /api/ordeal-responses — create (issue #525)', () => {
   it('stores character_id from first of character_ids (issue #527 Task 1)', async () => {
     const res = await request(app)
       .post('/api/ordeal-responses')
-      .set('X-Test-User', playerUser(['char-abc-001', 'char-abc-002']))
+      .set('X-Test-User', stUser({ player_id: PLAYER_ID, character_ids: ['char-abc-001', 'char-abc-002'] }))
       .send({ type: 'lore', responses: {} });
     expect(res.status).toBe(201);
     expect(res.body.character_id).toBe('char-abc-001');
@@ -63,7 +75,7 @@ describe('POST /api/ordeal-responses — create (issue #525)', () => {
   it('stores character_id: null when player has no characters', async () => {
     const res = await request(app)
       .post('/api/ordeal-responses')
-      .set('X-Test-User', playerUser([]))
+      .set('X-Test-User', stUser({ player_id: PLAYER_ID }))
       .send({ type: 'covenant', responses: {} });
     expect(res.status).toBe(201);
     expect(res.body.character_id).toBeNull();
@@ -77,7 +89,7 @@ describe('POST /api/ordeal-responses — create (issue #525)', () => {
     try {
       const res = await request(app)
         .post('/api/ordeal-responses')
-        .set('X-Test-User', playerUser([]))  // session has no character_ids
+        .set('X-Test-User', stUser({ player_id: PLAYER_ID }))  // session has no character_ids
         .send({ type: 'lore' });
       expect(res.status).toBe(201);
       expect(String(res.body.character_id)).toBe(String(fakeCharId));
@@ -89,16 +101,16 @@ describe('POST /api/ordeal-responses — create (issue #525)', () => {
   it('rejects an invalid type', async () => {
     const res = await request(app)
       .post('/api/ordeal-responses')
-      .set('X-Test-User', playerUser([]))
+      .set('X-Test-User', stUser({ player_id: PLAYER_ID }))
       .send({ type: 'banana', responses: {} });
     expect(res.status).toBe(400);
   });
 
   it('409 on a duplicate create for the same type', async () => {
-    await request(app).post('/api/ordeal-responses').set('X-Test-User', playerUser([])).send({ type: 'lore', responses: {} });
+    await request(app).post('/api/ordeal-responses').set('X-Test-User', stUser({ player_id: PLAYER_ID })).send({ type: 'lore', responses: {} });
     const res = await request(app)
       .post('/api/ordeal-responses')
-      .set('X-Test-User', playerUser([]))
+      .set('X-Test-User', stUser({ player_id: PLAYER_ID }))
       .send({ type: 'lore', responses: {} });
     expect(res.status).toBe(409);
   });
@@ -106,7 +118,7 @@ describe('POST /api/ordeal-responses — create (issue #525)', () => {
   it('creates with responses defaulted to {} when omitted', async () => {
     const res = await request(app)
       .post('/api/ordeal-responses')
-      .set('X-Test-User', playerUser([]))
+      .set('X-Test-User', stUser({ player_id: PLAYER_ID }))
       .send({ type: 'rules' });
     expect(res.status).toBe(201);
     expect(res.body.responses).toEqual({});
@@ -127,7 +139,7 @@ describe('PUT /api/ordeal-responses/:id — ownership', () => {
   it('403 when a player edits another player\'s response', async () => {
     const created = await request(app)
       .post('/api/ordeal-responses')
-      .set('X-Test-User', playerUser([]))
+      .set('X-Test-User', stUser({ player_id: PLAYER_ID }))
       .send({ type: 'rules', responses: {} });
     expect(created.status).toBe(201);
 
@@ -143,7 +155,7 @@ describe('Ordeal response flow — submit + read back (issue #525)', () => {
   it('POST draft → PUT submit → GET round-trips', async () => {
     const created = await request(app)
       .post('/api/ordeal-responses')
-      .set('X-Test-User', playerUser([]))
+      .set('X-Test-User', stUser({ player_id: PLAYER_ID }))
       .send({ type: 'covenant', responses: { q1: 'draft' } });
     expect(created.status).toBe(201);
 
@@ -203,7 +215,7 @@ describe('GET /api/ordeal-responses/all — ST listing (issue #527)', () => {
   it('returns all submitted responses for an ST', async () => {
     const created = await request(app)
       .post('/api/ordeal-responses')
-      .set('X-Test-User', playerUser([]))
+      .set('X-Test-User', stUser({ player_id: PLAYER_ID }))
       .send({ type: 'rules', responses: { q1: 'answer' } });
     expect(created.status).toBe(201);
 
@@ -234,7 +246,7 @@ describe('PUT /api/ordeal-responses/:id — ST marking (issue #527)', () => {
   it('ST can save marking progress (in_progress)', async () => {
     const created = await request(app)
       .post('/api/ordeal-responses')
-      .set('X-Test-User', playerUser([]))
+      .set('X-Test-User', stUser({ player_id: PLAYER_ID }))
       .send({ type: 'lore', responses: { q1: 'an answer' } });
     expect(created.status).toBe(201);
 
@@ -255,7 +267,7 @@ describe('PUT /api/ordeal-responses/:id — ST marking (issue #527)', () => {
   it('ST marking complete sets xp_awarded:3 and marked_at', async () => {
     const created = await request(app)
       .post('/api/ordeal-responses')
-      .set('X-Test-User', playerUser([]))
+      .set('X-Test-User', stUser({ player_id: PLAYER_ID }))
       .send({ type: 'covenant', responses: { q1: 'my covenant answer' } });
     expect(created.status).toBe(201);
 
@@ -280,7 +292,7 @@ describe('PUT /api/ordeal-responses/:id — ST marking (issue #527)', () => {
   it('player cannot set marking data — field is silently ignored', async () => {
     const created = await request(app)
       .post('/api/ordeal-responses')
-      .set('X-Test-User', playerUser([]))
+      .set('X-Test-User', stUser({ player_id: PLAYER_ID }))
       .send({ type: 'rules', responses: {} });
     expect(created.status).toBe(201);
 

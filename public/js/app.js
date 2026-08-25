@@ -14,6 +14,7 @@ import editorState from './data/state.js';
 import { ICONS } from './data/icons.js';
 import { isFeedingOpen } from './downtime/db.js';
 import { FORM_RETIRED, RETIRED_TILE_REASON } from './downtime/form-retirement.js';
+import { ORDEALS_RETIRED, RETIRED_TILE_REASON as ORDEALS_RETIRED_REASON } from './ordeals/ordeal-retirement.js';
 import { CLAN_ICON_KEY, covIcon, displayName, dropdownName, sortName, redactPlayer, discordAvatarUrl, esc } from './data/helpers.js';
 import { renderList, filterList, setListLimit } from './editor/list.js';
 import { renderSheet as editorRenderSheet, toggleExp as editorToggleExp, toggleDisc as editorToggleDisc } from './editor/sheet.js';
@@ -445,8 +446,13 @@ function renderBottomNav() {
     }
     const dis = item.disabled ? ' nbtn-disabled' : '';
     const admin = (item.stOnly || item.coordinatorOnly) ? ' nbtn-admin-tier' : '';
+    // Ordeals moved to TM Story — dimmed but still clickable for players, same
+    // treatment as the seasonal Downtime button gets via _updateSeasonalNav.
+    const isRetired = !isST && item.id === 'ordeals' && ORDEALS_RETIRED;
+    const retired = isRetired ? ' nbtn-retired' : '';
+    const titleAttr = isRetired ? ` title="${esc(ORDEALS_RETIRED_REASON)}"` : '';
     const click = item.disabled ? '' : ` onclick="goTab('${item.goTab}')"`;
-    h += `<button class="nbtn${dis}${admin}" id="n-${item.id}"${click}>${item.icon}<span>${item.label}</span></button>`;
+    h += `<button class="nbtn${dis}${admin}${retired}" id="n-${item.id}"${click}${titleAttr}>${item.icon}<span>${item.label}</span></button>`;
   }
   el.innerHTML = h;
 
@@ -1952,13 +1958,15 @@ const MORE_APPS = [
   { id: 'office-approvals', label: 'Approval Queue', icon: '<svg viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>', section: 'st', stOnly: true },
   // ── Player section (player role only) ──
   { id: 'downtime',      label: 'Downtime',    icon: _svg.dtSubmit, section: 'player',
+    retired: () => FORM_RETIRED, retiredReason: RETIRED_TILE_REASON,
     badge: () => {
       const sub = _lifecycleCache?.mySubmission;
       if (!sub?.published_outcome) return false;
       return String(sub._id) !== localStorage.getItem('tm-last-viewed-sub');
     }
   },
-  { id: 'ordeals',      label: 'Ordeals',     icon: _svg.ordeals,  section: 'player' },
+  { id: 'ordeals',      label: 'Ordeals',     icon: _svg.ordeals,  section: 'player',
+    retired: () => ORDEALS_RETIRED, retiredReason: ORDEALS_RETIRED_REASON },
   // crd.2 — the defender's own pending contested-roll queue. Deliberately a
   // More-grid tile and NOT a bottom-nav item: it is something a player checks
   // on their own terms, which is the whole point of replacing the modal that
@@ -2228,7 +2236,12 @@ function renderMoreGrid() {
     const hasBadge = typeof app.badge === 'function' && app.badge();
     const badgeDot = hasBadge ? '<span class="nav-badge visible"></span>' : '';
     const admin = (app.stOnly || app.coordinatorOnly) ? ' more-app-admin-tier' : '';
-    return `<button class="more-app-icon${admin}" data-app="${app.id}" onclick="goTab('${app.id}')">` +
+    // Retired features (Downtime, Ordeals — moved to TM Story) stay visible but
+    // dimmed for players; STs bypass this, same as the tab body they lead to.
+    const isRetired = !isST && typeof app.retired === 'function' && app.retired();
+    const retired = isRetired ? ' more-app-retired' : '';
+    const titleAttr = isRetired ? ` title="${esc(app.retiredReason || '')}"` : '';
+    return `<button class="more-app-icon${admin}${retired}" data-app="${app.id}" onclick="goTab('${app.id}')"${titleAttr}>` +
       `<span class="more-app-icon-svg">${app.icon}</span>` +
       `<span class="more-app-label">${app.label}</span>` +
       badgeDot +
@@ -2393,6 +2406,7 @@ function renderDesktopSidebar() {
 
   const currentTab = document.querySelector('.tab.active')?.id?.replace('t-', '') || 'roll';
   const isActive = (id) => id === currentTab || (id === 'chars' && ['chars','sheets','editor'].includes(currentTab));
+  const isSTHere = effectiveRole() === 'st' || effectiveRole() === 'dev';
 
   // Primary tabs prepended to Game section — Roll/Sheet/Status are first game items
   const primaryTabs = [
@@ -2432,7 +2446,12 @@ function renderDesktopSidebar() {
     for (const app of sectionApps) {
       const on = isActive(app.id) ? ' on' : '';
       const admin = (app.stOnly || app.coordinatorOnly) ? ' sidebar-app-tile-admin' : '';
-      h += `<button class="sidebar-app-tile${on}${admin}" onclick="goTab('${app.id}')" title="${app.label}">`;
+      // Retired features (Downtime, Ordeals — moved to TM Story) stay visible but
+      // dimmed for players; STs bypass this, same as the tab body they lead to.
+      const isRetired = !isSTHere && typeof app.retired === 'function' && app.retired();
+      const retired = isRetired ? ' sidebar-app-tile-retired' : '';
+      const titleText = isRetired ? (app.retiredReason || app.label) : app.label;
+      h += `<button class="sidebar-app-tile${on}${admin}${retired}" onclick="goTab('${app.id}')" title="${esc(titleText)}">`;
       h += `<span class="sidebar-app-tile-icon">${app.icon}</span>`;
       h += `<span class="sidebar-app-tile-label">${app.label}</span>`;
       h += `</button>`;
