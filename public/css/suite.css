@@ -1907,29 +1907,34 @@ body.desktop-mode.sidebar-collapsed .sb-collapse-btn { width: 100%; justify-cont
   gap: 6px;
   padding: 4px 10px 8px;
 }
-/* Nav-tile cross-app normalisation (design-token-port.md, agreed 2026-08-21 against
-   TM Admin's own .icon-tile) -- applied here, TM Game's outstanding half. Tile SIZE
-   deliberately stays different (layout-driven: TM Game's 3-column ~64px tiles vs TM
-   Admin's 96px single-column rail); everything else matches. The 10px label is a
-   deliberate, narrow exception to gdx-2's 12px/11px player-surface floor (issue #983)
-   -- an icon-adjacent micro-label, not body text, and the cross-app spec was agreed
-   the day after that floor landed without the two ever being reconciled until now. */
+/* Nav-tile canonical port from ../../shared-nav-rail.css (umbrella root, canonical
+   source for all three apps' rails -- written 2026-08-22, revised three times same day
+   after direct Angelus correction). That file's own values, not design-token-port.md's
+   "agreed" table -- that table named 22px icon / --type-size-micro (10px) / --surf,
+   none of which TM Story or TM Admin actually ship; PR #1215 (2026-08-25) applied that
+   wrong table and made this WORSE, not better. Icon 18px, label literal 8px/700/.04em
+   (deliberately not a token -- no token in the scale equals 8px), background --surf2:
+   these are TM Story's/TM Admin's real, measured values, confirmed identical in both
+   apps' live CSS 2026-08-25. The 8px label sits below gdx-2's 11px micro-label floor
+   (issue #983) -- a deliberate, already-decided exception for this one icon-adjacent
+   component (shared-nav-rail.css post-dates gdx-2 and carries Angelus's own corrections
+   throughout its revision history), not an oversight. */
 .sidebar-app-tile {
   display: flex; flex-direction: column; align-items: center; justify-content: center;
   gap: 4px; padding: 8px 4px; aspect-ratio: 1;
-  background: var(--surf); border: 1px solid var(--bdr); border-radius: var(--radius-md);
+  background: var(--surf2); border: 1px solid var(--bdr); border-radius: var(--radius-md);
   cursor: pointer; transition: background .15s, border-color .15s; width: 100%;
   position: relative; min-width: 0; overflow: hidden;
 }
 .sidebar-app-tile:hover { background: var(--surf3); border-color: var(--bdr2); }
 .sidebar-app-tile.on { background: var(--accent-a8); border-color: var(--accent-a40); }
 .sidebar-app-tile-icon { display: flex; align-items: center; justify-content: center; }
-.sidebar-app-tile-icon svg { width: 22px; height: 22px; stroke: var(--txt2); fill: none; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
+.sidebar-app-tile-icon svg { width: 18px; height: 18px; stroke: var(--txt2); fill: none; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
 .sidebar-app-tile.on .sidebar-app-tile-icon svg { stroke: var(--accent); }
 .sidebar-app-tile:hover .sidebar-app-tile-icon svg { stroke: var(--txt); }
 .sidebar-app-tile-label {
-  font-family: var(--fl); font-size:var(--type-size-micro); font-weight: var(--type-weight-strong);
-  letter-spacing: var(--type-letter-spacing-label); text-transform: uppercase; color: var(--txt3);
+  font-family: var(--fl); font-size: 8px; font-weight: 700;
+  letter-spacing: .04em; text-transform: uppercase; color: var(--txt3);
   text-align: center; line-height: 1.1;
 }
 .sidebar-app-tile.on .sidebar-app-tile-label { color: var(--accent); }
