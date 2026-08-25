@@ -3147,6 +3147,7 @@ function renderForm(container) {
       const selectedCount = grid ? grid.querySelectorAll('.dt-chip--selected').length : 0;
       if (!alreadySelected && selectedCount >= 3) return; // AC4: a 4th pick is ignored
       shoutoutChip.classList.toggle('dt-chip--selected');
+      shoutoutChip.setAttribute('aria-checked', String(!alreadySelected));
       if (grid && hidden) {
         const ids = [...grid.querySelectorAll('.dt-chip--selected')].map(el => el.dataset.charId);
         hidden.value = JSON.stringify(ids);
@@ -7113,7 +7114,7 @@ function renderQuestion(q, value) {
         const isSelected = selectedIds.has(id);
         const disabledAttr = isAttendee ? '' : ' disabled aria-disabled="true" title="Wasn\'t at last game session"';
         const selectedClass = isSelected ? ' dt-chip--selected' : '';
-        h += `<button type="button" class="dt-chip${selectedClass}"${disabledAttr} data-shoutout-chip data-char-id="${esc(id)}">${esc(c.name)}</button>`;
+        h += `<button type="button" class="dt-chip${selectedClass}" role="checkbox" aria-checked="${isSelected}"${disabledAttr} data-shoutout-chip data-char-id="${esc(id)}">${esc(c.name)}</button>`;
       }
       h += '</div>';
       h += '<p class="qf-desc dt-shoutout-limit-hint">Up to 3 picks. A 4th will be ignored.</p>';

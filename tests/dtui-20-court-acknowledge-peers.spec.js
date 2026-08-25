@@ -187,12 +187,15 @@ test.describe('dtui-20 — Court Acknowledge Peers chip grid', () => {
 
     const alice = chip(page, 'char-alice');
     await expect(alice).not.toHaveClass(/dt-chip--selected/);
+    await expect(alice).toHaveAttribute('aria-checked', 'false');
     await alice.click();
     await expect(alice).toHaveClass(/dt-chip--selected/);
+    await expect(alice).toHaveAttribute('aria-checked', 'true');
     await expect(hiddenInput(page)).toHaveValue(JSON.stringify(['char-alice']));
 
     await alice.click();
     await expect(alice).not.toHaveClass(/dt-chip--selected/);
+    await expect(alice).toHaveAttribute('aria-checked', 'false');
     await expect(hiddenInput(page)).toHaveValue(JSON.stringify([]));
   });
 
@@ -234,5 +237,10 @@ test.describe('dtui-20 — Court Acknowledge Peers chip grid', () => {
 
     await expect(chip(page, 'char-charlie')).toHaveClass(/dt-chip--selected/);
     await expect(chip(page, 'char-charlie')).toBeDisabled();
+
+    // The restored hidden input must carry both picks forward untouched, not
+    // just the visible chip classes (Codex review, Low finding).
+    const restored = JSON.parse(await hiddenInput(page).inputValue());
+    expect(restored.sort()).toEqual(['char-bob', 'char-charlie'].sort());
   });
 });

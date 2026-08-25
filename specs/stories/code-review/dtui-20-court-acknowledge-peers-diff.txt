@@ -1,0 +1,373 @@
+diff --git a/public/js/tabs/downtime-form.js b/public/js/tabs/downtime-form.js
+index 0a6e2b65..062d2d36 100644
+--- a/public/js/tabs/downtime-form.js
++++ b/public/js/tabs/downtime-form.js
+@@ -1838,23 +1838,9 @@ function _writeHidden(hiddenId, value) {
+ }
+ 
+ function _makeCharPickerOnChange(site, hiddenId, cardinality) {
+-  if (site === 'shoutout') {
+-    // 3-pick cap preserved from prior behaviour. Locked picker signature has
+-    // no max-N parameter, so over-cap selections are reverted by remounting
+-    // the picker with the trimmed list.
+-    return (next) => {
+-      const arr = Array.isArray(next) ? next : [];
+-      if (arr.length > 3) {
+-        const trimmed = arr.slice(0, 3);
+-        _writeHidden(hiddenId, JSON.stringify(trimmed));
+-        scheduleSave();
+-        _remountShoutoutPicker(trimmed);
+-        return;
+-      }
+-      _writeHidden(hiddenId, JSON.stringify(arr));
+-      scheduleSave();
+-    };
+-  }
++  // dtui-20: the 'shoutout' site (Court "Acknowledge Peers") no longer mounts
++  // through the generic charPicker system - it's a .dt-chip-grid now, with
++  // its own delegated click handler (see the [data-shoutout-chip] branch).
+   if (cardinality === 'multi') {
+     return (next) => {
+       const arr = Array.isArray(next) ? next : [];
+@@ -1868,25 +1854,6 @@ function _makeCharPickerOnChange(site, hiddenId, cardinality) {
+   };
+ }
+ 
+-function _remountShoutoutPicker(trimmed) {
+-  const cur = document.querySelector('[data-cp-mounted-site="shoutout"]');
+-  if (!cur) return;
+-  const hiddenId = cur.dataset.cpMountedHidden || '';
+-  const placeholderText = cur.dataset.cpMountedPlaceholder || '';
+-  const fresh = charPicker({
+-    scope: 'attendees',
+-    cardinality: 'multi',
+-    initial: trimmed,
+-    onChange: _makeCharPickerOnChange('shoutout', hiddenId, 'multi'),
+-    placeholder: placeholderText,
+-    excludeIds: [],
+-  });
+-  fresh.dataset.cpMountedSite = 'shoutout';
+-  if (hiddenId) fresh.dataset.cpMountedHidden = hiddenId;
+-  if (placeholderText) fresh.dataset.cpMountedPlaceholder = placeholderText;
+-  cur.replaceWith(fresh);
+-}
+-
+ // dt-form.17 (ADR-003 §Q1, §Q2): MINIMAL vs ADVANCED mode gate.
+ // Sections in MINIMAL_SECTIONS render in both modes; everything else is
+ // hidden in MINIMAL (per ADR §Q2 lock — "not rendered, not just display:none").
+@@ -3163,8 +3130,30 @@ function renderForm(container) {
+       scheduleSave();
+       return;
+     }
+-    // dt-form.16: shoutout chip handler removed — universal charPicker mounted
+-    // in the shoutout_picks case handles selection and 3-pick cap via remount.
++    // dtui-20 (FR3): Court "Acknowledge Peers" chip grid. Multi-select, up to
++    // 3 — the first multi-select .dt-chip-grid in this file, so this toggle
++    // logic is new (every other .dt-chip-grid consumer here is single-select
++    // and just swaps which one chip carries dt-chip--selected). Disabled
++    // (non-attendee) chips never reach this handler — the browser doesn't
++    // fire click on a real `disabled` button — so no explicit disabled check
++    // is needed here beyond what the `!shoutoutChip.disabled` guard already
++    // gives belt-and-braces.
++    const shoutoutChip = e.target.closest('[data-shoutout-chip]');
++    if (shoutoutChip && !shoutoutChip.disabled) {
++      const grid = shoutoutChip.closest('[data-shoutout-grid]');
++      const key = grid?.dataset.shoutoutGrid;
++      const hidden = key ? document.getElementById(`dt-${key}`) : null;
++      const alreadySelected = shoutoutChip.classList.contains('dt-chip--selected');
++      const selectedCount = grid ? grid.querySelectorAll('.dt-chip--selected').length : 0;
++      if (!alreadySelected && selectedCount >= 3) return; // AC4: a 4th pick is ignored
++      shoutoutChip.classList.toggle('dt-chip--selected');
++      if (grid && hidden) {
++        const ids = [...grid.querySelectorAll('.dt-chip--selected')].map(el => el.dataset.charId);
++        hidden.value = JSON.stringify(ids);
++      }
++      scheduleSave();
++      return;
++    }
+ 
+     const sphereCharChip = e.target.closest('[data-sphere-char-target]');
+     if (sphereCharChip && !sphereCharChip.disabled) {
+@@ -7106,19 +7095,27 @@ function renderQuestion(q, value) {
+       break;
+ 
+     case 'shoutout_picks': {
+-      // Universal char picker (ADR-003 §Q6) — site #4 (attendees scope, multi).
+-      // Max-3 cap preserved via consumer-side onChange (see _makeCharPickerOnChange).
++      // dtui-20 (FR3): .dt-chip-grid over the full roster, non-attendees
++      // visibly disabled (not excluded from a search box, which is what the
++      // old charPicker(scope:'attendees') combobox did — see the story's own
++      // Context section for why that didn't satisfy FR3). First multi-select
++      // .dt-chip-grid in this file; see the delegated click handler below for
++      // the toggle-and-cap logic no existing single-select grid needed.
+       let picks = [];
+       if (value) { try { picks = JSON.parse(value); } catch { /* ignore */ } }
+-      const initialIds = picks.map(String).filter(Boolean);
+-      const initialJson = esc(JSON.stringify(initialIds));
+-      const savedJson = esc(JSON.stringify(initialIds));
+-      h += `<input type="hidden" id="dt-${esc(q.key)}" value="${savedJson}">`;
+-      h += `<div data-cp-mount data-cp-site="shoutout"`
+-         + ` data-cp-scope="attendees" data-cp-cardinality="multi"`
+-         + ` data-cp-hidden="dt-${esc(q.key)}"`
+-         + ` data-cp-initial="${initialJson}"`
+-         + ` data-cp-placeholder="Pick up to 3 attendees"></div>`;
++      const selectedIds = new Set(picks.map(String).filter(Boolean));
++      const attendeeIds = new Set(lastGameAttendees.map(a => String(a.id)));
++      h += `<input type="hidden" id="dt-${esc(q.key)}" value="${esc(JSON.stringify([...selectedIds]))}">`;
++      h += `<div class="dt-chip-grid" role="group" aria-label="Acknowledge peers" data-shoutout-grid="${esc(q.key)}">`;
++      for (const c of allCharacters) {
++        const id = String(c.id);
++        const isAttendee = attendeeIds.has(id);
++        const isSelected = selectedIds.has(id);
++        const disabledAttr = isAttendee ? '' : ' disabled aria-disabled="true" title="Wasn\'t at last game session"';
++        const selectedClass = isSelected ? ' dt-chip--selected' : '';
++        h += `<button type="button" class="dt-chip${selectedClass}"${disabledAttr} data-shoutout-chip data-char-id="${esc(id)}">${esc(c.name)}</button>`;
++      }
++      h += '</div>';
+       h += '<p class="qf-desc dt-shoutout-limit-hint">Up to 3 picks. A 4th will be ignored.</p>';
+       break;
+     }
+diff --git a/tests/dtui-20-court-acknowledge-peers.spec.js b/tests/dtui-20-court-acknowledge-peers.spec.js
+new file mode 100644
+index 00000000..45d223c8
+--- /dev/null
++++ b/tests/dtui-20-court-acknowledge-peers.spec.js
+@@ -0,0 +1,238 @@
++/**
++ * E2E coverage for dtui-20 (FR3) — Court "Acknowledge Peers" chip grid.
++ *
++ * Covers:
++ *   - AC1: all roster characters render as .dt-chip inside .dt-chip-grid (no
++ *     search box/combobox)
++ *   - AC2: non-attendees are visibly disabled (disabled + aria-disabled + title)
++ *   - AC3: attendee chips toggle selected on/off and sync the hidden input
++ *   - AC4: the 3-pick cap ignores a 4th selection
++ *   - AC5: an empty attendance response falls back to "everyone enabled"
++ *   - AC6: a saved selection restores, including a pick who is no longer an
++ *     attendee this cycle (stays selected AND disabled)
++ *
++ * Test approach mirrors tests/dt-vitae-projection.spec.js: mount
++ * renderDowntimeTab() into a sandbox div directly, bypassing the app's own
++ * character-picker chrome. The Court section is gated on `attended: 'yes'`
++ * (see /api/attendance mock), so every scenario here is an attendee of the
++ * game session being asked about, by construction.
++ */
++
++const { test, expect } = require('@playwright/test');
++
++const PLAYER_USER = {
++  id: '987654322',
++  username: 'test_player_dtui20',
++  global_name: 'Test Player DTUI20',
++  avatar: null,
++  role: 'player',
++  player_id: 'p-dtui20',
++  character_ids: ['char-self'],
++  is_dual_role: false,
++};
++
++const ACTIVE_CYCLE = {
++  _id: 'cycle-dtui20',
++  status: 'active',
++  label: 'Test Cycle',
++  feeding_rights_confirmed: true,
++  is_chapter_finale: false,
++  created_at: '2026-08-25T00:00:00.000Z',
++};
++
++function buildChar(overrides = {}) {
++  return {
++    _id: 'char-self',
++    name: 'Self Subject',
++    moniker: null,
++    honorific: null,
++    clan: 'Mekhet',
++    covenant: 'Invictus',
++    player: 'Test Player DTUI20',
++    blood_potency: 1,
++    humanity: 7,
++    humanity_base: 7,
++    court_title: null,
++    retired: false,
++    status: { city: 0, clan: 0, covenant: {} },
++    attributes: {
++      Intelligence: { dots: 2, bonus: 0 }, Wits: { dots: 2, bonus: 0 }, Resolve: { dots: 2, bonus: 0 },
++      Strength: { dots: 2, bonus: 0 }, Dexterity: { dots: 2, bonus: 0 }, Stamina: { dots: 2, bonus: 0 },
++      Presence: { dots: 2, bonus: 0 }, Manipulation: { dots: 2, bonus: 0 }, Composure: { dots: 2, bonus: 0 },
++    },
++    skills: {},
++    disciplines: {},
++    merits: [],
++    powers: [],
++    ordeals: [],
++    ...overrides,
++  };
++}
++
++// Five other characters — Alice/Bob/Dana/Eve attended, Charlie did not.
++const OTHER_CHARS = [
++  { _id: 'char-alice', name: 'Alice Vunder', moniker: null, player: 'p-a' },
++  { _id: 'char-bob', name: 'Bob Smith', moniker: null, player: 'p-b' },
++  { _id: 'char-charlie', name: 'Charlie Doe', moniker: null, player: 'p-c' },
++  { _id: 'char-dana', name: 'Dana Reyes', moniker: null, player: 'p-d' },
++  { _id: 'char-eve', name: 'Eve Okafor', moniker: null, player: 'p-e' },
++];
++const ATTENDEE_IDS = ['char-alice', 'char-bob', 'char-dana', 'char-eve']; // Charlie did not attend
++
++async function setupSuite(page, char, { attendees = ATTENDEE_IDS, priorResponses = null } = {}) {
++  await page.addInitScript((u) => {
++    localStorage.removeItem('tm-mode');
++    localStorage.setItem('tm_auth_token', 'fake-test-token');
++    localStorage.setItem('tm_auth_expires', String(Date.now() + 36000000));
++    localStorage.setItem('tm_auth_user', JSON.stringify(u));
++  }, PLAYER_USER);
++
++  await page.route('**/api/**', r =>
++    r.fulfill({ status: 200, contentType: 'application/json', body: '[]' })
++  );
++  await page.route('**/api/auth/me', r =>
++    r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(PLAYER_USER) })
++  );
++  await page.route(/\/api\/characters$/, r =>
++    r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([char]) })
++  );
++  await page.route(/\/api\/characters\/char-self$/, r =>
++    r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(char) })
++  );
++  // allCharacters source (downtime-form.js:1571-1579) — full roster minus self.
++  await page.route('**/api/characters/names', r =>
++    r.fulfill({
++      status: 200, contentType: 'application/json',
++      body: JSON.stringify([{ _id: char._id, name: char.name }, ...OTHER_CHARS]),
++    })
++  );
++  await page.route('**/api/chapters', r =>
++    r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([ACTIVE_CYCLE]) })
++  );
++  // lastGameAttendees source (downtime-form.js:1558-1568).
++  await page.route(/\/api\/attendance/, r =>
++    r.fulfill({
++      status: 200, contentType: 'application/json',
++      body: JSON.stringify({
++        attended: true,
++        attendees: attendees.map(id => ({ id, name: OTHER_CHARS.find(c => c._id === id)?.name || id })),
++        session_id: 'sess-dtui20',
++      }),
++    })
++  );
++  // Prior submission (AC6) — omit route entirely (falls through to the
++  // catch-all '[]') when priorResponses is null.
++  if (priorResponses) {
++    await page.route(/\/api\/downtime_submissions\?chapter_id=/, r =>
++      r.fulfill({
++        status: 200, contentType: 'application/json',
++        body: JSON.stringify([{ _id: 'sub-dtui20', character_id: char._id, chapter_id: ACTIVE_CYCLE._id, responses: priorResponses }]),
++      })
++    );
++  }
++
++  await page.goto('/');
++  await page.waitForSelector('#app', { state: 'visible', timeout: 15000 });
++}
++
++async function openCourtSection(page, char) {
++  await page.evaluate(async (c) => {
++    const sandbox = document.createElement('div');
++    sandbox.id = 'dt-sandbox';
++    sandbox.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:#000;z-index:99999;overflow:auto;';
++    document.body.appendChild(sandbox);
++    const mod = await import('/js/tabs/downtime-form.js');
++    await mod.renderDowntimeTab(sandbox, c, []);
++  }, char);
++  await page.waitForSelector('#dt-sandbox .qf-section[data-section-key="court"]', { timeout: 10000 });
++  await page.locator('#dt-sandbox .qf-section[data-section-key="court"] .qf-section-title').click();
++  await expect(page.locator('#dt-sandbox .qf-section[data-section-key="court"]')).not.toHaveClass(/collapsed/);
++}
++
++const sb = (page) => page.locator('#dt-sandbox');
++const grid = (page) => sb(page).locator('[data-shoutout-grid]');
++const chip = (page, id) => grid(page).locator(`[data-shoutout-chip][data-char-id="${id}"]`);
++const hiddenInput = (page) => sb(page).locator('#dt-rp_shoutout');
++
++test.describe('dtui-20 — Court Acknowledge Peers chip grid', () => {
++  test('AC1: every roster character renders as a chip inside .dt-chip-grid, no search box', async ({ page }) => {
++    const char = buildChar();
++    await setupSuite(page, char);
++    await openCourtSection(page, char);
++
++    await expect(grid(page)).toBeVisible();
++    for (const c of OTHER_CHARS) {
++      await expect(chip(page, c._id)).toHaveText(c.name);
++    }
++    await expect(grid(page).locator('[data-shoutout-chip]')).toHaveCount(OTHER_CHARS.length);
++    // No combobox/search input for this question.
++    await expect(sb(page).locator('[data-cp-site="shoutout"]')).toHaveCount(0);
++  });
++
++  test('AC2: Charlie (non-attendee) is disabled with a reason', async ({ page }) => {
++    const char = buildChar();
++    await setupSuite(page, char);
++    await openCourtSection(page, char);
++
++    const charlie = chip(page, 'char-charlie');
++    await expect(charlie).toBeDisabled();
++    await expect(charlie).toHaveAttribute('aria-disabled', 'true');
++    await expect(charlie).toHaveAttribute('title', /last game session/i);
++  });
++
++  test('AC3: clicking an attendee toggles selection and syncs the hidden input', async ({ page }) => {
++    const char = buildChar();
++    await setupSuite(page, char);
++    await openCourtSection(page, char);
++
++    const alice = chip(page, 'char-alice');
++    await expect(alice).not.toHaveClass(/dt-chip--selected/);
++    await alice.click();
++    await expect(alice).toHaveClass(/dt-chip--selected/);
++    await expect(hiddenInput(page)).toHaveValue(JSON.stringify(['char-alice']));
++
++    await alice.click();
++    await expect(alice).not.toHaveClass(/dt-chip--selected/);
++    await expect(hiddenInput(page)).toHaveValue(JSON.stringify([]));
++  });
++
++  test('AC4: a 4th pick is ignored once 3 attendees are selected', async ({ page }) => {
++    const char = buildChar();
++    await setupSuite(page, char);
++    await openCourtSection(page, char);
++
++    await chip(page, 'char-alice').click();
++    await chip(page, 'char-bob').click();
++    await chip(page, 'char-dana').click();
++    await expect(hiddenInput(page)).toHaveValue(JSON.stringify(['char-alice', 'char-bob', 'char-dana']));
++
++    // Eve is a genuine attendee (enabled) — but the cap must still ignore her.
++    await chip(page, 'char-eve').click();
++    await expect(chip(page, 'char-eve')).not.toHaveClass(/dt-chip--selected/);
++    await expect(hiddenInput(page)).toHaveValue(JSON.stringify(['char-alice', 'char-bob', 'char-dana']));
++  });
++
++  test('AC5: an empty attendee list enables every chip (fallback preserved)', async ({ page }) => {
++    const char = buildChar();
++    await setupSuite(page, char, { attendees: [] });
++    await openCourtSection(page, char);
++
++    for (const c of OTHER_CHARS) {
++      await expect(chip(page, c._id)).toBeEnabled();
++    }
++  });
++
++  test('AC6: a saved selection restores, including a pick who is no longer an attendee', async ({ page }) => {
++    const char = buildChar();
++    // Bob is a current attendee; Charlie was picked previously but did not
++    // attend this cycle's game session.
++    await setupSuite(page, char, { priorResponses: { rp_shoutout: JSON.stringify(['char-bob', 'char-charlie']) } });
++    await openCourtSection(page, char);
++
++    await expect(chip(page, 'char-bob')).toHaveClass(/dt-chip--selected/);
++    await expect(chip(page, 'char-bob')).toBeEnabled();
++
++    await expect(chip(page, 'char-charlie')).toHaveClass(/dt-chip--selected/);
++    await expect(chip(page, 'char-charlie')).toBeDisabled();
++  });
++});
