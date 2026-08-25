@@ -8,6 +8,7 @@ import { getCollection } from '../db.js';
 import { requireRole, isStRole } from '../middleware/auth.js';
 import { validate } from '../middleware/validate.js';
 import { ordealResponseSchema } from '../schemas/ordeal.schema.js';
+import { upsertOrdeal } from '../lib/ordeal-cascade.js';
 
 const router = Router();
 const col = () => getCollection('ordeal_responses');
@@ -34,16 +35,7 @@ async function cascadePlayerOrdealXp(playerId, ordealName) {
 
   const now = new Date().toISOString();
   for (const charId of player.character_ids) {
-    const upd = await chars.updateOne(
-      { _id: charId, 'ordeals.name': ordealName },
-      { $set: { 'ordeals.$.complete': true, 'ordeals.$.approved_at': now } }
-    );
-    if (upd.matchedCount === 0) {
-      await chars.updateOne(
-        { _id: charId },
-        { $push: { ordeals: { name: ordealName, complete: true, approved_at: now } } }
-      );
-    }
+    await upsertOrdeal(chars, charId, ordealName, now);
   }
 }
 

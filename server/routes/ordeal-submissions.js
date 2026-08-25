@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { ObjectId } from 'mongodb';
 import { getCollection } from '../db.js';
 import { requireRole } from '../middleware/auth.js';
+import { upsertOrdeal } from '../lib/ordeal-cascade.js';
 
 const router = Router();
 const col  = () => getCollection('ordeal_submissions');
@@ -29,32 +30,19 @@ async function cascadeComplete(submission) {
   const players = getCollection('players');
   const now     = new Date().toISOString();
 
-  const upsertOrdeal = async (charId) => {
-    const upd = await chars.updateOne(
-      { _id: charId, 'ordeals.name': ordealName },
-      { $set: { 'ordeals.$.complete': true, 'ordeals.$.approved_at': now } }
-    );
-    if (upd.matchedCount === 0) {
-      await chars.updateOne(
-        { _id: charId },
-        { $push: { ordeals: { name: ordealName, complete: true, approved_at: now } } }
-      );
-    }
-  };
-
   if (submission.ordeal_type === 'character_history') {
     // Character-level: only that character
-    if (submission.character_id) await upsertOrdeal(submission.character_id);
+    if (submission.character_id) await upsertOrdeal(chars, submission.character_id, ordealName, now);
   } else {
     // Player-level: all of that player's characters
     if (submission.player_id) {
       const player = await players.findOne({ _id: submission.player_id });
       for (const charId of (player?.character_ids || [])) {
-        await upsertOrdeal(charId);
+        await upsertOrdeal(chars, charId, ordealName, now);
       }
     } else if (submission.character_id) {
       // Imported submissions (Google Forms) have no player_id — fall back to character directly
-      await upsertOrdeal(submission.character_id);
+      await upsertOrdeal(chars, submission.character_id, ordealName, now);
     }
   }
 }
