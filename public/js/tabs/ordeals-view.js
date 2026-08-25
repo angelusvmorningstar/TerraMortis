@@ -14,6 +14,8 @@ import { renderOrdealForm } from './ordeal-form.js';
 import { RULES_SECTIONS } from './rules-data.js';
 import { LORE_SECTIONS } from './lore-data.js';
 import { COVENANT_ROUTING, COVENANT_SECTIONS } from './covenant-data.js';
+import { isSTRole } from '../auth/discord.js';
+import { ORDEALS_RETIRED, RETIRED_NOTICE } from '../ordeals/ordeal-retirement.js';
 
 const CHAR_ORDEALS = [
   { key: 'questionnaire', label: 'Questionnaire', hasForm: true, formType: 'questionnaire',
@@ -59,6 +61,16 @@ export async function initOrdeals(char, chars, containerEl) {
   const el = containerEl || document.getElementById('tab-xplog');
   if (!el) return;
   currentChar = char;
+
+  // STs still get the normal tab — they still need to mark/correct Ordeal
+  // submissions filed before this cutover. See ordeal-retirement.js for why.
+  if (ORDEALS_RETIRED && !isSTRole()) {
+    el.innerHTML = `<div class="placeholder-msg ordeal-retired-notice">
+      <h3>${esc(RETIRED_NOTICE.title)}</h3>
+      ${RETIRED_NOTICE.body.map(p => `<p>${esc(p)}</p>`).join('')}
+    </div>`;
+    return;
+  }
 
   const [pDoc, qDoc, hDoc, rulesDoc, loreDoc, covDoc, subDocs] = await Promise.all([
     playerDoc ? Promise.resolve(playerDoc) : apiGet('/api/players/me').catch(() => ({ ordeals: {} })),
