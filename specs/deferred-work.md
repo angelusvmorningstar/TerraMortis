@@ -1445,3 +1445,23 @@ two below were judged real but out of proportion to fix in this pass, or not thi
   is — by explicit design — for standing merits like MCI/PT? `xp.js:266-269`'s own comment shows
   this exact "control renders, doesn't actually do anything" pattern has happened at least once
   before and was handled by hiding the control, not by wiring it up).
+
+## Deferred from: cross-repo redundancy review (2026-08-25, TM Admin liaison)
+
+- **No compare-and-set on `merits`, `powers`, `status`, `court_title`/`court_category`, or
+  `equipment` — last-write-wins on all five, confirmed real by TM Admin against their own code**
+  (Medium-High; both apps' admin character editors do a full-document `PUT /api/characters/:id`
+  with a blind `$set: updates`, `server/routes/characters.js:502-665`). `WRITE_ONCE_FIELDS` in
+  `server/lib/character-write-once.js` is `['clan', 'bloodline']` only — the sole compare-and-set
+  protection anywhere on this document. Two STs (one in TM Game, one in TM Admin) editing the same
+  character around the same time, or a concurrent write racing a player self-service route, can
+  silently drop whichever save landed first. `merits` is the highest-risk of the five: it's also
+  written by TM Game's own player self-service routes (`safe_place_locations`, `carthian_pull`),
+  not just the two ST editors — three independent writers on one field with zero conflict
+  detection between any pair of them. Not fixed here — this is a real design question (per-field
+  version tokens? optimistic concurrency on the whole document? something narrower matching just
+  the fields both apps' editors actually touch?), not a bounded pattern to port the way the
+  ordeals-array race was (see the two entries directly above this one, and the sibling fix on
+  branch `ms/issue-ordeal-cascade-atomic-write`). Needs a scoped conversation with Angelus on
+  approach before anyone builds it, not an improvised fix. Cross-referenced in TM Admin's own
+  liaison notes from the same review.
