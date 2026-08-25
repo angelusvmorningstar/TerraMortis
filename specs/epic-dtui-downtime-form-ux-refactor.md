@@ -191,7 +191,7 @@ inputDocuments:
 | FR1 | dtui.28 | Landing page rename |
 | FR2 | dtui.29 | Mobile notice |
 | FR3 | dtui.20 | Court grey out non-attendees |
-| FR4 | dtui.21 | Personal Story NPC chips |
+| FR4 | dtui.21 | **WILL NOT IMPLEMENT.** NPC/correspondent data is owned by TM Story (sibling repo), not TM Game — cross-repo data-custody decision, ruled by Angelus 2026-08-25. TM Game does not build UI over this data, now or later, regardless of any TM Game-internal NPC-suppression policy (ADR-003/dt-form.33) being revisited. See `specs/stories/dtui-21-personal-story-npc-chips.story.md` for the full ruling and evidence chain. Do not re-open this FR in TM Game without a new cross-repo decision. |
 | FR5 | dtui.22 | Mandragora visibility |
 | FR6 | dtui.22 | Mandragora Vitae Projection calc |
 | FR7 | dtui.23 | Feeding territory relocated |
@@ -286,7 +286,7 @@ inputDocuments:
 | ID | Title |
 |----|-------|
 | dtui.20 | Court — Acknowledge Peers chip grid greys out non-attendees from last game session |
-| dtui.21 | Personal Story — character's NPC correspondents wired in as selectable chips alongside freetext |
+| dtui.21 | ~~Personal Story — character's NPC correspondents wired in as selectable chips alongside freetext~~ — **WILL NOT IMPLEMENT** (data-custody: NPC/correspondent data belongs to TM Story, not TM Game; ruled by Angelus 2026-08-25) |
 | dtui.22 | Blood Sorcery — Mandragora Garden checkbox visibility filter + Vitae Projection Mandragora calculation using effective dots |
 | dtui.23 | Feeding section restructure — territory pill relocated from Territory & Influence into Feeding directly below dice pool; grouped with Blood Type and Method as three consistent tickers |
 | dtui.24 | Feeding — Method of Feeding label rename ("The Kiss (subtle)" / "The Assault (violent)") |
