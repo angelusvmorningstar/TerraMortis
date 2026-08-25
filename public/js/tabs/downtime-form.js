@@ -4998,7 +4998,16 @@ function renderRegencySection() {
 
 function renderSorcerySection(saved) {
   const section = DOWNTIME_SECTIONS.find(s => s.key === 'blood_sorcery');
-  const hasMandragora = (currentChar.merits || []).some(m => m.name === 'Mandragora Garden');
+  // dtui-22 (FR5): gate every Mandragora Garden affordance on EFFECTIVE dots,
+  // not mere merit possession. A character can hold a Mandragora Garden merit
+  // entry with 0 effective dots (e.g. no dots allocated yet), in which case
+  // none of the garden's benefits — the "Park in Mandragora Garden" checkbox,
+  // the "+3 dice" notice, or garden capacity — should be offered. This is the
+  // same effectiveDomainDots() helper the Vitae Projection container below
+  // already uses for the Blood Fruit contribution line (FR6), so both
+  // surfaces now read Mandragora Garden through one identical calculation.
+  const mandragoraDots = effectiveDomainDots(currentChar, 'Mandragora Garden');
+  const hasMandragora = mandragoraDots >= 1;
 
   // Augmented rite list: known rites + castable-but-unlearned rites at
   // level ≤ (Cruac/Theban rating − 2). House rule per VtR2: any sorcerer
@@ -5031,7 +5040,9 @@ function renderSorcerySection(saved) {
   // Mandragora 2c: capacity = Mandragora Garden effective dots. Count
   // currently-parked rites from `saved` so the cap can disable the Park
   // toggle on additional slots once full.
-  const mandragoraCap = hasMandragora ? effectiveDomainDots(currentChar, 'Mandragora Garden') : 0;
+  // dtui-22: reuse mandragoraDots computed above rather than recomputing —
+  // hasMandragora is now itself derived from that same figure.
+  const mandragoraCap = mandragoraDots;
   let parkedCount = 0;
   for (let i = 1; i <= slotCount; i++) {
     if (saved[`sorcery_${i}_mandragora`] === 'yes') parkedCount++;
@@ -5101,17 +5112,32 @@ function renderSorcerySection(saved) {
     // Storage only: the +3 dice bonus is automatic (shown above the slots) and
     // applies whether or not this rite is parked. Parking the rite means it
     // costs no vitae for this casting and is sustained by the garden.
-    if (hasMandragora && cruacRites.length) {
+    // dtui-22 (Codex Pass 2, patched): render this slot's checkbox whenever
+    // the garden currently has effective capacity (hasMandragora) OR this
+    // exact slot already has a saved 'yes'. Without the second clause, a
+    // rite parked while the garden had capacity becomes permanently
+    // unrepresentable (and mechanically stuck as parked — see the
+    // collectResponses() preserve-prior branch at ~line 858) the moment the
+    // garden's effective dots later fall to zero, because the checkbox
+    // simply stops rendering and the player can never untick it again.
+    if ((hasMandragora || mandSaved) && cruacRites.length) {
       const mandChecked = isCruac && mandSaved ? ' checked' : '';
       // 2c: disable when not Cruac, OR when capacity is full and this rite
       // isn't already parked (so unticking remains possible to free a slot).
       const overCap = capacityReached && !mandSaved;
+      // dtui-22: this slot is only visible BECAUSE of its own stale saved
+      // 'yes' — the garden itself no longer has any effective capacity.
+      // Keep it enabled (so the player can untick/release it) rather than
+      // disabled, and explain why in the tooltip.
+      const gardenGone = !hasMandragora && mandSaved;
       const mandDisabled = (mgLocked || !isCruac || overCap) ? ' disabled' : '';
       const mandTitle = mgLocked
         ? 'This rite is permanently parked in your Mandragora Garden and cannot be removed via the form.'
-        : overCap
-          ? `Garden capacity reached (${mandragoraCap}). Untick another parked rite to free a slot.`
-          : `If ticked, this rite is parked in your Mandragora Garden: it costs no vitae for this casting and is sustained by the garden until next month.`;
+        : gardenGone
+          ? 'Your Mandragora Garden no longer has capacity for this rite. Untick to release it.'
+          : overCap
+            ? `Garden capacity reached (${mandragoraCap}). Untick another parked rite to free a slot.`
+            : `If ticked, this rite is parked in your Mandragora Garden: it costs no vitae for this casting and is sustained by the garden until next month.`;
       h += `<label class="dt-mand-label" title="${esc(mandTitle)}">`;
       h += `<input type="checkbox" id="dt-sorcery_${n}_mandragora" class="dt-mand-cb"${mandChecked}${mandDisabled}>`;
       h += ` Park in Mandragora Garden (sustained, no vitae cost)`;
@@ -7302,7 +7328,12 @@ function renderQuestion(q, value) {
           const rite = rites.find(r => r.name === riteName);
           if (rite) riteVitaeCost += riteCost(rite).vitae;
         }
-        // Mandragora Garden — effective dots across all bonus channels
+        // Mandragora Garden — effective dots across all bonus channels.
+        // dtui-22 (FR6): same effectiveDomainDots() call the Blood Sorcery
+        // section above uses to gate its "Park in Mandragora Garden"
+        // checkbox and capacity display — kept identical so this Blood
+        // Fruit line and that checkbox never disagree about a character's
+        // Mandragora Garden dots.
         const mandDots = effectiveDomainDots(c, 'Mandragora Garden');
         // Each effective dot produces 1 Blood Fruit (worth 2 vitae if consumed; not on the vitae track)
         const bloodFruit = mandDots;

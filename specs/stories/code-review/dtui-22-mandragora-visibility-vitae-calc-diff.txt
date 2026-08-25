@@ -1,0 +1,275 @@
+diff --git a/public/js/tabs/downtime-form.js b/public/js/tabs/downtime-form.js
+index 2916b04f..1b1bfeed 100644
+--- a/public/js/tabs/downtime-form.js
++++ b/public/js/tabs/downtime-form.js
+@@ -4975,7 +4975,16 @@ function renderRegencySection() {
+ 
+ function renderSorcerySection(saved) {
+   const section = DOWNTIME_SECTIONS.find(s => s.key === 'blood_sorcery');
+-  const hasMandragora = (currentChar.merits || []).some(m => m.name === 'Mandragora Garden');
++  // dtui-22 (FR5): gate every Mandragora Garden affordance on EFFECTIVE dots,
++  // not mere merit possession. A character can hold a Mandragora Garden merit
++  // entry with 0 effective dots (e.g. no dots allocated yet), in which case
++  // none of the garden's benefits — the "Park in Mandragora Garden" checkbox,
++  // the "+3 dice" notice, or garden capacity — should be offered. This is the
++  // same effectiveDomainDots() helper the Vitae Projection container below
++  // already uses for the Blood Fruit contribution line (FR6), so both
++  // surfaces now read Mandragora Garden through one identical calculation.
++  const mandragoraDots = effectiveDomainDots(currentChar, 'Mandragora Garden');
++  const hasMandragora = mandragoraDots >= 1;
+ 
+   // Augmented rite list: known rites + castable-but-unlearned rites at
+   // level ≤ (Cruac/Theban rating − 2). House rule per VtR2: any sorcerer
+@@ -5008,7 +5017,9 @@ function renderSorcerySection(saved) {
+   // Mandragora 2c: capacity = Mandragora Garden effective dots. Count
+   // currently-parked rites from `saved` so the cap can disable the Park
+   // toggle on additional slots once full.
+-  const mandragoraCap = hasMandragora ? effectiveDomainDots(currentChar, 'Mandragora Garden') : 0;
++  // dtui-22: reuse mandragoraDots computed above rather than recomputing —
++  // hasMandragora is now itself derived from that same figure.
++  const mandragoraCap = mandragoraDots;
+   let parkedCount = 0;
+   for (let i = 1; i <= slotCount; i++) {
+     if (saved[`sorcery_${i}_mandragora`] === 'yes') parkedCount++;
+@@ -7272,7 +7283,12 @@ function renderQuestion(q, value) {
+           const rite = rites.find(r => r.name === riteName);
+           if (rite) riteVitaeCost += riteCost(rite).vitae;
+         }
+-        // Mandragora Garden — effective dots across all bonus channels
++        // Mandragora Garden — effective dots across all bonus channels.
++        // dtui-22 (FR6): same effectiveDomainDots() call the Blood Sorcery
++        // section above uses to gate its "Park in Mandragora Garden"
++        // checkbox and capacity display — kept identical so this Blood
++        // Fruit line and that checkbox never disagree about a character's
++        // Mandragora Garden dots.
+         const mandDots = effectiveDomainDots(c, 'Mandragora Garden');
+         // Each effective dot produces 1 Blood Fruit (worth 2 vitae if consumed; not on the vitae track)
+         const bloodFruit = mandDots;
+diff --git a/tests/dtui-22-mandragora-vitae-projection.spec.js b/tests/dtui-22-mandragora-vitae-projection.spec.js
+new file mode 100644
+index 00000000..d48aea7f
+--- /dev/null
++++ b/tests/dtui-22-mandragora-vitae-projection.spec.js
+@@ -0,0 +1,222 @@
++/**
++ * E2E coverage for dtui-22 (Epic DTUI, Wave 4): Mandragora Garden checkbox
++ * visibility + Vitae Projection Mandragora contribution calculation.
++ *
++ * Implements FR5/FR6 (specs/epic-dtui-downtime-form-ux-refactor.md):
++ *   FR5 — "Park in Mandragora Garden" checkbox (Blood Sorcery section) is
++ *         shown only for characters with EFFECTIVE Mandragora Garden dots
++ *         >= 1, not merely for characters who own the merit entry.
++ *   FR6 — the Vitae Projection panel's Mandragora Garden contribution
++ *         (Blood Fruit line) uses the same effectiveDomainDots() calculation
++ *         as the Blood Sorcery section's checkbox/capacity gate, so the two
++ *         surfaces never disagree about a character's Mandragora dots.
++ *
++ * Technique: mounts the form module in a sandbox overlay via page.evaluate,
++ * same approach as dt-form-37-sorcery-targets-stringify.spec.js and
++ * dt-vitae-projection.spec.js (both of which this story's own Context
++ * section cites as the closest existing precedent for the two sections
++ * under test here).
++ */
++
++const { test, expect } = require('@playwright/test');
++
++// ── Fixtures ──────────────────────────────────────────────────────────────────
++
++const PLAYER_USER = {
++  id: '987654321', username: 'test_player', global_name: 'Test Player',
++  avatar: null, role: 'player', player_id: 'p-002',
++  character_ids: ['char-dtui22'], is_dual_role: false,
++};
++
++const ACTIVE_CYCLE = {
++  _id: 'cycle-dtui22', status: 'active', label: 'Test Cycle DTUI-22',
++  feeding_rights_confirmed: true, is_chapter_finale: false,
++  created_at: '2026-08-25T00:00:00.000Z',
++};
++
++// A character with Cruac (Blood Sorcery) so the Blood Sorcery section gates
++// open (DOWNTIME_SECTIONS' blood_sorcery entry gates on has_sorcery, which
++// downtime-form.js derives from discDots(c, 'Cruac') > 0). powers entries
++// MUST carry category: 'rite' — the form filters knownRites on this field.
++function buildChar(overrides = {}) {
++  return {
++    _id: 'char-dtui22', name: 'Garden Tester', moniker: null, honorific: null,
++    clan: 'Mekhet', covenant: 'Circle of the Crone', player: 'Test Player',
++    blood_potency: 2, humanity: 7, humanity_base: 7, court_title: null, retired: false,
++    status: {
++      city: 0, clan: 0,
++      covenant: { 'Carthian Movement': 0, 'Circle of the Crone': 0, 'Invictus': 0, 'Lancea et Sanctum': 0, 'Ordo Dracul': 0 },
++    },
++    attributes: {
++      Intelligence: { dots: 2, bonus: 0 }, Wits: { dots: 2, bonus: 0 }, Resolve: { dots: 2, bonus: 0 },
++      Strength: { dots: 2, bonus: 0 }, Dexterity: { dots: 2, bonus: 0 }, Stamina: { dots: 2, bonus: 0 },
++      Presence: { dots: 2, bonus: 0 }, Manipulation: { dots: 2, bonus: 0 }, Composure: { dots: 2, bonus: 0 },
++    },
++    skills: {
++      Occult: { dots: 3, bonus: 0, specs: [], nine_again: false },
++    },
++    disciplines: { Cruac: { dots: 2 } },
++    merits: [],
++    powers: [
++      { name: 'Blight', category: 'rite', tradition: 'Cruac', level: 1 },
++    ],
++    ordeals: [],
++    ...overrides,
++  };
++}
++
++// ── Setup helpers ─────────────────────────────────────────────────────────────
++
++async function setupSuite(page, char) {
++  await page.addInitScript((u) => {
++    localStorage.removeItem('tm-mode');
++    localStorage.setItem('tm_auth_token', 'fake-test-token');
++    localStorage.setItem('tm_auth_expires', String(Date.now() + 36000000));
++    localStorage.setItem('tm_auth_user', JSON.stringify(u));
++  }, PLAYER_USER);
++
++  await page.route('**/api/**', r =>
++    r.fulfill({ status: 200, contentType: 'application/json', body: '[]' })
++  );
++  await page.route('**/api/auth/me', r =>
++    r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(PLAYER_USER) })
++  );
++  await page.route(/\/api\/characters$/, r =>
++    r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([char]) })
++  );
++  await page.route('**/api/characters/names', r =>
++    r.fulfill({ status: 200, contentType: 'application/json',
++      body: JSON.stringify([{ _id: char._id, name: char.name }]) })
++  );
++  await page.route('**/api/chapters', r =>
++    r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([ACTIVE_CYCLE]) })
++  );
++
++  await page.goto('/');
++  await page.waitForSelector('#app', { state: 'visible', timeout: 15000 });
++}
++
++async function openDowntimeForm(page, char) {
++  await page.evaluate(async (c) => {
++    const sandbox = document.createElement('div');
++    sandbox.id = 'dt-sandbox';
++    sandbox.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:#1a1208;z-index:99999;overflow:auto;';
++    document.body.appendChild(sandbox);
++    const mod = await import('/js/tabs/downtime-form.js');
++    await mod.renderDowntimeTab(sandbox, c, []);
++  }, char);
++  await page.waitForSelector('#dt-sandbox #dt-btn-submit', { timeout: 10000 });
++}
++
++// The Blood Sorcery section only renders in ADVANCED mode (it is not in
++// downtime-form.js's MINIMAL_SECTIONS set); switch before expanding it.
++async function switchToAdvanced(page) {
++  await page.locator('#dt-sandbox [data-dt-mode="advanced"]').click();
++  await page.waitForSelector('#dt-sandbox #dt-btn-submit-final', { timeout: 5000 });
++}
++
++// Expand the Blood Sorcery section. All qf-sections start collapsed.
++async function expandSorcerySection(page) {
++  await page.locator('#dt-sandbox .qf-section[data-section-key="blood_sorcery"] .qf-section-title').click();
++  await expect(page.locator('#dt-sandbox .qf-section[data-section-key="blood_sorcery"]')).not.toHaveClass(/collapsed/);
++}
++
++// Expand the Feeding section (houses the Vitae Projection container).
++async function expandFeedingSection(page) {
++  await page.locator('#dt-sandbox .qf-section[data-section-key="feeding"] .qf-section-title').click();
++  await expect(page.locator('#dt-sandbox .qf-section[data-section-key="feeding"]')).not.toHaveClass(/collapsed/);
++}
++
++const sb = (page) => page.locator('#dt-sandbox');
++
++// ── AC1/AC2 — checkbox visibility gate ─────────────────────────────────────────
++
++test.describe('dtui-22 FR5: Mandragora Garden checkbox visibility', () => {
++  test('AC2: no Mandragora Garden merit — checkbox and "+3 dice" notice both absent', async ({ page }) => {
++    const char = buildChar({ merits: [] });
++    await setupSuite(page, char);
++    await openDowntimeForm(page, char);
++    await switchToAdvanced(page);
++    await expandSorcerySection(page);
++
++    await expect(sb(page).locator('#dt-sorcery_1_mandragora')).toHaveCount(0);
++    await expect(sb(page).locator('.qf-section[data-section-key="blood_sorcery"]')).not.toContainText('Mandragora Garden grants +3 dice');
++    await expect(sb(page).locator('.qf-section[data-section-key="blood_sorcery"]')).not.toContainText('Garden capacity');
++  });
++
++  test('AC1: Mandragora Garden with effective dots >= 1 — checkbox and "+3 dice" notice both visible', async ({ page }) => {
++    const char = buildChar({
++      merits: [{ category: 'domain', name: 'Mandragora Garden', cp: 2, xp: 0 }],
++    });
++    await setupSuite(page, char);
++    await openDowntimeForm(page, char);
++    await switchToAdvanced(page);
++    await expandSorcerySection(page);
++
++    await expect(sb(page).locator('#dt-sorcery_1_mandragora')).toHaveCount(1);
++    await expect(sb(page).locator('.qf-section[data-section-key="blood_sorcery"]')).toContainText('Mandragora Garden grants +3 dice');
++    await expect(sb(page).locator('.qf-section[data-section-key="blood_sorcery"]')).toContainText('Garden capacity: 0 / 2');
++  });
++
++  test('regression: Mandragora Garden merit present but 0 effective dots — checkbox and "+3 dice" notice both hidden', async ({ page }) => {
++    // Before dtui-22, this exact shape (a Mandragora Garden merit entry with
++    // no dots actually allocated) would still show the checkbox and the
++    // "+3 dice" notice, because the old gate only checked whether the merit
++    // NAME existed in c.merits, not how many dots it carried. This is the
++    // regression this story's own fix (effectiveDomainDots() gate) prevents.
++    const char = buildChar({
++      merits: [{ category: 'domain', name: 'Mandragora Garden', cp: 0, xp: 0 }],
++    });
++    await setupSuite(page, char);
++    await openDowntimeForm(page, char);
++    await switchToAdvanced(page);
++    await expandSorcerySection(page);
++
++    await expect(sb(page).locator('#dt-sorcery_1_mandragora')).toHaveCount(0);
++    await expect(sb(page).locator('.qf-section[data-section-key="blood_sorcery"]')).not.toContainText('Mandragora Garden grants +3 dice');
++    await expect(sb(page).locator('.qf-section[data-section-key="blood_sorcery"]')).not.toContainText('Garden capacity');
++  });
++});
++
++// ── FR6 — Vitae Projection Mandragora consistency ──────────────────────────────
++
++test.describe('dtui-22 FR6: Vitae Projection Mandragora Garden contribution', () => {
++  test('effective dots >= 1: Blood Fruit line shows the same dot count the checkbox gate uses', async ({ page }) => {
++    const char = buildChar({
++      merits: [{ category: 'domain', name: 'Mandragora Garden', cp: 2, xp: 0 }],
++    });
++    await setupSuite(page, char);
++    await openDowntimeForm(page, char);
++    await switchToAdvanced(page);
++
++    // Confirm the Blood Sorcery gate is open (checkbox visible) for this char.
++    await expandSorcerySection(page);
++    await expect(sb(page).locator('#dt-sorcery_1_mandragora')).toHaveCount(1);
++
++    // Now confirm the Vitae Projection panel reports the matching dot count.
++    await expandFeedingSection(page);
++    const budget = sb(page).locator('.dt-vitae-budget');
++    const mandCostRow = budget.locator('.dt-vitae-cost', { hasText: 'Mandragora Garden' });
++    await expect(mandCostRow).toHaveCount(0); // dtlt-10: no vitae cost, ever
++    const fruitRow = budget.locator('.dt-vitae-note', { hasText: 'Blood Fruit produced' });
++    await expect(fruitRow).toBeVisible();
++    await expect(fruitRow.locator('span').last()).toHaveText('2');
++  });
++
++  test('0 effective dots (merit present, no dots allocated): Blood Fruit line does not render, matching the hidden checkbox', async ({ page }) => {
++    const char = buildChar({
++      merits: [{ category: 'domain', name: 'Mandragora Garden', cp: 0, xp: 0 }],
++    });
++    await setupSuite(page, char);
++    await openDowntimeForm(page, char);
++    await switchToAdvanced(page);
++
++    await expandSorcerySection(page);
++    await expect(sb(page).locator('#dt-sorcery_1_mandragora')).toHaveCount(0);
++
++    await expandFeedingSection(page);
++    const budget = sb(page).locator('.dt-vitae-budget');
++    const fruitRow = budget.locator('.dt-vitae-note', { hasText: 'Blood Fruit produced' });
++    await expect(fruitRow).toHaveCount(0);
++  });
++});
