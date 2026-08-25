@@ -188,8 +188,8 @@ test.describe('dt-form.35: feed_violence seeded from method default', () => {
     await page.waitForSelector('#dt-sandbox #dt-btn-submit-final', { timeout: 5000 });
 
     // Kiss button should be visually highlighted (from FEED_VIOLENCE_DEFAULTS.seduction = 'kiss')
-    const kissBtn = page.locator('#dt-sandbox [data-feed-violence="kiss"]');
-    await expect(kissBtn).toHaveClass(/dt-feed-vi-on/);
+    const kissBtn = page.locator('#dt-sandbox input[name="dt-feed_violence"][value="kiss"]');
+    await expect(kissBtn).toBeChecked();
 
     // Minimum-complete banner must NOT mention "Kiss or Violent"
     const missing = await getMissingPieces(page);
@@ -205,8 +205,8 @@ test.describe('dt-form.35: feed_violence seeded from method default', () => {
     await page.locator('#dt-sandbox [data-dt-mode="advanced"]').click();
     await page.waitForSelector('#dt-sandbox #dt-btn-submit-final', { timeout: 5000 });
 
-    const kissBtn = page.locator('#dt-sandbox [data-feed-violence="kiss"]');
-    await expect(kissBtn).toHaveClass(/dt-feed-vi-on/);
+    const kissBtn = page.locator('#dt-sandbox input[name="dt-feed_violence"][value="kiss"]');
+    await expect(kissBtn).toBeChecked();
 
     const missing = await getMissingPieces(page);
     expect(missing).not.toContain('Kiss or Violent');
@@ -221,8 +221,8 @@ test.describe('dt-form.35: feed_violence seeded from method default', () => {
     await page.locator('#dt-sandbox [data-dt-mode="advanced"]').click();
     await page.waitForSelector('#dt-sandbox #dt-btn-submit-final', { timeout: 5000 });
 
-    const assaultBtn = page.locator('#dt-sandbox [data-feed-violence="violent"]');
-    await expect(assaultBtn).toHaveClass(/dt-feed-vi-on/);
+    const assaultBtn = page.locator('#dt-sandbox input[name="dt-feed_violence"][value="violent"]');
+    await expect(assaultBtn).toBeChecked();
 
     const missing = await getMissingPieces(page);
     expect(missing).not.toContain('Kiss or Violent');
@@ -238,10 +238,10 @@ test.describe('dt-form.35: feed_violence seeded from method default', () => {
     await page.waitForSelector('#dt-sandbox #dt-btn-submit-final', { timeout: 5000 });
 
     // Neither button highlighted
-    const kissBtn = page.locator('#dt-sandbox [data-feed-violence="kiss"]');
-    const assaultBtn = page.locator('#dt-sandbox [data-feed-violence="violent"]');
-    await expect(kissBtn).not.toHaveClass(/dt-feed-vi-on/);
-    await expect(assaultBtn).not.toHaveClass(/dt-feed-vi-on/);
+    const kissBtn = page.locator('#dt-sandbox input[name="dt-feed_violence"][value="kiss"]');
+    const assaultBtn = page.locator('#dt-sandbox input[name="dt-feed_violence"][value="violent"]');
+    await expect(kissBtn).not.toBeChecked();
+    await expect(assaultBtn).not.toBeChecked();
 
     // Blocker still present since no default and no explicit click
     const missing = await getMissingPieces(page);
@@ -262,10 +262,10 @@ test.describe('dt-form.35: feed_violence seeded from method default', () => {
     await page.waitForSelector('#dt-sandbox #dt-btn-submit-final', { timeout: 5000 });
 
     // Explicit violent overrides the kiss default
-    const assaultBtn = page.locator('#dt-sandbox [data-feed-violence="violent"]');
-    const kissBtn = page.locator('#dt-sandbox [data-feed-violence="kiss"]');
-    await expect(assaultBtn).toHaveClass(/dt-feed-vi-on/);
-    await expect(kissBtn).not.toHaveClass(/dt-feed-vi-on/);
+    const assaultBtn = page.locator('#dt-sandbox input[name="dt-feed_violence"][value="violent"]');
+    const kissBtn = page.locator('#dt-sandbox input[name="dt-feed_violence"][value="kiss"]');
+    await expect(assaultBtn).toBeChecked();
+    await expect(kissBtn).not.toBeChecked();
 
     const missing = await getMissingPieces(page);
     expect(missing).not.toContain('Kiss or Violent');
@@ -280,10 +280,10 @@ test.describe('dt-form.35: feed_violence seeded from method default', () => {
     await page.locator('#dt-sandbox [data-dt-mode="advanced"]').click();
     await page.waitForSelector('#dt-sandbox #dt-btn-submit-final', { timeout: 5000 });
 
-    const kissBtn = page.locator('#dt-sandbox [data-feed-violence="kiss"]');
-    const assaultBtn = page.locator('#dt-sandbox [data-feed-violence="violent"]');
-    await expect(kissBtn).not.toHaveClass(/dt-feed-vi-on/);
-    await expect(assaultBtn).not.toHaveClass(/dt-feed-vi-on/);
+    const kissBtn = page.locator('#dt-sandbox input[name="dt-feed_violence"][value="kiss"]');
+    const assaultBtn = page.locator('#dt-sandbox input[name="dt-feed_violence"][value="violent"]');
+    await expect(kissBtn).not.toBeChecked();
+    await expect(assaultBtn).not.toBeChecked();
   });
 
 });

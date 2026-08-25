@@ -67,6 +67,30 @@ export const characterSchema = {
     created_at:       { type: 'string' },
     current:          { type: ['object', 'null'], additionalProperties: true },
 
+    // ── TM Admin interop (added 2026-08-25, TM Admin Story 2.2b) ──────────────
+    //
+    // TM Admin's own character editor (its PUT /api/characters/:id) writes these
+    // six fields to the SAME `characters` collection this schema governs. They
+    // are declared HERE, in TM Game, purely so this app keeps working: `admin.js`
+    // buildSaveBody() PUTs the whole document back, so once TM Admin has written
+    // one of these to a character, an undeclared key would make every subsequent
+    // save from TM Game's own admin editor fail `additionalProperties: false`
+    // with a 400. Nothing in TM Game reads or writes them.
+    //
+    // Two of the six are NOT new behaviour at all — they are pre-existing holes
+    // this pass closed:
+    //   * `updated_at` was already stored on 2 live characters, so a full-document
+    //     save of either of those two ALREADY 400'd against this schema.
+    //   * `st_mods_suppressed` is written by BOTH apps' own
+    //     PATCH /:id/st_mods_suppressed and was never declared in either.
+    //
+    // Angelus approved this addition directly (2026-08-25) as the cheap insurance
+    // while TM Game's admin editor is still live.
+    updated_at:         { type: 'string' },
+    st_mods_suppressed: { type: 'boolean' },
+    // TM Admin makes the hardcoded starting-XP 10 an overridable default.
+    xp_starting_override: { type: ['integer', 'null'], minimum: 0 },
+
     clan: {
       type: ['string', 'null'],
       enum: [...CLAN_NAMES, '', null]
@@ -117,6 +141,17 @@ export const characterSchema = {
     humanity_base: { type: 'integer', minimum: 0, maximum: 10 },
     humanity_lost: { type: 'integer', minimum: 0 },
     humanity_xp:   { type: 'integer', minimum: 0 },
+
+    // TM Admin interop (see the block above). TM Admin splits humanity loss into
+    // a creation component (earns 2 XP per dot) and an in-play one (earns none),
+    // because this app's own xpHumanityDrop() awards 2 XP for EVERY dot lost
+    // whenever lost — which is what the "Failed Breakpoint" merit exists to
+    // cancel. `humanity_lost` above is UNCHANGED and remains the pre-split total
+    // for the 15 live characters that carry it; nothing is migrated automatically,
+    // since guessing the split would either invent XP or destroy it. Nullable so
+    // "not yet allocated" is storable and distinct from 0.
+    humanity_lost_creation: { type: ['integer', 'null'], minimum: 0 },
+    humanity_lost_play:     { type: ['integer', 'null'], minimum: 0 },
     // xp_total / xp_spent removed in #837 (Option A) — XP values are
     // derived at render time via public/js/editor/xp.js
     // (xpEarned() / xpSpent() / xpLeft()). additionalProperties:false on
@@ -294,7 +329,13 @@ export const characterSchema = {
         properties: {
           name:     { type: 'string' },
           complete: { type: 'boolean' },
-          xp:       { type: 'number' }
+          xp:       { type: 'number' },
+          // TM Admin interop. NOT an enforcement change — `additionalProperties:
+          // true` below already admits it. Declared so the field is documented:
+          // TM Admin derives ordeal completion from its own Ordeals domain and
+          // lets an ST additionally ASSERT one complete. `st_asserted` is a
+          // separate flag from `complete`, never a substitute for it.
+          st_asserted: { type: 'boolean' }
         },
         additionalProperties: true
       }
@@ -434,6 +475,13 @@ export const characterSchema = {
       required: ['dots'],
       properties: {
         dots:     { type: 'integer', minimum: 0, maximum: 5 },
+        // TM Admin interop (see the block near the top of `properties`). Brings
+        // disciplines into line with attrObj and skillObj, which both already
+        // declare `bonus`. Same semantics: bonus dots sit ALONGSIDE `dots` and
+        // are not a purchase channel, so they are not summed into it. No
+        // `maximum` on purpose — `dots` is capped at 5 because five is the rating
+        // ceiling, and a bonus is what takes a trait past its own cap.
+        bonus:    { type: 'integer', minimum: 0 },
         cp:       { type: 'integer', minimum: 0 },
         xp:       { type: 'integer', minimum: 0 },
         free:     { type: 'integer', minimum: 0 },
