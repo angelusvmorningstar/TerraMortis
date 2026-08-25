@@ -48,7 +48,14 @@ router.post('/', validate(contestedRollRequestSchema), async (req, res) => {
   // `request_type` is force-set after it, so the route is always the authority.
   // The schema still LISTS them (additionalProperties: false, and crd.3a's
   // resolve endpoint writes them) — they are simply never honoured here.
-  for (const f of ['defender_aspect', 'defender_wp_spent', 'defender_merit_ids']) delete doc[f];
+  // crd.4a review (external Codex, Pass 2): defender_status_term is the same
+  // shape of defender-owned field and was missed from this list when the
+  // schema grew it — an attacker could otherwise pre-populate a bogus
+  // "defender's choice" into a pending document before the defender ever
+  // acts. /resolve still overwrites it before any pool is finalised, so this
+  // could not change a final roll's outcome, but it violated the same
+  // provenance boundary the other three fields exist to protect.
+  for (const f of ['defender_aspect', 'defender_wp_spent', 'defender_merit_ids', 'defender_status_term']) delete doc[f];
 
   const result  = await col().insertOne(doc);
   const created = await col().findOne({ _id: result.insertedId });
@@ -136,17 +143,37 @@ async function _statusChoiceEligibility(challenge, defenderChar) {
   const cycles = await getCollection('chapters').find().toArray();
   if (!currentCycleInGamePhase(cycles)) return null;
 
-  // At Court — both challenger and defender attended:true in the SAME most
-  // recent game session. Mirrors server/routes/attendance.js's own live
-  // lookup (session-selection + id-then-name matching), same-process, not a
-  // self-call over HTTP.
-  const sessions = await getCollection('game_sessions').find({}).sort({ session_date: -1 }).limit(1).toArray();
-  const latestSession = sessions[0] || null;
+  // At Court — both challenger and defender attended:true in the SAME
+  // current game session. Session-selection mirrors office-actions.js's own
+  // findLatestSession (session_date <= today, tie-broken by _id) rather than
+  // attendance.js's own unfiltered "most recent by date" sort — a
+  // future-dated game_sessions document is a real, supported shape in this
+  // app (server/routes/game-sessions.js's own GET /next), and office-
+  // actions.js's own comment documents the tie-break need. Crd-4a review
+  // (external Codex, Pass 2): mirroring attendance.js's own query verbatim
+  // would let a pre-created future session's attendance silently outrank the
+  // actually-live one. Attendance MATCHING (id-then-name fallback) still
+  // mirrors attendance.js's own robustness pattern.
+  const today = new Date().toISOString().slice(0, 10);
+  const latestSession = await getCollection('game_sessions').findOne(
+    { session_date: { $lte: today } },
+    { sort: { session_date: -1, _id: -1 } },
+  );
   if (!latestSession) return null;
   const attendance = latestSession.attendance || [];
   function attendedIn(charId, charName) {
+    // Crd-4a review (external Codex, Pass 1): require a genuinely non-empty
+    // id before comparing, so two missing/blank ids (e.g. a malformed
+    // attendance row) can never coincidentally match via String(undefined)
+    // === String(undefined). Not currently reachable end-to-end (Pass 2
+    // confirmed the route's own ownership/ObjectId checks already exclude a
+    // missing target/challenger id before this function is ever reached),
+    // but defended here too, matching this file's own established
+    // defence-in-depth standard for exactly this kind of schema-shouldn't-
+    // allow-it-but-guard-anyway case.
+    const hasId = charId != null && String(charId).trim() !== '';
     const entry = attendance.find(a =>
-      String(a.character_id) === String(charId)
+      (hasId && String(a.character_id) === String(charId))
       || (charName && (a.character_name === charName || a.name === charName))
     );
     return entry?.attended === true;
@@ -275,6 +302,20 @@ router.put('/:id/resolve', async (req, res) => {
       finalPool = null;
     }
   }
+
+  // Crd-4a review (external Codex, Pass 1): `blood_potency` is schema-
+  // constrained to an integer (character.schema.js) so this is not reachable
+  // through the normal character API today, but a schema-valid pool total
+  // going non-finite has already burned this exact route once (crd.1's own
+  // documented `_roll(undefined)` -> zero-die silent loss). `!= null` alone
+  // does not catch NaN (`NaN != null` is true), and `Math.max`/`Math.min`
+  // both propagate NaN silently through the clamp below — so a corrupted
+  // (e.g. direct-Mongo-write) blood_potency could otherwise persist
+  // defender_pool as NaN, which JSON-serialises as null but is NOT `== null`
+  // when read back from Mongo, defeating /accept's own null-pool guard the
+  // same way crd.1's original bug did. Treated the same as "not resolved
+  // yet", not clamped to a number.
+  if (finalPool != null && !Number.isFinite(finalPool)) finalPool = null;
 
   // Defensive clamp to the collection's own declared domain
   // (contested_roll_request.schema.js: defender_pool is 0-30). This route has

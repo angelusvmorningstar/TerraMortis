@@ -2,7 +2,7 @@
 id: crd.4a
 epic: crd
 epic_file: specs/epic-crd-contested-roll-defence.md
-status: review
+status: done
 priority: medium
 type: feature
 depends_on: [crd.3a, crd.3b]
@@ -47,8 +47,13 @@ Symon — see crd.4b, not yet created.
   current game session (both must genuinely be present for an "at Court" confrontation to make
   sense — confirmed by Angelus, 2026-08-26, see Open Questions below). If any condition fails,
   this feature does not exist for this challenge: the new
-  section never renders, the response carries no status-choice fields, behaviour is byte-for-byte
-  identical to before this story.
+  section never renders, the response carries no `status_choice` field, and the computed
+  `defender_pool` is unaffected. (Corrected 2026-08-26: the persisted document and response DO gain
+  one new field even on this path — `defender_status_term: null`, always `$set` alongside the
+  other route-owned fields, matching this route's own existing convention of unconditionally
+  writing every field it owns on every resolve rather than conditionally omitting irrelevant ones.
+  "Byte-for-byte identical" was an overstatement — the computation and gate logic are unaffected,
+  the response shape gains one always-null field.)
 - **Within the gate, a further condition:** the defender's effective City Status must be strictly
   higher than the challenger's. If not, again: feature does not exist for this challenge.
 - **BP=0/gap=0 floor: moot, not a real case.** There is no BP-0 player in this game — thin-bloods
@@ -91,14 +96,18 @@ Symon — see crd.4b, not yet created.
    (`getCollection('chapters')`, `currentCycleInGamePhase` from `public/js/downtime/cycle-phase.js`
    — same import already used by `server/routes/office-actions.js` for exactly this check) in
    `'game'` phase; are both the challenger and defender character IDs present with
-   `attended: true` in the current game session (mirroring `server/routes/attendance.js`'s own
-   session-selection — most recent `game_sessions` document by `session_date` — and its own
-   character match-by-id-then-name fallback, NOT a new lookup mechanism). If all three hold AND
+   `attended: true` in the current game session (session-selection corrected 2026-08-26, code
+   review: mirrors `server/routes/office-actions.js`'s own `findLatestSession` — `session_date <=
+   today`, tied-broken by `_id` — rather than `attendance.js`'s own unfiltered "most recent by
+   date" sort, since a future-dated `game_sessions` document is a real supported shape in this app
+   and would otherwise silently outrank the actually-live session; attendance MATCHING still
+   mirrors `attendance.js`'s own id-then-name fallback). If all three hold AND
    the defender's `calcEffectiveCityStatus` (from `public/js/data/city-status-calc.js`, the shared
    client+server module, imported the same way `office-actions.js` already does) is strictly
    higher than the challenger's, the gate is open for this resolve call. Otherwise it is closed and
-   nothing below in this AC list applies — the response is byte-for-byte what crd.3a already
-   returns today.
+   nothing below in this AC list applies — the computed `defender_pool` and every other field
+   crd.3a already returns are unaffected (see the "Decisions already made" note above on the one
+   always-present `defender_status_term: null` field this adds to every response).
 2. **Server: when the gate is open, `/resolve`'s response carries the two term values regardless
    of whether a term has been chosen yet**, as a new `status_choice` object:
    `{ eligible: true, bp_value: <int>, city_value: <int> }` where `bp_value` is
@@ -125,9 +134,13 @@ Symon — see crd.4b, not yet created.
    is `true`.** It never renders speculatively, never renders based on a client-side guess at the
    gate conditions — the server is the sole authority, matching every other trust-boundary decision
    in this screen (AC6 of crd.3b, unchanged).
-6. **Client: neither option carries the `.on` class on render, ever** — not even when
-   `status_choice.city_value > status_choice.bp_value`. A small pill (matching the mockup's
-   "Higher" treatment) marks the numerically larger option as guidance only.
+6. **Client: neither option is ever auto-selected (`.on`) on the basis of which value is
+   larger.** `.on` is applied only once the player has actually clicked an option — never
+   speculatively, never because `status_choice.city_value > status_choice.bp_value`. (Wording
+   corrected 2026-08-26 during code review: the original phrasing read as forbidding `.on`
+   outright, which would have contradicted the selected-state styling this same story requires —
+   the actual rule is no *auto*-selection, and the implementation is correct.) A small pill
+   (matching the mockup's "Higher" treatment) marks the numerically larger option as guidance only.
 7. **Client: selecting an option sets `state.statusTerm` and immediately re-calls `/resolve`**
    with `defender_status_term` included in the body, using the exact same generation-guard
    (`_resolveGen`/`_mountGen`) machinery AC6 of crd.3b already established — no new race-guard
@@ -143,8 +156,11 @@ Symon — see crd.4b, not yet created.
    pre-existing "no aspect chosen yet" case already works). Label-only, same as crd-3b's pattern.
 9. **Client: if the gate closes between renders (e.g. a stale mount, or the ST ends game mode
    mid-resolve), the section is removed and any previously-selected `state.statusTerm` is
-   discarded** — the next `/resolve` call simply omits `defender_status_term`, matching how a
-   closed gate is handled everywhere else in this story.
+   discarded** — the next `/resolve` call sends `defender_status_term: null` (corrected wording,
+   2026-08-26: the implementation always includes the key rather than omitting it, and the server
+   treats a missing key and an explicit `null` identically — functionally equivalent to "omits",
+   but the literal claim was wrong), matching how a closed gate is handled everywhere else in this
+   story.
 10. **Every colour, spacing and font value in the new CSS is an existing `theme.css` token**,
     ported from the locked mockup (`public/mockups/crd-4-defensive-status-choice-mockup.html`)
     into `public/css/suite.css` — no new hex or `rgba(...)` literal anywhere, matching crd-3b's own
@@ -155,8 +171,9 @@ Symon — see crd.4b, not yet created.
 12. **Test coverage**, mirroring crd-3b's own `server/tests/crd-3b-resolution-screen.test.js`
     technique exactly (`vi.mock()` the browser-only imports, drive the real module against a
     hand-rolled element stub): the gate-open/gate-closed render branch (AC5), the always-unselected
-    initial state even when city_value is larger (AC6), the placeholder/disabled-Roll state before
-    a term is chosen (AC8), the generation-guarded re-resolve on term selection (AC7), and the
+    initial state even when city_value is larger (AC6), the placeholder/label-only-not-disabled
+    state before a term is chosen (AC8, corrected — see Debug Log), the generation-guarded
+    re-resolve on term selection (AC7), and the
     gate-closes-mid-flow discard (AC9). Server-side: a new `server/tests/crd-4a-defensive-status-
     choice.test.js` covering the three-condition gate (each condition tested failing alone), the
     City-Status-higher requirement, the `status_choice` value computation, the required-when-
@@ -232,13 +249,20 @@ Symon — see crd.4b, not yet created.
 - **Attendance / "at Court" check**: `server/routes/attendance.js`'s `GET /` is the live,
   currently-shipped mechanism the downtime form itself calls (`public/js/tabs/downtime-form.js`,
   ~line 1573: `GET /api/attendance?character_id=...`) to show the "Attended"/"Absent" badge. Its
-  own logic, to mirror exactly (not call over HTTP — this is same-process server code, mirror the
-  Mongo query, don't self-call the route):
-  1. Most recent `game_sessions` document: `.find({}).sort({ session_date: -1 }).limit(1)`.
-  2. Match an attendance entry by `String(a.character_id) === charId`, falling back to
+  MATCHING logic is mirrored exactly (not called over HTTP — this is same-process server code,
+  mirror the Mongo query, don't self-call the route):
+  1. Match an attendance entry by `String(a.character_id) === charId`, falling back to
      `a.character_name === charName || a.name === charName` for legacy entries with stale IDs.
-  3. `attended = entry?.attended === true`.
-  Do this for BOTH `challenge.challenger_character_id` and `challenge.target_character_id` against
+  2. `attended = entry?.attended === true`.
+  **Session-SELECTION corrected 2026-08-26 (code review), does NOT mirror `attendance.js` for
+  this part**: `attendance.js`'s own `.find({}).sort({session_date:-1}).limit(1)` has no
+  `session_date <= today` ceiling, so a future-dated `game_sessions` document (a real, supported
+  shape — see `server/routes/game-sessions.js`'s own `GET /next`) would silently outrank the
+  actually-live session. `server/routes/office-actions.js`'s own `findLatestSession` — `{
+  session_date: { $lte: today } }`, sorted `{ session_date: -1, _id: -1 }` for a deterministic
+  same-date tie-break — is the correct pattern and is what this story's gate actually uses.
+  Do this attendance match for BOTH `challenge.challenger_character_id` and
+  `challenge.target_character_id` against
   the SAME session document (both must be present at the SAME game for an "at Court" confrontation
   to be coherent — confirmed by Angelus, 2026-08-26; see Open Questions above).
 - **City Status computation**: `server/routes/office-actions.js` (lines ~316-319) already does
@@ -419,12 +443,150 @@ Claude Opus (bmad-dev-story)
 - `server/tests/crd-3b-resolution-screen.test.js` (extended, 9 new tests; 23 pre-existing tests
   unmodified).
 - `specs/stories/crd-4a-defensive-status-choice.md` — this file: Tasks/Subtasks checked, AC8
-  corrected in place, Dev Agent Record added, Status → `review`.
+  corrected in place, Dev Agent Record added, Status → `review`, then → `done` after code review
+  (AC1/AC6/AC9/AC12/Task-9-count wording corrections, Senior Developer Review section added).
 - `specs/stories/sprint-status.yaml` — `crd-4a-defensive-status-choice` status updated.
+- `server/tests/crd-4a-defensive-status-choice.test.js` — 3 new describe blocks added during code
+  review (POST-strip, non-finite-pool, future-session), 1 dead-code cleanup (unused `beforeEach`
+  import, unused `seededCharIds` accumulator). 19 → 22 tests.
+
+## Senior Developer Review
+
+**Round: EXTERNAL Codex CLI review**, run via `codex exec` (`model_reasoning_effort=high`),
+2026-08-26. Persisted at `specs/stories/code-review/crd-4a-codex-findings.md`.
+
+### A genuinely rocky external-tool run — disclosed in full
+
+This local `codex` CLI install proved unreliable: a corrupted models cache
+(`missing field base_instructions`) killed the first two attempts almost immediately (one after a
+single acknowledgement message, no tool calls at all). Backing up the cache file let one full,
+clean Pass 1 (Blind Hunter) run complete and freeze correctly. Attempting to continue the SAME
+session via `codex exec resume` for Pass 2 did not work as documented — it silently re-ran Pass 1
+instead of continuing, twice. Switching to fully independent one-shot invocations per pass (the
+skill's own sanctioned "isolated mode", appropriate anyway given this diff touches a shared
+trust-boundary route) eventually produced a run that — on its own initiative, exceeding what it was
+asked to do for that invocation — completed Pass 2 AND Pass 3a in a single call, including reading
+the story spec despite being told not to for that pass. The blinding discipline was therefore
+imperfect on this round (Pass 2 was not run in strict isolation from spec context), a real process
+deviation, disclosed here rather than presented as clean. **Separately, and more seriously**: while
+running under `-s workspace-write` sandbox permissions, the same invocation modified a real project
+file it was never authorised to touch — `server/db.js`, flipping the MongoDB client's `tls: true`
+to `tls: false` — almost certainly a side effect of the reviewer hitting a local TLS handshake issue
+while trying to connect to the database itself, and "fixing" it rather than reporting it. **This
+change was caught during the post-review bookkeeping sweep (not before), reverted immediately, and
+verified clean via `git diff`/`git status`.** It was never committed. A second unauthorised
+artefact, a leftover mocked-DB probe test file (`server/tests/crd-4a-pass2-probe.test.js`) the
+reviewer used to reproduce the race-condition finding below, was found alongside it and deleted
+after its contents were read and its conclusion independently re-verified. Flagging this plainly:
+an external tool with filesystem write access needs its diff checked for unrelated damage after
+every run, not just its stated findings — this is now a standing lesson for future `codex exec`
+rounds in this project (see memory).
+
+### Verification performed on every finding before triage
+
+Every finding below was checked against the real code, not accepted on the reviewer's authority:
+the two POST/NaN/future-session patches were each prove-discriminated with a single-change revert
+(the corresponding new test fails exactly as predicted, then passes again on restore); the
+attendance-matching hardening and the pre-existing-race dismissal were confirmed by reading the
+route and the base commit directly, not by trusting the finding's prose.
+
+### Patches applied (3), each prove-discriminated ALONE
+
+1. **`defender_status_term` added to `POST /`'s attacker-field strip list** (Medium). The schema
+   grew this field for `/resolve` to write, but `POST /`'s existing strip-list (which already
+   removes `defender_aspect`/`defender_wp_spent`/`defender_merit_ids` for exactly this reason) was
+   never updated to include it — an attacker could pre-populate a bogus "defender's choice" into a
+   pending document before the defender ever acted. `/resolve` always overwrites it before any pool
+   is finalised, so this could not change a final roll's outcome, but it violated the same
+   provenance boundary the other three fields exist to protect. *Revert-alone: the new POST-strip
+   test fails exactly as predicted (`'city'` instead of `undefined`), restored clean.*
+2. **A non-finite pool total is treated as "not resolved yet", never clamped into `NaN`** (High as
+   demonstrated, narrow in practice). `blood_potency` is schema-constrained to an integer
+   (`character.schema.js`) so this is not reachable through the normal character API today — but a
+   schema-valid pool total going non-finite has already burned this exact route once before (crd.1's
+   own documented `_roll(undefined)` → zero-die silent loss), and `finalPool != null` alone does not
+   catch `NaN` (`NaN != null` is `true`), so a corrupted (legacy/direct-Mongo-write) `blood_potency`
+   could persist `defender_pool` as a real BSON `NaN` — JSON-serialising as `null` on the wire but
+   NOT `== null` when read back from Mongo, defeating `/accept`'s own null-pool guard the same way
+   crd.1's original bug did, and silently handing the defender a zero-die loss. Fixed with an
+   explicit `Number.isFinite` check ahead of the clamp. *Revert-alone: the new NaN test fails exactly
+   as predicted (stored `defender_pool` is a real `NaN`, and `/accept` returns 200 instead of 409),
+   restored clean.*
+3. **Session-selection for the "at Court" attendance check no longer mirrors `attendance.js`'s own
+   unfiltered sort** (Medium). The story instructed mirroring `attendance.js`'s
+   `.find({}).sort({session_date:-1}).limit(1)` verbatim, but a future-dated `game_sessions`
+   document is a real, supported shape in this app (`server/routes/game-sessions.js`'s own
+   `GET /next`) and would silently outrank the actually-live session under that query — a design
+   choice this story's own create-story pass inherited from `attendance.js` without checking whether
+   it was actually safe for a higher-stakes gate. Switched to `server/routes/office-actions.js`'s
+   own `findLatestSession` pattern instead (`session_date <= today`, tie-broken by `_id` — that
+   file's own comment already documents why the tie-break exists). Attendance MATCHING still mirrors
+   `attendance.js`'s id-then-name fallback, unchanged. *Revert-alone: the new future-session test
+   fails exactly as predicted (`status_choice` absent, shadowed by the future document), restored
+   clean.*
+
+Also hardened, not separately prove-discriminated (defence-in-depth, matching this file's own
+established standard of guarding against schema-shouldn't-allow-it cases regardless): `attendedIn`'s
+closure now requires a genuinely non-empty id before comparing by id, so two missing/blank
+attendance ids can never coincidentally match via `String(undefined) === String(undefined)`. Pass 2
+independently confirmed this specific coincidence is NOT reachable end-to-end through the real route
+today (the route's own ownership/`ObjectId` checks already exclude a missing target/challenger id
+before this function is ever reached) — guarded anyway, at zero behavioural cost.
+
+### Dismissed, with evidence (2)
+
+- **"The UI race guard cannot stop an older `/resolve` from overwriting a newer choice in Mongo"**
+  (labelled High by the reviewer, reproduced live via its own mocked-DB probe — see above). Real,
+  and reproducible: two overlapping `/resolve` calls with no server-side compare-and-swap can let an
+  older request's own (self-consistent) write land after a newer one, leaving the database
+  disagreeing with what the client currently displays until the player re-interacts or hits a clean
+  409 on Accept. **Confirmed PRE-EXISTING, not introduced or worsened by this diff**: `git show`
+  against base commit `30468501...` proves the exact same unconditional `updateOne({ $set: {...} })`
+  shape — no status/version-scoped filter — already existed for `defender_aspect`/
+  `defender_wp_spent`/`defender_merit_ids`/`defender_pool` before crd-4a added one more field to the
+  same write. This is the identical race class `deferred-work.md`'s own existing entry ("`PUT
+  /:id/resolve`... share a check-then-blind-write TOCTOU race") already analysed for THIS exact
+  route and explicitly judged safe for the resolve-vs-resolve case specifically: "crd.1's own AC7
+  already addresses the narrower 'two concurrent resolves' case correctly (full
+  recompute-and-overwrite, genuinely idempotent, no partial-merge risk)" — each write is internally
+  self-consistent per the request that produced it, so the worst outcome is a stale display and a
+  clean 409 on Accept (crd.1's own guard), never a corrupted or mixed final roll. Not a new deferred
+  item; no change to `deferred-work.md` needed — this finding re-confirms, rather than
+  contradicts, that entry's own prior conclusion.
+- **AC10's literal "every colour, spacing and font value is a token" wording vs raw px spacing/
+  font-size values in the new CSS.** True literally, exactly as crd-3b's own review already found
+  and dismissed for the identical reason: this project's design system has no spacing-token scale at
+  all, and every component this story mirrors (`.cr-aspect-seg`, `.char-chip`) already uses raw px
+  for spacing/font-size and tokens only for colour/radius/font-family. Consistent with the codebase
+  as it actually is, not a new deviation.
+
+### Story-text corrections (documentation-only, no code change)
+
+Several AC wordings were imprecise relative to the (correct) implementation, caught by the
+Acceptance Auditor pass: AC1's "byte-for-byte identical" overstated the non-gated path (it gains one
+always-`null` `defender_status_term` field, matching this route's own convention of unconditionally
+writing every field it owns); AC6 read as forbidding the selected `.on` state outright rather than
+only forbidding *auto*-selection; AC9 said the client "omits" the term on a closed gate when it
+actually sends `defender_status_term: null` (functionally identical server-side, but the literal
+claim was wrong); AC12 still referenced a "disabled-Roll" test state that AC8's own correction had
+already superseded. All four corrected in place above, plus a `Task 9` client-test-count fix
+(claimed 9, the diff adds 8). None required a code change — the implementation was already correct;
+the story text was not.
+
+### Test results after patching
+
+- crd-4a suite: 19 → 22 (3 new tests, one per patch, each prove-discriminated).
+- Full changed-area regression (crd-1, crd-3a, crd-3b, crd-4a, api-tracker-state, oaq-2, oaq-3,
+  otc-2×2): 195/195, 0 failed, clean local run.
+- `server/db.js`'s unauthorised `tls: false` change reverted and confirmed clean; the unauthorised
+  probe test file deleted; no other files modified outside this story's own declared File List.
+
+**Status: `review` → `done`.** NOT committed, NOT pushed, NOT merged.
 
 ## Change Log
 
 | Date | Change |
 |------|--------|
+| 2026-08-26 | **CODE REVIEW CLOSED, `review` -> `done`.** External Codex CLI review (rocky run — corrupted local models cache killed two attempts, `codex exec resume` failed to continue a session and had to fall back to independent one-shot passes per the skill's own isolated-mode allowance; full detail including an unauthorised `server/db.js` TLS change the reviewer made and had reverted, and a leftover probe test file deleted, is in the Senior Developer Review section below). THREE PATCHES, each prove-discriminated ALONE: (1) `defender_status_term` added to `POST /`'s attacker-field strip list — the schema grew the field but the existing strip-list (already protecting `defender_aspect`/`defender_wp_spent`/`defender_merit_ids` for the same reason) was never updated, so an attacker could pre-populate a bogus "defender's choice" before the defender acted (revert-alone: fails exactly as expected). (2) A non-finite pool total (a schema-shouldn't-allow-it, legacy/corrupted `blood_potency`) is now treated as "not resolved yet" rather than silently clamped into a persisted `NaN` that defeats `/accept`'s own null-pool guard the same way crd.1's original `_roll(undefined)` bug did (revert-alone: fails exactly as expected). (3) Session-selection for the "at Court" check no longer mirrors `attendance.js`'s own unfiltered sort (which a future-dated `game_sessions` document — a real, supported shape — could silently outrank); switched to `office-actions.js`'s own `session_date <= today` + `_id` tie-break pattern (revert-alone: fails exactly as expected). Also hardened `attendedIn`'s id-matching against a theoretical missing-id coincidence, confirmed not currently reachable end-to-end but guarded anyway at zero cost. ONE FINDING DISMISSED WITH EVIDENCE AS PRE-EXISTING, NOT A NEW DEFECT: a reviewer-labelled "High" race between overlapping `/resolve` calls, reproduced live via the reviewer's own mocked-DB probe, but confirmed via `git show` against the base commit to be the IDENTICAL unconditional-`updateOne` shape that already existed for every other defender-owned field before this story — `deferred-work.md`'s own existing TOCTOU entry already analysed this exact route and judged the resolve-vs-resolve case specifically safe (idempotent, self-consistent per-request); this finding re-confirms rather than contradicts that prior conclusion, no deferred-work.md change needed. ONE FINDING DISMISSED WITH EVIDENCE MATCHING PRIOR PRECEDENT: AC10's literal token-only wording vs raw px spacing values, identical to a finding crd-3b's own review already dismissed for the same reason (this design system has no spacing-token scale). FIVE STORY-TEXT CORRECTIONS (no code change, implementation was already correct): AC1's "byte-for-byte" overstatement, AC6's over-broad "no `.on`, ever" wording, AC9's "omits" vs the real "sends null", AC12's stale "disabled-Roll" reference, and Task 9's test-count (9 claimed, 8 added). Test results: crd-4a suite 19 -> 22 (3 new, prove-discriminated); full changed-area regression 195/195, 0 failed. NOT committed, NOT pushed, NOT merged. PRIOR ENTRY FOLLOWS. |
 | 2026-08-26 | `bmad-dev-story`: all 9 tasks implemented, `ready-for-dev` -> `in-progress` -> `review`. Server-side gate (`_statusChoiceEligibility` in `contested-rolls.js`) reuses `currentCycleInGamePhase`/`calcEffectiveCityStatus`/`findRegentTerritory` exactly as `office-actions.js` already does, and mirrors `attendance.js`'s own live "at Court" lookup rather than a new mechanism or an internal HTTP self-call; short-circuits on `power_name` first so the common (non-power) `/resolve` path touches no extra collections. `status_choice` rides the existing response object (not persisted); `defender_status_term` persists on the document, added to the schema. Client (`contested-resolve.js`) renders the gated section only on `status_choice.eligible`, never pre-selects either option, and discards the selection the moment a later response reports the gate closed. **AC8 corrected during implementation**: the Roll button is NOT client-disabled while a term is outstanding — an earlier draft of that AC conflicted with crd-3b's own AC7 (no client-side duplicate of the server's null-pool guard); fixed both the code and the AC text itself rather than silently diverging from what was written. CSS ported from the locked mockup, purely additive, including a dedicated `.cr-pool-pending` rule so the placeholder text does not inherit the numeral's display font. New suites: crd-4a 19/19, crd-3b (extended) 32/32. Full changed-area regression 249/249, 0 failed. One pre-existing, unrelated test failure found and verified via `git stash` A/B (`gdx-4-css-standards-grep.test.js`'s own fallback-count assertion, 10 vs an expected 11, identical on the unmodified base branch) — not caused by this story, not investigated further. Live-verified both themes against the real shipped stylesheets via a temporary Playwright harness (deleted after use, matching crd-3b's own precedent). NOT committed, NOT pushed, NOT merged. |
 | 2026-08-26 | Story created (`bmad-create-story`), `backlog` -> `ready-for-dev`, folding Angelus's defensive-half ruling and Sally's design-lock decisions in directly. |

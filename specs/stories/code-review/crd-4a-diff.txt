@@ -1,0 +1,945 @@
+diff --git a/public/css/suite.css b/public/css/suite.css
+index 2989105d..e4e3ddb2 100644
+--- a/public/css/suite.css
++++ b/public/css/suite.css
+@@ -2564,6 +2564,45 @@ body.desktop-mode.sidebar-collapsed .sb-collapse-btn { width: 100%; justify-cont
+ .cr-wp-toggle.on .cr-wp-bonus { background: var(--bg); color: var(--accent); }
+ .cr-wp-toggle.disabled { opacity: .5; cursor: default; }
+ 
++/* crd.4a — the at-Court City Status advantage choice. Only ever rendered
++   when the server says the gate is open for this challenge. Same button
++   shape/tokens/`.on` treatment as `.cr-aspect-seg` above so it reads as the
++   same control family, but scoped under its own class (mirrors that exact
++   precedent: a future change to one control must not ripple into the
++   other). NEITHER option carries `.on` by default, even when one value is
++   obviously larger — the "Higher" pill is guidance only, never a selection. */
++.cr-status-seg {
++  display: flex; background: var(--surf2); border: 1px solid var(--bdr);
++  border-radius: var(--radius-md); padding: 3px; gap: 3px;
++}
++.cr-status-seg button {
++  flex: 1; display: flex; flex-direction: column; align-items: center; gap: 2px;
++  padding: 10px 4px; min-height: 52px; border: none; background: transparent;
++  border-radius: var(--radius-md); color: var(--txt2);
++  font-family: var(--fl); font-size: 12px; font-weight: 700; cursor: pointer;
++  transition: background 0.15s, color 0.15s;
++}
++.cr-status-seg button:hover:not(.on) { background: var(--surf3); }
++.cr-status-seg button.on { background: var(--accent-a25); color: var(--accent); }
++.cr-status-term-val { font-family: var(--fh); font-size: 15px; font-weight: 900; }
++.cr-status-seg button.on .cr-status-term-val { color: var(--accent); }
++.cr-status-pill {
++  font-family: var(--fl); font-size: 9px; font-weight: 700; letter-spacing: .05em;
++  text-transform: uppercase; padding: 1px 6px; border-radius: var(--radius-sm);
++  background: var(--gold2); color: var(--bg);
++}
++.cr-status-unselected-warn { font-size: 11px; color: var(--crim); font-style: italic; }
++/* The pool-preview placeholder while the status term is still outstanding
++   (AC8) — deliberately NOT the display font (var(--fh)) .cr-pool-value
++   otherwise uses for the numeral. This app's own type rule reserves Cinzel
++   for numerals/display only, never words, no matter how prominent — caught
++   during this story's own design-lock when the first mockup draft used the
++   display font for this exact placeholder text. */
++.cr-pool-pending {
++  font-family: var(--fl); font-size: 13px; font-weight: 700;
++  text-transform: uppercase; letter-spacing: .04em; color: var(--txt3);
++}
++
+ /* Merit chips — extends .char-chip's 44px touch-target sizing (components.css
+    declares no selected state to build from) with the same .on treatment the
+    two controls above already use. */
+diff --git a/public/js/game/contested-resolve.js b/public/js/game/contested-resolve.js
+index 48809dae..a88eb3ff 100644
+--- a/public/js/game/contested-resolve.js
++++ b/public/js/game/contested-resolve.js
+@@ -63,6 +63,12 @@ const state = {
+   aspect:      null,
+   wpOn:        false,
+   meritIds:    new Set(),
++  // crd.4a: server-computed { eligible, bp_value, city_value } from the most
++  // recent /resolve response, or null when the at-Court City Status gate is
++  // closed for this challenge. statusTerm is the player's own 'bp'|'city'
++  // choice — NEVER defaulted or pre-selected, even when one value is larger.
++  statusChoice: null,
++  statusTerm:   null,
+   pool:        null,
+   poolError:   null,
+   resolving:   false,
+@@ -86,6 +92,8 @@ function _resetState(challengeId, challenge, character, charsCount) {
+   state.aspect      = null;
+   state.wpOn        = false;
+   state.meritIds    = new Set();
++  state.statusChoice = null;
++  state.statusTerm   = null;
+   state.pool        = null;
+   state.poolError   = null;
+   state.resolving   = false;
+@@ -146,6 +154,13 @@ function _onClick(e, rootEl) {
+     return;
+   }
+ 
++  const statusTermBtn = e.target.closest('[data-cr-status-term]');
++  if (statusTermBtn) {
++    state.statusTerm = statusTermBtn.dataset.crStatusTerm;
++    _resolve(rootEl);
++    return;
++  }
++
+   const meritBtn = e.target.closest('[data-cr-merit]');
+   if (meritBtn) {
+     const key = meritBtn.dataset.crMerit;
+@@ -181,9 +196,10 @@ async function _resolve(rootEl) {
+   let res;
+   try {
+     res = await apiRaw('PUT', `/api/contested_roll_requests/${state.challengeId}/resolve`, {
+-      defender_aspect:    state.aspect,
+-      defender_wp_spent:  state.wpOn,
+-      defender_merit_ids: Array.from(state.meritIds),
++      defender_aspect:      state.aspect,
++      defender_wp_spent:    state.wpOn,
++      defender_merit_ids:   Array.from(state.meritIds),
++      defender_status_term: state.statusTerm,
+     });
+   } catch {
+     res = { ok: false, body: { message: 'Could not reach the server, try again.' } };
+@@ -194,6 +210,17 @@ async function _resolve(rootEl) {
+   if (res.ok) {
+     state.pool = res.body.defender_pool;
+     state.poolError = null;
++    // AC9: the server is the sole authority on gate eligibility. A closed
++    // (or never-open) gate on this response discards any previously
++    // selected term, so a stale choice can never ride along if the gate
++    // reopens later under different numbers.
++    const newChoice = res.body.status_choice || null;
++    if (!newChoice || !newChoice.eligible) {
++      state.statusChoice = null;
++      state.statusTerm = null;
++    } else {
++      state.statusChoice = newChoice;
++    }
+   } else {
+     state.pool = null;
+     state.poolError = res.body?.message || 'Could not update your pool.';
+@@ -311,6 +338,26 @@ function _html() {
+     ? 'No Willpower available.'
+     : `${state.wpAvailable} Willpower available. A Resistance roll gets +2, not the usual +3.`;
+ 
++  // crd.4a: the at-Court City Status advantage. Only ever rendered when the
++  // SERVER says the gate is open (state.statusChoice.eligible) — never a
++  // client-side guess. Neither option ever carries `.on` by default, even
++  // when one value is obviously larger; the "Higher" pill is guidance only.
++  const sc = state.statusChoice;
++  const statusChoiceHtml = sc?.eligible ? `
++    <div>
++      <div class="form-section-title">City Status advantage</div>
++      <p class="derived-note">You outrank ${esc(redactCharName(c.challenger_character_name || 'them'))} at Court. Pick which term strengthens your defence — you always choose, even when one is clearly larger.</p>
++      <div class="cr-status-seg" data-cr-status-seg>
++        <button type="button" data-cr-status-term="bp" class="${state.statusTerm === 'bp' ? 'on' : ''}">
++          Blood Potency<span class="cr-status-term-val">+${esc(String(sc.bp_value))}</span>${sc.bp_value > sc.city_value ? '<span class="cr-status-pill">Higher</span>' : ''}
++        </button>
++        <button type="button" data-cr-status-term="city" class="${state.statusTerm === 'city' ? 'on' : ''}">
++          City Status gap<span class="cr-status-term-val">+${esc(String(sc.city_value))}</span>${sc.city_value > sc.bp_value ? '<span class="cr-status-pill">Higher</span>' : ''}
++        </button>
++      </div>
++      ${!state.statusTerm ? '<p class="cr-status-unselected-warn">Choose one to include it in your pool.</p>' : ''}
++    </div>` : '';
++
+   const merits = (character.merits || []).filter(m => RESOLVABLE_MERIT_KEYS.has(m.rule_key));
+   const meritHtml = merits.length
+     ? `<div class="cr-merit-row">${merits.map(m => {
+@@ -322,9 +369,17 @@ function _html() {
+       }).join('')}</div>`
+     : `<p class="derived-note">This character has no merits that apply to a contested roll yet.</p>`;
+ 
++  // AC8: a second reason defender_pool can be null (crd-3b's own precedent
++  // is "no aspect chosen yet") — the gate is open but no status term has
++  // been picked. Distinguished for messaging, both still mean "not
++  // finalised yet".
++  const awaitingStatusTerm = sc?.eligible && !state.statusTerm;
++
+   const poolDisplay = state.poolError
+     ? `<span class="cr-pool-error">${esc(state.poolError)}</span>`
+-    : `${state.pool == null ? '-' : esc(String(state.pool))}<span class="cr-pool-unit">${state.pool === 1 ? 'die' : 'dice'}</span>`;
++    : awaitingStatusTerm
++      ? `<span class="cr-pool-pending">Choose above</span>`
++      : `${state.pool == null ? '-' : esc(String(state.pool))}<span class="cr-pool-unit">${state.pool === 1 ? 'die' : 'dice'}</span>`;
+ 
+   // AC7: deliberately NOT gated on state.pool != null — the route's own
+   // defender_pool == null 409 (crd.1) is what protects this, and this story
+@@ -354,6 +409,7 @@ function _html() {
+           </button>
+           <p class="derived-note">${esc(wpNote)}</p>
+         </div>
++        ${statusChoiceHtml}
+         <div>
+           <div class="form-section-title">Merits</div>
+           ${meritHtml}
+@@ -366,7 +422,11 @@ function _html() {
+         <div class="ch-modal-actions cq-actions">
+           <button type="button" class="ch-btn ch-btn-decline" data-cr-back>Back</button>
+           <button type="button" class="ch-btn ch-btn-accept" data-cr-accept ${canAccept ? '' : 'disabled'}>
+-            ${state.accepting ? 'Rolling…' : (state.pool == null ? 'Choose how to resist' : `Roll ${state.pool} ${state.pool === 1 ? 'Die' : 'Dice'}`)}
++            ${state.accepting
++              ? 'Rolling…'
++              : awaitingStatusTerm
++                ? 'Choose a status term first'
++                : (state.pool == null ? 'Choose how to resist' : `Roll ${state.pool} ${state.pool === 1 ? 'Die' : 'Dice'}`)}
+           </button>
+         </div>
+       </div>
+diff --git a/server/routes/contested-rolls.js b/server/routes/contested-rolls.js
+index 0bd40ae7..2ec58092 100644
+--- a/server/routes/contested-rolls.js
++++ b/server/routes/contested-rolls.js
+@@ -4,6 +4,9 @@ import { getCollection } from '../db.js';
+ import { validate } from '../middleware/validate.js';
+ import { requireRole } from '../middleware/auth.js';
+ import { contestedRollRequestSchema } from '../schemas/contested_roll_request.schema.js';
++import { calcEffectiveCityStatus } from '../../public/js/data/city-status-calc.js';
++import { findRegentTerritory } from '../../public/js/data/helpers.js';
++import { currentCycleInGamePhase } from '../../public/js/downtime/cycle-phase.js';
+ 
+ const router = Router();
+ const col     = () => getCollection('contested_roll_requests');
+@@ -114,6 +117,68 @@ function _meritBonus(merit) {
+   return 0;
+ }
+ 
++// crd.4a: the at-Court City Status advantage gate. Short-circuits on the
++// cheapest check first (power_name) so the overwhelming majority of
++// /resolve calls (any non-power contest) never touch chapters/game_sessions/
++// territories at all. Returns null when the gate is closed for this
++// challenge, or { eligible: true, bp_value, city_value } when open — the
++// three conditions (power, game mode, both-sides attendance) plus the
++// City-Status-higher requirement, all evaluated fresh from live data, never
++// cached or client-asserted (AC1).
++async function _statusChoiceEligibility(challenge, defenderChar) {
++  if (!challenge.power_name || typeof challenge.power_name !== 'string' || !challenge.power_name.trim()) {
++    return null;
++  }
++
++  // Game mode active — mirrors office-actions.js's own GATED_TYPES check
++  // (lines ~164-168) exactly, same import, no second (deriveStatus) arg
++  // needed server-side.
++  const cycles = await getCollection('chapters').find().toArray();
++  if (!currentCycleInGamePhase(cycles)) return null;
++
++  // At Court — both challenger and defender attended:true in the SAME most
++  // recent game session. Mirrors server/routes/attendance.js's own live
++  // lookup (session-selection + id-then-name matching), same-process, not a
++  // self-call over HTTP.
++  const sessions = await getCollection('game_sessions').find({}).sort({ session_date: -1 }).limit(1).toArray();
++  const latestSession = sessions[0] || null;
++  if (!latestSession) return null;
++  const attendance = latestSession.attendance || [];
++  function attendedIn(charId, charName) {
++    const entry = attendance.find(a =>
++      String(a.character_id) === String(charId)
++      || (charName && (a.character_name === charName || a.name === charName))
++    );
++    return entry?.attended === true;
++  }
++
++  let challengerChar;
++  try {
++    challengerChar = await getCollection('characters').findOne({ _id: new ObjectId(challenge.challenger_character_id) });
++  } catch { return null; }
++  if (!challengerChar) return null;
++
++  if (!attendedIn(challenge.challenger_character_id, challengerChar.name)) return null;
++  if (!attendedIn(challenge.target_character_id, defenderChar.name)) return null;
++
++  // City Status — same territories/regentAmbience/calcEffectiveCityStatus
++  // pattern office-actions.js already uses for its own budget check (lines
++  // ~316-319).
++  const territories = await getCollection('territories').find({}).toArray();
++  const defenderAmbience   = findRegentTerritory(territories, defenderChar)?.ambience;
++  const challengerAmbience = findRegentTerritory(territories, challengerChar)?.ambience;
++  const defenderStatus   = calcEffectiveCityStatus(defenderChar, defenderAmbience);
++  const challengerStatus = calcEffectiveCityStatus(challengerChar, challengerAmbience);
++
++  if (!(defenderStatus > challengerStatus)) return null;
++
++  return {
++    eligible:  true,
++    bp_value:   defenderChar.blood_potency || 0,
++    city_value: defenderStatus - challengerStatus,
++  };
++}
++
+ // PUT /api/contested_roll_requests/:id/resolve — defender computes their own
+ // server-verified pool from live character state; does not roll dice or
+ // change status (see this story's own "resolving is not accepting" decision).
+@@ -191,27 +256,52 @@ router.put('/:id/resolve', async (req, res) => {
+     if (merit) pool += _meritBonus(merit);
+   }
+ 
++  // crd.4a: the at-Court City Status advantage. Gate is closed for the
++  // overwhelming majority of resolves (any non-power contest) — statusChoice
++  // is null and finalPool/defenderStatusTerm fall straight through unchanged.
++  const statusChoice = await _statusChoiceEligibility(challenge, character);
++  let finalPool = pool;
++  let defenderStatusTerm = null;
++  if (statusChoice) {
++    const { defender_status_term } = req.body || {};
++    if (defender_status_term === 'bp' || defender_status_term === 'city') {
++      defenderStatusTerm = defender_status_term;
++      finalPool = pool + (defender_status_term === 'bp' ? statusChoice.bp_value : statusChoice.city_value);
++    } else {
++      // AC3: required-but-not-yet-chosen — NOT a 400. The aspect/WP/merit
++      // portion above is already legitimately computed and worth showing;
++      // only the final total is withheld, the same null-means-"not resolved
++      // yet" signal already established for a missing defender_aspect.
++      finalPool = null;
++    }
++  }
++
+   // Defensive clamp to the collection's own declared domain
+   // (contested_roll_request.schema.js: defender_pool is 0-30). This route has
+   // no validate() middleware, and a character's attribute `bonus` and a
+   // merit's `rating` both have NO declared maximum, so a schema-valid
+   // character can genuinely drive the computed total outside the range this
+   // collection's own schema promises everywhere else (crd.3a code review,
+-  // external Codex, Pass 1/2).
+-  pool = Math.max(0, Math.min(30, pool));
++  // external Codex, Pass 1/2). Skipped when finalPool is null (AC3) — Math.min
++  // would otherwise silently coerce null to 0, a real total rather than "not
++  // resolved yet".
++  if (finalPool != null) finalPool = Math.max(0, Math.min(30, finalPool));
+ 
+   await col().updateOne(
+     { _id: challenge._id },
+     { $set: {
+-        defender_pool:      pool,
++        defender_pool:         finalPool,
+         defender_aspect,
+-        defender_wp_spent:  spendWp,
+-        defender_merit_ids: resolvedMeritIds,
+-        updated_at:         new Date().toISOString(),
++        defender_wp_spent:     spendWp,
++        defender_merit_ids:    resolvedMeritIds,
++        defender_status_term:  defenderStatusTerm,
++        updated_at:            new Date().toISOString(),
+       } }
+   );
+ 
+-  res.json(await col().findOne({ _id: challenge._id }));
++  const updated = await col().findOne({ _id: challenge._id });
++  if (statusChoice) updated.status_choice = statusChoice;
++  res.json(updated);
+ });
+ 
+ // PUT /api/contested_roll_requests/:id/accept — target accepts; dice rolled server-side
+diff --git a/server/schemas/contested_roll_request.schema.js b/server/schemas/contested_roll_request.schema.js
+index 1da98080..6f744591 100644
+--- a/server/schemas/contested_roll_request.schema.js
++++ b/server/schemas/contested_roll_request.schema.js
+@@ -59,6 +59,13 @@ export const contestedRollRequestSchema = {
+     // point per action, so the only question is whether it was spent.
+     defender_wp_spent:  { type: 'boolean' },
+     defender_merit_ids: { type: 'array', items: { type: 'string' } },
++    // crd.4a: which term the defender chose in the at-Court City Status
++    // advantage gate (Blood Potency vs the City-Status difference). Only
++    // ever populated by /resolve when the gate is open for this challenge;
++    // null otherwise (the overwhelming majority case). Listed here for the
++    // same declared-shape completeness reason defender_aspect etc. are,
++    // even though this route has no validate() middleware.
++    defender_status_term: { type: ['string', 'null'], enum: ['bp', 'city', null] },
+     power_name:   { type: 'string' },
+   },
+ };
+diff --git a/server/tests/crd-3b-resolution-screen.test.js b/server/tests/crd-3b-resolution-screen.test.js
+index fdffaebf..75b2bbb7 100644
+--- a/server/tests/crd-3b-resolution-screen.test.js
++++ b/server/tests/crd-3b-resolution-screen.test.js
+@@ -91,6 +91,9 @@ function aspectTarget(aspect) {
+ function meritTarget(key) {
+   return { closest: sel => (sel === '[data-cr-merit]' ? { dataset: { crMerit: key } } : null) };
+ }
++function statusTermTarget(term) {
++  return { closest: sel => (sel === '[data-cr-status-term]' ? { dataset: { crStatusTerm: term } } : null) };
++}
+ 
+ const CHAR_A = {
+   _id: '000000000000000000000a01',
+@@ -449,6 +452,155 @@ describe('crd.3b — back navigation and back button', () => {
+   });
+ });
+ 
++describe('crd.4a AC5 — the City Status advantage section only renders when the server says the gate is open', () => {
++  it('is absent when the resolve response carries no status_choice at all', async () => {
++    const root = makeRoot();
++    await mountResolved(root);
++    apiModule.apiRaw.mockResolvedValueOnce({ ok: true, status: 200, body: { defender_pool: 2 } });
++    root.click(aspectTarget('mental'));
++    await Promise.resolve(); await Promise.resolve();
++    expect(root.innerHTML).not.toMatch(/City Status advantage/);
++  });
++
++  it('is absent when status_choice.eligible is false', async () => {
++    const root = makeRoot();
++    await mountResolved(root);
++    apiModule.apiRaw.mockResolvedValueOnce({ ok: true, status: 200, body: { defender_pool: 2, status_choice: { eligible: false } } });
++    root.click(aspectTarget('mental'));
++    await Promise.resolve(); await Promise.resolve();
++    expect(root.innerHTML).not.toMatch(/City Status advantage/);
++  });
++
++  it('renders both options with their real values when the gate is open', async () => {
++    const root = makeRoot();
++    await mountResolved(root);
++    apiModule.apiRaw.mockResolvedValueOnce({
++      ok: true, status: 200,
++      body: { defender_pool: null, status_choice: { eligible: true, bp_value: 2, city_value: 4 } },
++    });
++    root.click(aspectTarget('mental'));
++    await Promise.resolve(); await Promise.resolve();
++    expect(root.innerHTML).toMatch(/City Status advantage/);
++    expect(root.innerHTML).toContain('Blood Potency');
++    expect(root.innerHTML).toContain('+2');
++    expect(root.innerHTML).toContain('City Status gap');
++    expect(root.innerHTML).toContain('+4');
++  });
++});
++
++describe('crd.4a AC6 — neither option is ever pre-selected, even when one is obviously larger', () => {
++  it('neither button carries the .on class on first render of the gated section', async () => {
++    const root = makeRoot();
++    await mountResolved(root);
++    apiModule.apiRaw.mockResolvedValueOnce({
++      ok: true, status: 200,
++      body: { defender_pool: null, status_choice: { eligible: true, bp_value: 2, city_value: 8 } },
++    });
++    root.click(aspectTarget('mental'));
++    await Promise.resolve(); await Promise.resolve();
++    expect(root.innerHTML).not.toMatch(/data-cr-status-term="bp"[^>]*class="on"/);
++    expect(root.innerHTML).not.toMatch(/data-cr-status-term="city"[^>]*class="on"/);
++  });
++
++  it('marks the numerically larger option with the "Higher" guidance pill, not a selection', async () => {
++    const root = makeRoot();
++    await mountResolved(root);
++    apiModule.apiRaw.mockResolvedValueOnce({
++      ok: true, status: 200,
++      body: { defender_pool: null, status_choice: { eligible: true, bp_value: 2, city_value: 8 } },
++    });
++    root.click(aspectTarget('mental'));
++    await Promise.resolve(); await Promise.resolve();
++    const cityButton = root.innerHTML.slice(root.innerHTML.indexOf('City Status gap') - 200, root.innerHTML.indexOf('City Status gap') + 100);
++    expect(cityButton).toMatch(/Higher/);
++    const bpButton = root.innerHTML.slice(root.innerHTML.indexOf('Blood Potency') - 200, root.innerHTML.indexOf('Blood Potency') + 100);
++    expect(bpButton).not.toMatch(/Higher/);
++  });
++});
++
++describe('crd.4a AC7/AC8 — selection wiring, placeholder and disabled Roll until chosen', () => {
++  it('shows the plain placeholder and a disabled Roll button while the gate is open and no term is chosen', async () => {
++    const root = makeRoot();
++    await mountResolved(root);
++    apiModule.apiRaw.mockResolvedValueOnce({
++      ok: true, status: 200,
++      body: { defender_pool: null, status_choice: { eligible: true, bp_value: 2, city_value: 4 } },
++    });
++    root.click(aspectTarget('mental'));
++    await Promise.resolve(); await Promise.resolve();
++    expect(root.innerHTML).toMatch(/Choose above/);
++    expect(root.innerHTML).toMatch(/Choose a status term first/);
++    // Deliberately NOT client-disabled — mirrors crd-3b's own AC7 exactly
++    // (no client-side duplicate of the server's null-pool 409 guard; the
++    // "no aspect chosen yet" case is handled the identical way already).
++    expect(root.innerHTML).not.toMatch(/data-cr-accept[^>]*disabled/);
++  });
++
++  it('selecting a term calls /resolve with defender_status_term and reuses the existing generation-guard machinery', async () => {
++    const root = makeRoot();
++    await mountResolved(root);
++    apiModule.apiRaw.mockResolvedValueOnce({
++      ok: true, status: 200,
++      body: { defender_pool: null, status_choice: { eligible: true, bp_value: 2, city_value: 4 } },
++    });
++    root.click(aspectTarget('mental'));
++    await Promise.resolve(); await Promise.resolve();
++
++    apiModule.apiRaw.mockResolvedValueOnce({
++      ok: true, status: 200,
++      body: { defender_pool: 6, defender_status_term: 'city', status_choice: { eligible: true, bp_value: 2, city_value: 4 } },
++    });
++    root.click(statusTermTarget('city'));
++    await Promise.resolve(); await Promise.resolve();
++
++    expect(apiModule.apiRaw).toHaveBeenLastCalledWith(
++      'PUT', '/api/contested_roll_requests/c9/resolve',
++      expect.objectContaining({ defender_status_term: 'city' })
++    );
++    expect(root.innerHTML).toContain('>6<');
++    expect(root.innerHTML).toMatch(/data-cr-status-term="city"[^>]*class="on"/);
++    expect(root.innerHTML).not.toMatch(/data-cr-accept[^>]*disabled/);
++  });
++});
++
++describe('crd.4a AC9 — the gate closing mid-flow discards any previously selected term', () => {
++  it('a later resolve response with no eligible status_choice removes the section and forgets the prior selection', async () => {
++    const root = makeRoot();
++    await mountResolved(root);
++    apiModule.apiRaw.mockResolvedValueOnce({
++      ok: true, status: 200,
++      body: { defender_pool: null, status_choice: { eligible: true, bp_value: 2, city_value: 4 } },
++    });
++    root.click(aspectTarget('mental'));
++    await Promise.resolve(); await Promise.resolve();
++
++    apiModule.apiRaw.mockResolvedValueOnce({
++      ok: true, status: 200,
++      body: { defender_pool: 6, defender_status_term: 'city', status_choice: { eligible: true, bp_value: 2, city_value: 4 } },
++    });
++    root.click(statusTermTarget('city'));
++    await Promise.resolve(); await Promise.resolve();
++    expect(root.innerHTML).toMatch(/City Status advantage/);
++
++    // Gate closes (e.g. game mode ended mid-resolve) — next resolve response
++    // carries no eligible status_choice at all.
++    apiModule.apiRaw.mockResolvedValueOnce({ ok: true, status: 200, body: { defender_pool: 3 } });
++    root.click(targetOf('[data-cr-wp]'));
++    await Promise.resolve(); await Promise.resolve();
++
++    expect(root.innerHTML).not.toMatch(/City Status advantage/);
++
++    // A subsequent resolve call must not carry the discarded selection.
++    apiModule.apiRaw.mockResolvedValueOnce({ ok: true, status: 200, body: { defender_pool: 3 } });
++    root.click(targetOf('[data-cr-wp]'));
++    await Promise.resolve(); await Promise.resolve();
++    expect(apiModule.apiRaw).toHaveBeenLastCalledWith(
++      'PUT', '/api/contested_roll_requests/c9/resolve',
++      expect.objectContaining({ defender_status_term: null })
++    );
++  });
++});
++
+ describe('crd.3b — no client-side dice generation', () => {
+   it('never imports the shared dice-rolling engine (d10/rollPool would be a second, illegitimate roll)', async () => {
+     const fs = await import('node:fs');
+diff --git a/server/tests/crd-4a-defensive-status-choice.test.js b/server/tests/crd-4a-defensive-status-choice.test.js
+new file mode 100644
+index 00000000..5926b144
+--- /dev/null
++++ b/server/tests/crd-4a-defensive-status-choice.test.js
+@@ -0,0 +1,419 @@
++/**
++ * crd.4a — the at-Court City Status advantage gate on PUT /:id/resolve
++ * (Epic CRD, specs/stories/crd-4a-defensive-status-choice.md).
++ *
++ *   AC1 — the three-condition gate (power_name set, game mode active via
++ *         currentCycleInGamePhase, both sides attended:true in the current
++ *         game session) plus the City-Status-higher requirement, computed
++ *         fresh from live data on every call. Each condition tested failing
++ *         alone.
++ *   AC2 — when the gate is open, the response carries status_choice
++ *         { eligible: true, bp_value, city_value } even before a term is
++ *         chosen. Omitted when the gate is closed.
++ *   AC3 — when the gate is open, defender_status_term becomes required for
++ *         the pool to finalise: missing/invalid leaves defender_pool null
++ *         (not a 400), a valid choice adds the right term's value once.
++ *   AC4 — defender_status_term persists on the document ('bp'|'city'|null).
++ *
++ * Follows crd-3a-resolve-endpoint.test.js's exact fixture/cleanup/
++ * describe.skipIf(!dbAvailable) shape, and otc-2-office-actions-api.test.js's
++ * established pattern for seeding a reliably-"current" chapter and game
++ * session in a shared test database (fileParallelism: false makes a full
++ * defensive wipe of both collections safe within this file's own run).
++ *
++ * DB-backed: real MongoDB required. See db-setup.js.
++ */
++
++import { describe, it, expect, beforeAll, beforeEach, afterAll } from 'vitest';
++import request from 'supertest';
++import { createTestApp, playerUser } from './helpers/test-app.js';
++import { setupDb, teardownDb, isDbAvailable } from './helpers/db-setup.js';
++import { getCollection } from '../db.js';
++import { ObjectId } from 'mongodb';
++
++const dbAvailable = await isDbAvailable();
++
++let app;
++const NAME_PREFIX = 'CRD-4A Probe';
++const GAME_NUMBER = 977; // distinctive, well above any other fixture's game_number
++
++const seededCharIds = [];
++
++async function seedChar({ city = 0, bloodPotency = 3, courtCategory = null } = {}) {
++  const { insertedId } = await getCollection('characters').insertOne({
++    name: `${NAME_PREFIX} Char ${Date.now()}_${Math.random()}`,
++    retired: false,
++    attributes: { Resolve: { dots: 2, bonus: 0 }, Composure: { dots: 2, bonus: 0 }, Stamina: { dots: 2, bonus: 0 } },
++    merits: [],
++    blood_potency: bloodPotency,
++    status: { city },
++    court_category: courtCategory,
++  });
++  seededCharIds.push(insertedId);
++  return insertedId;
++}
++
++async function seedChallenge(defenderOid, challengerOid, overrides = {}) {
++  const base = {
++    challenger_character_id:   String(challengerOid),
++    challenger_character_name: `${NAME_PREFIX} Challenger`,
++    target_character_id:       String(defenderOid),
++    target_character_name:     `${NAME_PREFIX} Target`,
++    roll_type:       'resistance',
++    challenger_pool: 5,
++    power_name:      'Majesty',
++    request_type:    'contested_roll',
++    status:          'pending',
++    outcome:         null,
++    created_at:      new Date().toISOString(),
++    updated_at:      new Date().toISOString(),
++    ...overrides,
++  };
++  const { insertedId } = await getCollection('contested_roll_requests').insertOne(base);
++  return String(insertedId);
++}
++
++// otc-2's own established defensive pattern: currentCycleInGamePhase picks
++// the single highest-game_number chapter across the WHOLE shared test
++// database, so a leftover from another file could otherwise outrank this
++// one — full wipe first, matching that precedent exactly.
++async function seedChapter(phase = 'game') {
++  await getCollection('chapters').deleteMany({});
++  await getCollection('chapters').insertOne({
++    label: `${NAME_PREFIX} Cycle`, phase, game_number: GAME_NUMBER,
++  });
++}
++
++async function seedNoChapter() {
++  await getCollection('chapters').deleteMany({});
++}
++
++// Mirrors findLatestSession()'s own defensive pattern (otc-2): the gate's
++// own attendance lookup sorts game_sessions by session_date desc, so a
++// leftover from another file with today's date could otherwise outrank this
++// one — clear every session at-or-before today first.
++async function seedSession(attendance) {
++  const today = new Date().toISOString().slice(0, 10);
++  await getCollection('game_sessions').deleteMany({ session_date: { $lte: today } });
++  await getCollection('game_sessions').insertOne({
++    title: `${NAME_PREFIX} Session`,
++    session_date: today,
++    game_number: GAME_NUMBER,
++    attendance,
++  });
++}
++
++async function seedNoSession() {
++  const today = new Date().toISOString().slice(0, 10);
++  await getCollection('game_sessions').deleteMany({ session_date: { $lte: today } });
++}
++
++function bothAttended(defenderOid, challengerOid) {
++  return [
++    { character_id: String(defenderOid),   character_name: `${NAME_PREFIX} Target`,     attended: true },
++    { character_id: String(challengerOid), character_name: `${NAME_PREFIX} Challenger`, attended: true },
++  ];
++}
++
++function defenderUser(targetOid) { return playerUser([targetOid.toString()]); }
++
++function resolveReq(id, body, user) {
++  return request(app).put(`/api/contested_roll_requests/${id}/resolve`).set('X-Test-User', user).send(body);
++}
++
++async function cleanup() {
++  await getCollection('contested_roll_requests').deleteMany({
++    $or: [
++      { challenger_character_name: { $regex: `^${NAME_PREFIX}` } },
++      { target_character_name:     { $regex: `^${NAME_PREFIX}` } },
++    ],
++  });
++  await getCollection('characters').deleteMany({ name: { $regex: `^${NAME_PREFIX}` } });
++  await getCollection('territories').deleteMany({ name: { $regex: `^${NAME_PREFIX}` } });
++  await getCollection('chapters').deleteMany({ label: { $regex: `^${NAME_PREFIX}` } });
++  await getCollection('game_sessions').deleteMany({ title: { $regex: `^${NAME_PREFIX}` } });
++}
++
++beforeAll(async () => {
++  if (!dbAvailable) return;
++  await setupDb();
++  app = createTestApp();
++  await cleanup();
++});
++
++afterAll(async () => {
++  if (!dbAvailable) return;
++  await cleanup();
++  await teardownDb();
++});
++
++describe.skipIf(!dbAvailable)('crd.4a AC1 — the three-condition gate, each tested failing alone', () => {
++  it('closed (no status_choice, unchanged behaviour) when power_name is absent — even with game mode active and both sides attended', async () => {
++    const defender = await seedChar({ city: 5 });
++    const challenger = await seedChar({ city: 1 });
++    await seedChapter('game');
++    await seedSession(bothAttended(defender, challenger));
++    const id = await seedChallenge(defender, challenger, { power_name: undefined });
++
++    const res = await resolveReq(id, { defender_aspect: 'mental' }, defenderUser(defender));
++    expect(res.status, JSON.stringify(res.body)).toBe(200);
++    expect(res.body.status_choice).toBeUndefined();
++    expect(res.body.defender_pool).toBe(2); // plain Resolve, no gate applied
++  });
++
++  it('closed when power_name is an empty string', async () => {
++    const defender = await seedChar({ city: 5 });
++    const challenger = await seedChar({ city: 1 });
++    await seedChapter('game');
++    await seedSession(bothAttended(defender, challenger));
++    const id = await seedChallenge(defender, challenger, { power_name: '' });
++
++    const res = await resolveReq(id, { defender_aspect: 'mental' }, defenderUser(defender));
++    expect(res.status, JSON.stringify(res.body)).toBe(200);
++    expect(res.body.status_choice).toBeUndefined();
++  });
++
++  it('closed when no Chapter exists at all (game mode cannot be active)', async () => {
++    const defender = await seedChar({ city: 5 });
++    const challenger = await seedChar({ city: 1 });
++    await seedNoChapter();
++    await seedSession(bothAttended(defender, challenger));
++    const id = await seedChallenge(defender, challenger);
++
++    const res = await resolveReq(id, { defender_aspect: 'mental' }, defenderUser(defender));
++    expect(res.status, JSON.stringify(res.body)).toBe(200);
++    expect(res.body.status_choice).toBeUndefined();
++  });
++
++  it('closed when the current Chapter is in a non-game phase', async () => {
++    const defender = await seedChar({ city: 5 });
++    const challenger = await seedChar({ city: 1 });
++    await seedChapter('prep');
++    await seedSession(bothAttended(defender, challenger));
++    const id = await seedChallenge(defender, challenger);
++
++    const res = await resolveReq(id, { defender_aspect: 'mental' }, defenderUser(defender));
++    expect(res.status, JSON.stringify(res.body)).toBe(200);
++    expect(res.body.status_choice).toBeUndefined();
++  });
++
++  it('closed when no game session exists at all', async () => {
++    const defender = await seedChar({ city: 5 });
++    const challenger = await seedChar({ city: 1 });
++    await seedChapter('game');
++    await seedNoSession();
++    const id = await seedChallenge(defender, challenger);
++
++    const res = await resolveReq(id, { defender_aspect: 'mental' }, defenderUser(defender));
++    expect(res.status, JSON.stringify(res.body)).toBe(200);
++    expect(res.body.status_choice).toBeUndefined();
++  });
++
++  it('closed when the defender did not attend the current session', async () => {
++    const defender = await seedChar({ city: 5 });
++    const challenger = await seedChar({ city: 1 });
++    await seedChapter('game');
++    await seedSession([
++      { character_id: String(defender),   character_name: `${NAME_PREFIX} Target`,     attended: false },
++      { character_id: String(challenger), character_name: `${NAME_PREFIX} Challenger`, attended: true },
++    ]);
++    const id = await seedChallenge(defender, challenger);
++
++    const res = await resolveReq(id, { defender_aspect: 'mental' }, defenderUser(defender));
++    expect(res.status, JSON.stringify(res.body)).toBe(200);
++    expect(res.body.status_choice).toBeUndefined();
++  });
++
++  it('closed when the challenger did not attend the current session (both parties required)', async () => {
++    const defender = await seedChar({ city: 5 });
++    const challenger = await seedChar({ city: 1 });
++    await seedChapter('game');
++    await seedSession([
++      { character_id: String(defender),   character_name: `${NAME_PREFIX} Target`,     attended: true },
++      { character_id: String(challenger), character_name: `${NAME_PREFIX} Challenger`, attended: false },
++    ]);
++    const id = await seedChallenge(defender, challenger);
++
++    const res = await resolveReq(id, { defender_aspect: 'mental' }, defenderUser(defender));
++    expect(res.status, JSON.stringify(res.body)).toBe(200);
++    expect(res.body.status_choice).toBeUndefined();
++  });
++
++  it('closed when the defender\'s City Status is only equal to the challenger\'s', async () => {
++    const defender = await seedChar({ city: 3 });
++    const challenger = await seedChar({ city: 3 });
++    await seedChapter('game');
++    await seedSession(bothAttended(defender, challenger));
++    const id = await seedChallenge(defender, challenger);
++
++    const res = await resolveReq(id, { defender_aspect: 'mental' }, defenderUser(defender));
++    expect(res.status, JSON.stringify(res.body)).toBe(200);
++    expect(res.body.status_choice).toBeUndefined();
++  });
++
++  it('closed when the defender\'s City Status is lower than the challenger\'s', async () => {
++    const defender = await seedChar({ city: 1 });
++    const challenger = await seedChar({ city: 5 });
++    await seedChapter('game');
++    await seedSession(bothAttended(defender, challenger));
++    const id = await seedChallenge(defender, challenger);
++
++    const res = await resolveReq(id, { defender_aspect: 'mental' }, defenderUser(defender));
++    expect(res.status, JSON.stringify(res.body)).toBe(200);
++    expect(res.body.status_choice).toBeUndefined();
++  });
++
++  it('open when all three conditions hold and City Status is strictly higher', async () => {
++    const defender = await seedChar({ city: 5, bloodPotency: 2 });
++    const challenger = await seedChar({ city: 1 });
++    await seedChapter('game');
++    await seedSession(bothAttended(defender, challenger));
++    const id = await seedChallenge(defender, challenger);
++
++    const res = await resolveReq(id, { defender_aspect: 'mental' }, defenderUser(defender));
++    expect(res.status, JSON.stringify(res.body)).toBe(200);
++    expect(res.body.status_choice).toEqual({ eligible: true, bp_value: 2, city_value: 4 });
++  });
++});
++
++describe.skipIf(!dbAvailable)('crd.4a AC2 — status_choice value computation', () => {
++  it('bp_value is the defender\'s own blood_potency; city_value is the effective City Status difference', async () => {
++    const defender = await seedChar({ city: 8, bloodPotency: 5 });
++    const challenger = await seedChar({ city: 2 });
++    await seedChapter('game');
++    await seedSession(bothAttended(defender, challenger));
++    const id = await seedChallenge(defender, challenger);
++
++    const res = await resolveReq(id, { defender_aspect: 'mental' }, defenderUser(defender));
++    expect(res.status, JSON.stringify(res.body)).toBe(200);
++    expect(res.body.status_choice).toEqual({ eligible: true, bp_value: 5, city_value: 6 });
++  });
++
++  it('effective City Status is capped at 10 per side before the difference is taken', async () => {
++    // court_category 'Head of State' carries a real TITLE_STATUS_BONUS; a
++    // high raw status.city plus that bonus pushes the defender's raw total
++    // past 10, but calcEffectiveCityStatus clamps each side individually
++    // before the difference is computed (this story's own ruled-uncapped
++    // decision applies only to the DIFFERENCE, never to either raw side).
++    const defender = await seedChar({ city: 9, courtCategory: 'Head of State' });
++    const challenger = await seedChar({ city: 0 });
++    await seedChapter('game');
++    await seedSession(bothAttended(defender, challenger));
++    const id = await seedChallenge(defender, challenger);
++
++    const res = await resolveReq(id, { defender_aspect: 'mental' }, defenderUser(defender));
++    expect(res.status, JSON.stringify(res.body)).toBe(200);
++    expect(res.body.status_choice.city_value).toBe(10); // min(9+bonus,10) - 0
++  });
++
++  it('status_choice is present but defender_pool is null when the gate is open and no term has been chosen yet', async () => {
++    const defender = await seedChar({ city: 5, bloodPotency: 2 });
++    const challenger = await seedChar({ city: 1 });
++    await seedChapter('game');
++    await seedSession(bothAttended(defender, challenger));
++    const id = await seedChallenge(defender, challenger);
++
++    const res = await resolveReq(id, { defender_aspect: 'mental' }, defenderUser(defender));
++    expect(res.status, JSON.stringify(res.body)).toBe(200);
++    expect(res.body.status_choice.eligible).toBe(true);
++    expect(res.body.defender_pool, 'AC3: not a 400, but not finalised either').toBeNull();
++  });
++});
++
++describe.skipIf(!dbAvailable)('crd.4a AC3/AC4 — required-when-eligible validation and persisted term', () => {
++  it('an invalid defender_status_term (neither bp nor city) also leaves the pool null, not a 400', async () => {
++    const defender = await seedChar({ city: 5, bloodPotency: 2 });
++    const challenger = await seedChar({ city: 1 });
++    await seedChapter('game');
++    await seedSession(bothAttended(defender, challenger));
++    const id = await seedChallenge(defender, challenger);
++
++    const res = await resolveReq(
++      id, { defender_aspect: 'mental', defender_status_term: 'nonsense' }, defenderUser(defender)
++    );
++    expect(res.status, JSON.stringify(res.body)).toBe(200);
++    expect(res.body.defender_pool).toBeNull();
++
++    const stored = await getCollection('contested_roll_requests').findOne({ _id: new ObjectId(id) });
++    expect(stored.defender_status_term).toBeNull();
++  });
++
++  it('choosing "bp" adds bp_value exactly once and persists the choice', async () => {
++    const defender = await seedChar({ city: 5, bloodPotency: 2 });
++    const challenger = await seedChar({ city: 1 });
++    await seedChapter('game');
++    await seedSession(bothAttended(defender, challenger));
++    const id = await seedChallenge(defender, challenger);
++
++    const res = await resolveReq(
++      id, { defender_aspect: 'mental', defender_status_term: 'bp' }, defenderUser(defender)
++    );
++    expect(res.status, JSON.stringify(res.body)).toBe(200);
++    expect(res.body.defender_pool).toBe(4); // 2 (Resolve) + 2 (bp_value)
++    expect(res.body.defender_status_term).toBe('bp');
++
++    const stored = await getCollection('contested_roll_requests').findOne({ _id: new ObjectId(id) });
++    expect(stored.defender_status_term).toBe('bp');
++    expect(stored.defender_pool).toBe(4);
++  });
++
++  it('choosing "city" adds city_value exactly once, not bp_value', async () => {
++    const defender = await seedChar({ city: 5, bloodPotency: 2 });
++    const challenger = await seedChar({ city: 1 });
++    await seedChapter('game');
++    await seedSession(bothAttended(defender, challenger));
++    const id = await seedChallenge(defender, challenger);
++
++    const res = await resolveReq(
++      id, { defender_aspect: 'mental', defender_status_term: 'city' }, defenderUser(defender)
++    );
++    expect(res.status, JSON.stringify(res.body)).toBe(200);
++    expect(res.body.defender_pool).toBe(6); // 2 (Resolve) + 4 (city_value)
++    expect(res.body.defender_status_term).toBe('city');
++  });
++
++  it('re-resolving with a different term fully overwrites, not merges', async () => {
++    const defender = await seedChar({ city: 5, bloodPotency: 2 });
++    const challenger = await seedChar({ city: 1 });
++    await seedChapter('game');
++    await seedSession(bothAttended(defender, challenger));
++    const id = await seedChallenge(defender, challenger);
++
++    const first = await resolveReq(id, { defender_aspect: 'mental', defender_status_term: 'bp' }, defenderUser(defender));
++    expect(first.body.defender_pool).toBe(4);
++
++    const second = await resolveReq(id, { defender_aspect: 'mental', defender_status_term: 'city' }, defenderUser(defender));
++    expect(second.status, JSON.stringify(second.body)).toBe(200);
++    expect(second.body.defender_pool).toBe(6);
++    expect(second.body.defender_status_term).toBe('city');
++  });
++
++  it('defender_status_term persists as null when the gate never opens for this challenge', async () => {
++    const defender = await seedChar({ city: 5 });
++    const challenger = await seedChar({ city: 1 });
++    await seedChapter('game');
++    await seedSession(bothAttended(defender, challenger));
++    const id = await seedChallenge(defender, challenger, { power_name: undefined });
++
++    const res = await resolveReq(id, { defender_aspect: 'mental' }, defenderUser(defender));
++    expect(res.status, JSON.stringify(res.body)).toBe(200);
++    expect(res.body.defender_status_term).toBeNull();
++
++    const stored = await getCollection('contested_roll_requests').findOne({ _id: new ObjectId(id) });
++    expect(stored.defender_status_term).toBeNull();
++  });
++
++  it('the chosen term still respects the collection\'s own 0-30 clamp', async () => {
++    const defender = await seedChar({ city: 10, bloodPotency: 3, courtCategory: 'Head of State' });
++    const challenger = await seedChar({ city: 0 });
++    await seedChapter('game');
++    await seedSession(bothAttended(defender, challenger));
++    // Push the base pool near the ceiling so the status term tips it over 30.
++    const id = await seedChallenge(defender, challenger);
++    await getCollection('characters').updateOne({ _id: defender }, { $set: { 'attributes.Resolve.dots': 10, 'attributes.Resolve.bonus': 20 } });
++
++    const res = await resolveReq(id, { defender_aspect: 'mental', defender_status_term: 'city' }, defenderUser(defender));
++    expect(res.status, JSON.stringify(res.body)).toBe(200);
++    expect(res.body.defender_pool).toBe(30);
++  });
++});

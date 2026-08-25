@@ -24,7 +24,7 @@
  * DB-backed: real MongoDB required. See db-setup.js.
  */
 
-import { describe, it, expect, beforeAll, beforeEach, afterAll } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import request from 'supertest';
 import { createTestApp, playerUser } from './helpers/test-app.js';
 import { setupDb, teardownDb, isDbAvailable } from './helpers/db-setup.js';
@@ -37,8 +37,6 @@ let app;
 const NAME_PREFIX = 'CRD-4A Probe';
 const GAME_NUMBER = 977; // distinctive, well above any other fixture's game_number
 
-const seededCharIds = [];
-
 async function seedChar({ city = 0, bloodPotency = 3, courtCategory = null } = {}) {
   const { insertedId } = await getCollection('characters').insertOne({
     name: `${NAME_PREFIX} Char ${Date.now()}_${Math.random()}`,
@@ -49,7 +47,6 @@ async function seedChar({ city = 0, bloodPotency = 3, courtCategory = null } = {
     status: { city },
     court_category: courtCategory,
   });
-  seededCharIds.push(insertedId);
   return insertedId;
 }
 
@@ -415,5 +412,106 @@ describe.skipIf(!dbAvailable)('crd.4a AC3/AC4 — required-when-eligible validat
     const res = await resolveReq(id, { defender_aspect: 'mental', defender_status_term: 'city' }, defenderUser(defender));
     expect(res.status, JSON.stringify(res.body)).toBe(200);
     expect(res.body.defender_pool).toBe(30);
+  });
+});
+
+// External Codex review (2026-08-26), Pass 2, Medium: defender_status_term
+// was added to the schema without being added to POST /'s own strip list,
+// letting an attacker pre-populate the defender's supposed choice at
+// creation time — the same injury crd.1 already fixed for
+// defender_aspect/defender_wp_spent/defender_merit_ids. Patched by adding it
+// to that same strip list.
+describe.skipIf(!dbAvailable)('crd.4a code review — POST / strips a caller-supplied defender_status_term', () => {
+  it('an attacker-supplied defender_status_term at creation time is stripped, not stored', async () => {
+    const defender = await seedChar({ city: 5 });
+    const challenger = await seedChar({ city: 1 });
+
+    const res = await request(app)
+      .post('/api/contested_roll_requests')
+      .set('X-Test-User', playerUser([challenger.toString()]))
+      .send({
+        challenger_character_id:   String(challenger),
+        challenger_character_name: `${NAME_PREFIX} Challenger`,
+        target_character_id:       String(defender),
+        target_character_name:     `${NAME_PREFIX} Target`,
+        roll_type:       'resistance',
+        challenger_pool: 5,
+        power_name:      'Majesty',
+        defender_status_term: 'city',
+      });
+
+    expect(res.status, JSON.stringify(res.body)).toBe(201);
+    expect(res.body.defender_status_term).toBeUndefined();
+
+    const stored = await getCollection('contested_roll_requests').findOne({ _id: new ObjectId(res.body._id) });
+    expect(stored.defender_status_term).toBeUndefined();
+  });
+});
+
+// External Codex review (2026-08-26), Pass 1, High: a schema-violating
+// (non-numeric) blood_potency — unreachable through the normal character
+// API today (character.schema.js constrains it to an integer), but real
+// via legacy/direct-Mongo data — concatenated into the pool total and
+// survived the clamp as NaN, which JSON-serialises as null but is NOT
+// `== null` when read back from Mongo, defeating /accept's own null-pool
+// guard the same way crd.1's original `_roll(undefined)` bug did. Patched
+// with an explicit Number.isFinite guard, treating a non-finite total the
+// same as "not resolved yet".
+describe.skipIf(!dbAvailable)('crd.4a code review — a non-finite pool total never persists as NaN', () => {
+  it('a non-numeric blood_potency with defender_status_term "bp" leaves the pool null, not NaN', async () => {
+    const defender = await seedChar({ city: 5 });
+    const challenger = await seedChar({ city: 1 });
+    await getCollection('characters').updateOne({ _id: defender }, { $set: { blood_potency: 'not-a-number' } });
+    await seedChapter('game');
+    await seedSession(bothAttended(defender, challenger));
+    const id = await seedChallenge(defender, challenger);
+
+    const res = await resolveReq(id, { defender_aspect: 'mental', defender_status_term: 'bp' }, defenderUser(defender));
+    expect(res.status, JSON.stringify(res.body)).toBe(200);
+    expect(res.body.defender_pool).toBeNull();
+    expect(Number.isNaN(res.body.defender_pool)).toBe(false);
+
+    const stored = await getCollection('contested_roll_requests').findOne({ _id: new ObjectId(id) });
+    expect(stored.defender_pool).toBeNull();
+    expect(Number.isNaN(stored.defender_pool)).toBe(false);
+
+    // The pre-existing crd.1 guard must still see this as unresolved, not
+    // silently accept it and roll zero dice.
+    const acceptRes = await request(app).put(`/api/contested_roll_requests/${id}/accept`).set('X-Test-User', defenderUser(defender));
+    expect(acceptRes.status, JSON.stringify(acceptRes.body)).toBe(409);
+  });
+});
+
+// External Codex review (2026-08-26), Pass 2, Medium: the gate's own
+// session-selection originally mirrored attendance.js's unfiltered "most
+// recent by session_date" sort, which a future-dated game_sessions document
+// (a real, supported shape — see game-sessions.js's own GET /next) could
+// silently outrank. Patched to mirror office-actions.js's own
+// findLatestSession instead (session_date <= today, tie-broken by _id).
+describe.skipIf(!dbAvailable)('crd.4a code review — a future-dated session never outranks the current one', () => {
+  it('a pre-created future game session does not shadow today\'s live attendance', async () => {
+    const defender = await seedChar({ city: 5, bloodPotency: 2 });
+    const challenger = await seedChar({ city: 1 });
+    await seedChapter('game');
+    await seedSession(bothAttended(defender, challenger));
+
+    // A future session exists (e.g. the ST pre-created next game's shell)
+    // with NO attendance recorded for either character.
+    const future = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+    await getCollection('game_sessions').insertOne({
+      title: `${NAME_PREFIX} Future Session`,
+      session_date: future,
+      game_number: GAME_NUMBER + 1,
+      attendance: [],
+    });
+
+    const id = await seedChallenge(defender, challenger);
+    const res = await resolveReq(id, { defender_aspect: 'mental' }, defenderUser(defender));
+    expect(res.status, JSON.stringify(res.body)).toBe(200);
+    // Today's session (both attended) must still be the one the gate reads —
+    // if the future session shadowed it, status_choice would be absent.
+    expect(res.body.status_choice).toEqual({ eligible: true, bp_value: 2, city_value: 4 });
+
+    await getCollection('game_sessions').deleteOne({ title: `${NAME_PREFIX} Future Session` });
   });
 });
