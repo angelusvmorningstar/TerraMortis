@@ -11,7 +11,9 @@
 const { test, expect } = require('@playwright/test');
 
 const PLAYER_USER = {
-  id: '1', username: 't', global_name: 'T', avatar: null, role: 'player',
+  // 2026-08-25 (D6): actor player->st - this form is retired for players (see
+  // public/js/downtime/form-retirement.js); ST still sees it unchanged.
+  id: '1', username: 't', global_name: 'T', avatar: null, role: 'st',
   player_id: 'p', character_ids: ['c1'], is_dual_role: false,
 };
 const CYCLE = { _id: 'cy', cycle_number: 1, status: 'open', deadline: new Date(Date.now() + 9e8).toISOString(), confirmed_ambience: {}, narrative_notes: '' };

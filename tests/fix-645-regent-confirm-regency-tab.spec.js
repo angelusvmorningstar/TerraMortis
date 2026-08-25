@@ -25,7 +25,9 @@ const { bootApp, goToTab } = require('./helpers/unified-app.js');
 
 const PLAYER_USER = {
   id: '987645321', username: 'test_regent_645', global_name: 'Test Regent',
-  avatar: null, role: 'player', player_id: 'p-645',
+  // 2026-08-25 (D6): actor player->st - this form is retired for players (see
+  // public/js/downtime/form-retirement.js); ST still sees it unchanged.
+  avatar: null, role: 'st', player_id: 'p-645',
   character_ids: ['char-645'], is_dual_role: false,
 };
 

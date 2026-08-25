@@ -175,7 +175,10 @@ describe('GET /api/downtime_submissions — Player', () => {
 // ══════════════════════════════════════
 
 describe('POST /api/downtime_submissions', () => {
-  it('player can create a submission', async () => {
+  // 2026-08-25 (D6): this form is retired for players — TM Story is sole
+  // owner of new downtime filings. See public/js/downtime/form-retirement.js.
+  // STs are exempt (next test); this guards the player-side gate specifically.
+  it('player cannot create a submission — form retired', async () => {
     const res = await request(app)
       .post('/api/downtime_submissions')
       .set('X-Test-User', playerUser([testChars[0].id]))
@@ -185,9 +188,8 @@ describe('POST /api/downtime_submissions', () => {
         status: 'draft',
         responses: { travel: 'Took the bus' },
       });
-    expect(res.status).toBe(201);
-    expect(res.body.responses.travel).toBe('Took the bus');
-    createdSubIds.push(res.body._id);
+    expect(res.status).toBe(403);
+    expect(res.body.error).toBe('FORM_RETIRED');
   });
 
   it('ST can create a submission', async () => {

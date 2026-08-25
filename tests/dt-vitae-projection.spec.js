@@ -25,7 +25,9 @@ const PLAYER_USER = {
   username: 'test_player',
   global_name: 'Test Player',
   avatar: null,
-  role: 'player',
+  // 2026-08-25 (D6): actor player->st - this form is retired for players (see
+  // public/js/downtime/form-retirement.js); ST still sees it unchanged.
+  role: 'st',
   player_id: 'p-002',
   character_ids: ['char-001'],
   is_dual_role: false,

@@ -11,7 +11,7 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import request from 'supertest';
 import 'dotenv/config';
 import { ObjectId } from 'mongodb';
-import { createTestApp, stUser, playerUser } from './helpers/test-app.js';
+import { createTestApp, stUser } from './helpers/test-app.js';
 import { setupDb, teardownDb } from './helpers/db-setup.js';
 import { getCollection } from '../db.js';
 
@@ -57,7 +57,9 @@ describe('NPCR.12: DT submission round-trips story_moment_relationship_id', () =
   it('accepts responses.story_moment_relationship_id without schema rejection', async () => {
     const res = await request(app)
       .post('/api/downtime_submissions')
-      .set('X-Test-User', playerUser([CHAR_ID]))
+      // 2026-08-25 (D6): player POST creation is now gated (form-retirement.js);
+      // ST here is just the test's actor, not what this test is about.
+      .set('X-Test-User', stUser())
       .send({
         chapter_id: CYCLE_ID,
         character_id: CHAR_ID,
@@ -77,7 +79,9 @@ describe('NPCR.12: DT submission round-trips story_moment_relationship_id', () =
   it('legacy submission shape still round-trips (back-compat guard)', async () => {
     const res = await request(app)
       .post('/api/downtime_submissions')
-      .set('X-Test-User', playerUser([CHAR_ID]))
+      // 2026-08-25 (D6): player POST creation is now gated (form-retirement.js);
+      // ST here is just the test's actor, not what this test is about.
+      .set('X-Test-User', stUser())
       .send({
         chapter_id: CYCLE_ID,
         character_id: CHAR_ID,

@@ -42,7 +42,7 @@ beforeAll(async () => {
   CYCLE_ID = String(cycle.insertedId);
   CREATED_CYCLES.push(cycle.insertedId);
 
-  // Seed a player character so playerUser([CHAR_ID]) ownership works.
+  // Seed a character for the submission fixtures' character_id field.
   await getCollection('characters').insertOne({
     _id: new ObjectId(CHAR_ID),
     name: '496.1 Test Char',
@@ -111,7 +111,10 @@ describe('POST /api/downtime_submissions — territory field format (AC 6 a/b/c)
     };
     const res = await request(app)
       .post('/api/downtime_submissions')
-      .set('X-Test-User', playerUser([CHAR_ID]))
+      // 2026-08-25 (D6): player POST creation is now gated (form-retirement.js);
+      // ST here is just the test's actor — this describe block is about
+      // territory-field validation, not player-vs-ST authorization.
+      .set('X-Test-User', stUser())
       .send(payload);
 
     expect(res.status).toBe(201);
@@ -123,7 +126,10 @@ describe('POST /api/downtime_submissions — territory field format (AC 6 a/b/c)
     // After 496.4 schema tightening, sphere/project territory enums are OID-only.
     const res = await request(app)
       .post('/api/downtime_submissions')
-      .set('X-Test-User', playerUser([CHAR_ID]))
+      // 2026-08-25 (D6): player POST creation is now gated (form-retirement.js);
+      // ST here is just the test's actor — this describe block is about
+      // territory-field validation, not player-vs-ST authorization.
+      .set('X-Test-User', stUser())
       .send({
         chapter_id: CYCLE_ID,
         character_id: CHAR_ID,
@@ -150,7 +156,10 @@ describe('POST /api/downtime_submissions — territory field format (AC 6 a/b/c)
     };
     const res = await request(app)
       .post('/api/downtime_submissions')
-      .set('X-Test-User', playerUser([CHAR_ID]))
+      // 2026-08-25 (D6): player POST creation is now gated (form-retirement.js);
+      // ST here is just the test's actor — this describe block is about
+      // territory-field validation, not player-vs-ST authorization.
+      .set('X-Test-User', stUser())
       .send(payload);
 
     expect(res.status).toBe(201);
@@ -163,7 +172,10 @@ describe('POST /api/downtime_submissions — territory field format (AC 6 a/b/c)
   it('still rejects garbage values in the enum fields', async () => {
     const res = await request(app)
       .post('/api/downtime_submissions')
-      .set('X-Test-User', playerUser([CHAR_ID]))
+      // 2026-08-25 (D6): player POST creation is now gated (form-retirement.js);
+      // ST here is just the test's actor — this describe block is about
+      // territory-field validation, not player-vs-ST authorization.
+      .set('X-Test-User', stUser())
       .send({
         chapter_id: CYCLE_ID,
         character_id: CHAR_ID,
