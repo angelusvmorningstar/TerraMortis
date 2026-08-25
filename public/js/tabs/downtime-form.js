@@ -488,8 +488,18 @@ function collectResponses() {
         // unlocks. ADVANCED still falls back to `_feed_disc` / `_feed_custom_*`
         // so this is additive, not a regression of the original DTFP-4 case.
         responses['_feed_method'] = feedMethodId || (feedCustomAttr ? 'other' : '');
-        // dt-form.35: include method-default violence so visual highlight matches
-        // what collectResponses writes. Explicit player click overrides the default.
+        // dtui-23: Method of Feeding is now a native .dt-ticker radiogroup
+        // (name="dt-feed_violence"), but this merge STAYS JS-state-based
+        // (not a DOM :checked read) — the [data-feed-method] click handler
+        // calls collectResponses() immediately after updating feedMethodId
+        // but BEFORE renderForm() redraws the ticker with the new method's
+        // default-checked radio, so a DOM read here would still see the
+        // PREVIOUS method's radio state (regression found via fix-48's own
+        // AC-3, which depends on the default clearing the "choose Kiss or
+        // Violent" banner on the same click, with no separate radio click).
+        // Explicit player clicks still take priority: the change-listener
+        // writes responseDoc.responses.feed_violence directly, so it's
+        // already the persisted value by the time this runs.
         const _explicitViolence = responseDoc?.responses?.feed_violence;
         const _defaultViolence = feedMethodId ? (FEED_VIOLENCE_DEFAULTS[feedMethodId] || null) : null;
         const _violence = _explicitViolence || _defaultViolence;
@@ -503,10 +513,11 @@ function collectResponses() {
         // ROTE is now a per-slot project action; method persists per-slot
         // as `project_N_feed_method2`, territory persists at the document
         // level as `feeding_territories_rote` (existing field, kept).
-        // Blood type
-        const bloodChecked = [];
-        document.querySelectorAll('[data-blood-type].dt-feed-vi-on').forEach(btn => bloodChecked.push(btn.dataset.bloodType));
-        responses['_feed_blood_types'] = JSON.stringify(bloodChecked);
+        // dtui-23: Blood Type is now a native .dt-ticker radiogroup
+        // (name="dt-feed_blood_type"). Persisted shape stays a JSON array
+        // (0 or 1 items) — downstream consumers already expect an array.
+        const checkedBlood = document.querySelector('input[name="dt-feed_blood_type"]:checked');
+        responses['_feed_blood_types'] = JSON.stringify(checkedBlood ? [checkedBlood.value] : []);
         const descEl = document.getElementById('dt-feeding_description');
         responses['feeding_description'] = descEl ? descEl.value : '';
         // dt-form.22 fix-up (Ma'at PR #98 review round 2, bug-2 rework):
@@ -2761,6 +2772,33 @@ function renderForm(container) {
       renderForm(container);
       return;
     }
+    // dtui-23: Method of Feeding .dt-ticker radio — re-render so the
+    // "pre-selected vs explicit choice" hint text below it stays accurate
+    // (matches the old [data-feed-violence] click handler's own behaviour).
+    if (e.target.matches('input[name="dt-feed_violence"]')) {
+      if (!responseDoc) responseDoc = { responses: {} };
+      if (!responseDoc.responses) responseDoc.responses = {};
+      responseDoc.responses.feed_violence = e.target.value;
+      renderForm(container);
+      scheduleSave();
+      return;
+    }
+    // dtui-23 review patch (Codex High finding): sync into responseDoc
+    // immediately, don't rely on scheduleSave()'s later collectResponses()
+    // alone. A sibling change (Method of Feeding, above) calls renderForm()
+    // synchronously, which rebuilds this ticker from responseDoc.responses
+    // — without this write, a Blood Type pick made just before a Method of
+    // Feeding pick is silently discarded by that re-render (confirmed
+    // present in base commit 361716b6 too, via the equivalent old handler;
+    // patched here since dtui-23 is already rewriting this exact pair).
+    // No re-render needed for Blood Type itself — no dependent hint text.
+    if (e.target.matches('input[name="dt-feed_blood_type"]')) {
+      if (!responseDoc) responseDoc = { responses: {} };
+      if (!responseDoc.responses) responseDoc.responses = {};
+      responseDoc.responses._feed_blood_types = JSON.stringify([e.target.value]);
+      scheduleSave();
+      return;
+    }
     const gateInput = e.target.closest('[data-gate]');
     if (gateInput) {
       gateValues[gateInput.dataset.gate] = gateInput.value;
@@ -3010,30 +3048,15 @@ function renderForm(container) {
       scheduleSave();
       return;
     }
-    // Blood type toggle — single-select pill buttons
-    const bloodBtn = e.target.closest('[data-blood-type]');
-    if (bloodBtn) {
-      const wasOn = bloodBtn.classList.contains('dt-feed-vi-on');
-      document.querySelectorAll('[data-blood-type]').forEach(b => b.classList.remove('dt-feed-vi-on'));
-      if (!wasOn) bloodBtn.classList.add('dt-feed-vi-on');
-      scheduleSave();
-      return;
-    }
+    // dtui-23: Blood Type and Method of Feeding click handlers removed —
+    // both are now native .dt-ticker radiogroups, handled by the delegated
+    // `change` listener below (native radio behaviour replaces the manual
+    // "uncheck the others" logic the old pill buttons needed).
     // Rote hunt toggle (Standard / Rote pill pair)
     const roteBtn = e.target.closest('[data-feed-rote]');
     if (roteBtn) {
       feedRoteAction = roteBtn.dataset.feedRote === 'on';
       applyRoteToProjectSlot(container);
-      return;
-    }
-    // DTFP-5: Kiss / Violent toggle
-    const viBtn = e.target.closest('[data-feed-violence]');
-    if (viBtn) {
-      if (!responseDoc) responseDoc = { responses: {} };
-      if (!responseDoc.responses) responseDoc.responses = {};
-      responseDoc.responses.feed_violence = viBtn.dataset.feedViolence;
-      renderForm(container);
-      scheduleSave();
       return;
     }
     // DTFP-6: sorcery target row add / remove
@@ -7127,19 +7150,9 @@ function renderQuestion(q, value) {
 
       // ── Container 1: Main hunt ──
       h += '<div class="dt-feed-card-wrap">';
-      // Territory picker embedded at top of this container
-      {
-        const feedingSect = DOWNTIME_SECTIONS.find(s => s.key === 'feeding');
-        const terrQ = feedingSect?.questions.find(q => q.type === 'territory_grid');
-        if (terrQ) {
-          const terrVal = (responseDoc?.responses || {})[terrQ.key] || '';
-          let terrGridVals = {};
-          try { terrGridVals = JSON.parse(terrVal); } catch { /* ignore */ }
-          h += '<label class="qf-label">Where does your character hunt? <span class="qf-req">*</span></label>';
-          h += `<div id="dt-${terrQ.key}" style="margin-top:10px">${renderFeedingTerritoryPills(terrGridVals)}</div>`;
-          h += '<p class="qf-desc" style="margin-top:10px">Ambience shown is current. Actual feeding ambience is calculated after Downtime processing and may shift based on how many Kindred feed in each territory.</p>';
-        }
-      }
+      // dtui-23: Territory moved from here to directly below the pool
+      // (see the Territory/Blood Type/Method of Feeding group after the
+      // pool block below) — grouped with Blood Type and Method of Feeding.
       h += `<label class="qf-label" style="margin-top:10px;display:block">How does your character hunt? <span class="qf-req">*</span></label>`;
       h += '<div class="dt-feed-methods">';
       for (const m of FEED_METHODS) {
@@ -7206,35 +7219,52 @@ function renderQuestion(q, value) {
         h += renderFeedPoolSelector(c, feedMethodId, feedCustomAttr, feedCustomSkill, feedDiscName, feedSpecName, 'feed');
       }
 
-      // Blood type selection — single-select (legacy multi-array reads first item)
-      const BLOOD_TYPES = ['Animal', 'Human', 'Kindred'];
+      // ── dtui-23: Territory / Blood Type / Method of Feeding group ──
+      // Territory keeps its own established rendering (ambience, feeding
+      // rights/poaching/Barrens tints, rote-territory locking) — .dt-ticker's
+      // flat selected/unselected model has no equivalent for that signal, so
+      // flattening it would be a functional regression, not a refactor (see
+      // the story's own Context section). Blood Type and Method of Feeding
+      // convert to real .dt-ticker radiogroups, retiring the pre-.dt-ticker
+      // .dt-feed-vi-btn duplicate.
+      {
+        const feedingSect = DOWNTIME_SECTIONS.find(s => s.key === 'feeding');
+        const terrQ = feedingSect?.questions.find(q => q.type === 'territory_grid');
+        if (terrQ) {
+          const terrVal = (responseDoc?.responses || {})[terrQ.key] || '';
+          let terrGridVals = {};
+          try { terrGridVals = JSON.parse(terrVal); } catch { /* ignore */ }
+          h += '<label class="qf-label" style="margin-top:10px;display:block">Where does your character hunt? <span class="qf-req">*</span></label>';
+          h += `<div id="dt-${terrQ.key}" style="margin-top:10px">${renderFeedingTerritoryPills(terrGridVals)}</div>`;
+          h += '<p class="qf-desc" style="margin-top:10px">Ambience shown is current. Actual feeding ambience is calculated after Downtime processing and may shift based on how many Kindred feed in each territory.</p>';
+        }
+      }
+
+      // Blood Type — single-select .dt-ticker radiogroup
       let savedBlood = [];
       try { savedBlood = JSON.parse(responseDoc?.responses?.['_feed_blood_types'] || '[]'); } catch { /* ignore */ }
       const selectedBlood = Array.isArray(savedBlood) && savedBlood.length ? savedBlood[0] : '';
-      h += '<div class="qf-field">';
-      h += '<label class="qf-label">Blood Type</label>';
-      h += '<div class="dt-feed-violence-toggle">';
-      for (const bt of BLOOD_TYPES) {
-        const on = selectedBlood === bt ? ' dt-feed-vi-on' : '';
-        h += `<button type="button" class="dt-feed-vi-btn${on}" data-blood-type="${esc(bt)}">${esc(bt)}</button>`;
+      h += '<fieldset class="dt-ticker" style="margin-top:10px">';
+      h += '<legend class="dt-ticker__legend">Blood Type</legend>';
+      for (const bt of ['Animal', 'Human', 'Kindred']) {
+        const checked = selectedBlood === bt ? ' checked' : '';
+        h += `<label class="dt-ticker__pill"><input type="radio" name="dt-feed_blood_type" value="${esc(bt)}"${checked}><span>${esc(bt)}</span></label>`;
       }
-      h += '</div></div>';
+      h += '</fieldset>';
 
-      // ── DTFP-5: Kiss / Violent toggle ──
+      // Method of Feeding (Kiss / Assault) — single-select .dt-ticker radiogroup
       const persistedViolence = responseDoc?.responses?.feed_violence || '';
       const preselect = persistedViolence || (FEED_VIOLENCE_DEFAULTS[feedMethodId] || '');
-      h += '<div class="qf-field">';
-      h += '<label class="qf-label">How loud was the feeding?</label>';
-      h += '<div class="dt-feed-violence-toggle">';
-      h += `<button type="button" class="dt-feed-vi-btn${preselect === 'kiss' ? ' dt-feed-vi-on' : ''}" data-feed-violence="kiss">The Kiss (subtle)</button>`;
-      h += `<button type="button" class="dt-feed-vi-btn${preselect === 'violent' ? ' dt-feed-vi-on' : ''}" data-feed-violence="violent">The Assault (violent)</button>`;
-      h += '</div>';
+      h += '<fieldset class="dt-ticker" style="margin-top:10px">';
+      h += '<legend class="dt-ticker__legend">Method of Feeding</legend>';
+      h += `<label class="dt-ticker__pill"><input type="radio" name="dt-feed_violence" value="kiss"${preselect === 'kiss' ? ' checked' : ''}><span>The Kiss (subtle)</span></label>`;
+      h += `<label class="dt-ticker__pill"><input type="radio" name="dt-feed_violence" value="violent"${preselect === 'violent' ? ' checked' : ''}><span>The Assault (violent)</span></label>`;
+      h += '</fieldset>';
       if (!persistedViolence && !preselect) {
         h += '<p class="qf-desc dt-feed-vi-hint">Pick one. Your method does not pre-select for you.</p>';
       } else if (!persistedViolence && preselect) {
         h += '<p class="qf-desc dt-feed-vi-hint">Pre-selected based on your method. Click to confirm or change.</p>';
       }
-      h += '</div>';
 
       h += '<div class="qf-field">';
       h += `<textarea id="dt-feeding_description" class="qf-textarea" rows="4" placeholder="Describe how your character hunts">${esc(savedDesc)}</textarea>`;

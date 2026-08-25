@@ -1385,3 +1385,23 @@ two below were judged real but out of proportion to fix in this pass, or not thi
   story's own scope (persistent mod chips, not pool-tile fallback completeness). Fix is small when
   picked up: add `roteEligible: p.roteEligible, meritBonus: p.meritBonus, meritLabel: p.meritLabel`
   to each of the three fallback object literals.
+
+## Deferred from: code review of dtui-23-feeding-territory-relocation (2026-08-25, external Codex)
+
+- **Legacy lowercase Blood Type values (`"human"` instead of `"Human"`) render unselected and are
+  silently erased to `[]` on the next save** (Medium, found not caused — pre-existing, confirmed
+  against base commit `361716b6`). `downtime-form.js`'s Blood Type render case compares the saved
+  value against `'Animal'`/`'Human'`/`'Kindred'` with exact `===` (`selectedBlood === bt`), and the
+  same case-sensitive comparison already existed in the pre-dtui-23 button-toggle code this story
+  replaced. Several repository fixtures carry the lowercase shape (e.g.
+  `tests/feat-735-feed-card-terr-pill-and-override-chips.spec.js:67`'s `_feed_blood_types: '["human"]'`),
+  meaning at least some historical submissions plausibly do too. Concretely: loading a submission
+  with `_feed_blood_types: '["human"]'` renders no Blood Type radio checked, and any subsequent save
+  (even one that changes nothing else) collects the checked-radio state and overwrites the field
+  with `[]`, silently dropping the player's prior choice. Not fixed here — dtui-23 is a Feeding
+  UI-restructure story, not a data-migration story, and normalising legacy casing across whatever
+  historical submissions carry it is a separate, broader concern (touches read AND write paths, and
+  arguably belongs alongside a data audit of how many live submissions are actually affected). Fix
+  when picked up: normalise case on read (e.g. `String(saved).toLowerCase() === bt.toLowerCase()`
+  for the render-side match) at minimum; whether to also rewrite stored lowercase values to the
+  canonical casing on next save is a product/data decision, not purely technical.
