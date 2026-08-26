@@ -146,7 +146,7 @@ test('#1135: Settings has no Submit-a-Ticket form', async ({ page }) => {
   expect(errors, `Settings threw: ${errors.join(' | ')}`).toHaveLength(0);
 });
 
-// ── Admin side: Tickets gone, City and Devlog untouched ──────────────────────
+// ── Admin side: Tickets and Devlog gone, City untouched ──────────────────────
 
 async function loginAsAdmin(page) {
   await page.addInitScript((u) => {
@@ -184,12 +184,13 @@ test('#1135: admin has no Tickets domain, and no 404 for the deleted stylesheet'
 
 // ADMR-2: Devlog admin authoring retired from TM Game (full retirement, not a
 // split - unlike Bloodlines, no live TM Game consumer of /api/devlog survives
-// it). Mirrors the Tickets assertion above.
-test('#1135/ADMR-2: admin has no Devlog domain, and no 404 for a deleted devlog stylesheet', async ({ page }) => {
-  const failed = [];
-  page.on('requestfailed', r => failed.push(r.url()));
-  const notFound = [];
-  page.on('response', r => { if (r.status() === 404) notFound.push(r.url()); });
+// it). Mirrors the Tickets assertion above, EXCEPT Devlog's CSS was never its
+// own stylesheet (unlike Tickets' admin-tickets.css) - it lived inline in the
+// shared admin-layout.css, so there is no separate asset to 404 on. An
+// external Codex review caught the original version of this test overclaiming
+// a "no 404 for a deleted devlog stylesheet" check that could never actually
+// fire; this version checks only what the retirement genuinely guarantees.
+test('#1135/ADMR-2: admin has no Devlog domain', async ({ page }) => {
   const errors = [];
   page.on('pageerror', e => errors.push(e.message));
 
@@ -199,8 +200,6 @@ test('#1135/ADMR-2: admin has no Devlog domain, and no 404 for a deleted devlog 
   await expect(page.locator('#d-devlog')).toHaveCount(0);
   await expect(page.locator('#devlog-admin-content')).toHaveCount(0);
 
-  const badCss = [...failed, ...notFound].filter(u => /devlog/i.test(u));
-  expect(badCss, `no devlog-specific asset should be requested at all: ${badCss.join(', ')}`).toHaveLength(0);
   expect(errors, `admin threw: ${errors.join(' | ')}`).toHaveLength(0);
 });
 

@@ -1,6 +1,6 @@
 # Story ADMR.2: Retire Devlog admin authoring from TM Game
 
-Status: review
+Status: done
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -133,10 +133,15 @@ Re-verify this categorisation at dev-story time; it is this session's best read,
    full retirement (not an oversight), with the note that TM Herald's own
    `specs/suite-notification-endpoints.md` will need a follow-up update on Herald's side - not built
    here.
-5. **Given** the 5 devlog-referencing test files this story starts with, **when** it ships, **then**
-   every one has been individually re-classified (not assumed from this story's own table) and the
-   full suite (unit + the two affected e2e specs) is green afterward - no file silently left
-   referencing a route or a screen that no longer exists.
+5. **Given** the devlog-referencing test files this story starts with, **when** it ships, **then**
+   every one has been individually re-classified (not assumed from this story's own table) - no file
+   silently left referencing a route or a screen that no longer exists - and every gate this story
+   could plausibly regress is genuinely green, or any pre-existing failure is disclosed by name
+   rather than silently inherited or overclaimed as fixed (the same honest standard AC #7 states
+   below; the two are one requirement, not two competing ones). **CORRECTED post-review**: this
+   story's own original repo-wide grep for `devlog` was case-sensitive and missed a sixth file,
+   `tests/player.spec.js`, whose comment used mixed-case `DevLog` - found by an external Codex
+   review and corrected (comment text only, no test logic affected).
 6. **Given** `specs/reference-data-ssot.md`, **when** this story ships, **then** it is confirmed
    (re-verified, not assumed from this story's own Context) to have no Devlog entry needing
    correction - if one is found to exist after all, it is updated to point at TM Admin instead.
@@ -308,8 +313,10 @@ Opus (bmad-dev-story), per this loop's own invariant.
   CLAUDE.md's documented behaviour, not failures. `tests/issue-1135-deleted-tabs.spec.js`
   (Playwright): 12/12 green, including the new inverted Devlog test replacing the one this story's
   own change made obsolete.
-- `git diff --stat` shows only this story's deliberate removals (6 files deleted, 5 files edited) and
-  the one new story file - no incidental churn.
+- `git diff --stat 65987a68 HEAD -- public/ server/ tests/` shows only this story's deliberate
+  removals - 5 files deleted, 6 files modified - no incidental churn. **CORRECTED post-review**: this
+  line originally said "6 files deleted, 5 files edited," transposed from the real count; caught by
+  an external Codex review and re-verified directly against `git diff --stat`/`--name-status`.
 
 ### File List
 
@@ -327,18 +334,118 @@ Opus (bmad-dev-story), per this loop's own invariant.
 - **Modified:** `server/tests/helpers/test-app.js` (removed the same import/mount from the test
   harness)
 - **Modified:** `tests/issue-1135-deleted-tabs.spec.js` (inverted the admin-side Devlog test,
-  mirroring the adjacent Tickets test)
+  mirroring the adjacent Tickets test; review-fix pass simplified it further, dropping a vacuous CSS
+  check, and corrected the section heading above it)
 - **Modified:** `specs/stories/sprint-status.yaml` (status progression + `last_updated` header)
 - **Created:** `specs/stories/admr-2-retire-devlog-admin.md` (this file)
+- **Created, review-fix pass:** `server/tests/devlog-removed.test.js` (static regression guard,
+  mirroring `server/tests/tickets-removed.test.js`)
+- **Modified, review-fix pass:** `tests/player.spec.js` (corrected a stale mixed-case `DevLog`
+  comment reference this story's own case-sensitive grep missed)
+- **Modified, review-fix pass:** `specs/deferred-work.md` (logged 2 out-of-scope, pre-existing
+  findings from the external review)
 
 ## Change Log
 
 | Date | Change | Author |
 |---|---|---|
+| 2026-08-26 | Code review CLOSED via external Codex (CLI-direct, high reasoning effort, 3-pass adversarial protocol - interrupted by a usage limit before Pass 3b's own Validation Notes, but every finding across all passes was written before the interruption). 0 High, 6 Medium, several duplicate/informational Low findings. 6 patched (a missing regression guard for the full route retirement, added `server/tests/devlog-removed.test.js` mirroring `tickets-removed.test.js`, prove-discriminated; a vacuous CSS-404 test assertion, removed; a stale section-heading comment, corrected; a 6th devlog-referencing file this story's own case-sensitive grep missed, `tests/player.spec.js`, comment corrected; contradictory AC #5/#7 wording, reworded; a transposed diff-stat count in Completion Notes, corrected). 2 dismissed with evidence as pre-existing and unrelated to this diff (a stale `render.yaml` env var, a `playwright.config.js` dependency gap that only reproduces in a network-restricted sandbox) - both logged to `deferred-work.md`. 1 finding independently re-verified rather than trusted: Codex's own sandbox reported wildly different full-suite numbers due to a MongoDB Atlas `EACCES` in its environment; re-ran the same gate in this session's own environment and got numbers identical to the original record (22 files/16 tests failed, 218/4165 passed, 124 skipped). Status: review -> done. | Claude (bmad-code-review, external Codex + verification) |
 | 2026-08-26 | Post-commit, pre-review self-correction: found and deleted a 50-line dead `.dl-*` CSS block in `public/css/admin-layout.css` that Task 2's original pass missed (styled the now-deleted `devlog-admin.js` markup). Matches ADMR-1's own precedent of finding orphaned CSS via a self-check grep. Second commit, ahead of the external Codex review. | Claude (bmad-dev-story) |
 | 2026-08-26 | Dev-storied via bmad-dev-story: ready-for-dev -> review. Full retirement executed exactly as scoped; no deviations found during implementation. Real environmental finding surfaced (not a code defect): the unbounded full vitest run hangs at the already-documented issue-836 file (#1125); re-ran excluding it. 5 previously-undocumented pre-existing failures found and individually confirmed via git stash A/B, none related to this story. | Claude (bmad-dev-story) |
 | 2026-08-26 | Story created via bmad-create-story. Full-retirement scope confirmed directly by Angelus after this session's own scoping pass surfaced a real (but currently non-functional) TM Herald cross-repo consumer and asked before assuming either direction. | Claude (bmad-create-story) |
 
 ## Senior Developer Review
 
-_To be populated by code-review._
+**External Codex review** (`codex exec`, CLI-direct, `model_reasoning_effort=high`, 3-pass adversarial
+protocol - Blind Hunter, Edge Case Hunter, Acceptance Auditor - run against the diff `git diff
+65987a68 HEAD` spanning both commits `9cb37051` and `15a59519`). Full findings:
+`specs/stories/code-review/admr-2-retire-devlog-admin-codex-findings.md`. The Codex session hit its
+own usage limit partway through Pass 3b, before it could write a Validation Notes section - every
+High/Medium/Low finding across all four pass-labels was written to disk before the interruption, so
+nothing substantive was lost, but the review's own self-attestation is missing. This session ran that
+verification directly instead: re-read the cited code, re-ran every claimed command, and
+prove-discriminated every patch, rather than trusting the interrupted session's own account.
+
+**0 High findings.** 6 Medium, 10 Low (several duplicates from the interrupted run - collapsed to their
+real count below), every one independently re-verified against the real code or a real command before
+triage, not accepted on Codex's own word.
+
+### Patched (6, all prove-discriminated where a runtime behaviour was involved)
+
+1. **No surviving regression guard for the full route retirement** (Medium, confirmed real) -
+   deleting `server/tests/api-devlog.test.js` removed the only proof `/api/devlog` stays gone; this
+   repo already has an established static-guard pattern for exactly this situation
+   (`server/tests/tickets-removed.test.js`, from #1135). Added `server/tests/devlog-removed.test.js`,
+   mirroring it exactly (asserts `server/index.js` and `server/tests/helpers/test-app.js` mount no
+   `/api/devlog` route, the route/schema files don't exist, and no route file imports the deleted
+   module). Prove-discriminated: temporarily reintroduced `app.use('/api/devlog', ...)` into
+   `server/index.js`, watched the new test fail on exactly that assertion (1/4 failed), restored the
+   file, confirmed `git diff server/index.js` empty and the test green again (4/4).
+2. **The CSS "no 404" assertion in the new Devlog e2e test was vacuous** (Medium, confirmed real) -
+   unlike Tickets (which had a real, separately-requested `admin-tickets.css`), Devlog's CSS was
+   always inline in the shared `admin-layout.css`, so a filter for `/devlog/i` against failed/404
+   request URLs could never fire regardless of whether the CSS cleanup was correct. Removed the
+   `badCss` check and the test's misleading "no 404 for a deleted devlog stylesheet" framing; renamed
+   to `'#1135/ADMR-2: admin has no Devlog domain'`. Re-ran: 12/12 green, including this test.
+3. **Stale section-heading comment** (Low, confirmed real) -
+   `tests/issue-1135-deleted-tabs.spec.js:149`'s own heading still said "Tickets gone, City and Devlog
+   untouched" directly above the test proving Devlog is now gone too. Corrected to "Tickets and
+   Devlog gone, City untouched."
+4. **A sixth devlog-referencing test file was missed by this story's own grep** (Medium/Low, confirmed
+   real) - `tests/player.spec.js:152` has a comment using mixed-case `DevLog`; this story's original
+   repo-wide grep (Task 1) was case-sensitive and missed it. No test *logic* referenced the deleted
+   surface (comment only), but AC #5's own "no file silently left referencing... something that no
+   longer exists" standard applies to guidance text too. Corrected the comment to note DevLog's
+   retirement explicitly. Re-verified case-insensitively (`grep -rni "devlog"`) that no further file
+   was missed the same way.
+5. **AC #5 and AC #7 stated contradictory acceptance standards** (Medium, confirmed real) - AC #5
+   literally required "the full suite... is green afterward," while AC #7 explicitly allows a
+   disclosed pre-existing failure instead. Reworded AC #5 to state the same honest standard as AC #7
+   rather than a stricter, self-contradicting one - matching ADMR-1's own precedent for the identical
+   AC-wording defect in that story's own review.
+6. **The Dev Agent Record's diff-stat accounting was transposed** (Low, confirmed real) - Completion
+   Notes said "6 files deleted, 5 files edited"; the real count (`git diff --stat 65987a68 HEAD --
+   public/ server/ tests/`) is 5 deleted, 6 modified. Corrected the line and cited the exact command
+   used to re-verify it.
+
+### Dismissed with evidence (2)
+
+1. **Pass 1's provisional "admin-boot vacuity" concern** (Medium as raised, Low/informational once
+   Pass 2 read the helper) - Pass 1, blind to the repo, correctly flagged that the three
+   `toHaveCount(0)` checks *could* pass vacuously if the admin app never booted. Pass 2 read
+   `loginAsAdmin()` and found it waits for `#admin-app:not([style*="display: none"])` before the test
+   proceeds - the same structure the adjacent, pre-existing Tickets test in the same file already
+   uses. Re-confirmed directly: the new Devlog test's structure is byte-for-byte parallel to the
+   Tickets test it was modelled on. Not a real gap; the blinding worked as intended, then resolved
+   itself once informed. No code change.
+2. **Two findings the reviewer itself flagged as environmental, both independently confirmed
+   environmental** (Low/Medium) - `render.yaml`'s orphaned `ANNOUNCE_DEVLOG_CHANNEL_ID` (its whole
+   `bot:` service block has been stale since the `bot/` directory was extracted to `TM Herald`,
+   2026-07-20, over a month before this story - not this diff's doing) and `playwright.config.js`'s
+   use of an undeclared `http-server` dependency (reproduces only in a network-restricted sandbox;
+   confirmed this session's own environment has no such restriction and the real Playwright command
+   runs clean). Neither file is touched by this diff. Both logged to `deferred-work.md` under a new
+   `## Deferred from: code review of admr-2-retire-devlog-admin` section rather than fixed here.
+
+### Re-verified independently, not just re-read (1)
+
+- **[Pass 3b] "The recorded full-suite totals are not reproducible"** - Codex's own sandbox hit
+  `EACCES` connecting to MongoDB Atlas and got wildly different numbers (96 failed/135 passed/9
+  skipped files) from this story's recorded 22/218/0-skipped-files. Re-ran the exact same gate
+  command in this session's own working environment: **22 files / 16 tests failed, 218 files / 4165
+  tests passed, 124 skipped (4305 total), 581.42s** - identical to the number originally recorded.
+  Confirms the divergence was Codex's own sandboxed network restriction, not an error in this story's
+  record. `tests/issue-1135-deleted-tabs.spec.js` re-run after every patch above: 12/12 green
+  throughout.
+
+### Verdict
+
+Ready to ship. No High findings; every Medium/Low either patched (with prove-discrimination where a
+runtime claim was involved) or dismissed with direct evidence, not on the reviewer's word alone. Full
+regression after all patches: `server/tests/devlog-removed.test.js` 4/4 (new),
+`tests/issue-1135-deleted-tabs.spec.js` 12/12 (Playwright), full server suite unchanged at
+22 files/16 tests failing out of 240/4305 (124 skipped) - identical to the pre-patch baseline, since
+every patch this round touched only test files and story documentation, not application code.
+`git status --short` confirms no unintended change survives (the one deliberate temporary edit to
+`server/index.js`, used for prove-discrimination, was fully restored and verified byte-identical to
+the committed version before this review concluded).

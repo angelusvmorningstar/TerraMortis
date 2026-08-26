@@ -149,8 +149,10 @@ test.describe('Unified App — Tabs', () => {
   });
 
   // NB removed: "Story tab" — the unified app has NO #t-story panel (the player
-  // Story tab was consolidated in the unification; Archive/Relationships/DevLog
-  // carry narrative now). Flagged in the story Completion Notes for a coverage glance.
+  // Story tab was consolidated in the unification; Archive/Relationships carry
+  // narrative now - DevLog was the third, but ADMR-2 (2026-08-26) retired it
+  // from TM Game entirely, so it no longer applies here). Flagged in the story
+  // Completion Notes for a coverage glance.
 
   // NB removed: the fixed "5 visible tabs" count + #tab-btn-regency visibility —
   // the unified nav is a role-built grid (renderDesktopSidebar), not the static
