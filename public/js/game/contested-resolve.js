@@ -63,6 +63,12 @@ const state = {
   aspect:      null,
   wpOn:        false,
   meritIds:    new Set(),
+  // crd.4a: server-computed { eligible, bp_value, city_value } from the most
+  // recent /resolve response, or null when the at-Court City Status gate is
+  // closed for this challenge. statusTerm is the player's own 'bp'|'city'
+  // choice — NEVER defaulted or pre-selected, even when one value is larger.
+  statusChoice: null,
+  statusTerm:   null,
   pool:        null,
   poolError:   null,
   resolving:   false,
@@ -86,6 +92,8 @@ function _resetState(challengeId, challenge, character, charsCount) {
   state.aspect      = null;
   state.wpOn        = false;
   state.meritIds    = new Set();
+  state.statusChoice = null;
+  state.statusTerm   = null;
   state.pool        = null;
   state.poolError   = null;
   state.resolving   = false;
@@ -146,6 +154,13 @@ function _onClick(e, rootEl) {
     return;
   }
 
+  const statusTermBtn = e.target.closest('[data-cr-status-term]');
+  if (statusTermBtn) {
+    state.statusTerm = statusTermBtn.dataset.crStatusTerm;
+    _resolve(rootEl);
+    return;
+  }
+
   const meritBtn = e.target.closest('[data-cr-merit]');
   if (meritBtn) {
     const key = meritBtn.dataset.crMerit;
@@ -181,9 +196,10 @@ async function _resolve(rootEl) {
   let res;
   try {
     res = await apiRaw('PUT', `/api/contested_roll_requests/${state.challengeId}/resolve`, {
-      defender_aspect:    state.aspect,
-      defender_wp_spent:  state.wpOn,
-      defender_merit_ids: Array.from(state.meritIds),
+      defender_aspect:      state.aspect,
+      defender_wp_spent:    state.wpOn,
+      defender_merit_ids:   Array.from(state.meritIds),
+      defender_status_term: state.statusTerm,
     });
   } catch {
     res = { ok: false, body: { message: 'Could not reach the server, try again.' } };
@@ -194,6 +210,17 @@ async function _resolve(rootEl) {
   if (res.ok) {
     state.pool = res.body.defender_pool;
     state.poolError = null;
+    // AC9: the server is the sole authority on gate eligibility. A closed
+    // (or never-open) gate on this response discards any previously
+    // selected term, so a stale choice can never ride along if the gate
+    // reopens later under different numbers.
+    const newChoice = res.body.status_choice || null;
+    if (!newChoice || !newChoice.eligible) {
+      state.statusChoice = null;
+      state.statusTerm = null;
+    } else {
+      state.statusChoice = newChoice;
+    }
   } else {
     state.pool = null;
     state.poolError = res.body?.message || 'Could not update your pool.';
@@ -311,6 +338,26 @@ function _html() {
     ? 'No Willpower available.'
     : `${state.wpAvailable} Willpower available. A Resistance roll gets +2, not the usual +3.`;
 
+  // crd.4a: the at-Court City Status advantage. Only ever rendered when the
+  // SERVER says the gate is open (state.statusChoice.eligible) — never a
+  // client-side guess. Neither option ever carries `.on` by default, even
+  // when one value is obviously larger; the "Higher" pill is guidance only.
+  const sc = state.statusChoice;
+  const statusChoiceHtml = sc?.eligible ? `
+    <div>
+      <div class="form-section-title">City Status advantage</div>
+      <p class="derived-note">You outrank ${esc(redactCharName(c.challenger_character_name || 'them'))} at Court. Pick which term strengthens your defence — you always choose, even when one is clearly larger.</p>
+      <div class="cr-status-seg" data-cr-status-seg>
+        <button type="button" data-cr-status-term="bp" class="${state.statusTerm === 'bp' ? 'on' : ''}">
+          Blood Potency<span class="cr-status-term-val">+${esc(String(sc.bp_value))}</span>${sc.bp_value > sc.city_value ? '<span class="cr-status-pill">Higher</span>' : ''}
+        </button>
+        <button type="button" data-cr-status-term="city" class="${state.statusTerm === 'city' ? 'on' : ''}">
+          City Status gap<span class="cr-status-term-val">+${esc(String(sc.city_value))}</span>${sc.city_value > sc.bp_value ? '<span class="cr-status-pill">Higher</span>' : ''}
+        </button>
+      </div>
+      ${!state.statusTerm ? '<p class="cr-status-unselected-warn">Choose one to include it in your pool.</p>' : ''}
+    </div>` : '';
+
   const merits = (character.merits || []).filter(m => RESOLVABLE_MERIT_KEYS.has(m.rule_key));
   const meritHtml = merits.length
     ? `<div class="cr-merit-row">${merits.map(m => {
@@ -322,9 +369,17 @@ function _html() {
       }).join('')}</div>`
     : `<p class="derived-note">This character has no merits that apply to a contested roll yet.</p>`;
 
+  // AC8: a second reason defender_pool can be null (crd-3b's own precedent
+  // is "no aspect chosen yet") — the gate is open but no status term has
+  // been picked. Distinguished for messaging, both still mean "not
+  // finalised yet".
+  const awaitingStatusTerm = sc?.eligible && !state.statusTerm;
+
   const poolDisplay = state.poolError
     ? `<span class="cr-pool-error">${esc(state.poolError)}</span>`
-    : `${state.pool == null ? '-' : esc(String(state.pool))}<span class="cr-pool-unit">${state.pool === 1 ? 'die' : 'dice'}</span>`;
+    : awaitingStatusTerm
+      ? `<span class="cr-pool-pending">Choose above</span>`
+      : `${state.pool == null ? '-' : esc(String(state.pool))}<span class="cr-pool-unit">${state.pool === 1 ? 'die' : 'dice'}</span>`;
 
   // AC7: deliberately NOT gated on state.pool != null — the route's own
   // defender_pool == null 409 (crd.1) is what protects this, and this story
@@ -354,6 +409,7 @@ function _html() {
           </button>
           <p class="derived-note">${esc(wpNote)}</p>
         </div>
+        ${statusChoiceHtml}
         <div>
           <div class="form-section-title">Merits</div>
           ${meritHtml}
@@ -366,7 +422,11 @@ function _html() {
         <div class="ch-modal-actions cq-actions">
           <button type="button" class="ch-btn ch-btn-decline" data-cr-back>Back</button>
           <button type="button" class="ch-btn ch-btn-accept" data-cr-accept ${canAccept ? '' : 'disabled'}>
-            ${state.accepting ? 'Rolling…' : (state.pool == null ? 'Choose how to resist' : `Roll ${state.pool} ${state.pool === 1 ? 'Die' : 'Dice'}`)}
+            ${state.accepting
+              ? 'Rolling…'
+              : awaitingStatusTerm
+                ? 'Choose a status term first'
+                : (state.pool == null ? 'Choose how to resist' : `Roll ${state.pool} ${state.pool === 1 ? 'Die' : 'Dice'}`)}
           </button>
         </div>
       </div>

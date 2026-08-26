@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>crd.4 Defensive Status Choice Mockup — Terra Mortis</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700;900&family=Lato:wght@300;400;600;700;900&family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../css/theme.css">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: var(--bg);
+  color: var(--txt);
+  font-family: var(--ft);
+  font-size: 14px;
+  min-height: 100dvh;
+}
+
+/* ── Mockup bar ── */
+.mock-bar {
+  position: sticky; top: 0; z-index: 200;
+  display: flex; align-items: center; gap: 10px;
+  padding: 7px 16px;
+  background: var(--surf3);
+  border-bottom: 2px solid var(--gold2);
+  font-family: var(--fl); font-size: 11px; color: var(--txt3);
+  flex-wrap: wrap;
+}
+.mock-bar strong { color: var(--accent); letter-spacing: .08em; }
+.mock-bar button {
+  font-family: var(--fl); font-size: 10px; font-weight: 700; letter-spacing: .04em;
+  text-transform: uppercase; padding: 5px 10px; border-radius: var(--radius-sm);
+  border: 1px solid var(--bdr); background: var(--surf2); color: var(--txt2); cursor: pointer;
+}
+.mock-bar button:hover { background: var(--surf); color: var(--txt); }
+.mock-bar label { font-size: 10px; }
+.mock-bar span.mb-right { margin-left: auto; display: flex; gap: 12px; align-items: center; }
+
+.cr-screen {
+  max-width: 480px;
+  margin: 0 auto;
+  padding: 18px 16px 40px;
+  display: flex; flex-direction: column; gap: 18px;
+}
+
+/* ── Header ── */
+.cr-head h2 {
+  font-family: var(--fl); font-weight: 900; font-size: 18px; color: var(--accent);
+  letter-spacing: .04em; margin-bottom: 4px;
+}
+.cr-head .cr-sub { color: var(--txt3); font-size: 12px; }
+
+/* ── Contest summary (reuses the placeholder's own .ch-pool-row chrome) ── */
+.cr-summary { display: flex; flex-direction: column; gap: 6px; }
+
+/* ── Section shell ── */
+.cr-section { display: flex; flex-direction: column; gap: 8px; }
+.cr-section-label {
+  font-family: var(--fl); font-size: 11px; font-weight: 700; letter-spacing: .06em;
+  text-transform: uppercase; color: var(--txt3);
+}
+
+/* ── Aspect segmented control — carried over verbatim from crd-3b's own
+   locked mockup (.rv2-again-seg lineage) so this draft reads inside the
+   real screen, not a fresh invention. ── */
+.cr-aspect-seg {
+  display: flex;
+  background: var(--surf2);
+  border: 1px solid var(--bdr);
+  border-radius: var(--radius-md);
+  padding: 3px;
+  gap: 3px;
+}
+.cr-aspect-seg button {
+  flex: 1;
+  padding: 10px 4px;
+  min-height: 44px;
+  border: none;
+  background: transparent;
+  border-radius: var(--radius-md);
+  color: var(--txt2);
+  font-family: var(--fl);
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+.cr-aspect-seg button .cr-aspect-attr {
+  display: block; font-size: 10px; font-weight: 400; text-transform: none;
+  letter-spacing: 0; color: var(--txt3); margin-top: 2px;
+}
+.cr-aspect-seg button:hover:not(.on) { background: var(--surf3); }
+.cr-aspect-seg button.on { background: var(--accent-a25); color: var(--accent); }
+.cr-aspect-seg button.on .cr-aspect-attr { color: var(--accent); opacity: .8; }
+
+/* ── Willpower toggle ── */
+.cr-wp-toggle {
+  display: flex; align-items: center; justify-content: space-between;
+  width: 100%; min-height: 48px;
+  padding: 10px 14px;
+  background: var(--surf2);
+  border: 1px solid var(--bdr);
+  border-radius: var(--radius-md);
+  color: var(--txt2);
+  font-family: var(--fl); font-size: 13px; font-weight: 600;
+  cursor: pointer;
+  transition: background .15s, color .15s, border-color .15s;
+}
+.cr-wp-toggle:hover:not(.on) { background: var(--surf3); }
+.cr-wp-toggle.on { background: var(--accent-a25); color: var(--accent); border-color: var(--accent-a40); }
+.cr-wp-toggle .cr-wp-bonus {
+  font-family: var(--fl); font-size: 11px; font-weight: 700; letter-spacing: .04em;
+  padding: 2px 8px; border-radius: var(--radius-sm);
+  background: var(--surf3); color: var(--txt3);
+}
+.cr-wp-toggle.on .cr-wp-bonus { background: var(--bg); color: var(--accent); }
+.cr-wp-note { font-size: 11px; color: var(--txt3); }
+
+/* ── Merit chips ── */
+.cr-merit-chip {
+  display: inline-flex; align-items: center; gap: 8px;
+  min-height: 44px; padding: 8px 14px;
+  background: var(--surf2); border: 1px solid var(--bdr); border-radius: var(--radius-md);
+  font-family: var(--fl); font-size: 13px; font-weight: 600; color: var(--txt);
+  cursor: pointer; transition: background .15s, border-color .15s, color .15s;
+}
+.cr-merit-chip:hover:not(.on) { border-color: var(--bdr2); background: var(--surf3); }
+.cr-merit-chip.on { background: var(--accent-a25); border-color: var(--accent); color: var(--accent); }
+.cr-merit-row { display: flex; flex-wrap: wrap; gap: 8px; }
+.cr-merit-bonus {
+  font-family: var(--fl); font-size: 11px; font-weight: 700;
+  color: var(--txt3);
+}
+.cr-merit-chip.on .cr-merit-bonus { color: var(--accent); opacity: .85; }
+
+/* ── NEW for crd.4: City Status Advantage choice ─────────────────────────
+   Only ever shown when the server has told the client the gated context
+   applies (at court, game mode active, defender's City Status is higher).
+   A 2-option exclusive choice, same button shape/tokens as .cr-aspect-seg
+   so it reads as the same control family — but scoped under its own class
+   (mirrors the .cr-aspect-seg / .rv2-again-seg precedent of never letting
+   a shared-looking control silently couple two unrelated features), and
+   NEITHER option carries .on on load — the ruling requires the player to
+   pick deliberately even when one value is obviously larger. The "Higher"
+   pill is guidance only, not a selection. */
+.cr-status-seg {
+  display: flex;
+  background: var(--surf2);
+  border: 1px solid var(--bdr);
+  border-radius: var(--radius-md);
+  padding: 3px;
+  gap: 3px;
+}
+.cr-status-seg button {
+  flex: 1;
+  display: flex; flex-direction: column; align-items: center; gap: 2px;
+  padding: 10px 4px;
+  min-height: 52px;
+  border: none;
+  background: transparent;
+  border-radius: var(--radius-md);
+  color: var(--txt2);
+  font-family: var(--fl);
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+.cr-status-seg button:hover:not(.on) { background: var(--surf3); }
+.cr-status-seg button.on { background: var(--accent-a25); color: var(--accent); }
+.cr-status-term-val {
+  font-family: var(--fh); font-size: 15px; font-weight: 900;
+}
+.cr-status-seg button.on .cr-status-term-val { color: var(--accent); }
+.cr-status-pill {
+  font-family: var(--fl); font-size: 9px; font-weight: 700; letter-spacing: .05em;
+  text-transform: uppercase;
+  padding: 1px 6px; border-radius: var(--radius-sm);
+  background: var(--gold2); color: var(--bg);
+}
+.cr-status-note { font-size: 11px; color: var(--txt3); }
+.cr-status-unselected-warn {
+  font-size: 11px; color: var(--crim, #b5493f); font-style: italic;
+}
+
+/* ── Live pool preview ── */
+.cr-pool-preview {
+  display: flex; align-items: baseline; justify-content: space-between;
+  padding: 14px 16px;
+  background: var(--surf); border: 1px solid var(--bdr2); border-radius: var(--radius-md);
+}
+.cr-pool-label { font-family: var(--fl); font-size: 12px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--txt3); }
+.cr-pool-value { font-family: var(--fh); font-size: 32px; font-weight: 900; color: var(--accent); line-height: 1; }
+.cr-pool-value.cr-pool-pending {
+  font-family: var(--fl); font-size: 13px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: .04em; color: var(--txt3);
+}
+.cr-pool-value .cr-pool-unit { font-family: var(--fl); font-size: 12px; font-weight: 700; color: var(--txt3); margin-left: 4px; }
+.cr-pool-syncing { font-size: 10px; color: var(--txt3); font-style: italic; }
+
+/* ── Primary action ── */
+.cr-actions { display: flex; gap: 8px; }
+.ch-btn {
+  flex: 1; padding: 12px 14px; border: none; border-radius: var(--radius-md);
+  font-family: var(--fl); font-size: 12px; font-weight: 700; min-height: 44px;
+  letter-spacing: .06em; text-transform: uppercase; cursor: pointer;
+  transition: background .15s;
+}
+.ch-btn-accept { background: var(--accent); color: var(--bg); }
+.ch-btn-accept:hover { background: var(--gold2, #E0C47A); }
+.ch-btn-accept:disabled { background: var(--surf2); color: var(--txt3); cursor: default; }
+.ch-btn-decline { background: var(--surf2); color: var(--txt2); border: 1px solid var(--bdr); }
+.ch-btn-decline:hover { background: var(--surf3); }
+</style>
+</head>
+<body>
+
+<div class="mock-bar">
+  <strong>MOCKUP</strong>
+  <span>crd.4 — City Status Advantage choice (design-lock draft)</span>
+  <button id="mb-theme">Toggle dark/light</button>
+  <span class="mb-right">
+    <label><input type="checkbox" id="mb-gated-toggle" checked> gated context active (at court, defending a power, City Status higher)</label>
+  </span>
+</div>
+
+<div class="cr-screen">
+
+  <div class="cr-head">
+    <h2>Resolve Challenge</h2>
+    <p class="cr-sub">Build your resistance pool, then roll.</p>
+  </div>
+
+  <div class="cr-summary">
+    <div class="ch-pool-row">
+      <span class="ch-pool-lbl">Challenger</span>
+      <span class="ch-pool-val">Yusuf Kalusicj</span>
+    </div>
+    <div class="ch-pool-row">
+      <span class="ch-pool-lbl">Contest</span>
+      <span class="ch-pool-val">Majesty (power)</span>
+    </div>
+    <div class="ch-pool-row">
+      <span class="ch-pool-lbl">Their pool</span>
+      <span class="ch-pool-val">7 dice</span>
+    </div>
+  </div>
+
+  <div class="cr-section">
+    <div class="cr-section-label">How do you resist?</div>
+    <div class="cr-aspect-seg" id="cr-aspect-seg">
+      <button data-aspect="mental" data-attr="Resolve" data-dots="2">
+        Mental
+        <span class="cr-aspect-attr">Resolve · 2</span>
+      </button>
+      <button data-aspect="social" data-attr="Composure" data-dots="3" class="on">
+        Social
+        <span class="cr-aspect-attr">Composure · 3</span>
+      </button>
+      <button data-aspect="physical" data-attr="Stamina" data-dots="1">
+        Physical
+        <span class="cr-aspect-attr">Stamina · 1</span>
+      </button>
+    </div>
+  </div>
+
+  <div class="cr-section">
+    <div class="cr-section-label">Willpower</div>
+    <button class="cr-wp-toggle" id="cr-wp-toggle">
+      <span>Spend a point of Willpower</span>
+      <span class="cr-wp-bonus">+2 dice</span>
+    </button>
+    <p class="cr-wp-note">3 Willpower available. A Resistance roll gets +2, not the usual +3.</p>
+  </div>
+
+  <div class="cr-section" id="cr-status-section">
+    <div class="cr-section-label">City Status advantage</div>
+    <p class="cr-status-note">You outrank Yusuf Kalusicj at Court. Pick which term strengthens your defence — you always choose, even when one is clearly larger.</p>
+    <div class="cr-status-seg" id="cr-status-seg">
+      <button data-term="bp">
+        Blood Potency
+        <span class="cr-status-term-val">+2</span>
+      </button>
+      <button data-term="city">
+        City Status gap
+        <span class="cr-status-term-val">+4</span>
+        <span class="cr-status-pill">Higher</span>
+      </button>
+    </div>
+    <p class="cr-status-unselected-warn" id="cr-status-warn">Choose one to include it in your pool.</p>
+  </div>
+
+  <div class="cr-section">
+    <div class="cr-section-label">Merits</div>
+    <div class="cr-merit-row" id="cr-merit-row">
+      <button class="cr-merit-chip" data-merit="indomitable" data-bonus="2">
+        Indomitable <span class="cr-merit-bonus">+2</span>
+      </button>
+      <button class="cr-merit-chip" data-merit="closed-book" data-bonus="3">
+        Closed Book <span class="cr-merit-bonus">+3</span>
+      </button>
+    </div>
+  </div>
+
+  <div class="cr-pool-preview">
+    <span class="cr-pool-label">Your pool</span>
+    <span class="cr-pool-value cr-pool-pending" id="cr-pool-value">Choose above</span>
+  </div>
+  <p class="cr-pool-syncing">Updates live as you choose — nothing is rolled until you confirm.</p>
+
+  <div class="cr-actions">
+    <button type="button" class="ch-btn ch-btn-decline" data-cr-back>Back</button>
+    <button type="button" class="ch-btn ch-btn-accept" id="cr-roll-btn" disabled>Choose a status term first</button>
+  </div>
+
+</div>
+
+<script>
+const state = { aspect: 'social', wp: false, merits: new Set(), statusTerm: null, gated: true };
+const ATTRS = { mental: 2, social: 3, physical: 1 };
+const MERIT_BONUS = { indomitable: 2, 'closed-book': 3 };
+const STATUS_TERMS = { bp: 2, city: 4 };
+
+function recompute() {
+  const statusSection = document.getElementById('cr-status-section');
+  statusSection.style.display = state.gated ? '' : 'none';
+
+  let base = ATTRS[state.aspect];
+  if (state.wp) base += 2;
+  for (const m of state.merits) base += MERIT_BONUS[m];
+
+  const rollBtn = document.getElementById('cr-roll-btn');
+  const poolEl = document.getElementById('cr-pool-value');
+  const warnEl = document.getElementById('cr-status-warn');
+
+  if (state.gated && !state.statusTerm) {
+    poolEl.textContent = 'Choose above';
+    poolEl.classList.add('cr-pool-pending');
+    rollBtn.disabled = true;
+    rollBtn.textContent = 'Choose a status term first';
+    warnEl.style.display = '';
+    return;
+  }
+  warnEl.style.display = 'none';
+
+  const pool = base + (state.gated ? STATUS_TERMS[state.statusTerm] : 0);
+  poolEl.classList.remove('cr-pool-pending');
+  poolEl.innerHTML = pool + '<span class="cr-pool-unit">dice</span>';
+  rollBtn.disabled = false;
+  rollBtn.textContent = 'Roll ' + pool + (pool === 1 ? ' Die' : ' Dice');
+}
+
+document.getElementById('cr-aspect-seg').addEventListener('click', (e) => {
+  const btn = e.target.closest('button[data-aspect]');
+  if (!btn) return;
+  state.aspect = btn.dataset.aspect;
+  document.querySelectorAll('#cr-aspect-seg button').forEach(b => b.classList.toggle('on', b === btn));
+  recompute();
+});
+
+const wpToggle = document.getElementById('cr-wp-toggle');
+wpToggle.addEventListener('click', () => {
+  state.wp = !state.wp;
+  wpToggle.classList.toggle('on', state.wp);
+  recompute();
+});
+
+document.getElementById('cr-merit-row').addEventListener('click', (e) => {
+  const btn = e.target.closest('button[data-merit]');
+  if (!btn) return;
+  const key = btn.dataset.merit;
+  if (state.merits.has(key)) { state.merits.delete(key); btn.classList.remove('on'); }
+  else { state.merits.add(key); btn.classList.add('on'); }
+  recompute();
+});
+
+document.getElementById('cr-status-seg').addEventListener('click', (e) => {
+  const btn = e.target.closest('button[data-term]');
+  if (!btn) return;
+  state.statusTerm = btn.dataset.term;
+  document.querySelectorAll('#cr-status-seg button').forEach(b => b.classList.toggle('on', b === btn));
+  recompute();
+});
+
+document.getElementById('mb-theme').addEventListener('click', () => {
+  const el = document.documentElement;
+  const cur = el.getAttribute('data-theme');
+  el.setAttribute('data-theme', cur === 'dark' ? 'light' : 'dark');
+});
+
+document.getElementById('mb-gated-toggle').addEventListener('change', (e) => {
+  state.gated = e.target.checked;
+  if (!state.gated) state.statusTerm = null;
+  document.querySelectorAll('#cr-status-seg button').forEach(b => b.classList.remove('on'));
+  recompute();
+});
+
+recompute();
+</script>
+
+</body>
+</html>

@@ -59,6 +59,13 @@ export const contestedRollRequestSchema = {
     // point per action, so the only question is whether it was spent.
     defender_wp_spent:  { type: 'boolean' },
     defender_merit_ids: { type: 'array', items: { type: 'string' } },
+    // crd.4a: which term the defender chose in the at-Court City Status
+    // advantage gate (Blood Potency vs the City-Status difference). Only
+    // ever populated by /resolve when the gate is open for this challenge;
+    // null otherwise (the overwhelming majority case). Listed here for the
+    // same declared-shape completeness reason defender_aspect etc. are,
+    // even though this route has no validate() middleware.
+    defender_status_term: { type: ['string', 'null'], enum: ['bp', 'city', null] },
     power_name:   { type: 'string' },
   },
 };

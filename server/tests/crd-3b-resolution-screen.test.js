@@ -91,6 +91,9 @@ function aspectTarget(aspect) {
 function meritTarget(key) {
   return { closest: sel => (sel === '[data-cr-merit]' ? { dataset: { crMerit: key } } : null) };
 }
+function statusTermTarget(term) {
+  return { closest: sel => (sel === '[data-cr-status-term]' ? { dataset: { crStatusTerm: term } } : null) };
+}
 
 const CHAR_A = {
   _id: '000000000000000000000a01',
@@ -446,6 +449,155 @@ describe('crd.3b — back navigation and back button', () => {
     await mountResolved(root);
     root.click(targetOf('[data-cr-back]'));
     expect(globalThis.window.goTab).toHaveBeenCalledWith('contested-queue');
+  });
+});
+
+describe('crd.4a AC5 — the City Status advantage section only renders when the server says the gate is open', () => {
+  it('is absent when the resolve response carries no status_choice at all', async () => {
+    const root = makeRoot();
+    await mountResolved(root);
+    apiModule.apiRaw.mockResolvedValueOnce({ ok: true, status: 200, body: { defender_pool: 2 } });
+    root.click(aspectTarget('mental'));
+    await Promise.resolve(); await Promise.resolve();
+    expect(root.innerHTML).not.toMatch(/City Status advantage/);
+  });
+
+  it('is absent when status_choice.eligible is false', async () => {
+    const root = makeRoot();
+    await mountResolved(root);
+    apiModule.apiRaw.mockResolvedValueOnce({ ok: true, status: 200, body: { defender_pool: 2, status_choice: { eligible: false } } });
+    root.click(aspectTarget('mental'));
+    await Promise.resolve(); await Promise.resolve();
+    expect(root.innerHTML).not.toMatch(/City Status advantage/);
+  });
+
+  it('renders both options with their real values when the gate is open', async () => {
+    const root = makeRoot();
+    await mountResolved(root);
+    apiModule.apiRaw.mockResolvedValueOnce({
+      ok: true, status: 200,
+      body: { defender_pool: null, status_choice: { eligible: true, bp_value: 2, city_value: 4 } },
+    });
+    root.click(aspectTarget('mental'));
+    await Promise.resolve(); await Promise.resolve();
+    expect(root.innerHTML).toMatch(/City Status advantage/);
+    expect(root.innerHTML).toContain('Blood Potency');
+    expect(root.innerHTML).toContain('+2');
+    expect(root.innerHTML).toContain('City Status gap');
+    expect(root.innerHTML).toContain('+4');
+  });
+});
+
+describe('crd.4a AC6 — neither option is ever pre-selected, even when one is obviously larger', () => {
+  it('neither button carries the .on class on first render of the gated section', async () => {
+    const root = makeRoot();
+    await mountResolved(root);
+    apiModule.apiRaw.mockResolvedValueOnce({
+      ok: true, status: 200,
+      body: { defender_pool: null, status_choice: { eligible: true, bp_value: 2, city_value: 8 } },
+    });
+    root.click(aspectTarget('mental'));
+    await Promise.resolve(); await Promise.resolve();
+    expect(root.innerHTML).not.toMatch(/data-cr-status-term="bp"[^>]*class="on"/);
+    expect(root.innerHTML).not.toMatch(/data-cr-status-term="city"[^>]*class="on"/);
+  });
+
+  it('marks the numerically larger option with the "Higher" guidance pill, not a selection', async () => {
+    const root = makeRoot();
+    await mountResolved(root);
+    apiModule.apiRaw.mockResolvedValueOnce({
+      ok: true, status: 200,
+      body: { defender_pool: null, status_choice: { eligible: true, bp_value: 2, city_value: 8 } },
+    });
+    root.click(aspectTarget('mental'));
+    await Promise.resolve(); await Promise.resolve();
+    const cityButton = root.innerHTML.slice(root.innerHTML.indexOf('City Status gap') - 200, root.innerHTML.indexOf('City Status gap') + 100);
+    expect(cityButton).toMatch(/Higher/);
+    const bpButton = root.innerHTML.slice(root.innerHTML.indexOf('Blood Potency') - 200, root.innerHTML.indexOf('Blood Potency') + 100);
+    expect(bpButton).not.toMatch(/Higher/);
+  });
+});
+
+describe('crd.4a AC7/AC8 — selection wiring, placeholder and disabled Roll until chosen', () => {
+  it('shows the plain placeholder and a disabled Roll button while the gate is open and no term is chosen', async () => {
+    const root = makeRoot();
+    await mountResolved(root);
+    apiModule.apiRaw.mockResolvedValueOnce({
+      ok: true, status: 200,
+      body: { defender_pool: null, status_choice: { eligible: true, bp_value: 2, city_value: 4 } },
+    });
+    root.click(aspectTarget('mental'));
+    await Promise.resolve(); await Promise.resolve();
+    expect(root.innerHTML).toMatch(/Choose above/);
+    expect(root.innerHTML).toMatch(/Choose a status term first/);
+    // Deliberately NOT client-disabled — mirrors crd-3b's own AC7 exactly
+    // (no client-side duplicate of the server's null-pool 409 guard; the
+    // "no aspect chosen yet" case is handled the identical way already).
+    expect(root.innerHTML).not.toMatch(/data-cr-accept[^>]*disabled/);
+  });
+
+  it('selecting a term calls /resolve with defender_status_term and reuses the existing generation-guard machinery', async () => {
+    const root = makeRoot();
+    await mountResolved(root);
+    apiModule.apiRaw.mockResolvedValueOnce({
+      ok: true, status: 200,
+      body: { defender_pool: null, status_choice: { eligible: true, bp_value: 2, city_value: 4 } },
+    });
+    root.click(aspectTarget('mental'));
+    await Promise.resolve(); await Promise.resolve();
+
+    apiModule.apiRaw.mockResolvedValueOnce({
+      ok: true, status: 200,
+      body: { defender_pool: 6, defender_status_term: 'city', status_choice: { eligible: true, bp_value: 2, city_value: 4 } },
+    });
+    root.click(statusTermTarget('city'));
+    await Promise.resolve(); await Promise.resolve();
+
+    expect(apiModule.apiRaw).toHaveBeenLastCalledWith(
+      'PUT', '/api/contested_roll_requests/c9/resolve',
+      expect.objectContaining({ defender_status_term: 'city' })
+    );
+    expect(root.innerHTML).toContain('>6<');
+    expect(root.innerHTML).toMatch(/data-cr-status-term="city"[^>]*class="on"/);
+    expect(root.innerHTML).not.toMatch(/data-cr-accept[^>]*disabled/);
+  });
+});
+
+describe('crd.4a AC9 — the gate closing mid-flow discards any previously selected term', () => {
+  it('a later resolve response with no eligible status_choice removes the section and forgets the prior selection', async () => {
+    const root = makeRoot();
+    await mountResolved(root);
+    apiModule.apiRaw.mockResolvedValueOnce({
+      ok: true, status: 200,
+      body: { defender_pool: null, status_choice: { eligible: true, bp_value: 2, city_value: 4 } },
+    });
+    root.click(aspectTarget('mental'));
+    await Promise.resolve(); await Promise.resolve();
+
+    apiModule.apiRaw.mockResolvedValueOnce({
+      ok: true, status: 200,
+      body: { defender_pool: 6, defender_status_term: 'city', status_choice: { eligible: true, bp_value: 2, city_value: 4 } },
+    });
+    root.click(statusTermTarget('city'));
+    await Promise.resolve(); await Promise.resolve();
+    expect(root.innerHTML).toMatch(/City Status advantage/);
+
+    // Gate closes (e.g. game mode ended mid-resolve) — next resolve response
+    // carries no eligible status_choice at all.
+    apiModule.apiRaw.mockResolvedValueOnce({ ok: true, status: 200, body: { defender_pool: 3 } });
+    root.click(targetOf('[data-cr-wp]'));
+    await Promise.resolve(); await Promise.resolve();
+
+    expect(root.innerHTML).not.toMatch(/City Status advantage/);
+
+    // A subsequent resolve call must not carry the discarded selection.
+    apiModule.apiRaw.mockResolvedValueOnce({ ok: true, status: 200, body: { defender_pool: 3 } });
+    root.click(targetOf('[data-cr-wp]'));
+    await Promise.resolve(); await Promise.resolve();
+    expect(apiModule.apiRaw).toHaveBeenLastCalledWith(
+      'PUT', '/api/contested_roll_requests/c9/resolve',
+      expect.objectContaining({ defender_status_term: null })
+    );
   });
 });
 

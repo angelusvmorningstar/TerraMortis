@@ -4,6 +4,9 @@ import { getCollection } from '../db.js';
 import { validate } from '../middleware/validate.js';
 import { requireRole } from '../middleware/auth.js';
 import { contestedRollRequestSchema } from '../schemas/contested_roll_request.schema.js';
+import { calcEffectiveCityStatus } from '../../public/js/data/city-status-calc.js';
+import { findRegentTerritory } from '../../public/js/data/helpers.js';
+import { currentCycleInGamePhase } from '../../public/js/downtime/cycle-phase.js';
 
 const router = Router();
 const col     = () => getCollection('contested_roll_requests');
@@ -45,7 +48,14 @@ router.post('/', validate(contestedRollRequestSchema), async (req, res) => {
   // `request_type` is force-set after it, so the route is always the authority.
   // The schema still LISTS them (additionalProperties: false, and crd.3a's
   // resolve endpoint writes them) — they are simply never honoured here.
-  for (const f of ['defender_aspect', 'defender_wp_spent', 'defender_merit_ids']) delete doc[f];
+  // crd.4a review (external Codex, Pass 2): defender_status_term is the same
+  // shape of defender-owned field and was missed from this list when the
+  // schema grew it — an attacker could otherwise pre-populate a bogus
+  // "defender's choice" into a pending document before the defender ever
+  // acts. /resolve still overwrites it before any pool is finalised, so this
+  // could not change a final roll's outcome, but it violated the same
+  // provenance boundary the other three fields exist to protect.
+  for (const f of ['defender_aspect', 'defender_wp_spent', 'defender_merit_ids', 'defender_status_term']) delete doc[f];
 
   const result  = await col().insertOne(doc);
   const created = await col().findOne({ _id: result.insertedId });
@@ -112,6 +122,88 @@ function _meritBonus(merit) {
   if (merit.rule_key === 'indomitable') return 2;
   if (merit.rule_key === 'closed-book') return merit.rating || 0;
   return 0;
+}
+
+// crd.4a: the at-Court City Status advantage gate. Short-circuits on the
+// cheapest check first (power_name) so the overwhelming majority of
+// /resolve calls (any non-power contest) never touch chapters/game_sessions/
+// territories at all. Returns null when the gate is closed for this
+// challenge, or { eligible: true, bp_value, city_value } when open — the
+// three conditions (power, game mode, both-sides attendance) plus the
+// City-Status-higher requirement, all evaluated fresh from live data, never
+// cached or client-asserted (AC1).
+async function _statusChoiceEligibility(challenge, defenderChar) {
+  if (!challenge.power_name || typeof challenge.power_name !== 'string' || !challenge.power_name.trim()) {
+    return null;
+  }
+
+  // Game mode active — mirrors office-actions.js's own GATED_TYPES check
+  // (lines ~164-168) exactly, same import, no second (deriveStatus) arg
+  // needed server-side.
+  const cycles = await getCollection('chapters').find().toArray();
+  if (!currentCycleInGamePhase(cycles)) return null;
+
+  // At Court — both challenger and defender attended:true in the SAME
+  // current game session. Session-selection mirrors office-actions.js's own
+  // findLatestSession (session_date <= today, tie-broken by _id) rather than
+  // attendance.js's own unfiltered "most recent by date" sort — a
+  // future-dated game_sessions document is a real, supported shape in this
+  // app (server/routes/game-sessions.js's own GET /next), and office-
+  // actions.js's own comment documents the tie-break need. Crd-4a review
+  // (external Codex, Pass 2): mirroring attendance.js's own query verbatim
+  // would let a pre-created future session's attendance silently outrank the
+  // actually-live one. Attendance MATCHING (id-then-name fallback) still
+  // mirrors attendance.js's own robustness pattern.
+  const today = new Date().toISOString().slice(0, 10);
+  const latestSession = await getCollection('game_sessions').findOne(
+    { session_date: { $lte: today } },
+    { sort: { session_date: -1, _id: -1 } },
+  );
+  if (!latestSession) return null;
+  const attendance = latestSession.attendance || [];
+  function attendedIn(charId, charName) {
+    // Crd-4a review (external Codex, Pass 1): require a genuinely non-empty
+    // id before comparing, so two missing/blank ids (e.g. a malformed
+    // attendance row) can never coincidentally match via String(undefined)
+    // === String(undefined). Not currently reachable end-to-end (Pass 2
+    // confirmed the route's own ownership/ObjectId checks already exclude a
+    // missing target/challenger id before this function is ever reached),
+    // but defended here too, matching this file's own established
+    // defence-in-depth standard for exactly this kind of schema-shouldn't-
+    // allow-it-but-guard-anyway case.
+    const hasId = charId != null && String(charId).trim() !== '';
+    const entry = attendance.find(a =>
+      (hasId && String(a.character_id) === String(charId))
+      || (charName && (a.character_name === charName || a.name === charName))
+    );
+    return entry?.attended === true;
+  }
+
+  let challengerChar;
+  try {
+    challengerChar = await getCollection('characters').findOne({ _id: new ObjectId(challenge.challenger_character_id) });
+  } catch { return null; }
+  if (!challengerChar) return null;
+
+  if (!attendedIn(challenge.challenger_character_id, challengerChar.name)) return null;
+  if (!attendedIn(challenge.target_character_id, defenderChar.name)) return null;
+
+  // City Status — same territories/regentAmbience/calcEffectiveCityStatus
+  // pattern office-actions.js already uses for its own budget check (lines
+  // ~316-319).
+  const territories = await getCollection('territories').find({}).toArray();
+  const defenderAmbience   = findRegentTerritory(territories, defenderChar)?.ambience;
+  const challengerAmbience = findRegentTerritory(territories, challengerChar)?.ambience;
+  const defenderStatus   = calcEffectiveCityStatus(defenderChar, defenderAmbience);
+  const challengerStatus = calcEffectiveCityStatus(challengerChar, challengerAmbience);
+
+  if (!(defenderStatus > challengerStatus)) return null;
+
+  return {
+    eligible:  true,
+    bp_value:   defenderChar.blood_potency || 0,
+    city_value: defenderStatus - challengerStatus,
+  };
 }
 
 // PUT /api/contested_roll_requests/:id/resolve — defender computes their own
@@ -191,27 +283,66 @@ router.put('/:id/resolve', async (req, res) => {
     if (merit) pool += _meritBonus(merit);
   }
 
+  // crd.4a: the at-Court City Status advantage. Gate is closed for the
+  // overwhelming majority of resolves (any non-power contest) — statusChoice
+  // is null and finalPool/defenderStatusTerm fall straight through unchanged.
+  const statusChoice = await _statusChoiceEligibility(challenge, character);
+  let finalPool = pool;
+  let defenderStatusTerm = null;
+  if (statusChoice) {
+    const { defender_status_term } = req.body || {};
+    if (defender_status_term === 'bp' || defender_status_term === 'city') {
+      defenderStatusTerm = defender_status_term;
+      finalPool = pool + (defender_status_term === 'bp' ? statusChoice.bp_value : statusChoice.city_value);
+    } else {
+      // AC3: required-but-not-yet-chosen — NOT a 400. The aspect/WP/merit
+      // portion above is already legitimately computed and worth showing;
+      // only the final total is withheld, the same null-means-"not resolved
+      // yet" signal already established for a missing defender_aspect.
+      finalPool = null;
+    }
+  }
+
+  // Crd-4a review (external Codex, Pass 1): `blood_potency` is schema-
+  // constrained to an integer (character.schema.js) so this is not reachable
+  // through the normal character API today, but a schema-valid pool total
+  // going non-finite has already burned this exact route once (crd.1's own
+  // documented `_roll(undefined)` -> zero-die silent loss). `!= null` alone
+  // does not catch NaN (`NaN != null` is true), and `Math.max`/`Math.min`
+  // both propagate NaN silently through the clamp below — so a corrupted
+  // (e.g. direct-Mongo-write) blood_potency could otherwise persist
+  // defender_pool as NaN, which JSON-serialises as null but is NOT `== null`
+  // when read back from Mongo, defeating /accept's own null-pool guard the
+  // same way crd.1's original bug did. Treated the same as "not resolved
+  // yet", not clamped to a number.
+  if (finalPool != null && !Number.isFinite(finalPool)) finalPool = null;
+
   // Defensive clamp to the collection's own declared domain
   // (contested_roll_request.schema.js: defender_pool is 0-30). This route has
   // no validate() middleware, and a character's attribute `bonus` and a
   // merit's `rating` both have NO declared maximum, so a schema-valid
   // character can genuinely drive the computed total outside the range this
   // collection's own schema promises everywhere else (crd.3a code review,
-  // external Codex, Pass 1/2).
-  pool = Math.max(0, Math.min(30, pool));
+  // external Codex, Pass 1/2). Skipped when finalPool is null (AC3) — Math.min
+  // would otherwise silently coerce null to 0, a real total rather than "not
+  // resolved yet".
+  if (finalPool != null) finalPool = Math.max(0, Math.min(30, finalPool));
 
   await col().updateOne(
     { _id: challenge._id },
     { $set: {
-        defender_pool:      pool,
+        defender_pool:         finalPool,
         defender_aspect,
-        defender_wp_spent:  spendWp,
-        defender_merit_ids: resolvedMeritIds,
-        updated_at:         new Date().toISOString(),
+        defender_wp_spent:     spendWp,
+        defender_merit_ids:    resolvedMeritIds,
+        defender_status_term:  defenderStatusTerm,
+        updated_at:            new Date().toISOString(),
       } }
   );
 
-  res.json(await col().findOne({ _id: challenge._id }));
+  const updated = await col().findOne({ _id: challenge._id });
+  if (statusChoice) updated.status_choice = statusChoice;
+  res.json(updated);
 });
 
 // PUT /api/contested_roll_requests/:id/accept — target accepts; dice rolled server-side
