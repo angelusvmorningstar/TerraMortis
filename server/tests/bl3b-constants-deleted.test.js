@@ -262,15 +262,26 @@ describe('BL-3b — AC 5: the seed is retired to scripts/archive', () => {
 // AC 6 — retiring the seed does not retire the unique-index guarantee
 // ─────────────────────────────────────────────────────────────────────────────
 
-describe('BL-3b — AC 6: the unique name index keeps a live owner', () => {
+describe('BL-3b — AC 6: the unique name index, post-ADMR-1', () => {
   /**
-   * Archiving the seed took one of `bloodline-name-index.js`'s two importers
-   * with it. The other is `server/routes/bloodlines.js`, which memoises
-   * `ensureNameIndex()` and calls it before the first write of the process, so
-   * a collection created entirely through BL-4's admin screen still gets the
-   * collated unique index. That is what makes the seed optional rather than a
-   * precondition — and it is exactly the kind of guarantee a later "tidy up the
-   * archive" pass could take away without noticing. Pin the live caller.
+   * UPDATED BY ADMR-1 (2026-08-26). This block used to pin
+   * `server/routes/bloodlines.js` as the live, non-archived importer that
+   * kept `ensureBloodlineNameIndex` from becoming the archived seed's problem
+   * alone — the whole point being that a later "tidy up the archive" pass
+   * could remove that guarantee without noticing. ADMR-1 IS that removal, but
+   * a deliberate one, not an accidental tidy-up: ST authoring of bloodlines
+   * (and with it, responsibility for the collection's unique-name index)
+   * moved to TM Admin, a separate app this repo's own test suite cannot see
+   * into. This repo no longer creates or writes `bloodlines` documents at
+   * all, so it has nothing left to guarantee an index ahead of.
+   *
+   * What stays true, and what this now checks: `bloodline-name-index.js`
+   * still has exactly the one importer BL-3b's own archiving left it with —
+   * the frozen `scripts/archive/seed-bloodlines.js`, smoke-tested for exactly
+   * this reason by `bl3b-archived-seed-smoke.test.js`. If a LIVE (non-archive)
+   * importer reappears, that is a real product decision (this repo taking
+   * bloodline writes back, or some other live-owner reason) and deserves a
+   * human decision, not a silent pass here.
    */
   const importers = () => {
     const out = [];
@@ -284,48 +295,14 @@ describe('BL-3b — AC 6: the unique name index keeps a live owner', () => {
     return out;
   };
 
-  it('has at least one importer outside scripts/archive', () => {
-    expect(importers().length, 'the archived seed must not be the last caller').toBeGreaterThan(0);
+  it('has NO importer outside scripts/archive - ADMR-1 retired the last one', () => {
+    expect(importers(), 'a live importer reappeared - decide deliberately, this is not automatically wrong').toEqual([]);
   });
 
-  it('and that importer is the write route', () => {
-    expect(importers()).toContain('server/routes/bloodlines.js');
-  });
-
-  it('awaits the index inside the create handler and before the first write', () => {
-    /**
-     * A source-ORDER check, which is what the name of this test promises.
-     *
-     * The first cut asserted only that `ensureBloodlineNameIndex(` and
-     * `await ensureNameIndex()` both appeared SOMEWHERE in the file, which
-     * establishes no relationship between them at all — BL-3b's external review
-     * called it correctly. The real behavioural proof is not here and is not
-     * meant to be: `bl4-bloodlines-write-api.test.js:275-294` DROPS
-     * `bloodline_name_unique` in a `beforeAll` and then asserts that a write
-     * recreates it with `collation.strength === 2`, against a live
-     * `tm_suite_test`. That is proof by behaviour and it is the guarantee.
-     *
-     * What this adds is the cheap structural half the behavioural test cannot
-     * see: that the await sits lexically inside `router.post('/')` and ahead of
-     * the insert, so a future edit that moves it into a later handler, below the
-     * write, or out of the create path entirely is caught here as well as there.
-     */
-    const src = code('server/routes/bloodlines.js');
+  it('the archived seed script is still the one real caller', () => {
+    const src = code('server/scripts/archive/seed-bloodlines.js');
+    expect(src).toMatch(/from\s+['"`][^'"`]*bloodline-name-index\.js['"`]/);
     expect(src).toMatch(/ensureBloodlineNameIndex\(/);
-
-    const postAt = src.indexOf("router.post('/'");
-    const awaitAt = src.indexOf('await ensureNameIndex()');
-    const insertAt = src.search(/\.(insertOne|insertMany)\(/);
-    const nextRouteAt = src.indexOf('router.patch(', postAt);
-
-    expect(postAt, "router.post('/') is gone").toBeGreaterThan(-1);
-    expect(awaitAt, 'the create handler no longer awaits ensureNameIndex()').toBeGreaterThan(-1);
-    expect(insertAt, 'no insert left in the route').toBeGreaterThan(-1);
-    expect(nextRouteAt, 'router.patch no longer follows router.post, so the handler boundary moved').toBeGreaterThan(-1);
-
-    expect(awaitAt, 'the await moved above the create handler').toBeGreaterThan(postAt);
-    expect(awaitAt, 'the await moved below the first insert').toBeLessThan(insertAt);
-    expect(awaitAt, 'the await moved out of the create handler into a later one').toBeLessThan(nextRouteAt);
   });
 });
 
