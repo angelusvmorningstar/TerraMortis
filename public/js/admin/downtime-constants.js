@@ -39,6 +39,44 @@ export const ACTION_TYPE_LABELS = {
 // effectAuto: fixed/unrolled effect (used when poolFormula is 'none' or ST chooses auto)
 
 export const MERIT_MATRIX = {
+  // Sway (2026-08-26 merge of Allies + Status — Angelus's own ruling). Every row below is
+  // identical to what 'allies'/'status' already shared except `block`, which was the one place
+  // the two predecessors genuinely disagreed (Allies: auto-blocks same-level-or-lower, matching
+  // the core VtR rulebook text verbatim; Status: auto-blocks strictly-lower only). Angelus ruled
+  // Sway aligns with Status's stricter version. 'allies'/'status' keys are KEPT below, not
+  // deleted — historical downtime-submission free text will say "Allies"/"Status" forever, and
+  // _parseMeritType() needs somewhere to resolve those words to permanently, not just during a
+  // transition window. MCI's own matrix (renamed "Organisation" per the same ruling) is
+  // unaffected: MCI never had a merit-action matrix entry here, its own downtime handling lives
+  // elsewhere in _parseMeritType()'s regex mapping.
+  sway: {
+    ambience_increase: { poolFormula: 'none',       mode: 'auto',      effect: 'Lvl 3–4: +1 ambience; Lvl 5: +2 ambience' },
+    ambience_decrease: { poolFormula: 'none',       mode: 'auto',      effect: 'Lvl 3–4: −1 ambience; Lvl 5: −2 ambience' },
+    attack:            { poolFormula: 'dots2plus2', mode: 'contested', effect: '(Atk − Hide/Protect) halved (round up) removed from target merit level',                                           effectAuto: '(Level − Hide/Protect) halved (round up) removed from target merit level' },
+    hide_protect:      { poolFormula: 'dots2plus2', mode: 'instant',   effect: 'Successes subtracted from any Attack, Scout, or Investigate targeting this merit',                                 effectAuto: 'Level subtracted from any Attack, Scout, or Investigate targeting this merit' },
+    support:           { poolFormula: 'dots2plus2', mode: 'instant',   effect: 'Successes added as uncapped Teamwork bonus to supported action pool',                                              effectAuto: 'Dots added as uncapped Teamwork bonus' },
+    patrol_scout:      { poolFormula: 'dots2plus2', mode: 'instant',   effect: '1 action revealed per success (Attack > Scout > Investigate > Ambience > Support priority; detail scales 1–5+)',  effectAuto: '(Level − Hide/Protect) successes; same info return' },
+    investigate:       { poolFormula: 'dots2plus2', mode: 'contested', effect: 'See Investigation Matrix (Investigate − Hide/Protect = net successes)',                                            effectAuto: 'See Investigation Matrix (Level − Hide/Protect = net successes)' },
+    rumour:            { poolFormula: 'dots2plus2', mode: 'instant',   effect: '1 similar-merit action revealed per success (Attack > Scout > Investigate > Ambience > Support; detail 1–5+)',    effectAuto: 'Merit Level = successes' },
+    block:             { poolFormula: 'none',       mode: 'auto',      effect: 'Auto blocks merit of lower level' },
+  },
+  // Organisation (2026-08-26 rename of the narrow MCI-only slice of 'status' — Angelus's own
+  // ruling: "MCI remains narrow status and is renamed Organisation... does the same thing
+  // mechanically"). Deliberately an unchanged copy of the 'status' rows below, not a fresh
+  // design — a rebrand, not a redesign.
+  organisation: {
+    ambience_increase: { poolFormula: 'none',       mode: 'auto',      effect: 'Lvl 3–4: +1 ambience; Lvl 5: +2 ambience' },
+    ambience_decrease: { poolFormula: 'none',       mode: 'auto',      effect: 'Lvl 3–4: −1 ambience; Lvl 5: −2 ambience' },
+    attack:            { poolFormula: 'dots2plus2', mode: 'contested', effect: '(Atk − Hide/Protect) halved (round up) removed from target merit level',                                           effectAuto: '(Level − Hide/Protect) halved (round up) removed from target merit level' },
+    hide_protect:      { poolFormula: 'dots2plus2', mode: 'instant',   effect: 'Successes subtracted from any Attack, Scout, or Investigate targeting this merit',                                 effectAuto: 'Level subtracted from any Attack, Scout, or Investigate targeting this merit' },
+    support:           { poolFormula: 'dots2plus2', mode: 'instant',   effect: 'Successes added as uncapped Teamwork bonus to supported action pool',                                              effectAuto: 'Dots added as uncapped Teamwork bonus' },
+    patrol_scout:      { poolFormula: 'dots2plus2', mode: 'instant',   effect: '1 action revealed per success (Attack > Scout > Investigate > Ambience > Support priority; detail scales 1–5+)',  effectAuto: '(Level − Hide/Protect) successes; same info return' },
+    investigate:       { poolFormula: 'dots2plus2', mode: 'contested', effect: 'See Investigation Matrix (Investigate − Hide/Protect = net successes)',                                            effectAuto: 'See Investigation Matrix (Level − Hide/Protect = net successes)' },
+    rumour:            { poolFormula: 'dots2plus2', mode: 'instant',   effect: '1 similar-merit action revealed per success (Attack > Scout > Investigate > Ambience > Support; detail 1–5+)',    effectAuto: 'Merit Level = successes' },
+    block:             { poolFormula: 'none',       mode: 'auto',      effect: 'Auto blocks merit of lower level' },
+  },
+  // LEGACY — kept permanently for historical downtime-submission free text, never deleted.
+  // New characters/merits should never be created under these two keys after the migration.
   allies: {
     ambience_increase: { poolFormula: 'none',       mode: 'auto',      effect: 'Lvl 3–4: +1 ambience; Lvl 5: +2 ambience' },
     ambience_decrease: { poolFormula: 'none',       mode: 'auto',      effect: 'Lvl 3–4: −1 ambience; Lvl 5: −2 ambience' },

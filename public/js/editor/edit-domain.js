@@ -90,7 +90,11 @@ export function shAddLKMerit(type) {
 export function shAddVMAllies() {
   if (state.editIdx < 0) return;
   const c = state.chars[state.editIdx];
-  addMerit(c, { category: 'influence', name: 'Allies', rating: 0, area: '', granted_by: 'VM' });
+  // 2026-08-26 Sway merge: this is a WRITE path (Viral Mythology grants a fresh merit), so it
+  // must write the new name outright, not straddle both shapes the way a read path can — every
+  // day this stayed 'Allies' it would mint another merit the migration would then have to catch.
+  // Function name kept unchanged (blast radius: every call site that references it by name).
+  addMerit(c, { category: 'influence', name: 'Sway', rating: 0, area: '', granted_by: 'VM' });
   _markDirty();
   _renderSheet(c);
 }

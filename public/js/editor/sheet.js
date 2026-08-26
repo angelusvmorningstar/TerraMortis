@@ -947,7 +947,8 @@ export function shRenderDisciplines(c, editMode) {
           const sk0 = (p.ohm_skills && p.ohm_skills[0]) || '';
           const sk1 = (p.ohm_skills && p.ohm_skills[1]) || '';
           const ohmSphere = p.ohm_allies_sphere || '';
-          const _alliesMerits = (c.merits || []).filter(m => m.category === 'influence' && m.name === 'Allies' && m.area);
+          // 2026-08-26 Sway merge: 'Allies' becoming 'Sway' — check both, tolerant of either side of the migration.
+          const _alliesMerits = (c.merits || []).filter(m => m.category === 'influence' && (m.name === 'Allies' || m.name === 'Sway') && m.area);
           const _alliesOpts = _alliesMerits.map(m => '<option value="' + esc(m.area) + '"' + ((m.area || '').toLowerCase() === ohmSphere.toLowerCase() ? ' selected' : '') + '>' + esc(m.area) + '</option>').join('');
           h += '<div class="pact-controls">'
             + '<div class="pact-ctrl-row"><span class="pact-ctrl-lbl">Auto grants:</span><span class="grant-pool-tag">+1 Contacts, +1 Resources</span></div>'
@@ -1052,7 +1053,7 @@ export function shRenderInfluenceMerits(c, editMode) {
       if (m.granted_by) h += '<span class="gen-granted-tag">' + esc(m.granted_by) + '</span>';
       h += '<button class="dev-rm-btn" onclick="shRemoveInflMerit(' + idx + ')" title="Remove">&times;</button></div>';
       const _isAttacheVariant = m.name?.startsWith('Attach\u00e9 (');
-      h += meritBdRow(rIdx, m, m.name === 'Attach\u00e9' || _isAttacheVariant ? null : meritFixedRating(m.name), { showMCI: _inflMciPool > 0, showVM: _inflHasVM && m.name === 'Allies', showLK: _inflHasLK && m.name === 'Retainer', showINV: _inflHasINV && (_invMerits.has(m.name) || _isAttacheVariant || (m.name === 'Attach\u00e9' && (m.cp || 0) + (m.xp || 0) >= 1)), attachBonus: attacheBonusDots(c, m.area ? m.name + ' (' + m.area + ')' : m.name) }); h += _prereqWarn(c, m.name);
+      h += meritBdRow(rIdx, m, m.name === 'Attach\u00e9' || _isAttacheVariant ? null : meritFixedRating(m.name), { showMCI: _inflMciPool > 0, showVM: _inflHasVM && (m.name === 'Allies' || m.name === 'Sway'), showLK: _inflHasLK && m.name === 'Retainer', showINV: _inflHasINV && (_invMerits.has(m.name) || _isAttacheVariant || (m.name === 'Attach\u00e9' && (m.cp || 0) + (m.xp || 0) >= 1)), attachBonus: attacheBonusDots(c, m.area ? m.name + ' (' + m.area + ')' : m.name) }); h += _prereqWarn(c, m.name);
       h += _derivedNotes(m);
       const _attBonus = attacheBonusDots(c, m.area ? m.name + ' (' + m.area + ')' : m.name);
       if (_attBonus > 0) h += '<div class="derived-note">Attach\u00e9: +' + _attBonus + ' dot' + (_attBonus !== 1 ? 's' : '') + ' (Invictus Status ' + effectiveInvictusStatus(c) + ')</div>';
@@ -1089,7 +1090,10 @@ export function shRenderInfluenceMerits(c, editMode) {
   } else {
     inflM.filter(m => m.name !== 'Contacts').slice().sort((a, b) => (a.name || '').localeCompare(b.name || '')).forEach((m, idx) => {
       const area = (m.area || '').trim() || null, gt = m.name === 'Retainer' && m.ghoul ? ' (ghoul)' : '', tags = m._grant_sources || [], gb = tags.length ? (' <span class="gen-granted-tag-view">' + tags.join(', ') + '</span>') : '';
-      const narrow = m.name === 'Status' && m.narrow && typeof m.narrow === 'string' ? m.narrow.trim() : '';
+      // 2026-08-26 Sway merge: Sway inherits Status's own narrow-descriptor capability (the
+      // richer of the two predecessors' UIs), not just Allies' plain-sphere one — see the
+      // matching edit-mode change in _inflArea() below.
+      const narrow = (m.name === 'Status' || m.name === 'Sway') && m.narrow && typeof m.narrow === 'string' ? m.narrow.trim() : '';
       const displayArea = narrow ? (area ? area + ' — ' + narrow : narrow) : area;
       const iRIdx = c.merits.indexOf(m);
       const iPurch = (m.cp || 0) + (m.xp || 0), iBon = meritFreeSum(m) + attacheBonusDots(c, displayArea ? m.name + ' (' + displayArea + ')' : m.name) + (m.bonus || 0);
@@ -1135,7 +1139,10 @@ function _inflArea(m, idx, isC) {
   // functionally Retainers (description text + Ghoul flag) per game-rule.
   if (m.name === 'Retainer' || m.name?.startsWith('Attaché (')) return '<input type="text" class="infl-area" value="' + esc(m.area || '') + '" placeholder="Description" onchange="shEditInflMerit(' + idx + ',\'area\',this.value)"><label class="infl-ghoul-lbl"><input type="checkbox"' + (m.ghoul ? ' checked' : '') + ' onchange="shEditInflMerit(' + idx + ',\'ghoul\',this.checked)"> Ghoul</label>';
   if (m.name === 'Staff') return '<input type="text" class="infl-area" value="' + esc(m.area || '') + '" placeholder="Area of expertise" onchange="shEditInflMerit(' + idx + ',\'area\',this.value)">';
-  if (m.name === 'Status') {
+  // 2026-08-26 Sway merge: Sway routes here (the richer of the two predecessor UIs \u2014 sphere +
+  // narrow descriptor), not to the plain Allies branch above, so the narrow-descriptor
+  // capability Status had isn't silently lost for the merged merit.
+  if (m.name === 'Status' || m.name === 'Sway') {
     return '<select class="infl-area infl-area-sphere" onchange="shEditInflMerit(' + idx + ',\'area\',this.value)"><option value="">\u2014 sphere \u2014</option>' + spOpts(m.area) + '</select>' +
            '<input type="text" class="infl-area infl-area-narrow" value="' + esc(typeof m.narrow === 'string' ? m.narrow : '') + '" placeholder="Narrow descriptor" onchange="shEditInflMerit(' + idx + ',\'narrow\',this.value)">';
   }

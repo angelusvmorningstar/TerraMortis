@@ -90,7 +90,10 @@ function _vmPool(c) {
   let total = 0;
   (c.merits || []).forEach(m => {
     if (m.granted_by === 'VM') return;
-    if (m.category === 'influence' && m.name === 'Allies') {
+    // 2026-08-26 Sway merge: 'Allies' is becoming 'Sway' — check both, tolerant of either side
+    // of the migration. free_grants.mci is UNCHANGED (Angelus: MCI→Organisation is "just a
+    // rebrand, does the same thing mechanically" — the grant channel key itself doesn't move).
+    if (m.category === 'influence' && (m.name === 'Allies' || m.name === 'Sway')) {
       // inherent-intentional: free_mci counts because MCI Allies are real influence resources; N-1 map-fallback so N-2 backfill (legacy → map) doesn't drop dots
       total += (m.cp || 0) + (m.xp || 0) + ((m.free_grants?.mci) ?? m.free_mci ?? 0);
     } else if (m.name === 'Herd') {

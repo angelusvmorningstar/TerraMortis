@@ -274,9 +274,14 @@ function _parseMeritType(str) {
 
   const categoryRaw = label.toLowerCase();
   let category;
-  if (/allies/.test(categoryRaw))                   category = 'allies';
-  else if (/status/.test(categoryRaw))              category = 'status';
-  else if (/mystery cult initiate/.test(categoryRaw)) category = 'status';  // #233 — MCI grouped with Status
+  // 2026-08-26 Sway merge (Angelus's ruling): "Allies" and "Status" both now resolve to the one
+  // unified 'sway' matrix entry — historical submission text keeps using both words forever
+  // (see MERIT_MATRIX's own comment), but the mechanics they resolve to are unified going
+  // forward. MCI no longer rides along with Status; it gets its own renamed 'organisation'
+  // category (was #233's "MCI grouped with Status" — that grouping is retired, not MCI itself).
+  if (/allies/.test(categoryRaw))                   category = 'sway';
+  else if (/status/.test(categoryRaw))              category = 'sway';
+  else if (/mystery cult initiate/.test(categoryRaw)) category = 'organisation';
   else if (/retainer/.test(categoryRaw))            category = 'retainer';
   else if (/staff/.test(categoryRaw))               category = 'staff';
   else if (/contacts?/.test(categoryRaw))           category = 'contacts';
@@ -287,7 +292,7 @@ function _parseMeritType(str) {
 
 /** Compute dice pool size for a merit category + dots level. Returns null for non-rolled merits. */
 function _computeMeritPoolSize(category, dots) {
-  if (category === 'allies' || category === 'status' || category === 'retainer') {
+  if (category === 'sway' || category === 'organisation' || category === 'allies' || category === 'status' || category === 'retainer') {
     return dots != null ? (dots * 2) + 2 : null;
   }
   return null; // staff = fixed; contacts = char pool (not auto-computed)
@@ -3380,10 +3385,12 @@ function buildProcessingQueue(subs) {
       const meritResolved = (sub.merit_actions_resolved || [])[meritFlatIdx] || {};
       const actionType = meritResolved.action_type_override || originalActionType;
       let phaseNum;
-      const isAlliesAction = meritCategory === 'allies' || meritCategory === 'status';
-      if (meritCategory === 'allies') {
-        phaseNum = PHASE_ORDER[actionType] ?? PHASE_MISC;
-      } else if (meritCategory === 'status') {
+      // 2026-08-26 Sway merge: meritCategory is now 'sway' (Allies/Status both resolve there via
+      // _parseMeritType), not 'allies'/'status' separately. Variable name kept as `isAlliesAction`
+      // to avoid a blast-radius rename across every call site that reads it (territory-pill
+      // rendering etc.) — it means "is this a sphere-qualified Sway action" now, not literally Allies.
+      const isAlliesAction = meritCategory === 'sway' || meritCategory === 'allies' || meritCategory === 'status';
+      if (meritCategory === 'sway' || meritCategory === 'allies' || meritCategory === 'status') {
         phaseNum = PHASE_ORDER[actionType] ?? PHASE_MISC;
       } else if (meritCategory === 'retainer') {
         phaseNum = PHASE_ORDER[actionType] ?? PHASE_MISC;
@@ -4630,8 +4637,11 @@ function _filterQueue(queue) {
 
 function _entrySourceType(entry) {
   const cat = entry.meritCategory;
-  if (cat === 'allies') return 'allies';
-  if (cat === 'status') return 'status';
+  // 2026-08-26 Sway merge: 'allies'/'status' retired as live categories (kept only for
+  // historical text resolution in _parseMeritType), replaced by 'sway'. MCI's own 'organisation'
+  // (renamed from riding along with 'status') gets its own facet, distinct from Sway.
+  if (cat === 'sway' || cat === 'allies' || cat === 'status') return 'sway';
+  if (cat === 'organisation') return 'organisation';
   if (cat === 'contacts' || cat === 'staff') return 'contacts';
   if (cat === 'retainer' || cat === 'mentor') return 'retainers';
   return 'action';
@@ -4731,11 +4741,13 @@ function renderProcFilterBar(queue) {
     h += '</div></div>';
   }
 
-  // Source — fixed pills: Action, Allies, Status, Contacts, Retainers
+  // Source — fixed pills. 2026-08-26 Sway merge: Allies/Status collapse into one Sway pill;
+  // Organisation (renamed from MCI) gets its own, since it's a separate category now, not a
+  // sub-case of Status.
   h += '<div class="proc-filter-row">';
   h += '<div class="proc-filter-label">Source</div>';
   h += '<div class="proc-filter-pills">';
-  for (const [val, label] of [['action','Action'],['allies','Allies'],['status','Status'],['contacts','Contacts'],['retainers','Retainers']]) {
+  for (const [val, label] of [['action','Action'],['sway','Sway'],['organisation','Organisation'],['contacts','Contacts'],['retainers','Retainers']]) {
     h += `<button class="proc-char-chip state-none proc-filter-pill${f.sources.has(val) ? ' is-active' : ''}" data-filter-dim="sources" data-filter-val="${esc(val)}">`;
     h += `<span class="proc-char-chip-name">${label}</span>`;
     h += `</button>`;

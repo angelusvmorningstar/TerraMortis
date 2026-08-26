@@ -57,10 +57,15 @@ export function applyOHMRulesFromDb(c, { grants = [], nineAgain = [] } = {}) {
           x => x.category === (rule.target_category || 'influence') && x.name === rule.target,
         );
         if (m) m.free_ohm = rule.amount ?? 1;
-      } else if (rule.target === 'Allies' && rule.sphere_source === 'ohm_allies_sphere') {
+      // 2026-08-26 Sway merge: rule.target and the merit's own x.name both check 'Allies' OR
+      // 'Sway' — tolerant of whichever side of the character-data migration this character is
+      // on, and of whichever side the rule_grant document's own target field is on (the two
+      // update together, per the migration's own sequencing, but need not be simultaneous down
+      // to the millisecond).
+      } else if ((rule.target === 'Allies' || rule.target === 'Sway') && rule.sphere_source === 'ohm_allies_sphere') {
         if (ohmSphere) {
           const m = (c.merits || []).find(
-            x => x.category === 'influence' && x.name === 'Allies' &&
+            x => x.category === 'influence' && (x.name === 'Allies' || x.name === 'Sway') &&
             (x.area || '').toLowerCase() === ohmSphere.toLowerCase(),
           );
           if (m) m.free_ohm = rule.amount ?? 1;
@@ -72,7 +77,7 @@ export function applyOHMRulesFromDb(c, { grants = [], nineAgain = [] } = {}) {
   if (poolAmount > 0) {
     c._grant_pools.push({
       source: 'Oath of the Hard Motherfucker',
-      names: ['Allies', 'Contacts', 'Resources'],
+      names: ['Allies', 'Sway', 'Contacts', 'Resources'],
       category: 'ohm',
       amount: poolAmount,
     });

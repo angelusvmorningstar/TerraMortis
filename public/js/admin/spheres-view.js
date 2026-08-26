@@ -52,8 +52,18 @@ function normaliseSphere(raw) {
 /**
  * Merit names that contribute dots to a sphere's rank score.
  * Contacts is presence-only and is tracked separately.
+ *
+ * 2026-08-26 Sway merge (Angelus's ruling): 'Allies' and 'Status' become one merit, 'Sway'.
+ * 'Sway' is ADDED here rather than replacing the other two — characters.merits[] is migrating
+ * incrementally (see server/scripts/migrate-allies-to-sway.js), so this page must render
+ * correctly for a character in either state, not just the end state. A migrated character's
+ * 'Sway' dots are routed into the existing `allies` accumulator below (arbitrary but stable —
+ * matches the `rule_key:'allies'` the merit inherited), which means the Status pyramid column
+ * goes quiet as characters migrate rather than the row disappearing. Collapsing this to one
+ * pyramid instead of two is a deliberate, separate, deferred UI story (Angelus's own ruling via
+ * the party-mode panel, 2026-08-26) — not done here.
  */
-const DOTTED_MERITS = new Set(['Allies', 'Status']);
+const DOTTED_MERITS = new Set(['Allies', 'Status', 'Sway']);
 
 function getSpheresData() {
   const active = chars.filter(c => !c.retired);
@@ -90,7 +100,7 @@ function getSpheresData() {
           const key = normaliseSphere(part);
           if (!key) continue;
           const row = ensureRow(key, c);
-          if (m.name === 'Allies') row.allies += dots;
+          if (m.name === 'Allies' || m.name === 'Sway') row.allies += dots;
           else if (m.name === 'Status') row.status += dots;
         }
       }

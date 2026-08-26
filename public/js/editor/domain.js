@@ -458,7 +458,13 @@ export function domMeritAccess(c, name) {
 export function calcMeritInfluence(c, m, hwv = false) {
   if (m.name === 'Contacts') return 0;
   const r = meritEffectiveRating(c, m);
-  if (m.name === 'Status') {
+  // 2026-08-26 Sway merge: 'Sway' folds into the same branch 'Status' already used. This is
+  // behaviour-preserving, not a new judgement call — Status's own branch already handled the
+  // hwv case identically to Allies' separate one (same formula, line-for-line), so widening this
+  // condition to include 'Sway' reproduces both predecessors' behaviour exactly: narrow-qualified
+  // (1/0), hwv (2/1/0 at lowered thresholds), or the plain default (2/1/0) — the same three cases
+  // that already existed, just reached through one merit name instead of two.
+  if (m.name === 'Status' || m.name === 'Sway') {
     const hasNarrow = (m.narrow && typeof m.narrow === 'string' && m.narrow.trim()) ||
                       (m.area && !INFLUENCE_SPHERES.some(s => s.toLowerCase() === (m.area || '').trim().toLowerCase()));
     if (hasNarrow) return r >= 5 ? 1 : 0;
@@ -515,11 +521,15 @@ export function hasViralMythology(c) {
  * grants count as real influence resources (preserves prior behaviour).
  * VM-generated Allies (granted_by: 'VM') are excluded to prevent feedback loop.
  */
+// 2026-08-26 Sway merge: 'Allies' is becoming 'Sway' (Angelus's ruling). Every '|| m.name ===
+// \'Sway\'' below is checking both names, tolerant of either side of the character-data
+// migration. free_grants.mci/free_mci are unchanged — MCI's own free-grant channel key doesn't
+// move when MCI is renamed to Organisation ("just a rebrand", per Angelus).
 export function vmPool(c) {
   let total = 0;
   (c.merits || []).forEach((m) => {
     if (m.granted_by === 'VM') return;
-    if (m.category === 'influence' && m.name === 'Allies') {
+    if (m.category === 'influence' && (m.name === 'Allies' || m.name === 'Sway')) {
       total += (m.cp || 0) + (m.xp || 0) + freeOf(m, 'mci');
     } else if (m.name === 'Herd') {
       if (m.derived) return;
@@ -529,12 +539,12 @@ export function vmPool(c) {
   return total;
 }
 
-/** Sum of free_vm allocated across Allies + Herd merits. */
+/** Sum of free_vm allocated across Allies/Sway + Herd merits. */
 export function vmUsed(c) {
   let total = 0;
   (c.merits || []).forEach((m) => {
     if (m.granted_by === 'VM') return;
-    if ((m.category === 'influence' && m.name === 'Allies') || m.name === 'Herd') {
+    if ((m.category === 'influence' && (m.name === 'Allies' || m.name === 'Sway')) || m.name === 'Herd') {
       total += freeOf(m, 'vm');
     }
   });
@@ -546,12 +556,12 @@ export function hasOHM(c) {
   return (c.powers || []).some(p => p.category === 'pact' && (p.name || '').toLowerCase() === 'oath of the hard motherfucker');
 }
 
-/** Count OHM bonus dots allocated via free_ohm on Allies, Contacts, and Resources entries. */
+/** Count OHM bonus dots allocated via free_ohm on Allies/Sway, Contacts, and Resources entries. */
 export function ohmUsed(c) {
   let total = 0;
   (c.merits || []).forEach((m, i) => {
     if (m.category !== 'influence') return;
-    if (m.name !== 'Allies' && m.name !== 'Contacts' && m.name !== 'Resources') return;
+    if (m.name !== 'Allies' && m.name !== 'Sway' && m.name !== 'Contacts' && m.name !== 'Resources') return;
     total += freeOf(m, 'ohm');
   });
   return total;
@@ -659,7 +669,7 @@ export function influenceBreakdown(c) {
     if (!inf) continue;
     const area = (m.area || m.qualifier || '').trim();
     const label = m.name + (area ? ' (' + area + ')' : '');
-    lines.push(label + ': ' + inf + (hwv && m.name === 'Allies' ? ' (HWV)' : ''));
+    lines.push(label + ': ' + inf + (hwv && (m.name === 'Allies' || m.name === 'Sway') ? ' (HWV)' : ''));
   }
   const cInf = calcContactsInfluence(c);
   if (cInf) lines.push('Contacts: ' + cInf + (hwv ? ' (HWV)' : ''));
