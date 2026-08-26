@@ -4,32 +4,17 @@
  */
 
 import { apiGet, apiPut, apiPost } from '../data/api.js';
-import { downloadCSV as downloadCharCSV } from '../editor/export.js';
 import { validateRow, writeRow, parseCSV } from './data-portability-import.js';
-import { parseExcelWorkbook } from './excel-parser.js';
-import { mergeExcelOntoCharacter } from './excel-merge.js';
 import { processDowntimeCsvFile } from './downtime-views.js';
-import { withoutPhaseFields } from '../downtime/cycle-phase.js';
-
-let chars = [];
 
 // ── Label map ─────────────────────────────────────────────────────────────────
 
 const COLLECTION_LABELS = {
-  characters:           'Characters',
-  territories:          'Territories',
-  game_sessions:        'Game Sessions',
-  attendance:           'Attendance',
-  // cm-2b: the KEY is the collection identifier and follows the rename; the
-  // VALUE is ST-facing copy and is left as it was, so this dropdown reads
-  // identically to before.
-  chapters:             'Downtime Cycles',
   downtime_submissions: 'Downtime Submissions',
   npcs:                 'NPCs',
   ordeal_rubrics:       'Ordeal Rubrics',
   ordeal_submissions:   'Ordeal Submissions',
   ordeal_responses:     'Ordeal Responses',
-  rules:                'Purchasable Powers',
 };
 
 function collectionLabel(id) {
@@ -38,8 +23,11 @@ function collectionLabel(id) {
 
 // ── Init ──────────────────────────────────────────────────────────────────────
 
-export function initDataPortabilityView(charData) {
-  chars = charData || [];
+// ADMR-3: the charData parameter (character list) is accepted but unused -
+// it was only ever needed by the now-retired characters Excel export/import
+// flow. admin.js's own call site (initDataPortabilityView(chars)) is left
+// unchanged so this export's public signature needs no caller-side edit.
+export function initDataPortabilityView() {
   const el = document.getElementById('data-portability-content');
   if (!el) return;
   el.innerHTML = buildShell();
@@ -77,9 +65,7 @@ export function initDataPortabilityView(charData) {
       e.target.value = '';
       const label = collectionLabel(collection);
       if (!window.confirm(`Import ${label} from "${file.name}"?\nThis will overwrite matching records in the live database.\nContinue?`)) return;
-      if (collection === 'characters') await handleExcelImport(file);
-      else if (collection === 'downtime_submissions') await handleDowntimeCSVImport(file);
-      else if (collection === 'rules') await handleRulesCSVImport(file);
+      if (collection === 'downtime_submissions') await handleDowntimeCSVImport(file);
       else await handleImport(collection, file);
     });
   });
@@ -115,12 +101,10 @@ function buildShell() {
   </div>`;
 
   // ── Game State section
+  // ADMR-3: characters/territories/game_sessions/attendance/chapters/rules
+  // retired - TM Admin now has real, working coverage for all six. See
+  // specs/stories/admr-3-trim-data-portability.md for the parity table.
   const gameStateCards = [
-    { id: 'characters',           label: 'Characters',           desc: 'Full character sheets (Excel merge format)',                     excelImport: true,                   verify: false },
-    { id: 'territories',          label: 'Territories',          desc: 'Territory ambience, regents, feeding rights',                                                         verify: true  },
-    { id: 'game_sessions',        label: 'Game Sessions',        desc: 'Session dates and game numbers',                                                                       verify: true  },
-    { id: 'attendance',           label: 'Attendance',           desc: 'Per-character attendance per session (expanded rows)',                                                  verify: true  },
-    { id: 'chapters',             label: 'Downtime Cycles',      desc: 'Downtime cycle definitions and status',                                                                verify: false },
     { id: 'downtime_submissions', label: 'Downtime Submissions', desc: 'Player downtime submissions. CSV imports player CSV (character matching). JSON imports backup.',        csvImportLabel: 'Import Player CSV', verify: false },
     { id: 'npcs',                 label: 'NPCs',                 desc: 'NPC register entries',                                                                                 verify: true  },
     { id: 'ordeal_rubrics',       label: 'Ordeal Rubrics',       desc: 'Ordeal definitions and rubric templates',                                                              verify: false },
@@ -135,40 +119,6 @@ function buildShell() {
   for (const c of gameStateCards) h += buildCard(c);
   h += `</div></div>`;
 
-  // ── Rules Data section
-  h += `<div class="dp-section">
-    <div class="dp-section-heading">Rules Data</div>
-    <div class="dp-grid">`;
-
-  // Purchasable Powers card
-  h += `<div class="dp-card dp-rules-card">
-    <div class="dp-card-name">Purchasable Powers</div>
-    <div class="dp-card-desc">Merits, disciplines, rites, devotions, and powers stored in MongoDB. Filter by category and parent to export/import a specific subset.</div>
-    <div class="dp-rules-filters">
-      <select id="dp-rules-category" class="dp-rules-select">
-        <option value="">All</option>
-        <option value="merit">Merits</option>
-        <option value="discipline">Disciplines</option>
-        <option value="devotion">Devotions</option>
-        <option value="rite">Rites</option>
-        <option value="manoeuvre">Manoeuvres</option>
-        <option value="attribute">Attributes</option>
-        <option value="skill">Skills</option>
-      </select>
-      <input id="dp-rules-parent" class="dp-rules-parent" type="text" placeholder="Filter by parent (e.g. Cruac)">
-    </div>
-    <div class="dp-card-btns">
-      <button class="dt-btn dp-export-btn" data-collection="rules">Export CSV</button>
-      <button class="dt-btn dp-export-json-btn" data-collection="rules">Export JSON</button>
-      <button class="dt-btn dp-import-json-btn" data-collection="rules">Import JSON</button>
-      <input type="file" accept=".json" class="dp-file-json-input" data-collection="rules" style="display:none">
-      <button class="dt-btn dp-import-btn" data-collection="rules">Import CSV</button>
-      <input type="file" accept=".csv" class="dp-file-input" data-collection="rules" style="display:none">
-    </div>
-    <div class="dp-rules-import-note">Import applies to all documents in the file regardless of filter.</div>
-  </div>`;
-
-  h += `</div></div>`;
   h += '<div id="dp-result"></div>';
   return h;
 }
@@ -223,24 +173,13 @@ function buildCard(c) {
 async function handleExport(collection) {
   try {
     switch (collection) {
-      case 'characters':           await exportCharacters(); break;
-      case 'territories':          await exportCollection('territories',             territoriesToRows,          territoryHeaders()); break;
-      case 'game_sessions':        await exportCollection('game_sessions',           gameSessionsToRows,         gameSessionHeaders()); break;
-      case 'attendance':           await exportCollection('game_sessions',           attendanceToRows,           attendanceHeaders()); break;
-      case 'chapters':             await exportCollection('chapters',                downtimeCyclesToRows,       downtimeCycleHeaders()); break;
       case 'downtime_submissions': await exportCollection('downtime_submissions',    downtimeSubsToRows,         downtimeSubHeaders()); break;
       case 'npcs':                 await exportCollection('npcs',                    npcsToRows,                 npcHeaders()); break;
       case 'ordeal_rubrics':       await exportCollection('ordeal_rubrics',          ordealRubricsToRows,        ordealRubricHeaders()); break;
       case 'ordeal_submissions':   await exportCollection('ordeal_submissions',      ordealSubsToRows,           ordealSubHeaders()); break;
       case 'ordeal_responses':     await exportCollection('ordeal-responses',        ordealResponsesToRows,      ordealResponseHeaders()); break;
-      case 'rules':                await exportRulesCSV(); break;
     }
   } catch (err) { alert(`Export failed: ${err.message}`); }
-}
-
-async function exportCharacters() {
-  if (!chars.length) { alert('No character data loaded.'); return; }
-  await downloadCharCSV(chars);
 }
 
 async function exportCollection(apiPath, toRows, headers) {
@@ -249,62 +188,20 @@ async function exportCollection(apiPath, toRows, headers) {
   triggerDownload(buildCSV(headers, toRows(docs)), apiPath);
 }
 
-async function exportRulesCSV() {
-  const { docs, filenameSuffix } = await fetchRulesFiltered();
-  if (!docs.length) { alert('No records found for the selected filter.'); return; }
-  triggerDownload(buildCSV(rulesHeaders(), rulesToRows(docs)), `rules_${filenameSuffix}`);
-}
-
 // ── JSON Export ───────────────────────────────────────────────────────────────
 
 async function handleExportJson(collection) {
   try {
-    let docs, name;
-    if (collection === 'rules') {
-      const filtered = await fetchRulesFiltered();
-      docs = filtered.docs;
-      name = `rules_${filtered.filenameSuffix}`;
-    } else {
-      const apiPath = collectionApiPath(collection);
-      docs = await apiGet(`/api/${apiPath}`);
-      name = collection;
-    }
+    const apiPath = collectionApiPath(collection);
+    const docs = await apiGet(`/api/${apiPath}`);
+    const name = collection;
     if (!docs || !docs.length) { alert('No records found for the selected filter.'); return; }
     triggerJsonDownload(JSON.stringify(docs, null, 2), name);
   } catch (err) { alert(`JSON export failed: ${err.message}`); }
 }
 
-/** Fetch rules from API with category + parent filters applied.
- *  Returns { docs, filenameSuffix } where filenameSuffix encodes the active filters. */
-async function fetchRulesFiltered() {
-  const categoryEl = document.getElementById('dp-rules-category');
-  const parentEl   = document.getElementById('dp-rules-parent');
-  const category   = categoryEl?.value || '';
-  const parentFilter = (parentEl?.value || '').trim();
-
-  const url = category ? `/api/rules?category=${encodeURIComponent(category)}` : '/api/rules';
-  let docs = await apiGet(url);
-
-  if (parentFilter) {
-    const lc = parentFilter.toLowerCase();
-    docs = docs.filter(d => d.parent?.toLowerCase().includes(lc));
-  }
-
-  const catPart    = category || 'all';
-  const parentPart = parentFilter ? '_' + parentFilter.toLowerCase().replace(/\s+/g, '_') : '';
-  const filenameSuffix = `${catPart}${parentPart}`;
-
-  return { docs, filenameSuffix };
-}
-
-
 function collectionApiPath(collection) {
   const MAP = {
-    characters:           'characters',
-    territories:          'territories',
-    game_sessions:        'game_sessions',
-    attendance:           'game_sessions',
-    chapters:             'chapters',
     downtime_submissions: 'downtime_submissions',
     npcs:                 'npcs',
     ordeal_rubrics:       'ordeal_rubrics',
@@ -344,125 +241,6 @@ async function handleImport(collection, file) {
     renderResult(resultEl, rows.length, written, rejected, errors);
   } catch (err) {
     resultEl.innerHTML = `<p class="dp-result-err">Import failed: ${err.message}</p>`;
-  }
-}
-
-async function handleRulesCSVImport(file) {
-  const resultEl = document.getElementById('dp-result');
-  resultEl.innerHTML = '<p class="dp-result-loading">Parsing rules CSV\u2026</p>';
-  try {
-    const rows = parseCSV(await file.text());
-    if (!rows.length) { resultEl.innerHTML = '<p class="dp-result-err">No data rows found.</p>'; return; }
-
-    let written = 0, rejected = 0;
-    const errors = [];
-
-    for (let i = 0; i < rows.length; i++) {
-      const row = rows[i];
-      const key = (row.key || '').trim();
-      if (!key) { rejected++; errors.push({ row: i + 2, error: 'Missing key' }); continue; }
-
-      const body = {};
-
-      // Simple nullable string fields
-      if (row.name         !== undefined) body.name         = row.name.trim()         || null;
-      if (row.parent       !== undefined) body.parent       = row.parent.trim()       || null;
-      if (row.sub_category !== undefined) body.sub_category = row.sub_category.trim() || null;
-      if (row.description  !== undefined) body.description  = row.description.trim()  || '';
-      if (row.resistance   !== undefined) body.resistance   = row.resistance.trim()   || null;
-      if (row.cost         !== undefined) body.cost         = row.cost.trim()         || null;
-      if (row.action       !== undefined) body.action       = row.action.trim()       || null;
-      if (row.duration     !== undefined) body.duration     = row.duration.trim()     || null;
-      if (row.exclusive    !== undefined) body.exclusive    = row.exclusive.trim()    || null;
-      if (row.bloodline    !== undefined) body.bloodline    = row.bloodline.trim()    || null;
-      const offeringRaw = row.offering ?? row.Offering;
-      if (offeringRaw  !== undefined) body.offering     = offeringRaw.trim()       || null;
-      if (row.cult     !== undefined) body.cult         = row.cult.trim()          || null;
-
-      // Integer fields
-      let badInt = null;
-      if (row.rank !== undefined) {
-        const s = row.rank.trim();
-        if (s === '') body.rank = null;
-        else {
-          const n = parseInt(s, 10);
-          if (isNaN(n)) badInt = `Invalid rank: ${s}`;
-          else body.rank = n;
-        }
-      }
-      if (!badInt && row.xp_fixed !== undefined) {
-        const s = row.xp_fixed.trim();
-        if (s === '') body.xp_fixed = null;
-        else {
-          const n = parseInt(s, 10);
-          if (isNaN(n)) badInt = `Invalid xp_fixed: ${s}`;
-          else body.xp_fixed = n;
-        }
-      }
-      if (badInt) { rejected++; errors.push({ row: i + 2, error: badInt }); continue; }
-
-      // rating_range — rebuild if either column is present
-      if (row.rating_min !== undefined || row.rating_max !== undefined) {
-        const mn = (row.rating_min || '').trim();
-        const mx = (row.rating_max || '').trim();
-        if (mn === '' && mx === '') body.rating_range = null;
-        else {
-          const n1 = parseInt(mn, 10);
-          const n2 = parseInt(mx, 10);
-          if (isNaN(n1) || isNaN(n2)) {
-            rejected++;
-            errors.push({ row: i + 2, error: `Invalid rating_range: [${mn}, ${mx}]` });
-            continue;
-          }
-          body.rating_range = [n1, n2];
-        }
-      }
-
-      // pool — rebuild if any of the three pool_* columns is present
-      if (row.pool_attr !== undefined || row.pool_skill !== undefined || row.pool_disc !== undefined) {
-        const attr  = (row.pool_attr  || '').trim();
-        const skill = (row.pool_skill || '').trim();
-        const disc  = (row.pool_disc  || '').trim();
-        if (!attr && !skill && !disc) body.pool = null;
-        else body.pool = { attr: attr || null, skill: skill || null, disc: disc || null };
-      }
-
-      // prereq — JSON-encoded because the tree is recursive
-      if (row.prereq_json !== undefined) {
-        const s = row.prereq_json.trim();
-        if (s === '') body.prereq = null;
-        else {
-          try { body.prereq = JSON.parse(s); }
-          catch (e) {
-            rejected++;
-            errors.push({ row: i + 2, error: `Invalid prereq_json: ${e.message}` });
-            continue;
-          }
-        }
-      }
-
-      try {
-        try {
-          await apiPut(`/api/rules/${encodeURIComponent(key)}`, body);
-        } catch (putErr) {
-          if (putErr.message === 'Power not found') {
-            const category = (row.category || '').trim();
-            if (!category) throw new Error('New record missing category');
-            await apiPost('/api/rules', { key, category, ...body });
-          } else {
-            throw putErr;
-          }
-        }
-        written++;
-      } catch (e) {
-        rejected++;
-        errors.push({ row: i + 2, error: e.message });
-      }
-    }
-
-    renderResult(resultEl, rows.length, written, rejected, errors);
-  } catch (err) {
-    resultEl.innerHTML = `<p class="dp-result-err">Rules CSV import failed: ${err.message}</p>`;
   }
 }
 
@@ -524,10 +302,9 @@ async function handleJsonImport(collection, file) {
  * re-create `cycle_id`-only documents in bulk: invisible to every list,
  * hold-flag, publish and delete-orphan guard.
  *
- * Fixed at the WRITER, following `case 'territories'` in the same file, which
- * exists specifically to demonstrate this project's own Lesson #105 — drop the
- * legacy keys at the writer rather than gate them on the schema. `chapter_id`
- * already present wins; the legacy key is dropped either way.
+ * Fixed at the WRITER, per this project's own Lesson #105 — drop the legacy
+ * keys at the writer rather than gate them on the schema. `chapter_id` already
+ * present wins; the legacy key is dropped either way.
  *
  * Exported for direct test drive (the oxp.5 convention).
  */
@@ -548,55 +325,6 @@ export async function writeJsonDoc(collection, doc) {
   delete body._id;
 
   switch (collection) {
-    case 'characters':
-      if (id) return apiPut(`/api/characters/${id}`, body);
-      return apiPost('/api/characters', doc);
-
-    case 'territories': {
-      // Post-ADR-002: territories use MongoDB _id as canonical FK; slug is a label.
-      // Issue #141 (2026-05-07): PUT is now schema-validated like POST. Apply
-      // the same body-shaping to BOTH paths so legacy export JSON (which may
-      // carry the retired `id` and `regent_name` fields) imports cleanly under
-      // strict mode. Lesson #105 — drop the legacy keys at the writer rather
-      // than gate them on the schema.
-      const cleanBody = { ...body };
-      if (doc.slug || doc.id) cleanBody.slug = doc.slug || doc.id;
-      delete cleanBody.id;
-      delete cleanBody.regent_name;
-      if (id) return apiPut(`/api/territories/${id}`, cleanBody);
-      return apiPost('/api/territories', cleanBody);
-    }
-
-    case 'game_sessions':
-      if (id) return apiPut(`/api/game_sessions/${id}`, body);
-      return apiPost('/api/game_sessions', doc);
-
-    case 'attendance':
-      throw new Error('Attendance is nested in game_sessions — import via Game Sessions JSON instead.');
-
-    case 'chapters': {
-      // CM-4a review finding P1 (2026-08-16). Since CM-4a, PUT
-      // /api/chapters/:id fires the tracker slate-wipe whenever the body
-      // carries an own `phase` key and the transition resets. A restore is not
-      // a phase transition: it is identity, label and deadline data being put
-      // back. Re-importing a backup of a cycle that is currently in GAME phase
-      // would otherwise have wiped every character's live tracker_state, with
-      // no confirmation dialog anywhere on this path - resetOnTransition(x, x)
-      // is false for every x EXCEPT 'game' (entering game from anywhere but
-      // prep is the legacy reset). Phase is driven from the Cycle tab's phase
-      // buttons, which is the surface that shows the ST the warning.
-      // POST is left alone deliberately: creating a cycle is not a transition,
-      // so it reaches no wipe, and stripping there would drop the status a new
-      // document legitimately needs.
-      // cm-2b: a pre-rename Chapter backup has no `cycle_id` of its own (the FK
-      // lives on the submission, not the container), but a hand-edited or
-      // hand-merged backup can pick one up, and it means nothing on a Chapter.
-      // Shaped for the same reason the submissions case below is.
-      const chapterBody = shapeLegacyChapterFk(body);
-      if (id) return apiPut(`/api/chapters/${id}`, withoutPhaseFields(chapterBody));
-      return apiPost('/api/chapters', chapterBody);
-    }
-
     case 'downtime_submissions': {
       // cm-2b: `cycle_id` -> `chapter_id` on restore. See shapeLegacyChapterFk.
       const subBody = shapeLegacyChapterFk(body);
@@ -620,13 +348,6 @@ export async function writeJsonDoc(collection, doc) {
       if (id) return apiPut(`/api/ordeal-responses/${id}`, body);
       return apiPost('/api/ordeal-responses', doc);
 
-    case 'rules': {
-      const key = doc.key;
-      if (!key) throw new Error('Rules doc missing key field');
-      try { return await apiPut(`/api/rules/${key}`, body); }
-      catch { return apiPost('/api/rules', doc); }
-    }
-
     default:
       throw new Error(`Unknown collection: ${collection}`);
   }
@@ -635,16 +356,10 @@ export async function writeJsonDoc(collection, doc) {
 // ── Round-Trip Verification ───────────────────────────────────────────────────
 
 const COLLECTION_API = {
-  territories:    'territories',
-  game_sessions:  'game_sessions',
-  attendance:     'game_sessions',
   npcs:           'npcs',
 };
 
 const COLLECTION_ROWS = {
-  territories:    [territoryHeaders,    territoriesToRows],
-  game_sessions:  [gameSessionHeaders,  gameSessionsToRows],
-  attendance:     [attendanceHeaders,   attendanceToRows],
   npcs:           [npcHeaders,          npcsToRows],
 };
 
@@ -730,57 +445,6 @@ function triggerJsonDownload(json, name) {
   URL.revokeObjectURL(url);
 }
 
-// ── Territory ─────────────────────────────────────────────────────────────────
-
-function territoryHeaders() {
-  return ['id', 'name', 'regent_id', 'regent_name', 'ambience', 'feeding_rights', 'updated_at'];
-}
-function territoriesToRows(docs) {
-  return docs.map(d => [d.id || '', d.name || '', d.regent_id || '', d.regent_name || '',
-    d.ambience || '', (d.feeding_rights || []).join('; '), d.updated_at || '']);
-}
-
-// ── Game Sessions ─────────────────────────────────────────────────────────────
-
-function gameSessionHeaders() {
-  return ['_id', 'session_date', 'game_number', 'attendance_count', 'created_at', 'updated_at'];
-}
-function gameSessionsToRows(docs) {
-  return docs.map(d => [String(d._id), d.session_date || '',
-    d.game_number != null ? d.game_number : '', (d.attendance || []).length,
-    d.created_at || '', d.updated_at || '']);
-}
-
-// ── Attendance ────────────────────────────────────────────────────────────────
-
-function attendanceHeaders() {
-  return ['session_id', 'session_date', 'game_number', 'character_id', 'character_name', 'attended', 'costume', 'downtime', 'extra_xp'];
-}
-function attendanceToRows(docs) {
-  const rows = [];
-  for (const session of docs) {
-    for (const a of (session.attendance || [])) {
-      rows.push([String(session._id), session.session_date || '',
-        session.game_number != null ? session.game_number : '',
-        a.character_id != null ? String(a.character_id) : '',
-        a.character_name || a.character_display || '',
-        a.attended ? 'true' : 'false', a.costume ? 'true' : 'false',
-        a.downtime ? 'true' : 'false', a.extra_xp != null ? a.extra_xp : '']);
-    }
-  }
-  return rows;
-}
-
-// ── Downtime Cycles ───────────────────────────────────────────────────────────
-
-function downtimeCycleHeaders() {
-  return ['_id', 'label', 'title', 'status', 'game_number', 'deadline_at'];
-}
-function downtimeCyclesToRows(docs) {
-  return docs.map(d => [String(d._id), d.label || '', d.title || '', d.status || '',
-    d.game_number != null ? d.game_number : '', d.deadline_at || '']);
-}
-
 // ── Downtime Submissions ──────────────────────────────────────────────────────
 
 function downtimeSubHeaders() {
@@ -840,227 +504,3 @@ function ordealResponsesToRows(docs) {
     d.status || '', d.created_at || '', d.submitted_at || '', d.approved_at || '']);
 }
 
-// ── Rules (Purchasable Powers) ────────────────────────────────────────────────
-
-function rulesHeaders() {
-  return [
-    'key', 'name', 'category', 'sub_category', 'parent', 'rank',
-    'rating_min', 'rating_max',
-    'pool_attr', 'pool_skill', 'pool_disc',
-    'resistance', 'cost', 'action', 'duration',
-    'prereq_json', 'exclusive', 'xp_fixed', 'bloodline',
-    'description', 'offering', 'cult',
-  ];
-}
-function rulesToRows(docs) {
-  return docs.map(d => {
-    const rr = Array.isArray(d.rating_range) ? d.rating_range : [];
-    const p  = (d.pool && typeof d.pool === 'object') ? d.pool : {};
-    return [
-      d.key || '', d.name || '', d.category || '',
-      d.sub_category || '', d.parent || '',
-      d.rank != null ? d.rank : '',
-      rr[0] != null ? rr[0] : '',
-      rr[1] != null ? rr[1] : '',
-      p.attr || '', p.skill || '', p.disc || '',
-      d.resistance || '', d.cost || '', d.action || '', d.duration || '',
-      d.prereq != null ? JSON.stringify(d.prereq) : '',
-      d.exclusive || '',
-      d.xp_fixed != null ? d.xp_fixed : '',
-      d.bloodline || '',
-      d.description || '',
-      d.offering || '',
-      d.cult || '',
-    ];
-  });
-}
-
-// ── Excel Import ──────────────────────────────────────────────────────────────
-
-let _importResults = [];
-let _importChars = [];
-
-async function handleExcelImport(file) {
-  const resultEl = document.getElementById('dp-result');
-  resultEl.innerHTML = '<p class="dp-result-loading">Parsing Excel workbook\u2026</p>';
-
-  try {
-    const data = await file.arrayBuffer();
-    const workbook = XLSX.read(data, { type: 'array' });
-    const { characters: excelChars, warnings } = parseExcelWorkbook(workbook);
-
-    if (!excelChars.length) {
-      resultEl.innerHTML = '<p class="dp-result-err">No characters found in workbook.' + (warnings.length ? '<br>' + warnings.join('<br>') : '') + '</p>';
-      return;
-    }
-
-    const existingChars = await apiGet('/api/characters');
-    const existingMap = new Map();
-    for (const c of existingChars) existingMap.set(c.name, c);
-
-    _importResults = [];
-    for (const excel of excelChars) {
-      const existing = existingMap.get(excel.name) || null;
-      const result = mergeExcelOntoCharacter(existing, excel);
-      _importResults.push(result);
-      existingMap.delete(excel.name);
-    }
-
-    for (const [, c] of existingMap) {
-      _importResults.push({ merged: c, changes: [], warnings: [], isNew: false, notInExcel: true });
-    }
-
-    _importChars = existingChars;
-    renderImportPreview(resultEl, warnings);
-  } catch (err) {
-    resultEl.innerHTML = `<p class="dp-result-err">Excel import failed: ${err.message}</p>`;
-  }
-}
-
-function _esc(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
-
-function renderImportPreview(el, globalWarnings) {
-  let h = '<div class="dp-excel-preview">';
-  h += '<div class="dp-excel-header">';
-  h += `<span class="dp-stat">${_importResults.length} characters parsed</span>`;
-  const updates = _importResults.filter(r => !r.isNew && !r.notInExcel && r.changes.length);
-  const newChars = _importResults.filter(r => r.isNew);
-  const unchanged = _importResults.filter(r => !r.isNew && !r.notInExcel && !r.changes.length);
-  const notInExcel = _importResults.filter(r => r.notInExcel);
-  h += `<span class="dp-stat dp-stat-ok">${updates.length} to update</span>`;
-  if (newChars.length) h += `<span class="dp-stat" style="color:var(--accent)">${newChars.length} new</span>`;
-  h += `<span class="dp-stat">${unchanged.length} unchanged</span>`;
-  if (notInExcel.length) h += `<span class="dp-stat">${notInExcel.length} DB only</span>`;
-  h += '</div>';
-
-  if (globalWarnings.length) {
-    h += '<div class="dp-excel-warnings">' + globalWarnings.map(w => '<div class="dp-excel-warn">\u26A0 ' + _esc(w) + '</div>').join('') + '</div>';
-  }
-
-  h += '<table class="dp-excel-tbl"><thead><tr>';
-  h += '<th><input type="checkbox" id="dp-excel-all" checked></th>';
-  h += '<th>Character</th><th>Status</th><th>Changes</th><th>Warnings</th>';
-  h += '</tr></thead><tbody>';
-
-  _importResults.forEach((r, i) => {
-    if (r.notInExcel) {
-      h += `<tr class="dp-excel-row dp-excel-dimmed"><td></td><td>${_esc(r.merged.name)}</td><td><span class="dp-badge dp-badge-dim">Not in Excel</span></td><td>\u2014</td><td></td></tr>`;
-      return;
-    }
-    const status = r.isNew ? 'New' : r.changes.length ? 'Update' : 'Unchanged';
-    const badgeCls = r.isNew ? 'dp-badge-new' : r.changes.length ? 'dp-badge-update' : 'dp-badge-dim';
-    const checked = r.isNew ? '' : r.changes.length ? ' checked' : '';
-    const warnCount = r.warnings.length;
-
-    h += `<tr class="dp-excel-row" data-idx="${i}">`;
-    h += `<td><input type="checkbox" class="dp-excel-chk" data-idx="${i}"${checked}${status === 'Unchanged' ? ' disabled' : ''}></td>`;
-    h += `<td class="dp-excel-name">${_esc(r.merged.name)}</td>`;
-    h += `<td><span class="dp-badge ${badgeCls}">${status}</span></td>`;
-    h += `<td>${r.changes.length || '\u2014'}</td>`;
-    h += `<td>${warnCount ? '<span class="dp-badge dp-badge-warn">' + warnCount + '</span>' : ''}</td>`;
-    h += '</tr>';
-
-    if (r.changes.length || r.warnings.length) {
-      h += `<tr class="dp-excel-diff" id="dp-diff-${i}" style="display:none"><td colspan="5"><div class="dp-diff-panel">`;
-      if (r.warnings.length) {
-        h += '<div class="dp-diff-section"><div class="dp-diff-title">Warnings</div>';
-        r.warnings.forEach(w => { h += '<div class="dp-diff-warn">\u26A0 ' + _esc(w) + '</div>'; });
-        h += '</div>';
-      }
-      const sections = {};
-      for (const ch of r.changes) {
-        if (!sections[ch.section]) sections[ch.section] = [];
-        sections[ch.section].push(ch);
-      }
-      for (const [sec, chs] of Object.entries(sections)) {
-        h += `<div class="dp-diff-section"><div class="dp-diff-title">${_esc(sec)}</div>`;
-        for (const ch of chs) {
-          h += `<div class="dp-diff-row"><span class="dp-diff-field">${_esc(ch.field)}</span><span class="dp-diff-old">${_esc(String(ch.old))}</span><span class="dp-diff-arrow">\u2192</span><span class="dp-diff-new">${_esc(String(ch.new))}</span></div>`;
-        }
-        h += '</div>';
-      }
-      h += '</div></td></tr>';
-    }
-  });
-
-  h += '</tbody></table>';
-  h += '<div class="dp-excel-actions">';
-  h += '<button class="dt-btn dp-excel-apply" id="dp-excel-apply">Apply Import</button>';
-  h += '<span class="dp-excel-progress" id="dp-excel-progress"></span>';
-  h += '</div></div>';
-
-  el.innerHTML = h;
-
-  el.querySelector('#dp-excel-all')?.addEventListener('change', e => {
-    el.querySelectorAll('.dp-excel-chk:not(:disabled)').forEach(cb => { cb.checked = e.target.checked; });
-  });
-  el.querySelectorAll('.dp-excel-row[data-idx]').forEach(row => {
-    row.addEventListener('click', e => {
-      if (e.target.tagName === 'INPUT') return;
-      const idx = row.dataset.idx;
-      const diff = el.querySelector(`#dp-diff-${idx}`);
-      if (diff) diff.style.display = diff.style.display === 'none' ? '' : 'none';
-    });
-  });
-  el.querySelector('#dp-excel-apply')?.addEventListener('click', () => applyExcelImport(el));
-}
-
-async function applyExcelImport(el) {
-  const btn = el.querySelector('#dp-excel-apply');
-  const prog = el.querySelector('#dp-excel-progress');
-  if (btn) btn.disabled = true;
-
-  const selected = [];
-  el.querySelectorAll('.dp-excel-chk:checked').forEach(cb => {
-    const idx = parseInt(cb.dataset.idx, 10);
-    if (!isNaN(idx)) selected.push(idx);
-  });
-
-  if (!selected.length) {
-    if (prog) prog.textContent = 'No characters selected.';
-    if (btn) btn.disabled = false;
-    return;
-  }
-
-  let updated = 0, created = 0, failed = 0;
-  const errors = [];
-
-  for (let si = 0; si < selected.length; si++) {
-    const r = _importResults[selected[si]];
-    if (prog) prog.textContent = `${si + 1} of ${selected.length}\u2026`;
-
-    try {
-      if (r.isNew) {
-        await apiPost('/api/characters', r.merged);
-        created++;
-      } else {
-        const id = r.merged._id;
-        const body = { ...r.merged };
-        delete body._id;
-        await apiPut(`/api/characters/${id}`, body);
-        updated++;
-      }
-    } catch (err) {
-      failed++;
-      errors.push({ name: r.merged.name, error: err.message });
-    }
-  }
-
-  let msg = `Done: ${updated} updated`;
-  if (created) msg += `, ${created} created`;
-  if (failed) msg += `, ${failed} failed`;
-  if (prog) prog.textContent = msg;
-  if (btn) btn.disabled = false;
-
-  if (errors.length) {
-    let errH = '<div class="dp-excel-errors">';
-    errors.forEach(e => { errH += `<div class="dp-diff-warn">\u2716 ${_esc(e.name)}: ${_esc(e.error)}</div>`; });
-    errH += '</div>';
-    el.querySelector('.dp-excel-actions')?.insertAdjacentHTML('afterend', errH);
-  }
-
-  try {
-    chars = await apiGet('/api/characters');
-    if (typeof window.renderCharGrid === 'function') window.renderCharGrid();
-  } catch { /* ignore refresh failure */ }
-}

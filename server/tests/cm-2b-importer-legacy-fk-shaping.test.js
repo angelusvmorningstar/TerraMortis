@@ -8,13 +8,12 @@
  * silently re-created `cycle_id`-only documents in bulk: invisible to every
  * list, hold-flag, publish and delete-orphan guard.
  *
- * The fix follows `case 'territories'` in the same file, which exists
- * specifically to demonstrate this project's own Lesson #105 — drop the legacy
- * keys at the WRITER rather than gate them on the schema.
+ * The fix follows this project's own Lesson #105 — drop the legacy keys at
+ * the WRITER rather than gate them on the schema.
  *
- * Mocking technique copied verbatim from cm-4a-importer-phase-strip.test.js:
- * data-portability.js's import chain reaches the whole admin app, none of which
- * writeJsonDoc exercises.
+ * data-portability.js's import chain reaches the whole admin app, none of
+ * which writeJsonDoc exercises, so it is mocked away wholesale; api.js is
+ * mocked so the write itself is observable.
  */
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 
@@ -26,12 +25,9 @@ vi.mock('../../public/js/data/api.js', () => ({
   apiDelete: vi.fn(async () => ({})),
   apiRaw: vi.fn(async () => ({})),
 }));
-vi.mock('../../public/js/editor/export.js', () => ({ downloadCSV: vi.fn() }));
 vi.mock('../../public/js/admin/data-portability-import.js', () => ({
   validateRow: vi.fn(), writeRow: vi.fn(), parseCSV: vi.fn(),
 }));
-vi.mock('../../public/js/admin/excel-parser.js', () => ({ parseExcelWorkbook: vi.fn() }));
-vi.mock('../../public/js/admin/excel-merge.js', () => ({ mergeExcelOntoCharacter: vi.fn() }));
 vi.mock('../../public/js/admin/downtime-views.js', () => ({ processDowntimeCsvFile: vi.fn() }));
 
 import { apiPut, apiPost } from '../../public/js/data/api.js';
@@ -99,24 +95,6 @@ describe('cm-2b — writeJsonDoc restores a pre-rename backup correctly', () => 
     expect(path).toBe('/api/downtime_submissions');
     expect(body.chapter_id).toBe(CHAPTER);
     expect(body).not.toHaveProperty('cycle_id');
-  });
-
-  it('the chapters case is shaped as well, and still strips the phase trio (cm-4a)', async () => {
-    await writeJsonDoc('chapters', {
-      _id: CHAPTER, label: 'Downtime 7', game_number: 7,
-      phase: 'game', game_phase: 'game', status: 'closed',
-      cycle_id: 'a stray key a hand-merged backup picked up',
-    });
-
-    expect(apiPut).toHaveBeenCalledTimes(1);
-    const [path, body] = apiPut.mock.calls[0];
-    expect(path).toBe(`/api/chapters/${CHAPTER}`);
-    expect(body).not.toHaveProperty('cycle_id');
-    // cm-4a's own guarantee, unchanged by this story.
-    expect(body).not.toHaveProperty('phase');
-    expect(body).not.toHaveProperty('game_phase');
-    expect(body).not.toHaveProperty('status');
-    expect(body.label).toBe('Downtime 7');
   });
 
   it('leaves the npcs case alone — linked_cycle_id survives a restore', async () => {
