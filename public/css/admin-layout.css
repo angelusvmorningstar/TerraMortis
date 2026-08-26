@@ -204,57 +204,6 @@ body {
 }
 .btn-sm:hover { background: var(--surf3); }
 
-/* ── Devlog admin ──
-   The form fields reuse the canonical .form-* primitives (components.css);
-   these rules cover the devlog-specific toolbar, form shell, entry cards and
-   meta chips, which had no styling and fell back to browser defaults. */
-.dl-admin-toolbar { margin-bottom: 16px; }
-.dl-admin-list { display: flex; flex-direction: column; gap: 12px; }
-.dl-form {
-  display: flex; flex-direction: column; gap: 12px;
-  background: var(--surf1); border: 1px solid var(--bdr);
-  border-radius: 8px; padding: 16px; margin-bottom: 16px;
-}
-.dl-form-actions { display: flex; align-items: center; gap: 8px; }
-.dl-form-actions .btn-sm { margin-left: 0; }
-.dl-form-error { margin-left: auto; font-family: var(--ft); font-size: 13px; color: var(--crim); }
-
-.dl-card {
-  display: flex; flex-direction: column; gap: 8px;
-  background: var(--surf1); border: 1px solid var(--bdr);
-  border-radius: 8px; padding: 14px 16px;
-}
-.dl-card-meta { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-.dl-type-chip, .dl-status-chip {
-  font-family: var(--fl); font-size: 10px; font-weight: 600;
-  letter-spacing: .08em; text-transform: uppercase;
-  padding: 3px 8px; border-radius: 4px;
-  background: var(--surf2); border: 1px solid var(--bdr); color: var(--txt3);
-}
-.dl-status-chip { color: var(--accent); border-color: var(--accent-a40); }
-/* Per-status RAG colours (recovered from #502 commit 30f0490; 'drafted'
-   reconciled to the live schema's 'in_progress'). Theme vars cover both themes. */
-.dl-status--considering { background: var(--crim-a8);        color: var(--crim2);       border-color: var(--crim-a15); }
-.dl-status--in_progress { background: var(--warn-orange-bg); color: var(--warn-orange); border-color: var(--warn-orange-bdr); }
-.dl-status--confirmed   { background: var(--green-dk-bg);    color: var(--green-dk);    border-color: var(--green-dk-bdr); }
-.dl-status--implemented { background: var(--green-dk-bg);    color: var(--green-dk);    border-color: var(--green-dk-bdr); }
-.dl-status--deferred    { background: transparent;           color: var(--txt3);        border-color: var(--bdr2); }
-.dl-target { margin-left: auto; font-family: var(--fl); font-size: 11px; color: var(--txt3); }
-.dl-card-title { font-family: var(--fh); font-size: 16px; color: var(--txt); }
-.dl-card-body { font-family: var(--ft); font-size: 14px; color: var(--txt2); white-space: pre-wrap; }
-.dl-card-actions { display: flex; gap: 8px; }
-.dl-card-actions .btn-sm { margin-left: 0; }
-.dl-new-chip {
-  font-family: var(--fl); font-size: 10px; font-weight: 600;
-  letter-spacing: .08em; text-transform: uppercase;
-  padding: 3px 8px; border-radius: 4px;
-  background: var(--accent-a8); color: var(--gold2); border: 1px solid var(--accent-a40);
-}
-.dl-check-label {
-  display: flex; align-items: center; gap: 8px;
-  font-family: var(--fl); font-size: 12px; color: var(--txt2); cursor: pointer;
-}
-
 .placeholder {
   color: var(--txt3);
   font-style: italic;

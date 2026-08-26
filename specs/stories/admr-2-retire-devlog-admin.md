@@ -163,6 +163,15 @@ Re-verify this categorisation at dev-story time; it is this session's best read,
   - [x] Remove its import and `initDevlogAdmin` call from `public/js/admin.js` - replaced the import
         line with an explanatory comment, matching ADMR-1's own established precedent for this file.
   - [x] Remove the sidebar button and domain section from `public/admin.html`.
+  - [x] **CORRECTION found post-commit, before review**: a 50-line dead CSS block
+        (`public/css/admin-layout.css` lines 207-256, `.dl-admin-toolbar`/`.dl-form`/`.dl-card`/
+        `.dl-status--*`/`.dl-new-chip`/`.dl-check-label` etc.) styled `devlog-admin.js`'s own markup
+        and was missed on the first pass - the original diff deleted the JS that generated these
+        classes but left their CSS in place, orphaned. Found via a self-check grep for every `.dl-*`
+        class name across `public/`, matching ADMR-1's own precedent (that story found 3 dead CSS
+        selectors the same way). Deleted the whole block; re-confirmed zero remaining `.dl-*`
+        reference anywhere in the live tree (the only matches left are in two unrelated stale
+        `.claude/worktrees/agent-*` copies, not this branch).
 
 - [x] **Task 3 - remove the server route** (AC: #2, #3)
   - [x] Delete `server/routes/devlog.js` in full.
@@ -311,6 +320,8 @@ Opus (bmad-dev-story), per this loop's own invariant.
 - **Deleted:** `tests/issue-502-devlog-tab.spec.js`
 - **Modified:** `public/js/admin.js` (removed `devlog-admin.js` import and dispatch line, replaced
   with an explanatory comment)
+- **Modified:** `public/css/admin-layout.css` (deleted the 50-line dead `.dl-*` block, a
+  post-commit, pre-review self-caught gap - see Task 2's own correction note)
 - **Modified:** `public/admin.html` (removed the Devlog sidebar button and `#d-devlog` domain section)
 - **Modified:** `server/index.js` (removed `devlogRouter` import and `/api/devlog` mount)
 - **Modified:** `server/tests/helpers/test-app.js` (removed the same import/mount from the test
@@ -324,6 +335,7 @@ Opus (bmad-dev-story), per this loop's own invariant.
 
 | Date | Change | Author |
 |---|---|---|
+| 2026-08-26 | Post-commit, pre-review self-correction: found and deleted a 50-line dead `.dl-*` CSS block in `public/css/admin-layout.css` that Task 2's original pass missed (styled the now-deleted `devlog-admin.js` markup). Matches ADMR-1's own precedent of finding orphaned CSS via a self-check grep. Second commit, ahead of the external Codex review. | Claude (bmad-dev-story) |
 | 2026-08-26 | Dev-storied via bmad-dev-story: ready-for-dev -> review. Full retirement executed exactly as scoped; no deviations found during implementation. Real environmental finding surfaced (not a code defect): the unbounded full vitest run hangs at the already-documented issue-836 file (#1125); re-ran excluding it. 5 previously-undocumented pre-existing failures found and individually confirmed via git stash A/B, none related to this story. | Claude (bmad-dev-story) |
 | 2026-08-26 | Story created via bmad-create-story. Full-retirement scope confirmed directly by Angelus after this session's own scoping pass surfaced a real (but currently non-functional) TM Herald cross-repo consumer and asked before assuming either direction. | Claude (bmad-create-story) |
 
