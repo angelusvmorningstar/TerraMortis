@@ -10117,3 +10117,34 @@ html:not([data-theme="dark"]) .btn-danger {
   gap: 1rem;
   margin-bottom: 1rem;
 }
+
+/* ── Engine domain — live roll feed (public/js/admin/roll-feed.js, gdx.8) ── */
+.engine-feed-wrap { padding: 8px 0; }
+.engine-feed-heading {
+  font-family: var(--fl);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--accent);
+  margin-bottom: 12px;
+}
+.engine-feed-list { display: flex; flex-direction: column; gap: 6px; }
+.engine-feed-empty { font-size: 13px; color: var(--txt3); font-style: italic; padding: 20px 0; }
+.engine-feed-row {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  flex-wrap: wrap;
+  background: var(--surf1);
+  border: 1px solid var(--bdr);
+  border-left: 3px solid var(--bdr);
+  border-radius: 6px;
+  padding: 8px 12px;
+  font-size: 13px;
+}
+.engine-feed-row--hit { border-left-color: var(--result-succ); }
+.engine-feed-row--miss { border-left-color: var(--crim2); }
+.engine-feed-char { font-family: var(--fl); font-weight: 600; color: var(--txt); min-width: 120px; }
+.engine-feed-pool { color: var(--txt3); }
+.engine-feed-label { color: var(--txt2); }
+.engine-feed-successes { font-weight: 700; color: var(--accent); }
+.engine-feed-meta { color: var(--txt3); font-size: 12px; margin-left: auto; }

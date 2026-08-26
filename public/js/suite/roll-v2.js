@@ -29,6 +29,7 @@ import { skSpecs, skNineAgain } from '../data/accessors.js';
 import { hasAoE } from '../data/helpers.js';
 import { getCatalogueEntry } from '../data/equipment-catalogue-cache.js';
 import { isCombatGearWeaponShaped, isEquipmentOnMe, isStakeWeapon } from '../data/equipment-derivation.js';
+import { apiPost } from '../data/api.js';
 // gdx.7 (#988): read the game-day flag (gdx.5) and spend from the already-
 // built, already-correct tracker write path (gdx.6 supplies the cost data
 // on the rule itself, via pools.js — see spendableCost below).
@@ -884,8 +885,23 @@ export async function doRoll() {
   // real balance. `ensureTrackerLoaded` is a no-op if already confirmed, so
   // this costs nothing on the common path and only actually awaits a
   // network round-trip the first time a given character is ever read.
+  // Review fix (Edge Case Hunter, gdx.8): captured BEFORE the awaits below,
+  // not re-read from `state.rollChar` at each branch's own _logRoll() call.
+  // `state.rollChar` is plain module state with no lock during doRoll()'s
+  // awaited network round-trips (ensureTrackerLoaded, up to two trackerAdj
+  // calls) — the character picker stays fully interactive throughout, so a
+  // character switch mid-roll would otherwise attribute the persisted
+  // roll_log entry (and its real vitae/willpower spend) to whichever
+  // character happens to be loaded when the roll finishes, not the one that
+  // was actually rolled. This is the exact character the roll below is FOR.
+  const _rollChar = state.rollChar;
   if (state.rollChar) await ensureTrackerLoaded(state.rollChar);
   const spend = _currentSpendDecision();
+  // gdx.8 (#989): what was ACTUALLY spent this roll, for roll_log — not
+  // spend.cost.*, which is what the label OFFERED to spend and stays
+  // populated even when the guard below never fires (game off, can't
+  // afford, already in flight). Zero unless a real trackerAdj happens.
+  let _loggedVitaeSpent = 0, _loggedWillpowerSpent = 0;
   if (!_spendInFlight && spend.gameInProgress && spend.canAfford && spend.charId &&
       (spend.cost.vitaeCost > 0 || spend.cost.willpowerCost > 0)) {
     _spendInFlight = true;
@@ -896,8 +912,14 @@ export async function doRoll() {
       // clobbering the other. Awaited in turn instead — negligible cost,
       // since trackerAdj never actually suspends once confirmed (which the
       // await above guarantees it now is).
-      if (spend.cost.vitaeCost > 0) await trackerAdj(spend.charId, 'vitae', -spend.cost.vitaeCost);
-      if (spend.cost.willpowerCost > 0) await trackerAdj(spend.charId, 'willpower', -spend.cost.willpowerCost);
+      if (spend.cost.vitaeCost > 0) {
+        await trackerAdj(spend.charId, 'vitae', -spend.cost.vitaeCost);
+        _loggedVitaeSpent = spend.cost.vitaeCost;
+      }
+      if (spend.cost.willpowerCost > 0) {
+        await trackerAdj(spend.charId, 'willpower', -spend.cost.willpowerCost);
+        _loggedWillpowerSpent = spend.cost.willpowerCost;
+      }
     } finally {
       _spendInFlight = false;
     }
@@ -917,6 +939,13 @@ export async function doRoll() {
     del.textContent = v;
     area.appendChild(del);
     addHist('Chance', cls, lbl, cnt, 'Chance die');
+    if (_rollChar && getGlobalSettings()?.game_in_progress) {
+      _logRoll(_rollChar._id, buildRollLogPayload({
+        pool: 'Chance', label: lbl, successes: dram ? 0 : suc ? 1 : 0, results: [v],
+        againRule: state.AGAIN, rote: state.ROTE, wpBonus: state.WP,
+        vitaeSpent: _loggedVitaeSpent, willpowerSpent: _loggedWillpowerSpent,
+      }));
+    }
     return;
   }
 
@@ -988,6 +1017,22 @@ export async function doRoll() {
     if (stakeNoteC) area.appendChild(stakeNoteC);
 
     addHist(eff + 'd10', cls, outcome, won ? net : wS, verd);
+    if (_rollChar && getGlobalSettings()?.game_in_progress) {
+      // Review fix (Codex, external): addHist() above (pre-existing,
+      // untouched, out of this story's scope) uses `won ? net : wS` — on a
+      // loss/draw that still stores the attacker's raw success count, not
+      // the true (zero) net that reached the target. That's a display-only
+      // quirk for the client-local Roll-tab history list, but roll-feed.js
+      // is a NEW consumer this story adds, and its hit/miss styling keys
+      // directly on `entry.successes > 0` — inheriting the same value would
+      // paint a genuinely lost contested roll (label: "Failure") as a hit
+      // in the ST feed. `successes` here is 0 on any non-win, not `wS`.
+      _logRoll(_rollChar._id, buildRollLogPayload({
+        pool: eff + 'd10', label: outcome, successes: won ? net : 0, results: flattenDiceChainResults(wC),
+        againRule: state.AGAIN, rote: state.ROTE, wpBonus: state.WP,
+        vitaeSpent: _loggedVitaeSpent, willpowerSpent: _loggedWillpowerSpent,
+      }));
+    }
     return;
   }
 
@@ -1018,6 +1063,13 @@ export async function doRoll() {
   if (stakeNote) area.appendChild(stakeNote);
 
   addHist(eff + 'd10', cls, lbl, wS, verd);
+  if (_rollChar && getGlobalSettings()?.game_in_progress) {
+    _logRoll(_rollChar._id, buildRollLogPayload({
+      pool: eff + 'd10', label: lbl, successes: wS, results: flattenDiceChainResults(wC),
+      againRule: state.AGAIN, rote: state.ROTE, wpBonus: state.WP,
+      vitaeSpent: _loggedVitaeSpent, willpowerSpent: _loggedWillpowerSpent,
+    }));
+  }
 
   // Auto-reset WP after rolling (one-time spend)
   if (state.WP) {
@@ -1028,6 +1080,68 @@ export async function doRoll() {
 }
 
 // ── ROLL HISTORY ──
+
+// Review fix (Codex, external — the real find this internal review's own
+// three layers missed): `rollPool(eff)` (used by the standard/contested
+// branches, via `cA`/`cB`/`wC`/`lC`) returns an array of dice-CHAIN objects
+// (`{ r: { v, s, x }, ch: [...] }`, from shared/dice.js's own mkChain/
+// rollPool), not plain face-value integers. Passed straight through as
+// `results`, every one of those two branches' real POSTs was schema-invalid
+// (`results` items must be `type: 'integer'`) and got silently 400'd —
+// `_logRoll`'s own fire-and-forget catch swallowed it with zero signal.
+// This is the ONLY one of the three doRoll() branches that needs it — the
+// chance-die branch rolls a raw `d10()` and already passes a plain integer.
+// Flattens to every face actually rolled, including exploded re-rolls, in
+// roll order — the true "what came up" record an ST audit trail wants.
+export function flattenDiceChainResults(chains) {
+  const out = [];
+  for (const col of chains || []) {
+    out.push(col.r.v);
+    for (const d of col.ch) out.push(d.v);
+  }
+  return out;
+}
+
+// gdx.8 (#989): persisted roll history, alongside (not instead of) the
+// client-local addHist() below. Pure function — no DOM, no globals — so it
+// is directly testable; builds the exact server-side schema shape (see
+// server/schemas/roll_log.schema.js) from whatever a doRoll() branch already
+// has in scope. character_id is NOT included here — the caller (doRoll())
+// passes it separately to _logRoll(), since it comes from state.rollChar,
+// not from any of the per-branch roll data this function receives.
+export function buildRollLogPayload({ pool, label, successes, results, againRule, rote, wpBonus, vitaeSpent, willpowerSpent }) {
+  return {
+    label,
+    pool,
+    results,
+    successes,
+    // Review fix (Codex, external): `state.AGAIN` (every real call site's
+    // own `againRule` value) is a NUMBER (public/js/suite/data.js's own
+    // `AGAIN: 10` default, reassigned via `Number(v)`), but the schema
+    // requires string/null and this server's validate() middleware runs
+    // with `coerceTypes: false` — a raw number here 400'd every real roll.
+    again_rule: (againRule === null || againRule === undefined) ? null : String(againRule),
+    rote: !!rote,
+    wp_bonus: !!wpBonus,
+    vitae_spent: vitaeSpent || 0,
+    wp_spent: willpowerSpent || 0,
+  };
+}
+
+// Fire-and-forget — mirrors trackerAdj's own established silent-fail shape
+// (game/tracker.js's saveToApi). The roll UI must never block on this
+// write's own round-trip, and a dropped roll_log entry is not worth
+// surfacing an error to the player over.
+function _logRoll(characterId, payload) {
+  // Review fix (Blind Hunter): fire-and-forget by design, mirroring
+  // trackerAdj's own established silent-fail shape (the player's roll must
+  // never block or error on the persisted-history write) — but a bare
+  // catch(() => {}) gave zero operator-visible signal even on a total,
+  // permanent failure. console.warn costs nothing and doesn't change that
+  // contract; it just stops a broken pipeline from being invisible.
+  apiPost('/api/roll_log', { character_id: String(characterId), ...payload })
+    .catch(err => console.warn('[roll_log] failed to persist roll history:', err?.message || err));
+}
 
 export function addHist(pool, cls, lbl, cnt, verd) {
   const h = state.hist;

@@ -33,6 +33,17 @@ let _onSettingsUpdate = null;
 // (bloodlineId, op) for remote bloodlines create/update/delete events.
 // Consumers (the bloodlines cache module) refetch on receipt.
 let _onBloodlineUpdate = null;
+// gdx.8 (#989): callback for roll_log frames. Called with the whole roll
+// doc (no separate refetch — a high-frequency event during a live session,
+// unlike the refetch-on-signal shape catalogue/settings/bloodline use).
+let _onRollLogged = null;
+// gdx.8 review fix (Codex + Edge Case Hunter, independently): callback
+// fired on EVERY successful (re)connect, including the first one — a
+// dropped connection has no live "catch-up" otherwise; roll_log frames
+// broadcast during the outage are simply never delivered (the server only
+// fans out at write time), so a consumer with its own catch-up fetch (the
+// admin roll feed) needs to know a (re)connect just happened.
+let _onReconnect = null;
 
 // Recent local writes — { charId+field → timestamp }. Used to suppress
 // WS echo of our own saves (avoids double-render on the originating client).
@@ -64,6 +75,8 @@ export function markLocalWrite(charId, fields) {
  * @param {function} [opts.onCatalogueUpdate] — called with (itemId, op) for remote equipment_catalogue events (ECM-5 / issue #872)
  * @param {function} [opts.onSettingsUpdate] — called with no args for remote app_settings PATCH events (gdx.5 / #986)
  * @param {function} [opts.onBloodlineUpdate] — called with (bloodlineId, op) for remote bloodlines events (BL-4 / issue #1008)
+ * @param {function} [opts.onRollLogged] — called with the roll doc for remote roll_log writes (gdx.8 / #989)
+ * @param {function} [opts.onReconnect] — called with no args on every successful (re)connect (gdx.8 review fix)
  */
 export function initWS(opts = {}) {
   _onTrackerUpdate = opts.onTrackerUpdate || null;
@@ -71,6 +84,8 @@ export function initWS(opts = {}) {
   _onCatalogueUpdate = opts.onCatalogueUpdate || null;
   _onSettingsUpdate = opts.onSettingsUpdate || null;
   _onBloodlineUpdate = opts.onBloodlineUpdate || null;
+  _onRollLogged = opts.onRollLogged || null;
+  _onReconnect = opts.onReconnect || null;
   _token = localStorage.getItem('tm_auth_token');
   _closed = false;
   if (!_token) return; // not logged in
@@ -105,6 +120,7 @@ function _connect() {
   _ws.onopen = () => {
     _reconnectDelay = WS_RECONNECT_BASE;
     console.log('[WS] connected');
+    _onReconnect?.();
   };
 
   _ws.onmessage = (e) => {
@@ -115,6 +131,7 @@ function _connect() {
       else if (msg.type === 'catalogue') _handleCatalogueMsg(msg);
       else if (msg.type === 'settings') _handleSettingsMsg();
       else if (msg.type === 'bloodline') _handleBloodlineMsg(msg);
+      else if (msg.type === 'roll_log') _handleRollLoggedMsg(msg);
     } catch { /* ignore non-JSON */ }
   };
 
@@ -227,4 +244,16 @@ function _handleSettingsMsg() {
 function _handleBloodlineMsg(msg) {
   const { bloodline_id, op } = msg;
   if (_onBloodlineUpdate) _onBloodlineUpdate(bloodline_id, op);
+}
+
+/** gdx.8 (#989): the frame carries the whole roll doc (high-frequency event
+ *  during a live session, unlike the refetch-on-signal frames above) — pass
+ *  it straight through, no fetch. No echo suppression: the roller's own
+ *  in-tab addHist() already shows the roll locally the instant it fires, so
+ *  a duplicate arriving back over WS is harmless for the player, and the
+ *  admin feed (the only other consumer) needs every roll including the
+ *  ST's own if they roll from a character sheet. */
+function _handleRollLoggedMsg(msg) {
+  const { type, ...doc } = msg;
+  if (_onRollLogged) _onRollLogged(doc);
 }
