@@ -204,57 +204,6 @@ body {
 }
 .btn-sm:hover { background: var(--surf3); }
 
-/* ── Devlog admin ──
-   The form fields reuse the canonical .form-* primitives (components.css);
-   these rules cover the devlog-specific toolbar, form shell, entry cards and
-   meta chips, which had no styling and fell back to browser defaults. */
-.dl-admin-toolbar { margin-bottom: 16px; }
-.dl-admin-list { display: flex; flex-direction: column; gap: 12px; }
-.dl-form {
-  display: flex; flex-direction: column; gap: 12px;
-  background: var(--surf1); border: 1px solid var(--bdr);
-  border-radius: 8px; padding: 16px; margin-bottom: 16px;
-}
-.dl-form-actions { display: flex; align-items: center; gap: 8px; }
-.dl-form-actions .btn-sm { margin-left: 0; }
-.dl-form-error { margin-left: auto; font-family: var(--ft); font-size: 13px; color: var(--crim); }
-
-.dl-card {
-  display: flex; flex-direction: column; gap: 8px;
-  background: var(--surf1); border: 1px solid var(--bdr);
-  border-radius: 8px; padding: 14px 16px;
-}
-.dl-card-meta { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-.dl-type-chip, .dl-status-chip {
-  font-family: var(--fl); font-size: 10px; font-weight: 600;
-  letter-spacing: .08em; text-transform: uppercase;
-  padding: 3px 8px; border-radius: 4px;
-  background: var(--surf2); border: 1px solid var(--bdr); color: var(--txt3);
-}
-.dl-status-chip { color: var(--accent); border-color: var(--accent-a40); }
-/* Per-status RAG colours (recovered from #502 commit 30f0490; 'drafted'
-   reconciled to the live schema's 'in_progress'). Theme vars cover both themes. */
-.dl-status--considering { background: var(--crim-a8);        color: var(--crim2);       border-color: var(--crim-a15); }
-.dl-status--in_progress { background: var(--warn-orange-bg); color: var(--warn-orange); border-color: var(--warn-orange-bdr); }
-.dl-status--confirmed   { background: var(--green-dk-bg);    color: var(--green-dk);    border-color: var(--green-dk-bdr); }
-.dl-status--implemented { background: var(--green-dk-bg);    color: var(--green-dk);    border-color: var(--green-dk-bdr); }
-.dl-status--deferred    { background: transparent;           color: var(--txt3);        border-color: var(--bdr2); }
-.dl-target { margin-left: auto; font-family: var(--fl); font-size: 11px; color: var(--txt3); }
-.dl-card-title { font-family: var(--fh); font-size: 16px; color: var(--txt); }
-.dl-card-body { font-family: var(--ft); font-size: 14px; color: var(--txt2); white-space: pre-wrap; }
-.dl-card-actions { display: flex; gap: 8px; }
-.dl-card-actions .btn-sm { margin-left: 0; }
-.dl-new-chip {
-  font-family: var(--fl); font-size: 10px; font-weight: 600;
-  letter-spacing: .08em; text-transform: uppercase;
-  padding: 3px 8px; border-radius: 4px;
-  background: var(--accent-a8); color: var(--gold2); border: 1px solid var(--accent-a40);
-}
-.dl-check-label {
-  display: flex; align-items: center; gap: 8px;
-  font-family: var(--fl); font-size: 12px; color: var(--txt2); cursor: pointer;
-}
-
 .placeholder {
   color: var(--txt3);
   font-style: italic;
@@ -3105,36 +3054,6 @@ body {
 }
 .dp-error-list li { font-size: 12px; color: var(--txt2); }
 .dp-error-list strong { color: var(--txt); }
-
-/* Excel import preview */
-.dp-excel-preview { margin-top: 16px; }
-.dp-excel-header { display: flex; gap: 16px; margin-bottom: 12px; flex-wrap: wrap; }
-.dp-excel-warnings { margin-bottom: 10px; }
-.dp-excel-warn { font-size: 11px; color: var(--warn-dk); padding: 2px 0; }
-.dp-excel-tbl { width: 100%; border-collapse: collapse; font-size: 13px; margin-bottom: 12px; }
-.dp-excel-tbl th { text-align: left; padding: 6px 8px; background: var(--surf2); color: var(--accent); font-size: 11px; text-transform: uppercase; border-bottom: 1px solid var(--bdr); }
-.dp-excel-tbl td { padding: 5px 8px; border-bottom: 1px solid rgba(201,169,98,.06); }
-.dp-excel-row { cursor: pointer; }
-.dp-excel-row:hover { background: rgba(201,169,98,.04); }
-.dp-excel-dimmed { opacity: .4; cursor: default; }
-.dp-excel-name { font-family: var(--fl); }
-.dp-badge { font-size: 10px; padding: 1px 6px; border-radius: 3px; text-transform: uppercase; letter-spacing: .5px; }
-.dp-badge-update { background: var(--accent-a8); color: var(--accent); }
-.dp-badge-new { background: var(--result-succ-bg); color: var(--result-succ); }
-.dp-badge-dim { background: rgba(120,120,120,.1); color: var(--txt3); }
-.dp-badge-warn { background: var(--warn-dk-bg); color: var(--warn-dk); }
-.dp-excel-actions { display: flex; align-items: center; gap: 12px; margin-top: 8px; }
-.dp-excel-progress { font-size: 12px; color: var(--txt2); }
-.dp-excel-errors { margin-top: 8px; }
-.dp-diff-panel { padding: 8px 12px; background: var(--surf2); border-radius: 4px; }
-.dp-diff-section { margin-bottom: 8px; }
-.dp-diff-title { font-size: 10px; color: var(--accent); text-transform: uppercase; letter-spacing: .5px; margin-bottom: 4px; font-family: var(--fl); }
-.dp-diff-row { display: flex; align-items: center; gap: 8px; padding: 2px 0; font-size: 12px; }
-.dp-diff-field { color: var(--txt2); min-width: 100px; }
-.dp-diff-old { color: var(--txt3); }
-.dp-diff-arrow { color: var(--txt3); }
-.dp-diff-new { color: var(--accent); }
-.dp-diff-warn { font-size: 11px; color: var(--warn-dk); padding: 1px 0; }
 .dp-warning {
   background: var(--crim-a15);
   border: 1px solid var(--crim-a50);
@@ -3160,30 +3079,6 @@ body {
 }
 .dp-card-placeholder { opacity: .55; }
 .dp-placeholder-note { color: var(--txt3); font-style: italic; }
-.dp-rules-card { min-width: 280px; }
-.dp-rules-filters { display: flex; gap: 6px; margin-bottom: 8px; flex-wrap: wrap; }
-.dp-rules-select {
-  background: var(--surf2);
-  border: 1px solid var(--bdr);
-  border-radius: 4px;
-  color: var(--txt);
-  font-size: 12px;
-  padding: 4px 6px;
-  flex: 0 0 auto;
-}
-.dp-rules-parent {
-  background: var(--surf2);
-  border: 1px solid var(--bdr);
-  border-radius: 4px;
-  color: var(--txt);
-  font-size: 12px;
-  padding: 4px 8px;
-  flex: 1 1 120px;
-  min-width: 0;
-}
-.dp-rules-parent::placeholder { color: var(--txt3); }
-.dp-rules-import-note { font-size: 11px; color: var(--txt3); margin-top: 6px; font-style: italic; }
-
 /* ── Ordeals (OR-2 / OR-3) ── */
 
 .or-shell {
@@ -10002,8 +9897,7 @@ html:not([data-theme="dark"]) .rules-tbl tbody tr:hover            { background:
 .ec-table tbody tr:hover { background: var(--surf1); }
 .ec-row-actions { display: flex; gap: 6px; }
 
-.ec-bucket-tag,
-.bl-disc-tag {
+.ec-bucket-tag {
   display: inline-block;
   padding: 1px 8px;
   border-radius: 10px;
@@ -10088,14 +9982,6 @@ html:not([data-theme="dark"]) .rules-tbl tbody tr:hover            { background:
 .ec-form-msg--ok    { color: var(--green2); }
 .ec-form-msg--error { color: var(--crim); }
 .ec-form-msg--info  { color: var(--txt3); }
-
-/* ── Bloodlines-specific additions (BL-4, issue #1008) ───────────────────────
-   Everything else on that screen is the shared chrome above. These two exist
-   because a bloodline row carries four discipline chips rather than one bucket
-   tag, and its form asks for exactly four pickers side by side. Tokens only. */
-
-.bl-disc-cell { display: flex; flex-wrap: wrap; gap: 4px; }
-.bl-disc-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 14px; }
 
 /* ── Cycle tab (issue #918) ──────────────────────────────────────────────────
    Engine → Cycle: status ribbon, stories/cycles panels, inline edit,

@@ -1445,3 +1445,29 @@ two below were judged real but out of proportion to fix in this pass, or not thi
   is — by explicit design — for standing merits like MCI/PT? `xp.js:266-269`'s own comment shows
   this exact "control renders, doesn't actually do anything" pattern has happened at least once
   before and was handled by hiding the control, not by wiring it up).
+
+## Deferred from: code review of admr-2-retire-devlog-admin (2026-08-26, external Codex)
+
+- **`render.yaml`'s `bot` service block declares `ANNOUNCE_DEVLOG_CHANNEL_ID` for a Discord bot
+  worker whose `rootDir: bot` no longer exists in this repo** (Low, confirmed pre-existing and
+  unrelated to this story's diff — `render.yaml:6,20`). The `bot/` directory was extracted to the
+  `TM Herald` sibling repo on 2026-07-20 (per the umbrella `CLAUDE.md`'s topology notes), over a
+  month before this session; this render.yaml service block has been stale since then, not as a
+  consequence of ADMR-2. `ANNOUNCE_DEVLOG_CHANNEL_ID` is now doubly orphaned as of this story (no
+  code in this repo ever reads it, and it named a route this story deletes), but the whole `bot:`
+  service block was already dead deployment config regardless of Devlog. Not fixed here — this
+  story's diff never touches `render.yaml`, and the real fix (removing or updating the stale `bot`
+  service block entirely) is a deployment-config decision, not a code retirement. Found via an
+  external Codex review during ADMR-2's own external review pass.
+
+- **`playwright.config.js`'s `webServer.command` runs `npx http-server public -p 8080 -s`, but
+  `http-server` is not a declared `devDependency`** (Low, confirmed pre-existing and unrelated to
+  this story's diff — `playwright.config.js:11`, `package.json` declares `serve` instead). In a
+  network-restricted environment (no npm registry access), `npx http-server` fails outright rather
+  than falling back to an already-installed package, causing every Playwright run to time out before
+  a single test executes. Confirmed this genuinely reproduces in a sandboxed environment (an external
+  Codex review's own sandbox hit exactly this failure); confirmed it does NOT reproduce in this
+  session's own working environment (network access to the npm registry available, `npx
+  playwright test` succeeds normally). Not fixed here — neither file is touched by this story's
+  diff, and the real fix (declaring `http-server` as a devDependency, or switching the webServer
+  command to the already-declared `serve` package) is a repo-hygiene item, not specific to Devlog.

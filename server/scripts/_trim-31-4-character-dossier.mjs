@@ -69,12 +69,19 @@ const FACT_DEST_ONLY_FIELDS = new Set(['fact_key']);
 const DOC_FIELDS_COMPARED_SEPARATELY = new Set(['_id', 'facts']);
 
 // The one thing standing between "verified the dev copy" and "trimmed the only
-// real copy": this script's entire safety model depends on comparing tm_suite
-// against PRODUCTION tm_wiki. Refuse outright if the resolved target is
+// real copy": this script's entire safety model depends on comparing tm_game
+// against PRODUCTION tm_story. Refuse outright if the resolved target is
 // anything else, rather than trusting whatever .env happened to load.
-const WIKI_DB_NAME = process.env.MONGODB_WIKI_DB ?? 'tm_wiki';
-if (WIKI_DB_NAME !== 'tm_wiki') {
-  console.error(`REFUSING TO RUN: resolved wiki database is "${WIKI_DB_NAME}", not "tm_wiki".`);
+//
+// `tm_wiki` was the pre-2026-08-21-rebrand name (TM Story's own config.js
+// default is `tm_story`; `tm_wiki`/`tm_wiki_dev` both still exist on the
+// cluster as separate, non-live databases - `tm_wiki` a frozen pre-rebrand
+// snapshot, `tm_wiki_dev` the dev database, confirmed via a live
+// `listDatabases` call, not assumed from an old script comment). Comparing
+// against either would silently verify against the wrong database.
+const WIKI_DB_NAME = process.env.MONGODB_WIKI_DB ?? 'tm_story';
+if (WIKI_DB_NAME !== 'tm_story') {
+  console.error(`REFUSING TO RUN: resolved wiki database is "${WIKI_DB_NAME}", not "tm_story".`);
   console.error('This script only ever compares against and protects PRODUCTION. If you intended');
   console.error('to test against a dev database, that is not what this script is for - nothing was');
   console.error('read or removed.');
@@ -143,19 +150,27 @@ function findDuplicateCharacterIds(docs) {
   return [...dupes];
 }
 
+// `tm_suite` was the pre-2026-08-21-rebrand name. The live database is `tm_game`
+// (server/db.js's own default) - `tm_suite` itself still exists but is a frozen,
+// unmodified snapshot from the moment of that rebrand (Phase 3's drop was never
+// run; see TM Admin/specs/rebrand-game-story-admin.md). Hardcoding `tm_suite`
+// here would trim a database nothing reads or writes any more while leaving the
+// real live collection completely untouched - resolve the same way db.js does.
+const SUITE_DB_NAME = process.env.MONGODB_DB || 'tm_game';
+
 const suite = new MongoClient(process.env.MONGODB_URI);
 const wiki = new MongoClient(process.env.MONGODB_WIKI_URI ?? process.env.MONGODB_URI);
 await suite.connect();
 await wiki.connect();
 
-const suiteDb = suite.db('tm_suite');
+const suiteDb = suite.db(SUITE_DB_NAME);
 const wikiDb = wiki.db(WIKI_DB_NAME);
 
 // The whole run lives in a function so an early exit can `return` and still fall
 // through the caller's `finally` (a bare `process.exit()` at module top level
 // skips every cleanup path there is). Code-review patch, 2026-08-15.
 async function run() {
-  console.log(`Re-verifying tm_wiki ("${WIKI_DB_NAME}") holds every MIGRATED fact of tm_suite.${COLLECTION},`);
+  console.log(`Re-verifying tm_story ("${WIKI_DB_NAME}") holds every MIGRATED fact of ${SUITE_DB_NAME}.${COLLECTION},`);
   console.log('live, right now, FIELD BY FIELD, BY character_id (not trusting an earlier result,');
   console.log('and not just counting facts)...\n');
 
@@ -215,7 +230,7 @@ async function run() {
     }
 
     if (wikiFacts.length !== eligible.length) {
-      diffs.push(`facts.length (tm_suite eligible ${eligible.length}, tm_wiki ${wikiFacts.length})`);
+      diffs.push(`facts.length (${SUITE_DB_NAME} eligible ${eligible.length}, tm_story ${wikiFacts.length})`);
     }
     const shared = Math.min(wikiFacts.length, eligible.length);
     for (let i = 0; i < shared; i += 1) {
@@ -226,17 +241,17 @@ async function run() {
     plan.push({ key, doc, eligible, ineligible });
   }
 
-  console.log(`${COLLECTION}: tm_suite=${suiteDocs.length} doc(s) tm_wiki=${wikiDocs.length} doc(s)`);
-  console.log(`  tm_suite facts: ${eligibleTotal} migrated (to be removed here), ${ineligibleTotal} touchstone-coupled (stay)`);
-  if (duplicateSuite.length) console.log(`  DUPLICATE character_id(s) in tm_suite: ${duplicateSuite.length}`, duplicateSuite);
-  if (duplicateWiki.length) console.log(`  DUPLICATE character_id(s) in tm_wiki: ${duplicateWiki.length}`, duplicateWiki);
-  if (missing.length) console.log(`  MISSING FROM tm_wiki: ${missing.length} character(s)`, missing);
+  console.log(`${COLLECTION}: ${SUITE_DB_NAME}=${suiteDocs.length} doc(s) tm_story=${wikiDocs.length} doc(s)`);
+  console.log(`  ${SUITE_DB_NAME} facts: ${eligibleTotal} migrated (to be removed here), ${ineligibleTotal} touchstone-coupled (stay)`);
+  if (duplicateSuite.length) console.log(`  DUPLICATE character_id(s) in ${SUITE_DB_NAME}: ${duplicateSuite.length}`, duplicateSuite);
+  if (duplicateWiki.length) console.log(`  DUPLICATE character_id(s) in tm_story: ${duplicateWiki.length}`, duplicateWiki);
+  if (missing.length) console.log(`  MISSING FROM tm_story: ${missing.length} character(s)`, missing);
   if (mismatched.length) {
     console.log(`  CONTENT MISMATCH: ${mismatched.length} document(s)`);
     for (const m of mismatched) console.log(`    ${m.key}: ${m.diffs.join(', ')}`);
   }
   if (leaked.length) {
-    console.log(`  TOUCHSTONE-COUPLED FACTS PRESENT IN tm_wiki (must be zero): ${leaked.length} document(s)`);
+    console.log(`  TOUCHSTONE-COUPLED FACTS PRESENT IN tm_story (must be zero): ${leaked.length} document(s)`);
     for (const l of leaked) console.log(`    ${l.key}: ${l.count} fact(s)`);
   }
 
@@ -244,7 +259,7 @@ async function run() {
     && missing.length === 0 && mismatched.length === 0 && leaked.length === 0;
 
   if (allClean) {
-    console.log('  every migrated fact is present in tm_wiki AND matches field for field (by character_id).');
+    console.log('  every migrated fact is present in tm_story AND matches field for field (by character_id).');
   }
 
   // CODE-REVIEW PATCH (2026-08-15): a document that FAILED the re-verify on
@@ -260,23 +275,23 @@ async function run() {
   console.log(`  ${noEligibleDocs} document(s) untouched (no migrated facts of their own, or already trimmed).`);
   const notAccountedFor = suiteDocs.length - actionable.length - noEligibleDocs;
   if (notAccountedFor > 0) {
-    console.log(`  ${notAccountedFor} document(s) NOT ACCOUNTED FOR in either bucket - they failed the re-verify above (missing from tm_wiki, a content mismatch, or a leaked touchstone-coupled fact).`);
+    console.log(`  ${notAccountedFor} document(s) NOT ACCOUNTED FOR in either bucket - they failed the re-verify above (missing from tm_story, a content mismatch, or a leaked touchstone-coupled fact).`);
   }
 
   if (!allClean) {
-    console.error('\nREFUSING TO TRIM: tm_wiki does not clearly hold tm_suite\'s migrated facts right now.');
-    console.error('Re-run the migration script (--write, then --verify) from TM Wiki first. Nothing was removed.');
+    console.error(`\nREFUSING TO TRIM: tm_story does not clearly hold ${SUITE_DB_NAME}'s migrated facts right now.`);
+    console.error('Re-run the migration script (--write, then --verify) from TM Story first. Nothing was removed.');
     process.exitCode = 1;
     return;
   }
 
   if (!WRITE) {
     console.log('\nRe-verify CLEAN. DRY RUN - nothing removed. Re-run with --write to actually trim');
-    console.log(`tm_suite.${COLLECTION}. THIS IS IRREVERSIBLE.`);
+    console.log(`${SUITE_DB_NAME}.${COLLECTION}. THIS IS IRREVERSIBLE.`);
     return;
   }
 
-  console.log(`\nRe-verify CLEAN. Trimming tm_suite.${COLLECTION} now...`);
+  console.log(`\nRe-verify CLEAN. Trimming ${SUITE_DB_NAME}.${COLLECTION} now...`);
   let trimmed = 0;
   let deleted = 0;
   let attempted = 0;
@@ -307,7 +322,7 @@ async function run() {
     throw err;
   }
   console.log(`  trimmed ${trimmed} document(s), deleted ${deleted} empty document(s).`);
-  console.log(`\nDone. tm_suite.${COLLECTION} now holds only the touchstone-coupled facts.`);
+  console.log(`\nDone. ${SUITE_DB_NAME}.${COLLECTION} now holds only the touchstone-coupled facts.`);
 }
 
 try {

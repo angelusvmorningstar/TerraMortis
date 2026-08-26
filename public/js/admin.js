@@ -45,10 +45,17 @@ import { initOrdealsAdminView } from './admin/ordeals-admin.js';
 import { initRulesView } from './admin/rules-view.js';
 import { initRulesDataView } from './admin/rules-data-view.js';
 import { initEquipmentCatalogueAdmin } from './admin/equipment-catalogue-admin.js';
-// BL-4 (#1008): ST admin CRUD over the bloodlines collection.
-import { initBloodlinesAdmin } from './admin/bloodlines-admin.js';
+// ADMR-1: initBloodlinesAdmin / bloodlines-admin.js import removed — Bloodlines
+// admin authoring retired to TM Admin. public/js/data/bloodlines-cache.js's
+// own import two lines above is UNCHANGED and stays: it reads the plain,
+// unauthenticated GET /api/bloodlines every character sheet depends on for
+// live discipline XP costing, which is a completely separate concern from
+// the ST-facing create/edit/delete screen this import used to wire up. File
+// deleted.
 import { initStModsAudit } from './admin/st-mods-audit.js';
-import { initDevlogAdmin } from './admin/devlog-admin.js';
+// ADMR-2: Devlog admin authoring retired to TM Admin. admin/devlog-admin.js
+// deleted; server/routes/devlog.js unmounted entirely (no live TM Game
+// consumer survives it - full retirement, unlike Bloodlines' split).
 import { initStModsPanel, refreshStModsPanelSettings } from './admin/st-mods-panel.js';
 import { initCycleView } from './admin/cycle-views.js';
 import { initDtStory } from './admin/downtime-story.js';
@@ -334,9 +341,7 @@ function switchDomain(domain) {
   if (domain === 'rules') initRulesView(document.getElementById('rules-content'), chars);
   if (domain === 'rde') initRulesDataView(document.getElementById('rde-content'));
   if (domain === 'equipment-catalogue') initEquipmentCatalogueAdmin(document.getElementById('equipment-catalogue-content'), chars);
-  if (domain === 'bloodlines') initBloodlinesAdmin(document.getElementById('bloodlines-content'), chars);
   if (domain === 'st-mods-audit') initStModsAudit(document.getElementById('st-mods-audit-content'), chars);
-  if (domain === 'devlog') initDevlogAdmin(document.getElementById('devlog-admin-content'));
   if (domain === 'st-mods') {
     // STM-5 (issue #386): panel works on the currently-selected character.
     // editorState.editIdx tracks the open sheet; null/-1 → "select a char"

@@ -597,3 +597,17 @@ real page, or direct source read) before deferral, not taken on a reviewer's wor
   so an ancestor's own width cap or padding wouldn't be caught. gdx-2's specific fixes were
   independently re-verified against the real live page during this review, so this is test-methodology
   hardening for a future pass, not a live gap today.
+
+## Deferred from: code review of admr-1-retire-bloodlines-admin (2026-08-26, external Codex)
+
+- **`bl3b-constants-deleted.test.js`'s rewritten "AC 6" negative assertion
+  (`expect(importers(), ...).toEqual([])`) has no positive control proving the scanner would actually
+  detect a live, non-archive, non-test import if one appeared** (`server/tests/bl3b-constants-deleted.test.js`).
+  The neighbouring test in the same describe block only confirms the archived seed script IS detected
+  via a *different*, unexcluded code path - not that a hypothetical NEW non-archive/non-test importer
+  would be caught by the same regex/walker. A future edit that silently breaks the `importers()` helper
+  (e.g. a regex that stops matching one of the three quote styles) could leave this guard vacuously
+  green. Low severity - the underlying real-world risk (a live route quietly reappearing as an
+  importer without anyone noticing) is exactly what this test was written to catch, so the gap is in
+  the test's own self-verification, not in its production coverage. A small fixture (a temporary file
+  under `server/` importing the module, asserted to be caught, then removed) would close this.

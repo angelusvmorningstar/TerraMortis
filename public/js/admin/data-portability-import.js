@@ -2,44 +2,17 @@
  * Data Portability — DP-2: per-collection validators, writers, and CSV parser.
  */
 
-import { apiGet, apiPost, apiPut } from '../data/api.js';
+import { apiPost, apiPut } from '../data/api.js';
 
 // ── Per-collection validators ─────────────────────────────────────────────────
 
 const VALID_OID = /^[0-9a-f]{24}$/i;
-const VALID_DATE = /^\d{4}-\d{2}-\d{2}/;
-const BOOL_VALS = new Set(['true', 'false', '1', '0', '']);
 
 export function validateRow(collection, row) {
   switch (collection) {
-    case 'territories':    return validateTerritoryRow(row);
-    case 'game_sessions':  return validateGameSessionRow(row);
-    case 'attendance':     return validateAttendanceRow(row);
     case 'npcs':           return validateNpcRow(row);
     default: return 'Unknown collection';
   }
-}
-
-function validateTerritoryRow(r) {
-  if (!r.id) return 'id is required';
-  return null;
-}
-
-function validateGameSessionRow(r) {
-  if (!r.session_date) return 'session_date is required';
-  if (!VALID_DATE.test(r.session_date)) return `session_date "${r.session_date}" is not a valid date`;
-  if (r._id && !VALID_OID.test(r._id)) return `_id "${r._id}" is not a valid ObjectId`;
-  if (r.game_number && isNaN(parseInt(r.game_number, 10))) return 'game_number must be an integer';
-  return null;
-}
-
-function validateAttendanceRow(r) {
-  if (!r.session_id) return 'session_id is required';
-  if (!VALID_OID.test(r.session_id)) return `session_id "${r.session_id}" is not a valid ObjectId`;
-  if (!r.character_name) return 'character_name is required';
-  if (r.attended && !BOOL_VALS.has(r.attended.toLowerCase())) return 'attended must be true or false';
-  if (r.extra_xp && isNaN(parseInt(r.extra_xp, 10))) return 'extra_xp must be an integer';
-  return null;
 }
 
 function validateNpcRow(r) {
@@ -51,59 +24,10 @@ function validateNpcRow(r) {
 
 // ── Per-collection writers ────────────────────────────────────────────────────
 
-function parseBool(v) { return v === 'true' || v === '1'; }
-
 export async function writeRow(collection, row) {
   switch (collection) {
-    case 'territories':    return writeTerritoryRow(row);
-    case 'game_sessions':  return writeGameSessionRow(row);
-    case 'attendance':     return writeAttendanceRow(row);
     case 'npcs':           return writeNpcRow(row);
   }
-}
-
-async function writeTerritoryRow(r) {
-  // Post-ADR-002: insert (no _id) creates a new doc with a generated _id;
-  // slug carries the legacy id value as a label.
-  // Issue #33 (2026-05-07): territorySchema is now strict — `regent_name`
-  // dropped from the body. It was a derived display cache, never persisted
-  // on real territory docs, and is not in the canonical fieldset.
-  await apiPost('/api/territories', {
-    slug: r.id || undefined,
-    name: r.name || undefined,
-    regent_id: r.regent_id || undefined,
-    ambience: r.ambience || undefined,
-    feeding_rights: r.feeding_rights ? r.feeding_rights.split(';').map(s => s.trim()).filter(Boolean) : [],
-  });
-}
-
-async function writeGameSessionRow(r) {
-  const body = {
-    session_date: r.session_date,
-    game_number: r.game_number ? parseInt(r.game_number, 10) : undefined,
-  };
-  if (r._id) await apiPut(`/api/game_sessions/${r._id}`, body);
-  else await apiPost('/api/game_sessions', body);
-}
-
-async function writeAttendanceRow(r) {
-  const session = await apiGet(`/api/game_sessions/${r.session_id}`);
-  const attendance = session.attendance ? [...session.attendance] : [];
-  const idx = attendance.findIndex(a =>
-    (r.character_id && String(a.character_id) === r.character_id) ||
-    (a.character_name === r.character_name)
-  );
-  const entry = {
-    character_id: r.character_id || undefined,
-    character_name: r.character_name,
-    attended: parseBool(r.attended),
-    costume:  parseBool(r.costume),
-    downtime: parseBool(r.downtime),
-    extra_xp: r.extra_xp ? parseInt(r.extra_xp, 10) : 0,
-  };
-  if (idx >= 0) attendance[idx] = { ...attendance[idx], ...entry };
-  else attendance.push(entry);
-  await apiPut(`/api/game_sessions/${r.session_id}`, { session_date: session.session_date, attendance });
 }
 
 async function writeNpcRow(r) {

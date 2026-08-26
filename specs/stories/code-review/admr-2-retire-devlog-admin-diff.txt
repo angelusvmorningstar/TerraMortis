@@ -1,0 +1,862 @@
+diff --git a/public/admin.html b/public/admin.html
+index 6b259646..a731280a 100644
+--- a/public/admin.html
++++ b/public/admin.html
+@@ -71,7 +71,6 @@
+       <button class="sidebar-btn" data-domain="equipment-catalogue">Equipment Catalogue</button>
+       <button class="sidebar-btn" data-domain="st-mods">ST Mods</button>
+       <button class="sidebar-btn" data-domain="st-mods-audit">ST Mods Audit</button>
+-      <button class="sidebar-btn" data-domain="devlog">Devlog</button>
+     </div>
+     <div class="sidebar-footer-nav" id="sidebar-footer-nav"></div>
+     <div class="sidebar-user" id="sidebar-user"></div>
+@@ -208,11 +207,6 @@
+       <div id="st-mods-audit-content"></div>
+     </section>
+ 
+-    <section id="d-devlog" class="domain">
+-      <div class="domain-header"><h2>Devlog</h2></div>
+-      <div id="devlog-admin-content"></div>
+-    </section>
+-
+   </main>
+ 
+ </div>
+diff --git a/public/css/admin-layout.css b/public/css/admin-layout.css
+index 2895ced0..a6ff16f6 100644
+--- a/public/css/admin-layout.css
++++ b/public/css/admin-layout.css
+@@ -204,57 +204,6 @@ body {
+ }
+ .btn-sm:hover { background: var(--surf3); }
+ 
+-/* ── Devlog admin ──
+-   The form fields reuse the canonical .form-* primitives (components.css);
+-   these rules cover the devlog-specific toolbar, form shell, entry cards and
+-   meta chips, which had no styling and fell back to browser defaults. */
+-.dl-admin-toolbar { margin-bottom: 16px; }
+-.dl-admin-list { display: flex; flex-direction: column; gap: 12px; }
+-.dl-form {
+-  display: flex; flex-direction: column; gap: 12px;
+-  background: var(--surf1); border: 1px solid var(--bdr);
+-  border-radius: 8px; padding: 16px; margin-bottom: 16px;
+-}
+-.dl-form-actions { display: flex; align-items: center; gap: 8px; }
+-.dl-form-actions .btn-sm { margin-left: 0; }
+-.dl-form-error { margin-left: auto; font-family: var(--ft); font-size: 13px; color: var(--crim); }
+-
+-.dl-card {
+-  display: flex; flex-direction: column; gap: 8px;
+-  background: var(--surf1); border: 1px solid var(--bdr);
+-  border-radius: 8px; padding: 14px 16px;
+-}
+-.dl-card-meta { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+-.dl-type-chip, .dl-status-chip {
+-  font-family: var(--fl); font-size: 10px; font-weight: 600;
+-  letter-spacing: .08em; text-transform: uppercase;
+-  padding: 3px 8px; border-radius: 4px;
+-  background: var(--surf2); border: 1px solid var(--bdr); color: var(--txt3);
+-}
+-.dl-status-chip { color: var(--accent); border-color: var(--accent-a40); }
+-/* Per-status RAG colours (recovered from #502 commit 30f0490; 'drafted'
+-   reconciled to the live schema's 'in_progress'). Theme vars cover both themes. */
+-.dl-status--considering { background: var(--crim-a8);        color: var(--crim2);       border-color: var(--crim-a15); }
+-.dl-status--in_progress { background: var(--warn-orange-bg); color: var(--warn-orange); border-color: var(--warn-orange-bdr); }
+-.dl-status--confirmed   { background: var(--green-dk-bg);    color: var(--green-dk);    border-color: var(--green-dk-bdr); }
+-.dl-status--implemented { background: var(--green-dk-bg);    color: var(--green-dk);    border-color: var(--green-dk-bdr); }
+-.dl-status--deferred    { background: transparent;           color: var(--txt3);        border-color: var(--bdr2); }
+-.dl-target { margin-left: auto; font-family: var(--fl); font-size: 11px; color: var(--txt3); }
+-.dl-card-title { font-family: var(--fh); font-size: 16px; color: var(--txt); }
+-.dl-card-body { font-family: var(--ft); font-size: 14px; color: var(--txt2); white-space: pre-wrap; }
+-.dl-card-actions { display: flex; gap: 8px; }
+-.dl-card-actions .btn-sm { margin-left: 0; }
+-.dl-new-chip {
+-  font-family: var(--fl); font-size: 10px; font-weight: 600;
+-  letter-spacing: .08em; text-transform: uppercase;
+-  padding: 3px 8px; border-radius: 4px;
+-  background: var(--accent-a8); color: var(--gold2); border: 1px solid var(--accent-a40);
+-}
+-.dl-check-label {
+-  display: flex; align-items: center; gap: 8px;
+-  font-family: var(--fl); font-size: 12px; color: var(--txt2); cursor: pointer;
+-}
+-
+ .placeholder {
+   color: var(--txt3);
+   font-style: italic;
+diff --git a/public/js/admin.js b/public/js/admin.js
+index c2b9fc07..b6987276 100644
+--- a/public/js/admin.js
++++ b/public/js/admin.js
+@@ -53,7 +53,9 @@ import { initEquipmentCatalogueAdmin } from './admin/equipment-catalogue-admin.j
+ // the ST-facing create/edit/delete screen this import used to wire up. File
+ // deleted.
+ import { initStModsAudit } from './admin/st-mods-audit.js';
+-import { initDevlogAdmin } from './admin/devlog-admin.js';
++// ADMR-2: Devlog admin authoring retired to TM Admin. admin/devlog-admin.js
++// deleted; server/routes/devlog.js unmounted entirely (no live TM Game
++// consumer survives it - full retirement, unlike Bloodlines' split).
+ import { initStModsPanel, refreshStModsPanelSettings } from './admin/st-mods-panel.js';
+ import { initCycleView } from './admin/cycle-views.js';
+ import { initDtStory } from './admin/downtime-story.js';
+@@ -340,7 +342,6 @@ function switchDomain(domain) {
+   if (domain === 'rde') initRulesDataView(document.getElementById('rde-content'));
+   if (domain === 'equipment-catalogue') initEquipmentCatalogueAdmin(document.getElementById('equipment-catalogue-content'), chars);
+   if (domain === 'st-mods-audit') initStModsAudit(document.getElementById('st-mods-audit-content'), chars);
+-  if (domain === 'devlog') initDevlogAdmin(document.getElementById('devlog-admin-content'));
+   if (domain === 'st-mods') {
+     // STM-5 (issue #386): panel works on the currently-selected character.
+     // editorState.editIdx tracks the open sheet; null/-1 → "select a char"
+diff --git a/public/js/admin/devlog-admin.js b/public/js/admin/devlog-admin.js
+deleted file mode 100644
+index cb60e138..00000000
+--- a/public/js/admin/devlog-admin.js
++++ /dev/null
+@@ -1,167 +0,0 @@
+-import { apiGet, apiPost, apiPatch, apiDelete } from '../data/api.js';
+-import { esc } from '../data/helpers.js';
+-
+-const STATUS_OPTS = [
+-  { value: 'considering', label: 'Under Consideration' },
+-  { value: 'confirmed',   label: 'Confirmed' },
+-  { value: 'in_progress', label: 'In Progress' },
+-  { value: 'implemented', label: 'Implemented' },
+-  { value: 'deferred',    label: 'Deferred' },
+-];
+-
+-const TYPE_OPTS = [
+-  { value: 'rule_change', label: 'Rule Change' },
+-  { value: 'app_feature', label: 'App Feature' },
+-];
+-
+-let _entries   = [];
+-let _editingId = null;
+-
+-export async function initDevlogAdmin(contentEl) {
+-  contentEl.innerHTML = '<p class="placeholder">Loading…</p>';
+-  try {
+-    _entries = await apiGet('/api/devlog');
+-  } catch (err) {
+-    contentEl.innerHTML = `<p class="placeholder">Failed: ${esc(err.message)}</p>`;
+-    return;
+-  }
+-  _editingId = null;
+-  _render(contentEl);
+-}
+-
+-function _render(root) {
+-  let h = `<div class="dl-admin-toolbar"><button class="btn-sm dl-add-btn">+ Add Entry</button></div>`;
+-  if (_editingId === 'new') h += _form(null);
+-  h += `<div class="dl-admin-list">`;
+-  for (const entry of _entries) {
+-    h += _editingId === entry._id ? _form(entry) : _card(entry);
+-  }
+-  h += `</div>`;
+-  root.innerHTML = h;
+-  _bindEvents(root);
+-}
+-
+-function _form(entry) {
+-  const id         = entry?._id || '';
+-  const statusOpts = STATUS_OPTS.map(o =>
+-    `<option value="${o.value}"${entry?.status === o.value ? ' selected' : ''}>${esc(o.label)}</option>`
+-  ).join('');
+-  const typeOpts = TYPE_OPTS.map(o =>
+-    `<option value="${o.value}"${entry?.type === o.value ? ' selected' : ''}>${esc(o.label)}</option>`
+-  ).join('');
+-  return `
+-    <form class="dl-form" data-id="${esc(id)}">
+-      <div class="form-grid">
+-        <div class="form-row">
+-          <label class="form-label">Type</label>
+-          <select class="form-select" name="type">${typeOpts}</select>
+-        </div>
+-        <div class="form-row">
+-          <label class="form-label">Status</label>
+-          <select class="form-select" name="status">${statusOpts}</select>
+-        </div>
+-      </div>
+-      <div class="form-row">
+-        <label class="form-label">Title</label>
+-        <input class="form-input" type="text" name="title" value="${esc(entry?.title || '')}" required>
+-      </div>
+-      <div class="form-row">
+-        <label class="form-label">Body</label>
+-        <textarea class="form-input" name="body" rows="4">${esc(entry?.body || '')}</textarea>
+-      </div>
+-      <div class="form-row">
+-        <label class="form-label">Target cycle</label>
+-        <input class="form-input" type="text" name="target_cycle" value="${esc(entry?.target_cycle || '')}" placeholder="e.g. Game 4">
+-      </div>
+-      <label class="dl-check-label">
+-        <input type="checkbox" name="highlight"${entry?.highlight ? ' checked' : ''}>
+-        Highlight as new (show in the player "Recently Shipped" section)
+-      </label>
+-      <div class="dl-form-actions">
+-        <button type="submit" class="btn-sm">${entry ? 'Save' : 'Create'}</button>
+-        <button type="button" class="btn-sm dl-cancel-btn">Cancel</button>
+-        <span class="dl-form-error"></span>
+-      </div>
+-    </form>`;
+-}
+-
+-function _card(entry) {
+-  const statusLabel = STATUS_OPTS.find(o => o.value === entry.status)?.label || entry.status;
+-  const typeLabel   = TYPE_OPTS.find(o => o.value === entry.type)?.label   || entry.type;
+-  return `
+-    <div class="dl-card" data-id="${esc(entry._id)}">
+-      <div class="dl-card-meta">
+-        <span class="dl-type-chip">${esc(typeLabel)}</span>
+-        <span class="dl-status-chip dl-status--${esc(entry.status)}">${esc(statusLabel)}</span>
+-        ${entry.highlight ? `<span class="dl-new-chip">New</span>` : ''}
+-        ${entry.target_cycle ? `<span class="dl-target">Target: ${esc(entry.target_cycle)}</span>` : ''}
+-      </div>
+-      <div class="dl-card-title">${esc(entry.title)}</div>
+-      ${entry.body ? `<div class="dl-card-body">${esc(entry.body)}</div>` : ''}
+-      <div class="dl-card-actions">
+-        <button class="btn-sm dl-edit-btn">Edit</button>
+-        <button class="btn-sm dl-delete-btn" style="color:var(--crim)">Delete</button>
+-      </div>
+-    </div>`;
+-}
+-
+-function _bindEvents(root) {
+-  root.querySelector('.dl-add-btn')?.addEventListener('click', () => {
+-    _editingId = 'new';
+-    _render(root);
+-  });
+-
+-  root.querySelectorAll('.dl-edit-btn').forEach(btn => {
+-    btn.addEventListener('click', () => {
+-      _editingId = btn.closest('.dl-card').dataset.id;
+-      _render(root);
+-    });
+-  });
+-
+-  root.querySelectorAll('.dl-delete-btn').forEach(btn => {
+-    btn.addEventListener('click', async () => {
+-      const id = btn.closest('.dl-card').dataset.id;
+-      if (!confirm('Delete this devlog entry?')) return;
+-      try {
+-        await apiDelete(`/api/devlog/${id}`);
+-        _entries = _entries.filter(e => e._id !== id);
+-        _render(root);
+-      } catch (err) {
+-        alert(`Delete failed: ${err.message}`);
+-      }
+-    });
+-  });
+-
+-  root.querySelectorAll('.dl-cancel-btn').forEach(btn => {
+-    btn.addEventListener('click', () => {
+-      _editingId = null;
+-      _render(root);
+-    });
+-  });
+-
+-  root.querySelectorAll('.dl-form').forEach(form => {
+-    form.addEventListener('submit', async (e) => {
+-      e.preventDefault();
+-      const errEl = form.querySelector('.dl-form-error');
+-      const id    = form.dataset.id;
+-      const data  = Object.fromEntries(new FormData(form));
+-      // FormData omits an unchecked box and gives "on" when checked; the schema
+-      // wants a real boolean, so read the element directly.
+-      data.highlight = !!form.elements.highlight?.checked;
+-      try {
+-        if (!id) {
+-          const created = await apiPost('/api/devlog', data);
+-          _entries.unshift(created);
+-        } else {
+-          const updated = await apiPatch(`/api/devlog/${id}`, data);
+-          const idx = _entries.findIndex(e => e._id === id);
+-          if (idx !== -1) _entries[idx] = updated;
+-        }
+-        _editingId = null;
+-        _render(root);
+-      } catch (err) {
+-        errEl.textContent = err.message;
+-      }
+-    });
+-  });
+-}
+diff --git a/server/index.js b/server/index.js
+index 04c15545..df4d56ec 100644
+--- a/server/index.js
++++ b/server/index.js
+@@ -38,7 +38,6 @@ import contestedRollsRouter from './routes/contested-rolls.js';
+ import humanityCheckRouter from './routes/humanity-check.js';
+ import stModsRouter, { auditRouter as stModAuditRouter } from './routes/st_mods.js';
+ import appSettingsRouter from './routes/app-settings.js';
+-import devlogRouter from './routes/devlog.js';
+ import buildEquipmentCatalogueRouter from './routes/equipment-catalogue.js';
+ import storyCyclesRouter from './routes/story-cycles.js';
+ import buildBloodlinesRouter from './routes/bloodlines.js';
+@@ -217,7 +216,6 @@ app.use('/api/st_mod_audit', requireAuth, noCache(), stModAuditRouter);
+ // PATCH from the STM-5 admin panel needs to surface to all readers without
+ // stale-cache lag.
+ app.use('/api/settings', requireAuth, noCache(), appSettingsRouter);
+-app.use('/api/devlog',         requireAuth, noCache(), devlogRouter);
+ app.use('/api/office_actions', requireAuth, noCache(), officeActionsRouter);
+ app.use('/api/office_merit_dots', requireAuth, noCache(), officeMeritDotsRouter);
+ app.use('/api/office_manoeuvre_rank', requireAuth, noCache(), officeManoeuvreRankRouter);
+diff --git a/server/routes/devlog.js b/server/routes/devlog.js
+deleted file mode 100644
+index 7b31ea35..00000000
+--- a/server/routes/devlog.js
++++ /dev/null
+@@ -1,45 +0,0 @@
+-import { Router }   from 'express';
+-import { ObjectId } from 'mongodb';
+-import { getCollection } from '../db.js';
+-import { requireRole }   from '../middleware/auth.js';
+-import { validate }      from '../middleware/validate.js';
+-import { devlogEntrySchema } from '../schemas/devlog_entry.schema.js';
+-
+-const router = Router();
+-const col    = () => getCollection('devlog_entries');
+-
+-router.get('/', async (req, res) => {
+-  const entries = await col().find({}).sort({ created_at: -1 }).toArray();
+-  res.json(entries);
+-});
+-
+-router.post('/', requireRole('st'), validate(devlogEntrySchema), async (req, res) => {
+-  const now    = new Date().toISOString();
+-  const doc    = { ...req.body, created_at: now, updated_at: now };
+-  const result = await col().insertOne(doc);
+-  res.status(201).json({ ...doc, _id: result.insertedId });
+-});
+-
+-router.patch('/:id', requireRole('st'), async (req, res) => {
+-  const { id } = req.params;
+-  if (!ObjectId.isValid(id)) return res.status(400).json({ error: 'BAD_ID' });
+-  const update = { ...req.body, updated_at: new Date().toISOString() };
+-  delete update._id;
+-  const result = await col().findOneAndUpdate(
+-    { _id: new ObjectId(id) },
+-    { $set: update },
+-    { returnDocument: 'after' }
+-  );
+-  if (!result) return res.status(404).json({ error: 'NOT_FOUND' });
+-  res.json(result);
+-});
+-
+-router.delete('/:id', requireRole('st'), async (req, res) => {
+-  const { id } = req.params;
+-  if (!ObjectId.isValid(id)) return res.status(400).json({ error: 'BAD_ID' });
+-  const result = await col().deleteOne({ _id: new ObjectId(id) });
+-  if (result.deletedCount === 0) return res.status(404).json({ error: 'NOT_FOUND' });
+-  res.json({ ok: true });
+-});
+-
+-export default router;
+diff --git a/server/schemas/devlog_entry.schema.js b/server/schemas/devlog_entry.schema.js
+deleted file mode 100644
+index dc43a7eb..00000000
+--- a/server/schemas/devlog_entry.schema.js
++++ /dev/null
+@@ -1,20 +0,0 @@
+-export const devlogEntrySchema = {
+-  $schema: 'http://json-schema.org/draft-07/schema#',
+-  title: 'TM Devlog Entry',
+-  type: 'object',
+-  required: ['type', 'title', 'status'],
+-  additionalProperties: true,
+-  properties: {
+-    type:         { type: 'string', enum: ['rule_change', 'app_feature'] },
+-    title:        { type: 'string', minLength: 1 },
+-    body:         { type: 'string' },
+-    status:       { type: 'string', enum: ['considering', 'confirmed', 'in_progress', 'implemented', 'deferred'] },
+-    // When true, the entry is surfaced in the player tab's prominent
+-    // "Recently Shipped" section regardless of status, instead of falling into
+-    // the collapsed Resolved group. Lets a just-implemented change read as news.
+-    highlight:    { type: 'boolean' },
+-    target_cycle: { type: 'string' },
+-    created_at:   { type: 'string' },
+-    updated_at:   { type: 'string' },
+-  },
+-};
+diff --git a/server/tests/api-devlog.test.js b/server/tests/api-devlog.test.js
+deleted file mode 100644
+index 7dd77101..00000000
+--- a/server/tests/api-devlog.test.js
++++ /dev/null
+@@ -1,243 +0,0 @@
+-/**
+- * API tests — /api/devlog (issue #502)
+- *
+- * AC#1 — GET returns entries array; all authenticated users can read
+- * AC#2 — POST creates an entry (ST only, 201)
+- * AC#3 — PATCH updates an entry (ST only)
+- * AC#4 — DELETE removes an entry (ST only)
+- * AC#5 — Auth enforcement: 401 unauthenticated; 403 player on write routes
+- */
+-
+-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+-import request from 'supertest';
+-import { createTestApp, stUser, playerUser } from './helpers/test-app.js';
+-import { setupDb, teardownDb } from './helpers/db-setup.js';
+-import { getCollection } from '../db.js';
+-
+-let app;
+-const col = () => getCollection('devlog_entries');
+-
+-const VALID_ENTRY = {
+-  type:   'rule_change',
+-  title:  'Test rule change',
+-  body:   'We are considering this change.',
+-  status: 'considering',
+-};
+-
+-beforeAll(async () => {
+-  await setupDb();
+-  app = createTestApp();
+-  await col().deleteMany({ title: { $regex: /^Test / } });
+-});
+-
+-afterAll(async () => {
+-  await col().deleteMany({ title: { $regex: /^Test / } });
+-  await teardownDb();
+-});
+-
+-// ── AC#5 — Auth ─────────────────────────────────────────────────────────
+-
+-describe('AC#5 — auth enforcement', () => {
+-  it('401 on GET without auth', async () => {
+-    const res = await request(app).get('/api/devlog');
+-    expect(res.status).toBe(401);
+-  });
+-
+-  it('401 on POST without auth', async () => {
+-    const res = await request(app).post('/api/devlog').send(VALID_ENTRY);
+-    expect(res.status).toBe(401);
+-  });
+-
+-  it('403 on POST as player', async () => {
+-    const res = await request(app)
+-      .post('/api/devlog')
+-      .set('X-Test-User', playerUser())
+-      .send(VALID_ENTRY);
+-    expect(res.status).toBe(403);
+-  });
+-
+-  it('403 on PATCH as player', async () => {
+-    // Use a structurally valid ObjectId string — 403 should fire before id check
+-    const fakeId = '000000000000000000000001';
+-    const res = await request(app)
+-      .patch(`/api/devlog/${fakeId}`)
+-      .set('X-Test-User', playerUser())
+-      .send({ status: 'confirmed' });
+-    expect(res.status).toBe(403);
+-  });
+-
+-  it('403 on DELETE as player', async () => {
+-    const fakeId = '000000000000000000000001';
+-    const res = await request(app)
+-      .delete(`/api/devlog/${fakeId}`)
+-      .set('X-Test-User', playerUser());
+-    expect(res.status).toBe(403);
+-  });
+-});
+-
+-// ── AC#1 — GET ──────────────────────────────────────────────────────────
+-
+-describe('AC#1 — GET returns entries for authenticated users', () => {
+-  it('returns an array as ST', async () => {
+-    const res = await request(app).get('/api/devlog').set('X-Test-User', stUser());
+-    expect(res.status).toBe(200);
+-    expect(Array.isArray(res.body)).toBe(true);
+-  });
+-
+-  it('returns an array as player', async () => {
+-    const res = await request(app).get('/api/devlog').set('X-Test-User', playerUser());
+-    expect(res.status).toBe(200);
+-    expect(Array.isArray(res.body)).toBe(true);
+-  });
+-});
+-
+-// ── AC#2 — POST ─────────────────────────────────────────────────────────
+-
+-describe('AC#2 — POST creates entry (ST only)', () => {
+-  let createdId;
+-
+-  it('201 with required fields', async () => {
+-    const res = await request(app)
+-      .post('/api/devlog')
+-      .set('X-Test-User', stUser())
+-      .send(VALID_ENTRY);
+-    expect(res.status).toBe(201);
+-    expect(res.body._id).toBeTruthy();
+-    expect(res.body.title).toBe(VALID_ENTRY.title);
+-    expect(res.body.type).toBe(VALID_ENTRY.type);
+-    expect(res.body.status).toBe(VALID_ENTRY.status);
+-    expect(typeof res.body.created_at).toBe('string');
+-    expect(typeof res.body.updated_at).toBe('string');
+-    createdId = res.body._id;
+-  });
+-
+-  it('400 on missing required field (no title)', async () => {
+-    const { title: _omit, ...body } = VALID_ENTRY;
+-    const res = await request(app)
+-      .post('/api/devlog')
+-      .set('X-Test-User', stUser())
+-      .send(body);
+-    expect(res.status).toBe(400);
+-  });
+-
+-  it('400 on invalid type enum', async () => {
+-    const res = await request(app)
+-      .post('/api/devlog')
+-      .set('X-Test-User', stUser())
+-      .send({ ...VALID_ENTRY, type: 'banana' });
+-    expect(res.status).toBe(400);
+-  });
+-
+-  it('400 on invalid status enum', async () => {
+-    const res = await request(app)
+-      .post('/api/devlog')
+-      .set('X-Test-User', stUser())
+-      .send({ ...VALID_ENTRY, status: 'unknown' });
+-    expect(res.status).toBe(400);
+-  });
+-
+-  it('accepts and round-trips the boolean highlight flag', async () => {
+-    const res = await request(app)
+-      .post('/api/devlog')
+-      .set('X-Test-User', stUser())
+-      .send({ ...VALID_ENTRY, title: 'Test highlight flag', highlight: true });
+-    expect(res.status).toBe(201);
+-    expect(res.body.highlight).toBe(true);
+-  });
+-
+-  it('400 when highlight is not a boolean', async () => {
+-    const res = await request(app)
+-      .post('/api/devlog')
+-      .set('X-Test-User', stUser())
+-      .send({ ...VALID_ENTRY, highlight: 'yes' });
+-    expect(res.status).toBe(400);
+-  });
+-
+-  // expose createdId for PATCH / DELETE suites
+-  afterAll(() => {
+-    globalThis._devlogTestId = createdId;
+-  });
+-});
+-
+-// ── AC#3 — PATCH ────────────────────────────────────────────────────────
+-
+-describe('AC#3 — PATCH updates entry (ST only)', () => {
+-  let targetId;
+-
+-  beforeAll(async () => {
+-    // Use the id left by the POST suite, or create a fresh one
+-    if (globalThis._devlogTestId) {
+-      targetId = globalThis._devlogTestId;
+-    } else {
+-      const res = await request(app)
+-        .post('/api/devlog')
+-        .set('X-Test-User', stUser())
+-        .send({ ...VALID_ENTRY, title: 'Test patch target' });
+-      targetId = res.body._id;
+-    }
+-  });
+-
+-  it('200 with updated field reflected in response', async () => {
+-    const res = await request(app)
+-      .patch(`/api/devlog/${targetId}`)
+-      .set('X-Test-User', stUser())
+-      .send({ status: 'confirmed' });
+-    expect(res.status).toBe(200);
+-    expect(res.body.status).toBe('confirmed');
+-    expect(typeof res.body.updated_at).toBe('string');
+-  });
+-
+-  it('400 on malformed id', async () => {
+-    const res = await request(app)
+-      .patch('/api/devlog/not-an-objectid')
+-      .set('X-Test-User', stUser())
+-      .send({ status: 'confirmed' });
+-    expect(res.status).toBe(400);
+-    expect(res.body.error).toBe('BAD_ID');
+-  });
+-
+-  it('404 on unknown id', async () => {
+-    const res = await request(app)
+-      .patch('/api/devlog/000000000000000000000099')
+-      .set('X-Test-User', stUser())
+-      .send({ status: 'confirmed' });
+-    expect(res.status).toBe(404);
+-  });
+-});
+-
+-// ── AC#4 — DELETE ───────────────────────────────────────────────────────
+-
+-describe('AC#4 — DELETE removes entry (ST only)', () => {
+-  let targetId;
+-
+-  beforeAll(async () => {
+-    const res = await request(app)
+-      .post('/api/devlog')
+-      .set('X-Test-User', stUser())
+-      .send({ ...VALID_ENTRY, title: 'Test delete target' });
+-    targetId = res.body._id;
+-  });
+-
+-  it('200 ok: true on successful delete', async () => {
+-    const res = await request(app)
+-      .delete(`/api/devlog/${targetId}`)
+-      .set('X-Test-User', stUser());
+-    expect(res.status).toBe(200);
+-    expect(res.body.ok).toBe(true);
+-  });
+-
+-  it('404 on second delete of same id', async () => {
+-    const res = await request(app)
+-      .delete(`/api/devlog/${targetId}`)
+-      .set('X-Test-User', stUser());
+-    expect(res.status).toBe(404);
+-  });
+-
+-  it('400 on malformed id', async () => {
+-    const res = await request(app)
+-      .delete('/api/devlog/not-an-objectid')
+-      .set('X-Test-User', stUser());
+-    expect(res.status).toBe(400);
+-    expect(res.body.error).toBe('BAD_ID');
+-  });
+-});
+diff --git a/server/tests/helpers/test-app.js b/server/tests/helpers/test-app.js
+index 40ab6d5b..9e87aee6 100644
+--- a/server/tests/helpers/test-app.js
++++ b/server/tests/helpers/test-app.js
+@@ -28,7 +28,6 @@ import npcFlagsRouter from '../../routes/npc-flags.js';
+ import npcsRouter from '../../routes/npcs.js';
+ import stModsRouter, { auditRouter as stModAuditRouter } from '../../routes/st_mods.js';
+ import appSettingsRouter from '../../routes/app-settings.js';
+-import devlogRouter from '../../routes/devlog.js';
+ import buildEquipmentCatalogueRouter from '../../routes/equipment-catalogue.js';
+ import { storyCyclesRouter } from '../../routes/story-cycles.js';
+ import buildBloodlinesRouter from '../../routes/bloodlines.js';
+@@ -123,8 +122,6 @@ export function createTestApp() {
+   app.use('/api/st_mod_audit', mockAuth, noCache(), stModAuditRouter);
+   // Epic STM (issue #378): app settings (global kill-switch)
+   app.use('/api/settings', mockAuth, noCache(), appSettingsRouter);
+-  // Issue #502: devlog entries (player read, ST write)
+-  app.use('/api/devlog', mockAuth, noCache(), devlogRouter);
+   // CYCLE epic (#708): story cycle management (was /api/chapters until cm-2)
+   app.use('/api/story_cycles', mockAuth, noCache(), storyCyclesRouter);
+   // Issue #971: CYOA cross-project write-back
+diff --git a/tests/issue-1135-deleted-tabs.spec.js b/tests/issue-1135-deleted-tabs.spec.js
+index 8540d4bc..93cdbee7 100644
+--- a/tests/issue-1135-deleted-tabs.spec.js
++++ b/tests/issue-1135-deleted-tabs.spec.js
+@@ -182,12 +182,26 @@ test('#1135: admin has no Tickets domain, and no 404 for the deleted stylesheet'
+   expect(errors, `admin threw: ${errors.join(' | ')}`).toHaveLength(0);
+ });
+ 
+-test('#1135: the admin Devlog domain still opens (authoring survives)', async ({ page }) => {
++// ADMR-2: Devlog admin authoring retired from TM Game (full retirement, not a
++// split - unlike Bloodlines, no live TM Game consumer of /api/devlog survives
++// it). Mirrors the Tickets assertion above.
++test('#1135/ADMR-2: admin has no Devlog domain, and no 404 for a deleted devlog stylesheet', async ({ page }) => {
++  const failed = [];
++  page.on('requestfailed', r => failed.push(r.url()));
++  const notFound = [];
++  page.on('response', r => { if (r.status() === 404) notFound.push(r.url()); });
++  const errors = [];
++  page.on('pageerror', e => errors.push(e.message));
++
+   await loginAsAdmin(page);
+-  await expect(page.locator('[data-domain="devlog"]')).toBeVisible();
+-  await page.click('[data-domain="devlog"]');
+-  await page.waitForSelector('#d-devlog.active', { timeout: 10000 });
+-  await expect(page.locator('#devlog-admin-content')).toBeVisible();
++
++  await expect(page.locator('[data-domain="devlog"]')).toHaveCount(0);
++  await expect(page.locator('#d-devlog')).toHaveCount(0);
++  await expect(page.locator('#devlog-admin-content')).toHaveCount(0);
++
++  const badCss = [...failed, ...notFound].filter(u => /devlog/i.test(u));
++  expect(badCss, `no devlog-specific asset should be requested at all: ${badCss.join(', ')}`).toHaveLength(0);
++  expect(errors, `admin threw: ${errors.join(' | ')}`).toHaveLength(0);
+ });
+ 
+ // AC5 is about the city map OVERLAY still working, not merely the domain opening.
+diff --git a/tests/issue-502-devlog-tab.spec.js b/tests/issue-502-devlog-tab.spec.js
+deleted file mode 100644
+index 8cd1a472..00000000
+--- a/tests/issue-502-devlog-tab.spec.js
++++ /dev/null
+@@ -1,171 +0,0 @@
+-/**
+- * E2E tests — Devlog admin domain (issue #502)
+- *
+- * Admin CRUD: admin.html Devlog domain — create, edit, delete entries.
+- *
+- * The player-read half of this file was retired with #1135, which deleted the
+- * Devlog tab from the game app. The admin surface below is unchanged and must
+- * keep passing: it is still the only way devlog entries are authored, and they
+- * still reach players, via TM Herald's GET /api/devlog poll into Discord.
+- */
+-
+-const { test, expect } = require('@playwright/test');
+-
+-// ── Fixtures ─────────────────────────────────────────────────────────────
+-
+-const ST_USER = {
+-  id: 'test-st-e2e',
+-  username: 'test_st',
+-  global_name: 'Test ST',
+-  avatar: null,
+-  role: 'st',
+-  player_id: 'p-st-e2e',
+-  character_ids: [],
+-  is_dual_role: false,
+-};
+-
+-const MOCK_DEVLOG_ENTRIES = [
+-  {
+-    _id: 'dl-001',
+-    type: 'rule_change',
+-    title: 'Street Fighting rework',
+-    body: 'We are reviewing the exclusive-attack clause.',
+-    status: 'considering',
+-    target_cycle: 'Game 5',
+-    created_at: '2026-05-01T00:00:00.000Z',
+-    updated_at: '2026-05-01T00:00:00.000Z',
+-  },
+-  {
+-    _id: 'dl-002',
+-    type: 'app_feature',
+-    title: 'Regency tracker',
+-    body: 'Live regency dot display per territory.',
+-    status: 'in_progress',
+-    target_cycle: null,
+-    created_at: '2026-05-10T00:00:00.000Z',
+-    updated_at: '2026-05-10T00:00:00.000Z',
+-  },
+-  {
+-    _id: 'dl-003',
+-    type: 'app_feature',
+-    title: 'Dark mode for mobile',
+-    body: 'Already shipped.',
+-    status: 'implemented',
+-    target_cycle: 'Game 4',
+-    created_at: '2026-04-01T00:00:00.000Z',
+-    updated_at: '2026-04-20T00:00:00.000Z',
+-  },
+-];
+-
+-// ── Helpers ───────────────────────────────────────────────────────────────
+-
+-async function loginAsAdmin(page) {
+-  await page.addInitScript(({ user }) => {
+-    localStorage.setItem('tm_auth_token', 'fake-test-token');
+-    localStorage.setItem('tm_auth_expires', String(Date.now() + 3600000));
+-    localStorage.setItem('tm_auth_user', JSON.stringify(user));
+-  }, { user: ST_USER });
+-
+-  await page.route('**/api/auth/me', route =>
+-    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(ST_USER) })
+-  );
+-  // Stub noisy admin API calls so the app boots without errors
+-  await page.route('**/api/characters*', route =>
+-    route.fulfill({ status: 200, contentType: 'application/json', body: '[]' })
+-  );
+-  await page.route('**/api/chapters*', route =>
+-    route.fulfill({ status: 200, contentType: 'application/json', body: '[]' })
+-  );
+-  await page.route('**/api/game_sessions*', route =>
+-    route.fulfill({ status: 200, contentType: 'application/json', body: '[]' })
+-  );
+-}
+-
+-// ══════════════════════════════════════════════════════════════════════════
+-//  ADMIN — Devlog domain
+-// ══════════════════════════════════════════════════════════════════════════
+-
+-test.describe('Admin — Devlog domain (AC#6)', () => {
+-  test('Devlog sidebar button is present', async ({ page }) => {
+-    await loginAsAdmin(page);
+-    await page.route('**/api/devlog*', route =>
+-      route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([]) })
+-    );
+-    await page.goto('/admin.html');
+-    await page.waitForSelector('#admin-app:not([style*="display: none"])', { timeout: 10000 });
+-    await expect(page.locator('[data-domain="devlog"]')).toBeVisible();
+-  });
+-
+-  test('Clicking Devlog button loads the management panel', async ({ page }) => {
+-    await loginAsAdmin(page);
+-    await page.route('**/api/devlog*', route =>
+-      route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([]) })
+-    );
+-    await page.goto('/admin.html');
+-    await page.waitForSelector('#admin-app:not([style*="display: none"])', { timeout: 10000 });
+-
+-    await page.click('[data-domain="devlog"]');
+-    await page.waitForSelector('#d-devlog.active', { timeout: 5000 });
+-    await expect(page.locator('#devlog-admin-content')).toBeVisible();
+-  });
+-
+-  test('Empty state shows after load with no entries', async ({ page }) => {
+-    await loginAsAdmin(page);
+-    await page.route('**/api/devlog*', route =>
+-      route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([]) })
+-    );
+-    await page.goto('/admin.html');
+-    await page.waitForSelector('#admin-app:not([style*="display: none"])', { timeout: 10000 });
+-    await page.click('[data-domain="devlog"]');
+-    await page.waitForSelector('#d-devlog.active', { timeout: 5000 });
+-
+-    // Should show some kind of empty or add-entry state, not crash
+-    await expect(page.locator('#devlog-admin-content')).toBeVisible();
+-  });
+-
+-  test('Existing entries render with title and status chip', async ({ page }) => {
+-    await loginAsAdmin(page);
+-    await page.route('**/api/devlog*', route =>
+-      route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(MOCK_DEVLOG_ENTRIES) })
+-    );
+-    await page.goto('/admin.html');
+-    await page.waitForSelector('#admin-app:not([style*="display: none"])', { timeout: 10000 });
+-    await page.click('[data-domain="devlog"]');
+-    await page.waitForSelector('#d-devlog.active', { timeout: 5000 });
+-
+-    // First active entry title should appear
+-    await expect(page.locator('#devlog-admin-content')).toContainText('Street Fighting rework');
+-    await expect(page.locator('#devlog-admin-content')).toContainText('Regency tracker');
+-    // Status chip for 'considering' should show human-readable label
+-    await expect(page.locator('#devlog-admin-content')).toContainText('Under Consideration');
+-  });
+-
+-  test('Add Entry button reveals the form', async ({ page }) => {
+-    await loginAsAdmin(page);
+-    await page.route('**/api/devlog', route => {
+-      if (route.request().method() === 'GET')
+-        return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([]) });
+-      return route.continue();
+-    });
+-    await page.goto('/admin.html');
+-    await page.waitForSelector('#admin-app:not([style*="display: none"])', { timeout: 10000 });
+-    await page.click('[data-domain="devlog"]');
+-    await page.waitForSelector('#d-devlog.active', { timeout: 5000 });
+-
+-    await page.click('button:has-text("Add Entry")');
+-    // Form fields should appear
+-    await expect(page.locator('#devlog-admin-content select[name="type"], #devlog-admin-content select[data-field="type"]')).toBeVisible({ timeout: 3000 }).catch(() => {
+-      // Accept any form appearing in the panel
+-      return expect(page.locator('#devlog-admin-content form, #devlog-admin-content .devlog-form')).toBeVisible({ timeout: 3000 });
+-    });
+-  });
+-});
+-
+-// ══════════════════════════════════════════════════════════════════════════
+-//  PLAYER — retired with #1135 (the devlog tab was deleted from the game app).
+-//
+-//  The AC#7-10 describe block and its loginAsGameApp helper went with the tab.
+-//  The ST authoring surface above survives and must keep passing. Devlog entries
+-//  still reach players through Discord: TM Herald polls GET /api/devlog and
+-//  announces new ones (TM Herald/services/announcements.js).
+-// ══════════════════════════════════════════════════════════════════════════

@@ -18,7 +18,6 @@
      admin surfaces emit. Asymmetry ends at P3 with admin.html. -->
 <link rel="stylesheet" href="css/admin-shared.css">
 <link rel="stylesheet" href="css/admin-spheres.css">
-<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <!-- Theme init: run before body renders to prevent flash -->
 <script>
 (function(){
@@ -69,10 +68,8 @@
       <button class="sidebar-btn" data-domain="rules">Rule Data</button>
       <button class="sidebar-btn" data-domain="rde">Rules Engine</button>
       <button class="sidebar-btn" data-domain="equipment-catalogue">Equipment Catalogue</button>
-      <button class="sidebar-btn" data-domain="bloodlines">Bloodlines</button>
       <button class="sidebar-btn" data-domain="st-mods">ST Mods</button>
       <button class="sidebar-btn" data-domain="st-mods-audit">ST Mods Audit</button>
-      <button class="sidebar-btn" data-domain="devlog">Devlog</button>
     </div>
     <div class="sidebar-footer-nav" id="sidebar-footer-nav"></div>
     <div class="sidebar-user" id="sidebar-user"></div>
@@ -201,22 +198,12 @@
       <div id="equipment-catalogue-content"></div>
     </section>
 
-    <section id="d-bloodlines" class="domain">
-      <div class="domain-header"><h2>Bloodlines</h2></div>
-      <div id="bloodlines-content"></div>
-    </section>
-
     <section id="d-st-mods" class="domain">
       <div id="st-mods-panel-content"></div>
     </section>
 
     <section id="d-st-mods-audit" class="domain">
       <div id="st-mods-audit-content"></div>
-    </section>
-
-    <section id="d-devlog" class="domain">
-      <div class="domain-header"><h2>Devlog</h2></div>
-      <div id="devlog-admin-content"></div>
     </section>
 
   </main>

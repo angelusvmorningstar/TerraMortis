@@ -1,8 +1,13 @@
 /**
  * The `bloodlines` collection's unique-name index (Epic BL, #1008).
  *
- * Shared by the seed script and the write route so there is exactly one
- * definition of what "names must be distinct" means in this collection.
+ * Originally shared by the archived seed script and the ST-facing write
+ * route so there was exactly one definition of what "names must be distinct"
+ * means in this collection. ADMR-1 (2026-08-26) retired the write route
+ * (authoring moved to TM Admin); the frozen `server/scripts/archive/
+ * seed-bloodlines.js` remains the one live caller, still smoke-tested by
+ * `bl3b-archived-seed-smoke.test.js` for exactly that reason. Behavioural
+ * coverage of this function itself lives in `bloodline-name-index.test.js`.
  *
  * ──────────────────────────────────────────────────────────────────────────
  *   Why the index carries a collation

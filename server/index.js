@@ -38,7 +38,6 @@ import contestedRollsRouter from './routes/contested-rolls.js';
 import humanityCheckRouter from './routes/humanity-check.js';
 import stModsRouter, { auditRouter as stModAuditRouter } from './routes/st_mods.js';
 import appSettingsRouter from './routes/app-settings.js';
-import devlogRouter from './routes/devlog.js';
 import buildEquipmentCatalogueRouter from './routes/equipment-catalogue.js';
 import storyCyclesRouter from './routes/story-cycles.js';
 import buildBloodlinesRouter from './routes/bloodlines.js';
@@ -89,11 +88,14 @@ app.use('/api/auth', authRouter);
 // admin sidebar) hit /api/equipment_catalogue directly.
 app.use('/api/equipment_catalogue', buildEquipmentCatalogueRouter(requireAuth));
 
-// Bloodlines (public reads). Epic BL (#1008): the `bloodlines` collection
-// lives at /api/bloodlines. BL-1 ships reads only and nothing in the client
-// consumes them yet — BL-2 rewires `clanDiscList` onto this, and the player
-// app needs it without a token, hence the unauthed mount. Writes arrive in
-// BL-4 inside the router, following the equipment_catalogue precedent above.
+// Bloodlines (public read only). Epic BL (#1008): the `bloodlines` collection
+// lives at /api/bloodlines. `clanDiscList` reads it (public/js/data/accessors.js),
+// and the player app needs it without a token, hence the unauthed mount.
+// ADMR-1 (2026-08-26) retired the BL-4 write API this router used to also
+// carry — ST authoring now lives entirely in TM Admin, a separate app writing
+// to this same shared collection. `requireAuth` is accepted but unused by the
+// router's own sole surviving route; kept only so this mount line needs no
+// change (server/routes/bloodlines.js explains why).
 app.use('/api/bloodlines', buildBloodlinesRouter(requireAuth));
 
 // Protected routes — require valid token (role resolved from players collection)
@@ -214,7 +216,6 @@ app.use('/api/st_mod_audit', requireAuth, noCache(), stModAuditRouter);
 // PATCH from the STM-5 admin panel needs to surface to all readers without
 // stale-cache lag.
 app.use('/api/settings', requireAuth, noCache(), appSettingsRouter);
-app.use('/api/devlog',         requireAuth, noCache(), devlogRouter);
 app.use('/api/office_actions', requireAuth, noCache(), officeActionsRouter);
 app.use('/api/office_merit_dots', requireAuth, noCache(), officeMeritDotsRouter);
 app.use('/api/office_manoeuvre_rank', requireAuth, noCache(), officeManoeuvreRankRouter);

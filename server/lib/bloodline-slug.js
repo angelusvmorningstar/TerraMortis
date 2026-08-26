@@ -2,10 +2,14 @@
  * Bloodline slug derivation (BL-4, issue #1008).
  *
  * Lifted out of `server/scripts/seed-bloodlines.js:78-85` so the seed and the
- * write route share ONE implementation. BL-3b retires the seed to
- * `scripts/archive/`; leaving `deriveSlug` in there would either take the
- * route's slug logic with it or, worse, invite a second copy. A slug that two
- * writers derive differently is drift pattern #2 wearing a different hat.
+ * (since-retired) write route shared ONE implementation. BL-3b retired the
+ * seed to `scripts/archive/`; leaving `deriveSlug` in there would either have
+ * taken the route's slug logic with it or, worse, invited a second copy.
+ * ADMR-1 (2026-08-26) then retired the write route itself (authoring moved to
+ * TM Admin) - the frozen `server/scripts/archive/seed-bloodlines.js` remains
+ * the one live caller, still smoke-tested by `bl3b-archived-seed-smoke.test.js`
+ * for exactly that reason. Behavioural coverage of this function itself lives
+ * in `bloodline-slug.test.js`.
  *
  * The slug is always derived server-side from `name` and is never accepted
  * from a client.

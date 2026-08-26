@@ -146,7 +146,7 @@ test('#1135: Settings has no Submit-a-Ticket form', async ({ page }) => {
   expect(errors, `Settings threw: ${errors.join(' | ')}`).toHaveLength(0);
 });
 
-// ── Admin side: Tickets gone, City and Devlog untouched ──────────────────────
+// ── Admin side: Tickets and Devlog gone, City untouched ──────────────────────
 
 async function loginAsAdmin(page) {
   await page.addInitScript((u) => {
@@ -182,12 +182,25 @@ test('#1135: admin has no Tickets domain, and no 404 for the deleted stylesheet'
   expect(errors, `admin threw: ${errors.join(' | ')}`).toHaveLength(0);
 });
 
-test('#1135: the admin Devlog domain still opens (authoring survives)', async ({ page }) => {
+// ADMR-2: Devlog admin authoring retired from TM Game (full retirement, not a
+// split - unlike Bloodlines, no live TM Game consumer of /api/devlog survives
+// it). Mirrors the Tickets assertion above, EXCEPT Devlog's CSS was never its
+// own stylesheet (unlike Tickets' admin-tickets.css) - it lived inline in the
+// shared admin-layout.css, so there is no separate asset to 404 on. An
+// external Codex review caught the original version of this test overclaiming
+// a "no 404 for a deleted devlog stylesheet" check that could never actually
+// fire; this version checks only what the retirement genuinely guarantees.
+test('#1135/ADMR-2: admin has no Devlog domain', async ({ page }) => {
+  const errors = [];
+  page.on('pageerror', e => errors.push(e.message));
+
   await loginAsAdmin(page);
-  await expect(page.locator('[data-domain="devlog"]')).toBeVisible();
-  await page.click('[data-domain="devlog"]');
-  await page.waitForSelector('#d-devlog.active', { timeout: 10000 });
-  await expect(page.locator('#devlog-admin-content')).toBeVisible();
+
+  await expect(page.locator('[data-domain="devlog"]')).toHaveCount(0);
+  await expect(page.locator('#d-devlog')).toHaveCount(0);
+  await expect(page.locator('#devlog-admin-content')).toHaveCount(0);
+
+  expect(errors, `admin threw: ${errors.join(' | ')}`).toHaveLength(0);
 });
 
 // AC5 is about the city map OVERLAY still working, not merely the domain opening.
