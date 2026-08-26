@@ -33,6 +33,7 @@ import { storyCyclesRouter } from '../../routes/story-cycles.js';
 import buildBloodlinesRouter from '../../routes/bloodlines.js';
 import cyoaRouter from '../../routes/cyoa.js';
 import officeActionsRouter from '../../routes/office-actions.js';
+import rollLogRouter from '../../routes/roll-log.js';
 import officeMeritDotsRouter from '../../routes/office-merit-dots.js';
 import officeManoeuvreRankRouter from '../../routes/office-manoeuvre-rank.js';
 import officeSeatsRouter from '../../routes/office-seats.js';
@@ -126,6 +127,8 @@ export function createTestApp() {
   app.use('/api/story_cycles', mockAuth, noCache(), storyCyclesRouter);
   // Issue #971: CYOA cross-project write-back
   app.use('/api/cyoa', mockAuth, noCache(), cyoaRouter);
+  // gdx.8 (#989): persisted roll history
+  app.use('/api/roll_log', mockAuth, noCache(), rollLogRouter);
   // Issue #691 / otc.2: office actions (Status Actions)
   app.use('/api/office_actions', mockAuth, noCache(), officeActionsRouter);
   app.use('/api/office_merit_dots', mockAuth, noCache(), officeMeritDotsRouter);
