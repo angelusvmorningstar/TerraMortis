@@ -333,16 +333,10 @@ describe('#834 — placement sanity guards', () => {
     expect(src).not.toMatch(/freeOf\(m, 'pt'\)[^\n]*\(m\.free \|\| 0\)/);
   });
 
-  it('admin/excel-merge.js applyMeritPoints no longer reads merit.free for the diff message', () => {
-    const src = read('public/js/admin/excel-merge.js');
-    const fnStart = src.indexOf('function applyMeritPoints');
-    const nextFn = src.indexOf('\nfunction ', fnStart + 1);
-    const body = src.slice(fnStart, nextFn > 0 ? nextFn : src.length);
-    // The READ `merit.free || 0` is gone. The IMPORT `pts.free` folding into
-    // cp is preserved (legitimate upstream column).
-    expect(body).not.toMatch(/oldFree\s*=\s*merit\.free/);
-    expect(body).toMatch(/pts\.cp\s*\+\s*\(pts\.free\s*\|\|\s*0\)/);
-  });
+  // ADMR-3 (2026-08-26): admin/excel-merge.js deleted (its only caller,
+  // data-portability.js's characters-Excel-import flow, was retired) - the
+  // #834 assertion this test pinned no longer has a subject file. The other
+  // #834 assertions in this describe block are unaffected.
 
   it('cleanup script main() uses updateOne with $set on merits only (NOT replaceOne)', () => {
     const src = read('server/scripts/cleanup-m-free-deprecation.js');

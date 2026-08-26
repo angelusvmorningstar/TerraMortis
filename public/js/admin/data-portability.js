@@ -23,10 +23,11 @@ function collectionLabel(id) {
 
 // ── Init ──────────────────────────────────────────────────────────────────────
 
-// ADMR-3: the charData parameter (character list) is accepted but unused -
-// it was only ever needed by the now-retired characters Excel export/import
-// flow. admin.js's own call site (initDataPortabilityView(chars)) is left
-// unchanged so this export's public signature needs no caller-side edit.
+// ADMR-3: the character-list parameter this used to take is removed - it was
+// only ever needed by the now-retired characters Excel export/import flow.
+// admin.js's own call site (initDataPortabilityView(chars)) is left
+// unchanged: JS silently discards an extra call-site argument against a
+// function declaring fewer parameters, so no caller-side edit is needed.
 export function initDataPortabilityView() {
   const el = document.getElementById('data-portability-content');
   if (!el) return;
@@ -134,20 +135,14 @@ function buildCard(c) {
   }
 
   const csvImportLabel = c.csvImportLabel || 'Import CSV';
-  const xlsxOk = typeof window !== 'undefined' && window.XLSX;
   let btns = '';
 
   // Export CSV
   btns += `<button class="dt-btn dp-export-btn" data-collection="${c.id}">Export CSV</button>`;
 
-  // Import CSV (Excel for characters, player CSV for downtime_submissions, normal CSV otherwise)
-  if (c.excelImport) {
-    btns += `<button class="dt-btn dp-import-btn" data-collection="${c.id}"${xlsxOk ? '' : ' disabled title="XLSX library not loaded"'}>Import from Excel</button>`;
-    btns += `<input type="file" accept=".xlsx" class="dp-file-input" data-collection="${c.id}" style="display:none">`;
-  } else {
-    btns += `<button class="dt-btn dp-import-btn" data-collection="${c.id}">${csvImportLabel}</button>`;
-    btns += `<input type="file" accept=".csv" class="dp-file-input" data-collection="${c.id}" style="display:none">`;
-  }
+  // Import CSV (player CSV for downtime_submissions, normal CSV otherwise)
+  btns += `<button class="dt-btn dp-import-btn" data-collection="${c.id}">${csvImportLabel}</button>`;
+  btns += `<input type="file" accept=".csv" class="dp-file-input" data-collection="${c.id}" style="display:none">`;
 
   // Export JSON
   btns += `<button class="dt-btn dp-export-json-btn" data-collection="${c.id}">Export JSON</button>`;
