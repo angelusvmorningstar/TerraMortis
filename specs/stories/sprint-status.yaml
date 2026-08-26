@@ -1334,6 +1334,26 @@ development_status:
   # this repo's feedMethodEnum gains it), opposite fixes in opposite repos. Boons and debts (5 and 4
   # dossier facts) - mechanically-enforceable-vs-narrative-leverage split not yet ruled.
 
+  # ── Epic ADMR: Admin Feature Retirement (TM Admin Handover) ──────────────
+  # Opened 2026-08-26. Short code ADMR, deliberately NOT "AR" - AR is already a
+  # retired historical epic code (see this file's own WORKFLOW NOTES above).
+  # Goal: retire TM Game's admin-authoring code for domains TM Admin genuinely
+  # covers now (Bloodlines, Devlog, part of Data Portability), without
+  # breaking any live gameplay data-serving path TM Game's own app still
+  # depends on. Scoped via a function-by-function route audit (not trusting
+  # TM Admin's own "done" claim at face value - the same overstated-claim
+  # pattern already burned this project once on the character editor, see
+  # project-cross-repo-redundancy-review-2026-08-25 in memory). Real finding
+  # from that audit: public/js/data/bloodlines-cache.js (used by EVERY
+  # character sheet render, both apps, for in-clan-vs-out-of-clan discipline
+  # XP costing) reads the SAME plain GET /api/bloodlines route the admin CRUD
+  # screen also uses - a duplicated admin screen does not imply a duplicated
+  # data-serving path. Full epic file: specs/epic-admin-retirement.md.
+  epic-admr: backlog                                          # Bloodlines SPLIT (retire admin CRUD screen + 5 write/detail routes, KEEP plain GET /api/bloodlines - live sheets depend on it via bloodlines-cache.js); Devlog FULL retirement (zero live consumer outside its own admin screen, confirmed via repo-wide grep); Data Portability PARTIAL (trim only the 5 domains TM Admin has working - characters/territories/game_sessions/chapters+downtime_cycles/rules - keep NPCs/Downtime Submissions/Ordeal Rubrics/Ordeal Submissions/Ordeal Responses/Offices, all six of which TM Admin's own code marks placeholder:true). No Coordinator-gating work needed - Coordinator is an existing finance-only role already excluded from admin.html entirely (admin.js:192).
+  admr-1-retire-bloodlines-admin: backlog                     # Remove public/js/admin/bloodlines-admin.js + admin.html nav tile; remove server/routes/bloodlines.js's GET /admin, GET /:id, GET /:id/impact, POST, PATCH, DELETE handlers; keep plain GET / mounted unchanged (bloodlines-cache.js's live dependency). Re-verify at dev-story time, do not trust this scoping pass alone.
+  admr-2-retire-devlog-admin: backlog                         # Remove public/js/admin/devlog-admin.js + admin.html nav tile; unmount server/routes/devlog.js entirely. Confirm via a fresh repo-wide grep at dev-story time that nothing else references /api/devlog before deleting.
+  admr-3-trim-data-portability: backlog                       # Remove export/import code for characters/territories/game_sessions/chapters(downtime_cycles)/rules from data-portability.js + data-portability-import.js, after re-confirming TM Admin's 5-domain coverage is still accurate. Leave the other 6 domains untouched.
+
   # ── Epic RLOG: Dice Roll Logging — NOT SCHEDULED ──────────────────────────
   # Raised 2026-08-12 alongside OAQ (same tab), but John (PM, party-mode)
   # flagged it as unvalidated scope creep: opposed rolls already persist to
