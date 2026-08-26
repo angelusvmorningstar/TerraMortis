@@ -2447,6 +2447,27 @@ body.desktop-mode.sidebar-collapsed .sb-collapse-btn { width: 100%; justify-cont
 .office-merit-stepper.cs-edit-stepper { flex-direction: row; margin: 0; gap: 6px; }
 .office-merit-stepper .cs-step-btn { width: var(--control-height-sm); height: var(--control-height-sm); font-size: 0.75rem; }
 
+/* oxp.9 — the holder's own "request this purchase" control, on merit rows and
+   at the foot of the manoeuvre rank readout. A SEPARATE affordance from the
+   ST's .cs-step-btn steppers above (an ST setting purchase state directly is
+   still an ST-approved action and is not queued), so it deliberately does not
+   inherit the stepper chrome. Sized to sit inline with .office-merit-row's
+   own 40px tap target; wraps rather than overflowing on narrow phone widths.
+   Tokens only, per specs/project-context.md. */
+.office-request-btn {
+  font-family: var(--fl); font-size: var(--fs-floor-micro);
+  letter-spacing: .06em; text-transform: uppercase; font-weight: 700;
+  color: var(--txt2); background: var(--surf2);
+  border: 1px solid var(--bdr); border-radius: var(--radius-sm);
+  padding: 5px 10px; min-height: var(--control-height-sm);
+  cursor: pointer; white-space: nowrap;
+  transition: background .15s, color .15s, border-color .15s;
+}
+.office-request-btn:hover:not(:disabled) { background: var(--surf3); color: var(--txt); border-color: var(--gold2); }
+.office-request-btn:disabled { opacity: .5; cursor: default; }
+.office-merit-row { flex-wrap: wrap; }
+.office-manoeuvre-rank { flex-wrap: wrap; }
+
 /* Approval Queue (oaq.3) — moved into the game app; reuses .stm-audit-*
    (scaffold shell, components.css), .dtl-badge (label), .ch-btn/.ch-error
    (the .ch-* accept/decline + error styling shared across this

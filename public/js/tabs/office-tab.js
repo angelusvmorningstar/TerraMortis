@@ -8,6 +8,7 @@ import { currentCycleInGamePhase } from '../downtime/cycle-phase.js';
 import { getRole } from '../auth/discord.js';
 import { officeSeatXp } from '../data/office-xp.js';
 import { resolveHeldSeat } from '../data/office-seat-resolve.js';
+import { toast } from '../suite/toast.js';
 
 // otc.3: the fixed order the picker lists offices in. All five Court
 // Positions, even 'Administrator' (which has no OFFICE_DATA entry yet — it
@@ -130,9 +131,12 @@ export function meritDotReasons(current, cap, left) {
  *  — every call site of this function already sits behind that gate (see
  *  _wireManoeuvreRank's early return and _wireMeritDots's showReasons check),
  *  so this function itself does not re-check who is viewing. `left` is
- *  allowed to go negative (office-xp.js's own documented behaviour; both
- *  purchase collections are direct ST-set state with no budget check until
- *  oxp.9), rendered as "over budget" rather than a confusing negative number. */
+ *  allowed to go negative (office-xp.js's own documented behaviour) and still
+ *  is after oxp.9: that story's budget check lives on the APPROVAL path only
+ *  (office-purchase.js's ST-accept route), while the ST's own direct-set
+ *  stepper routes deliberately stay unchecked, so a seat can legitimately be
+ *  over budget. Rendered as "over budget" rather than a confusing negative
+ *  number. */
 function _balanceLineHtml(balance) {
   if (!balance) return '';
   const { earned, spent, left } = balance;
@@ -386,18 +390,37 @@ async function _wirePurchaseState(el, char, category, data, isOwnOffice) {
  */
 async function _refreshPurchaseState(el, outcome, data, isOwnOffice, gen) {
   let dotsBySeat = null, ranksBySeat = null, meritFailed = false, rankFailed = false;
+  // oxp.9: is this viewer entitled to the holder's REQUEST affordance at all?
+  // Exactly the gate `showReasons`/`showBalance` already use for a holder —
+  // an unconfirmed multi-seat fallback view must never offer a button that
+  // would act on someone else's seat. Also what keeps a reference viewer's
+  // DOM (and network traffic) carrying no purchase state at all: the pending-
+  // request fetch below is not even attempted for them.
+  const canRequest = isOwnOffice && outcome.confirmed === true;
+  let pendingRequests = [], pendingFailed = false;
   if (outcome.status === 'ok') {
     // Codex review: a plain Promise.all coupled the two sections' failure
     // states through one shared flag — a transient failure on EITHER endpoint
     // blanked BOTH sections, where before this story they fetched and failed
     // independently. allSettled restores that independence: each collection's
-    // own success/failure feeds only its own renderer below.
-    const [dotsResult, ranksResult] = await Promise.allSettled([
+    // own success/failure feeds only its own renderer below. oxp.9 joins as a
+    // third entry with its own independent flag, for the same reason: a failed
+    // pending-request read must degrade the REQUEST BUTTON to disabled-with-
+    // unknown, never blank the merit or manoeuvre sections.
+    const [dotsResult, ranksResult, pendingResult] = await Promise.allSettled([
       apiGet('/api/office_merit_dots'),
       apiGet('/api/office_manoeuvre_rank'),
+      canRequest
+        ? apiGet(`/api/office_purchase_requests?seat_id=${encodeURIComponent(outcome.seatId)}`)
+        : Promise.resolve([]),
     ]);
     if (dotsResult.status === 'fulfilled') dotsBySeat = dotsResult.value; else meritFailed = true;
     if (ranksResult.status === 'fulfilled') ranksBySeat = ranksResult.value; else rankFailed = true;
+    if (pendingResult.status === 'fulfilled') {
+      pendingRequests = Array.isArray(pendingResult.value) ? pendingResult.value : [];
+    } else {
+      pendingFailed = true;
+    }
   }
   if (gen !== el._officeManoeuvreGen) return;
 
@@ -418,8 +441,16 @@ async function _refreshPurchaseState(el, outcome, data, isOwnOffice, gen) {
     balance = officeSeatXp(outcome.seat, outcome.allSeats, meritDotsDoc, rankDoc, new Date());
   }
 
-  _wireMeritDots(el, outcome, data, dotsBySeat, meritFailed, balance, isOwnOffice, gen);
-  _wireManoeuvreRank(el, outcome, data, ranksBySeat, rankFailed, balance, isOwnOffice, gen);
+  // oxp.9: one in-flight request per SEAT (the server's own dedupe rule), so
+  // a single boolean is the whole of the pending state both sections need.
+  const requestState = {
+    canRequest,
+    hasPending: pendingRequests.length > 0,
+    unknown: pendingFailed,
+  };
+
+  _wireMeritDots(el, outcome, data, dotsBySeat, meritFailed, balance, isOwnOffice, gen, requestState);
+  _wireManoeuvreRank(el, outcome, data, ranksBySeat, rankFailed, balance, isOwnOffice, gen, requestState);
 }
 
 /** AC6: the deterministic fallback when no seat matches by holder — a
@@ -489,7 +520,7 @@ function _seatNoteHtml(note) {
  *  (`showReasons`), same as before — moot for anyone who can't see the dots
  *  at all now, but still needed to keep an ST's own reasons scoped to a
  *  confirmed own-office view. */
-function _wireMeritDots(el, outcome, data, dotsBySeat, fetchFailed, balance, isOwnOffice, gen) {
+function _wireMeritDots(el, outcome, data, dotsBySeat, fetchFailed, balance, isOwnOffice, gen, requestState) {
   if (typeof el.querySelector !== 'function') return; // plain-object test mocks have no real DOM
   const mount = el.querySelector('[data-office-merit-mount]');
   if (!mount) return;
@@ -531,9 +562,21 @@ function _wireMeritDots(el, outcome, data, dotsBySeat, fetchFailed, balance, isO
     const cap = MERIT_DOT_CAPS[merit] || 5;
     let row = `<div class="office-merit-row">`;
     row += `<span class="office-merit-chip">${esc(merit)}</span>`;
+    const reasons = showReasons && balance ? meritDotReasons(n, cap, balance.left) : null;
     if (showDots) {
-      const reasons = showReasons && balance ? meritDotReasons(n, cap, balance.left) : null;
       row += `<span class="office-merit-dots">${_dotsWithReasons(n, cap, reasons)}</span>`;
+    }
+    // oxp.9: the request control for a confirmed own-office view, hidden once
+    // the merit is at its cap (there is nothing left to buy). `reasons[n]` is
+    // the reason for the NEXT dot, which is precisely the one being requested.
+    if (n < cap) {
+      row += _requestControlHtml(
+        'Request dot',
+        `data-office-request-merit="${esc(merit)}"`,
+        requestState,
+        balance ? balance.left : null,
+        reasons ? reasons[n] : null,
+      );
     }
     if (isST) {
       row += `<div class="cs-edit-stepper office-merit-stepper">`;
@@ -555,6 +598,17 @@ function _wireMeritDots(el, outcome, data, dotsBySeat, fetchFailed, balance, isO
       btn.addEventListener('click', () => _adjustMeritDots(el, outcome, data, isOwnOffice, btn.dataset.meritDown, -1));
     });
   }
+
+  // oxp.9: wired the same per-render way the steppers above already are (this
+  // module has no delegated router; a new one would be a bigger change than
+  // the story asks for). Disabled controls never fire, so the pending/
+  // unaffordable states need no second guard here.
+  mount.querySelectorAll('[data-office-request-merit]').forEach((btn) => {
+    btn.addEventListener('click', () => _submitPurchaseRequest(el, outcome, data, isOwnOffice, {
+      purchase_kind: 'merit',
+      merit: btn.dataset.officeRequestMerit,
+    }));
+  });
 }
 
 async function _adjustMeritDots(el, outcome, data, isOwnOffice, merit, delta) {
@@ -599,7 +653,7 @@ async function _adjustMeritDots(el, outcome, data, isOwnOffice, merit, delta) {
  *  function's early return below (line "if (!isOwnOffice && !isST) return")
  *  already IS the owner-or-ST-only gate the balance line needs — no second
  *  gate is introduced. */
-function _wireManoeuvreRank(el, outcome, data, ranksBySeat, fetchFailed, balance, isOwnOffice, gen) {
+function _wireManoeuvreRank(el, outcome, data, ranksBySeat, fetchFailed, balance, isOwnOffice, gen, requestState) {
   if (typeof el.querySelector !== 'function') return; // plain-object test mocks have no real DOM
   if (gen !== el._officeManoeuvreGen) return;
 
@@ -669,7 +723,19 @@ function _wireManoeuvreRank(el, outcome, data, ranksBySeat, fetchFailed, balance
   // real balance and affordability reasons as if they were the viewer's own.
   const showBalance = (isOwnOffice && outcome.confirmed) || isST;
   const reasons = showBalance && balance ? manoeuvreDotReasons(rank, count, balance.left) : null;
-  mount.innerHTML = _seatNoteHtml(outcome.note) + (showBalance ? _balanceLineHtml(balance) : '') + manoeuvreRankHtml(rank, count, isST, reasons);
+  // oxp.9: ONE request control for the whole ladder, not one per manoeuvre —
+  // manoeuvres are bought one dot at a time in fixed rank order, so the only
+  // purchasable one is ever the next. Hidden at full rank.
+  const requestHtml = rank < count
+    ? _requestControlHtml(
+      `Request rank ${rank + 1}`,
+      'data-office-request-manoeuvre',
+      requestState,
+      balance ? balance.left : null,
+      reasons ? reasons[rank] : null,
+    )
+    : '';
+  mount.innerHTML = _seatNoteHtml(outcome.note) + (showBalance ? _balanceLineHtml(balance) : '') + manoeuvreRankHtml(rank, count, isST, reasons) + requestHtml;
 
   if (isST) {
     mount.querySelectorAll('[data-manoeuvre-rank-up]').forEach((btn) => {
@@ -679,6 +745,12 @@ function _wireManoeuvreRank(el, outcome, data, ranksBySeat, fetchFailed, balance
       btn.addEventListener('click', () => _adjustManoeuvreRank(el, outcome, data, isOwnOffice, -1));
     });
   }
+
+  mount.querySelectorAll('[data-office-request-manoeuvre]').forEach((btn) => {
+    btn.addEventListener('click', () => _submitPurchaseRequest(el, outcome, data, isOwnOffice, {
+      purchase_kind: 'manoeuvre',
+    }));
+  });
 }
 
 async function _adjustManoeuvreRank(el, outcome, data, isOwnOffice, delta) {
@@ -700,6 +772,96 @@ async function _adjustManoeuvreRank(el, outcome, data, isOwnOffice, delta) {
   // oxp.6: refreshes BOTH sections, not just this one — a manoeuvre step
   // changes the shared balance the merit section's affordability markers read
   // too.
+  await _refreshPurchaseState(el, outcome, data, isOwnOffice, gen);
+}
+
+/**
+ * oxp.9: the seat occupant's own "request this purchase" control.
+ *
+ * Deliberately a SEPARATE control from the ST's `+`/`-` steppers, not a
+ * replacement for them — an ST setting purchase state directly is still an
+ * unqueued, ST-approved action, and this story does not gate it (see
+ * server/routes/office-purchase.js's own header for the three reasons).
+ *
+ * `reason` is oxp.6's already-computed shortfall string
+ * (`meritDotReasons`/`manoeuvreDotReasons` for the NEXT dot), reused as the
+ * disabled control's `title` rather than recomputed here — a second copy of
+ * that arithmetic is exactly how the button and the dot beside it would come
+ * to disagree.
+ *
+ * Deliberately placed BELOW `_wireManoeuvreRank` rather than beside
+ * `_refreshPurchaseState`: oxp.4's structural guards read the source span
+ * between `_wirePurchaseState` and `_wireMeritDots` and prove no write API is
+ * reachable from it, and the source span of `_wireMeritDots` itself and prove
+ * it carries no occupant reference. Both guarantees are still true and worth
+ * keeping literally true, so this story's new code lives outside both spans.
+ *
+ * @param {string} label      what the button says when it is actionable
+ * @param {string} attr       the data-attribute the click wiring reads
+ * @param {object} requestState { canRequest, hasPending, unknown }
+ * @param {number|null} left  the seat's remaining office XP, or null if unknown
+ * @param {string|null} reason oxp.6's shortfall reason for the next dot
+ */
+function _requestControlHtml(label, attr, requestState, left, reason) {
+  if (!requestState || !requestState.canRequest) return '';
+
+  let text = label;
+  let title = '';
+  let disabled = false;
+
+  if (requestState.unknown) {
+    // A failed pending-request read is "we cannot tell", never a silent
+    // all-clear — offering the button anyway would produce a 409 the viewer
+    // could not have predicted.
+    text = 'Request unavailable';
+    title = 'Could not check whether a request is already awaiting approval.';
+    disabled = true;
+  } else if (requestState.hasPending) {
+    text = 'Awaiting ST approval';
+    title = 'This seat already has a purchase request awaiting ST approval.';
+    disabled = true;
+  } else if (!Number.isFinite(left)) {
+    text = 'Request unavailable';
+    title = 'Could not read this seat\'s office XP balance.';
+    disabled = true;
+  } else if (left < 1) {
+    title = reason || 'Not enough office XP.';
+    disabled = true;
+  }
+
+  return `<button class="office-request-btn" ${attr}`
+    + (title ? ` title="${esc(title)}"` : '')
+    + `${disabled ? ' disabled' : ''}>${esc(text)}</button>`;
+}
+
+/**
+ * oxp.9: POSTs one purchase request and refreshes both purchase sections.
+ *
+ * Reports through the canonical `toast()` (the same one app.js and this
+ * game-tab area already use), never through `.office-action-msg` — that
+ * element belongs to the Head-of-State Status Action block and is not
+ * rendered in the purchase sections at all.
+ *
+ * The render-generation guard is captured BEFORE the await and re-checked
+ * after, exactly as `_adjustMeritDots`/`_adjustManoeuvreRank` already do: a
+ * late response must never paint one office's state into another's markup.
+ *
+ * Only the seat id and the purchase itself are ever sent. The server decides
+ * who may act on that seat, from `office_seats.holder_id` — which is stricter
+ * than anything this client could assert, and is the authoritative check.
+ */
+async function _submitPurchaseRequest(el, outcome, data, isOwnOffice, payload) {
+  const gen = el._officeManoeuvreGen;
+
+  try {
+    await apiPost('/api/office_purchase_requests', { seat_id: outcome.seatId, ...payload });
+  } catch (err) {
+    toast(err.message || 'Could not submit the request.');
+    return;
+  }
+  toast('Request submitted. Awaiting ST approval.');
+
+  if (gen !== el._officeManoeuvreGen) return;
   await _refreshPurchaseState(el, outcome, data, isOwnOffice, gen);
 }
 

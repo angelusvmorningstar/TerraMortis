@@ -118,10 +118,12 @@ router.get('/latest_session', async (req, res) => {
 // starts sharing this same collection. gdx.12: widened to also surface
 // pending Humanity Checks (request_type: 'humanity_check') in the same
 // queue, per office-approvals.js's own extension-point design — no second
-// GET route, the client only ever calls this one.
+// GET route, the client only ever calls this one. oxp.9: widened once more
+// for office XP spend requests (request_type: 'office_purchase',
+// office-purchase.js's own accept/decline lifecycle), same reasoning.
 router.get('/pending', requireRole('st'), async (req, res) => {
   const docs = await pendingCol()
-    .find({ request_type: { $in: ['status_action', 'humanity_check'] }, status: 'pending' })
+    .find({ request_type: { $in: ['status_action', 'humanity_check', 'office_purchase'] }, status: 'pending' })
     .sort({ created_at: 1 })
     .toArray();
   res.json(docs);

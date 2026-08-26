@@ -36,6 +36,7 @@ import {
 import adminMigrationsRouter from './routes/admin-migrations.js';
 import contestedRollsRouter from './routes/contested-rolls.js';
 import humanityCheckRouter from './routes/humanity-check.js';
+import officePurchaseRouter from './routes/office-purchase.js';
 import stModsRouter, { auditRouter as stModAuditRouter } from './routes/st_mods.js';
 import appSettingsRouter from './routes/app-settings.js';
 import rollLogRouter from './routes/roll-log.js';
@@ -167,6 +168,10 @@ app.use('/api/contested_roll_requests', requireAuth, contestedRollsRouter);
 // contested_roll_requests collection (request_type: 'humanity_check') but
 // has its own route file/schema, same pattern as office_actions below.
 app.use('/api/humanity_check_requests', requireAuth, noCache(), humanityCheckRouter);
+// oxp.9: office XP spend requests — the fourth request_type sharing the
+// contested_roll_requests collection ('office_purchase'), with its own route
+// file/schema, same pattern as humanity_check above and office_actions below.
+app.use('/api/office_purchase_requests', requireAuth, noCache(), officePurchaseRouter);
 
 // /api/pdf removed — PDF generation moved client-side to public/js/print/.
 // Stale browsers calling the old endpoint get a 410 Gone with a refresh hint.
