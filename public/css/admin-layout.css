@@ -10002,8 +10002,7 @@ html:not([data-theme="dark"]) .rules-tbl tbody tr:hover            { background:
 .ec-table tbody tr:hover { background: var(--surf1); }
 .ec-row-actions { display: flex; gap: 6px; }
 
-.ec-bucket-tag,
-.bl-disc-tag {
+.ec-bucket-tag {
   display: inline-block;
   padding: 1px 8px;
   border-radius: 10px;
@@ -10088,14 +10087,6 @@ html:not([data-theme="dark"]) .rules-tbl tbody tr:hover            { background:
 .ec-form-msg--ok    { color: var(--green2); }
 .ec-form-msg--error { color: var(--crim); }
 .ec-form-msg--info  { color: var(--txt3); }
-
-/* ── Bloodlines-specific additions (BL-4, issue #1008) ───────────────────────
-   Everything else on that screen is the shared chrome above. These two exist
-   because a bloodline row carries four discipline chips rather than one bucket
-   tag, and its form asks for exactly four pickers side by side. Tokens only. */
-
-.bl-disc-cell { display: flex; flex-wrap: wrap; gap: 4px; }
-.bl-disc-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 14px; }
 
 /* ── Cycle tab (issue #918) ──────────────────────────────────────────────────
    Engine → Cycle: status ribbon, stories/cycles panels, inline edit,

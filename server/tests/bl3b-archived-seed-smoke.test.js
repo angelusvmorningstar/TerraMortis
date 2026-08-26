@@ -27,10 +27,13 @@
  * return plain objects. `seedBloodlines()` and `main()` are not exercised here
  * — they read and write Mongo, and the parts of them worth protecting are the
  * pure functions they delegate to plus the unique-index call, which
- * `bl4-bloodlines-write-api.test.js:275-294` already proves behaviourally by
- * dropping `bloodline_name_unique` and asserting a write recreates it with
- * `collation.strength === 2`. This is a smoke suite, not a resurrection of all
- * 35 deleted tests.
+ * `bloodline-name-index.test.js` proves behaviourally by dropping
+ * `bloodline_name_unique` and asserting `ensureBloodlineNameIndex` recreates
+ * it with `collation.strength === 2` (relocated there by ADMR-1, 2026-08-26,
+ * from the now-deleted `bl4-bloodlines-write-api.test.js:275-294` this
+ * comment used to cite - the write route that test exercised is gone, but
+ * `ensureBloodlineNameIndex` itself is not, and neither is its coverage).
+ * This is a smoke suite, not a resurrection of all 35 deleted tests.
  *
  * Importing the archived script does NOT open a connection: `server/db.js`
  * connects only inside `connectDb()`, and `assertTestDbSafety` would refuse a

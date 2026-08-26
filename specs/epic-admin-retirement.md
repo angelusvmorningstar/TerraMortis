@@ -104,15 +104,26 @@ because a status claim went unchecked once already; do not let this domain be th
 
 ## Stories
 
-### ADMR-1: Retire Bloodlines admin authoring from TM Game
+### ADMR-1: Retire Bloodlines admin authoring from TM Game - DONE 2026-08-26
 
 Remove `public/js/admin/bloodlines-admin.js` and its `admin.html` sidebar entry. In
 `server/routes/bloodlines.js`, remove the `GET /admin`, `GET /:id`, `GET /:id/impact`, `POST`,
 `PATCH`, `DELETE` handlers; keep plain `GET /` mounted unchanged. Confirm at dev-story time (re-verify,
 do not trust this scoping pass alone) that `bloodlines-cache.js`'s own `loadBloodlines()`/
 `refetchBloodlines()` still resolve cleanly against the trimmed route, and that no other file in
-`public/` calls any of the routes being removed. Update `specs/reference-data-ssot.md`'s Bloodlines
-entry to point ST-facing authoring at TM Admin.
+`public/` calls any of the routes being removed.
+
+**CLOSED, code-reviewed (external Codex).** Shipped as scoped, plus two real coverage gaps the review
+caught that this scoping pass did not anticipate - deleting the admin CRUD test file also removed the
+sole regression test for `server/ws.js`'s shared `_fanOut` fault-isolation (used by every broadcaster,
+not just bloodlines'), and deleting the write-API test file removed the sole behavioural proof of
+`ensureBloodlineNameIndex`'s collation (a function this repo still keeps live for the archived seed
+script). Both relocated to dedicated test files, prove-discriminated. `server/lib/bloodline-delete-guard.js`
+and `broadcastBloodlineUpdate` (both fully orphaned once their routes were gone) also deleted. **One
+scoping correction**: `specs/reference-data-ssot.md` has no existing Bloodlines entry at all -
+Bloodlines is documented in `CLAUDE.md`'s own "Previously-static data now MongoDB-backed" section
+instead, which is what actually got corrected. Full detail:
+`specs/stories/admr-1-retire-bloodlines-admin.md`.
 
 ### ADMR-2: Retire Devlog admin authoring from TM Game
 

@@ -80,34 +80,10 @@ export const bloodlineSchema = {
   },
 };
 
-/**
- * Allowlisted fields for PATCH (BL-4, #1008). Mirrors
- * `EQUIPMENT_CATALOGUE_UPDATABLE_FIELDS`, which excludes `bucket` for the same
- * class of reason.
- *
- * `_id`, `slug` and `created_at` are immutable for the ordinary reasons.
- * `name` is immutable for a specific one, recorded here because the field
- * looks editable and is not: THREE separate things key off the bloodline name
- * as a plain string, none of them by foreign key, and none of them warns when
- * it stops resolving.
- *
- *   1. `characters.bloodline` — a name string, deliberately not an ObjectId FK
- *      (data-map.md drift pattern #2). 13 live holders as of 2026-08-11.
- *   2. `rule_grant` documents with `condition: 'bloodline'` carry
- *      `bloodline_name`, matched case-insensitively by the bloodline
- *      evaluator and edited as free text in the Rules Engine admin.
- *   3. The client cache's own `_byName` index.
- *
- * A rename therefore orphans every holder at once (BL-2's loud miss fires, the
- * editor locks their disciplines, every discipline costs 4 XP/dot) and
- * silently drops any bloodline grants. A cascade would be worse: it performs
- * the exact name-to-a-different-name transition ruled forbidden for
- * `characters.bloodline` on 2026-08-10, on every holder at once, from a
- * reference-data screen, with no record. A mis-typed name is corrected by
- * delete + recreate, which the guarded DELETE keeps available precisely
- * because a freshly created typo has no holders.
- *
- * `clan` and `disciplines` ARE editable: editing them is how an ST corrects a
- * wrong entry, and that correction SHOULD reach holders.
- */
-export const BLOODLINE_UPDATABLE_FIELDS = new Set(['clan', 'disciplines', 'notes']);
+// ADMR-1 (2026-08-26): BLOODLINE_UPDATABLE_FIELDS (the PATCH allowlist, BL-4
+// #1008) removed - its only consumer was server/routes/bloodlines.js's own
+// PATCH handler, retired to TM Admin along with the rest of the write API.
+// bloodlineSchema above stays: it is still an executable validation gate for
+// server/scripts/archive/seed-bloodlines.js's real (if rare) --apply runs,
+// confirmed via ajv.compile(bloodlineSchema) in that script, not merely
+// documentation.

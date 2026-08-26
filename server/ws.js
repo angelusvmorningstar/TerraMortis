@@ -145,32 +145,18 @@ export function broadcastCatalogueUpdate(itemId, op) {
 }
 
 /**
- * Broadcast a bloodline create/update/delete event to all connected clients
- * (Epic BL, BL-4 / issue #1008).
- *
- * Frame shape: { type: 'bloodline', bloodline_id, op }. Same advisory-op
- * contract as broadcastCatalogueUpdate: clients refetch regardless, so an
- * unknown op degrades gracefully to "refetch".
- *
- * BL-1 deliberately shipped no broadcaster because there was no write path and
- * an unused broadcast is a claim the code cannot keep. BL-4 is the write path,
- * so the claim is now good. Both boot paths listen (`public/js/admin.js` and
- * `public/js/app.js`): the player app matters as much as the admin one,
- * because the downtime form free-rides on app.js's cache priming, so an ST
- * adding a bloodline mid-session would otherwise not reach an open DT form
- * until the player reloads.
- *
- * @param {string|ObjectId} bloodlineId — the affected bloodline doc _id
- * @param {'create' | 'update' | 'delete'} op
+ * ADMR-1: `broadcastBloodlineUpdate` (Epic BL, BL-4 / issue #1008) removed.
+ * It was called only from the three `server/routes/bloodlines.js` write
+ * handlers ADMR-1 retired (bloodline authoring now lives entirely in TM
+ * Admin), confirmed via a repo-wide search before deletion - no other caller
+ * existed. This is the source of the known, accepted live-update gap ADMR-1's
+ * own story documents: an edit made through TM Admin no longer live-pushes to
+ * an already-open TM Game tab (`public/js/admin.js`'s `onBloodlineUpdate`
+ * listener and its `refetchBloodlines()` call are UNCHANGED and still wired -
+ * they simply never receive a frame from this repo any more). Re-add a
+ * broadcaster here only as part of a deliberate decision to close that gap,
+ * not as a reflexive restoration.
  */
-export function broadcastBloodlineUpdate(bloodlineId, op) {
-  if (!_wss) return;
-  _fanOut(JSON.stringify({
-    type: 'bloodline',
-    bloodline_id: String(bloodlineId),
-    op,
-  }));
-}
 
 /**
  * Broadcast a global app_settings change to all connected clients.

@@ -73,8 +73,10 @@ export function createTestApp() {
   // mount was removed in ECM-7 (#874).
   app.use('/api/equipment_catalogue', buildEquipmentCatalogueRouter(mockAuth));
 
-  // Epic BL (#1008) bloodlines — read-only in BL-1, public like ECM's reads.
-  // Same factory shape so BL-4's ST-gated writes need no mount change.
+  // Epic BL (#1008) bloodlines — public read only (ADMR-1, 2026-08-26,
+  // retired the BL-4 write API this router used to also carry; see
+  // server/routes/bloodlines.js). Same factory shape as before, so this
+  // mount needed no change when the writes retired.
   app.use('/api/bloodlines', buildBloodlinesRouter(mockAuth));
 
   // Protected routes with mock auth.

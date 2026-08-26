@@ -89,11 +89,14 @@ app.use('/api/auth', authRouter);
 // admin sidebar) hit /api/equipment_catalogue directly.
 app.use('/api/equipment_catalogue', buildEquipmentCatalogueRouter(requireAuth));
 
-// Bloodlines (public reads). Epic BL (#1008): the `bloodlines` collection
-// lives at /api/bloodlines. BL-1 ships reads only and nothing in the client
-// consumes them yet — BL-2 rewires `clanDiscList` onto this, and the player
-// app needs it without a token, hence the unauthed mount. Writes arrive in
-// BL-4 inside the router, following the equipment_catalogue precedent above.
+// Bloodlines (public read only). Epic BL (#1008): the `bloodlines` collection
+// lives at /api/bloodlines. `clanDiscList` reads it (public/js/data/accessors.js),
+// and the player app needs it without a token, hence the unauthed mount.
+// ADMR-1 (2026-08-26) retired the BL-4 write API this router used to also
+// carry — ST authoring now lives entirely in TM Admin, a separate app writing
+// to this same shared collection. `requireAuth` is accepted but unused by the
+// router's own sole surviving route; kept only so this mount line needs no
+// change (server/routes/bloodlines.js explains why).
 app.use('/api/bloodlines', buildBloodlinesRouter(requireAuth));
 
 // Protected routes — require valid token (role resolved from players collection)

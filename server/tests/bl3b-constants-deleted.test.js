@@ -276,18 +276,24 @@ describe('BL-3b — AC 6: the unique name index, post-ADMR-1', () => {
    * all, so it has nothing left to guarantee an index ahead of.
    *
    * What stays true, and what this now checks: `bloodline-name-index.js`
-   * still has exactly the one importer BL-3b's own archiving left it with —
-   * the frozen `scripts/archive/seed-bloodlines.js`, smoke-tested for exactly
-   * this reason by `bl3b-archived-seed-smoke.test.js`. If a LIVE (non-archive)
-   * importer reappears, that is a real product decision (this repo taking
-   * bloodline writes back, or some other live-owner reason) and deserves a
-   * human decision, not a silent pass here.
+   * still has exactly the one PRODUCTION importer BL-3b's own archiving left
+   * it with — the frozen `scripts/archive/seed-bloodlines.js`, smoke-tested
+   * for exactly this reason by `bl3b-archived-seed-smoke.test.js`. If a LIVE
+   * (non-archive, non-test) importer reappears, that is a real product
+   * decision (this repo taking bloodline writes back, or some other
+   * live-owner reason) and deserves a human decision, not a silent pass here.
+   *
+   * `server/tests/` is excluded from this scan (ADMR-1, 2026-08-26): this
+   * story's own `bloodline-name-index.test.js` imports the module directly to
+   * test it, which is exactly the coverage this guard wants to exist, not the
+   * production drift it exists to catch.
    */
   const importers = () => {
     const out = [];
     for (const file of walkJs(path.join(REPO_ROOT, 'server'))) {
       const r = rel(file);
       if (r.startsWith('server/scripts/archive/')) continue;
+      if (r.startsWith('server/tests/')) continue;
       if (r.endsWith('/bloodline-name-index.js')) continue;
       // All three quote styles — see the seed-importer guard above for why.
       if (/from\s+['"`][^'"`]*bloodline-name-index\.js['"`]/.test(code(r))) out.push(r);
@@ -295,7 +301,7 @@ describe('BL-3b — AC 6: the unique name index, post-ADMR-1', () => {
     return out;
   };
 
-  it('has NO importer outside scripts/archive - ADMR-1 retired the last one', () => {
+  it('has NO production importer outside scripts/archive - ADMR-1 retired the last one', () => {
     expect(importers(), 'a live importer reappeared - decide deliberately, this is not automatically wrong').toEqual([]);
   });
 
