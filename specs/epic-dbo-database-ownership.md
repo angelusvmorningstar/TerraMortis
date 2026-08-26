@@ -327,7 +327,7 @@ The empty `tm_wiki.story_threads` twin is the correct destination, built by a 20
 never knew these 44 documents existed. Note live data carries `status: 'seeded'` on 2 documents, a
 value none of the authoring scripts declare.
 
-### DBO-7 — `character_dossier` and `archive_documents` handover *(joint with Wiki 31-4, 31-5)*
+### DBO-7 — `character_dossier` and `archive_documents` handover *(joint with Wiki 31-4, 31-5)* — DONE, production cutover run 2026-08-26
 
 Both are downtime/story material by the live-play test. `archive_documents`: 60 docs, ~380KB of
 narrative HTML, 100% `visible_to_player`, read only by this repo's Story tab.
@@ -336,6 +336,50 @@ narrative HTML, 100% `visible_to_player`, read only by this repo's Story tab.
 cross-referencing real sheet values, and where that field is genuinely live-mechanical the coupling
 stays. Angelus: *"mostly true with some exceptions like mask etc."* Per-field pass required. Depends
 on DBO-2 resolving the schema and reveal questions first.
+
+**CLOSED 2026-08-26.** DBO-2's blocker cleared (merged via PR #1172), both TM Story stories (31-4,
+31-5) already done/reviewed/dry-run-verified there. Pre-cutover backup taken
+(`server/scripts/_backups/dbo-7-predrop-character_dossier-*.json`, 30 docs;
+`dbo-7-predrop-archive_documents-*.json`, 60 docs). Real production `--write`/`--verify` run against
+live data, each step signed off individually by Angelus before running, in this order:
+
+1. TM Story `migrate-31-4-character-dossier.mjs --write` then `--verify` (clean, exit 0) — 30 source
+   docs, 414 facts copied into `tm_story.character_dossier`.
+2. This repo's `server/scripts/_trim-31-4-character-dossier.mjs --write` — re-verified live against
+   `tm_story` field-by-field before touching anything, then trimmed 25 documents (touchstone-coupled
+   facts kept) and deleted 5 (nothing left once the migrated facts were removed).
+   `tm_game.character_dossier` now holds exactly 25 documents / 28 touchstone-coupled facts,
+   independently re-confirmed via a live `countDocuments` call afterward, not just the script's own
+   "Done" line.
+3. TM Story `migrate-31-5-archive-documents.mjs --write` then `--verify` (clean, exit 0) — all 60
+   documents copied verbatim into `tm_story.archive_documents`.
+4. This repo's `server/scripts/_drop-31-5-archive-documents.mjs --write` (new script, built this
+   session — see below) — re-verified live against `tm_story` field-by-field, then dropped
+   `tm_game.archive_documents` entirely. Independently re-confirmed absent via a direct
+   `listCollections` query afterward.
+
+**Two real defects caught before either `--write` against a live collection, both from the same root
+cause — trusting an old script comment/`.env` value over the live cluster:**
+- `_trim-31-4-character-dossier.mjs` (committed 2026-08-15, before the 2026-08-21 `tm_suite`→`tm_game`
+  rebrand) still hardcoded `suite.db('tm_suite')`. `tm_suite` was never dropped (Phase 3 cleanup, not
+  yet run) — it silently still exists as a frozen, unmodified snapshot from the moment of that
+  rebrand. Running it as committed would have trimmed a database nothing reads or writes any more
+  while leaving the real live `tm_game.character_dossier` completely untouched. Fixed to resolve the
+  suite-side database name the same way `server/db.js` does
+  (`process.env.MONGODB_DB || 'tm_game'`), confirmed via a live dry run before the real cutover.
+- `server/scripts/_drop-31-5-archive-documents.mjs` did not exist at all in this repo, despite TM
+  Story's own 31-5 story marking its Task 5 checkbox complete ("built correctly from the start") — a
+  citation to a file with zero commit history here. Built fresh this session, and its own first draft
+  repeated the SAME class of mistake independently: hardcoded `tm_wiki` (the pre-2026-08-21
+  `tm_wiki`→`tm_story` rebrand name), copied forward from the older 31-2/31-3/31-4 drop scripts'
+  comments and TM Story's own dev-only `.env` value (`MONGODB_WIKI_DB=tm_wiki_dev`) rather than
+  checked against the live cluster. Caught before `--write` ever ran: a direct `listDatabases` call
+  against the real Atlas cluster confirmed the two live databases are `tm_game`/`tm_story`, and that
+  `tm_suite`/`tm_wiki`/`tm_wiki_dev` all still exist but are not live. Both scripts fixed to assert
+  `=== 'tm_story'` rather than `'tm_wiki'` before either dry run or `--write`.
+- New `server/scripts/_backup-dbo-7-predrop.mjs` (read-only) added alongside, dumping both
+  collections' full live contents before either destructive step — same standing convention as
+  dbo-5/dbo-6's own pre-drop backups.
 
 ### DBO-8 — Touchstone mechanic/identity separation — RESOLVED 2026-08-14, scope changed
 
