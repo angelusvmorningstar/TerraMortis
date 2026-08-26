@@ -36,8 +36,27 @@ describe('rlv.6 — admin.js drops dead Engine-domain wiring', () => {
     expect(src).not.toMatch(/import\s*\{\s*initDiceEngine\s*\}/);
     expect(src).not.toMatch(/from\s*['"]\.\/admin\/dice-engine\.js['"]/);
   });
-  it('switchDomain() no longer has an engine branch', () => {
-    expect(src).not.toMatch(/domain\s*===\s*['"]engine['"]/);
+  // gdx.8 (#989) deliberately reintroduces a `domain === 'engine'` branch for
+  // an unrelated feature (persisted roll history / live ST roll feed, via
+  // initRollFeed in public/js/admin/roll-feed.js). Per this repo's "a test
+  // asserts the behaviour this story changes" convention, this assertion is
+  // corrected rather than deleted: rlv.6's real intent was guarding against
+  // the DELETED dice-engine.js wiring coming back, not against the 'engine'
+  // domain id itself ever being reused for something new.
+  it("switchDomain()'s engine branch never re-wires the deleted dice-engine.js", () => {
+    // Review fix (Blind Hunter): the original three regexes only matched one
+    // exact shape (`import { initDiceEngine }` / `from './admin/dice-engine.js'`)
+    // — an aliased import (`{ initDiceEngine as x }`) or a dynamic
+    // `import('./admin/dice-engine.js')` would defeat them while still
+    // re-wiring the deleted module. Since dice-engine.js no longer exists on
+    // disk at all (previous test), the broadest reliable guard is the
+    // literal path string itself — no import syntax can reference the
+    // module without it. A bare `initDiceEngine` substring would also match
+    // admin.js's own rlv.6 removal comment (line 37), so that one stays
+    // scoped to real import/call shapes rather than widened the same way.
+    expect(src).not.toContain('/admin/dice-engine.js');
+    expect(src).not.toMatch(/import\s*\{\s*initDiceEngine(\s+as\s+\w+)?\s*\}/);
+    expect(src).not.toMatch(/initDiceEngine\s*\(/);
   });
 });
 

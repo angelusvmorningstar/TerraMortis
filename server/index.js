@@ -38,6 +38,7 @@ import contestedRollsRouter from './routes/contested-rolls.js';
 import humanityCheckRouter from './routes/humanity-check.js';
 import stModsRouter, { auditRouter as stModAuditRouter } from './routes/st_mods.js';
 import appSettingsRouter from './routes/app-settings.js';
+import rollLogRouter from './routes/roll-log.js';
 import buildEquipmentCatalogueRouter from './routes/equipment-catalogue.js';
 import storyCyclesRouter from './routes/story-cycles.js';
 import buildBloodlinesRouter from './routes/bloodlines.js';
@@ -216,6 +217,10 @@ app.use('/api/st_mod_audit', requireAuth, noCache(), stModAuditRouter);
 // PATCH from the STM-5 admin panel needs to surface to all readers without
 // stale-cache lag.
 app.use('/api/settings', requireAuth, noCache(), appSettingsRouter);
+// gdx.8 (#989): persisted roll history. POST is player-own-character-scoped
+// inside the router (mirrors tracker.js's canAccess()); GET is ST/dev only,
+// same router-level gating shape as office_actions below.
+app.use('/api/roll_log', requireAuth, noCache(), rollLogRouter);
 app.use('/api/office_actions', requireAuth, noCache(), officeActionsRouter);
 app.use('/api/office_merit_dots', requireAuth, noCache(), officeMeritDotsRouter);
 app.use('/api/office_manoeuvre_rank', requireAuth, noCache(), officeManoeuvreRankRouter);
@@ -314,6 +319,19 @@ async function start() {
         expireAfterSeconds: 2592000,
         partialFilterExpression: { status: { $in: ['resolved', 'declined', 'voided'] } },
       },
+    );
+    // Ensure the TTL index on roll_log (gdx.8, #989). 30-day retention, same
+    // window as its neighbour above. UNLIKE that neighbour, this one actually
+    // reaps documents: roll-log.js's own POST handler stamps rolled_at with
+    // `new Date()` (a genuine BSON Date), not `.toISOString()`, specifically
+    // so MongoDB's TTL monitor — which only expires documents whose indexed
+    // field holds a real Date — can act on it. Do not "fix" rolled_at to a
+    // string to match this codebase's usual date-as-ISO-string convention;
+    // that would silently repeat crd1_terminal_status_ttl's own documented,
+    // still-live bug.
+    getDb().collection('roll_log').createIndex(
+      { rolled_at: 1 },
+      { name: 'gdx8_roll_log_ttl', background: true, expireAfterSeconds: 2592000 },
     );
     // Ensure partial unique index on game_sessions.chapter_id (CM-6, folded into cm-4 per
     // cycle-model.md §11a step 6) — makes the confirmed-always-1:1 session/Chapter invariant

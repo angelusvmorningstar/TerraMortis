@@ -9,6 +9,17 @@ import { getCollection } from './db.js';
 let _wss = null;
 
 /**
+ * Test-only seam (gdx.8 review fix) — injects a fake `{ clients }` in place
+ * of the real WebSocketServer so `_fanOutRoles`'s role filtering can be
+ * exercised directly, without a real HTTP upgrade/socket. No production
+ * caller; only `server/tests/gdx-8-roll-history.test.js` imports this.
+ * @param {{ clients: Iterable<object> } | null} fakeWss
+ */
+export function _setWssForTesting(fakeWss) {
+  _wss = fakeWss;
+}
+
+/**
  * Attach WebSocket server to an existing HTTP server.
  * @param {import('http').Server} server
  */
@@ -81,6 +92,33 @@ function _fanOut(msg) {
 }
 
 /**
+ * Same per-client try/catch shape as `_fanOut`, but only to sockets whose
+ * connection-time `ws.user.role` (set in `attachWS`'s upgrade handler) is in
+ * `roles`. Review fix (gdx.8, Blind Hunter + Acceptance Auditor,
+ * independently) — `_fanOut` sends to every open socket regardless of role,
+ * which is fine for the existing broadcasters (catalogue/settings/st_mod/
+ * tracker frames carry nothing a player shouldn't see), but `roll_log`'s own
+ * REST read path (`GET /api/roll_log`) is deliberately `requireRole('st')`
+ * (which effectively means st+dev — see `middleware/auth.js`), and its
+ * frames carry per-character results and real vitae/willpower spend for
+ * EVERY character, not just the connected player's own. Broadcasting that
+ * over the shared WS to every player would silently bypass the REST
+ * boundary this story's own AC4 established.
+ */
+function _fanOutRoles(msg, roles) {
+  if (!_wss) return;
+  for (const ws of _wss.clients) {
+    if (ws.readyState !== 1) continue; // not OPEN
+    if (!roles.includes(ws.user?.role)) continue;
+    try {
+      ws.send(msg);
+    } catch (err) {
+      console.error('[ws] send failed for one client; continuing:', err?.message || err);
+    }
+  }
+}
+
+/**
  * Broadcast a tracker update to all connected clients.
  * @param {string} characterId
  * @param {object} fields — the changed tracker fields
@@ -142,6 +180,32 @@ export function broadcastCatalogueUpdate(itemId, op) {
     item_id: String(itemId),
     op,
   }));
+}
+
+/**
+ * Broadcast a newly-persisted roll to ST/dev-role connected clients only
+ * (gdx.8, #989).
+ *
+ * Frame shape: { type: 'roll_log', ...doc } — the whole small doc, not just
+ * an id, so the admin live feed renders directly from the frame without a
+ * second round-trip per roll (this is a high-frequency event during a live
+ * session, unlike catalogue/settings updates).
+ *
+ * Uses `_fanOutRoles`, NOT `_fanOut` — unlike catalogue/settings/st_mod
+ * frames, a roll_log doc carries another character's real dice results and
+ * vitae/willpower spend. Broadcasting it to every connected socket would
+ * bypass GET /api/roll_log's own ST/dev-only gate (AC4) at the transport
+ * layer. Role review fix, gdx.8 — see `_fanOutRoles`'s own doc comment.
+ *
+ * @param {object} doc — the written roll_log document, including _id
+ */
+export function broadcastRollLogged(doc) {
+  if (!_wss) return;
+  _fanOutRoles(JSON.stringify({
+    type: 'roll_log',
+    ...doc,
+    _id: String(doc._id),
+  }), ['st', 'dev']);
 }
 
 /**

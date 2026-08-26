@@ -53,6 +53,7 @@ import { initEquipmentCatalogueAdmin } from './admin/equipment-catalogue-admin.j
 // the ST-facing create/edit/delete screen this import used to wire up. File
 // deleted.
 import { initStModsAudit } from './admin/st-mods-audit.js';
+import { initRollFeed, onRollLogged as _onRollLoggedFeed, refetchOnReconnect as _refetchRollFeedOnReconnect } from './admin/roll-feed.js';
 // ADMR-2: Devlog admin authoring retired to TM Admin. admin/devlog-admin.js
 // deleted; server/routes/devlog.js unmounted entirely (no live TM Game
 // consumer survives it - full retirement, unlike Bloodlines' split).
@@ -258,6 +259,16 @@ async function boot() {
         // refetchBloodlines' own header. A successful refetch also clears any
         // banner row the new data has just resolved.
         onBloodlineUpdate: () => { refetchBloodlines(); },
+        // gdx.8 (#989): live roll feed. Passed straight to the roll-feed
+        // module, which no-ops until the Engine domain has been opened at
+        // least once this session (nothing to paint into before then).
+        onRollLogged: (doc) => { _onRollLoggedFeed(doc); },
+        // gdx.8 review fix (Codex + Edge Case Hunter, independently): a WS
+        // drop-and-reconnect while Engine is open has no live catch-up
+        // otherwise — rolls broadcast during the outage are simply never
+        // delivered. refetchOnReconnect() no-ops if Engine was never opened
+        // this session (same guard as onRollLogged above).
+        onReconnect: () => { _refetchRollFeedOnReconnect(); },
       });
 
       // Epic STM (issue #385): install delegated click handler for the
@@ -342,6 +353,7 @@ function switchDomain(domain) {
   if (domain === 'rde') initRulesDataView(document.getElementById('rde-content'));
   if (domain === 'equipment-catalogue') initEquipmentCatalogueAdmin(document.getElementById('equipment-catalogue-content'), chars);
   if (domain === 'st-mods-audit') initStModsAudit(document.getElementById('st-mods-audit-content'), chars);
+  if (domain === 'engine') initRollFeed(document.getElementById('engine-content'), chars);
   if (domain === 'st-mods') {
     // STM-5 (issue #386): panel works on the currently-selected character.
     // editorState.editIdx tracks the open sheet; null/-1 → "select a char"

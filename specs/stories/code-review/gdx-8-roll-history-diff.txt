@@ -1,0 +1,881 @@
+diff --git a/public/admin.html b/public/admin.html
+index 7b51f7cd..2feee61e 100644
+--- a/public/admin.html
++++ b/public/admin.html
+@@ -70,6 +70,7 @@
+       <button class="sidebar-btn" data-domain="equipment-catalogue">Equipment Catalogue</button>
+       <button class="sidebar-btn" data-domain="st-mods">ST Mods</button>
+       <button class="sidebar-btn" data-domain="st-mods-audit">ST Mods Audit</button>
++      <button class="sidebar-btn" data-domain="engine">Engine</button>
+     </div>
+     <div class="sidebar-footer-nav" id="sidebar-footer-nav"></div>
+     <div class="sidebar-user" id="sidebar-user"></div>
+@@ -206,6 +207,11 @@
+       <div id="st-mods-audit-content"></div>
+     </section>
+ 
++    <section id="d-engine" class="domain">
++      <div class="domain-header"><h2>Engine</h2></div>
++      <div id="engine-content"></div>
++    </section>
++
+   </main>
+ 
+ </div>
+diff --git a/public/css/admin-layout.css b/public/css/admin-layout.css
+index dbd9103f..09a68ce3 100644
+--- a/public/css/admin-layout.css
++++ b/public/css/admin-layout.css
+@@ -10117,3 +10117,34 @@ html:not([data-theme="dark"]) .btn-danger {
+   gap: 1rem;
+   margin-bottom: 1rem;
+ }
++
++/* ── Engine domain — live roll feed (public/js/admin/roll-feed.js, gdx.8) ── */
++.engine-feed-wrap { padding: 8px 0; }
++.engine-feed-heading {
++  font-family: var(--fl);
++  font-size: 14px;
++  font-weight: 600;
++  color: var(--accent);
++  margin-bottom: 12px;
++}
++.engine-feed-list { display: flex; flex-direction: column; gap: 6px; }
++.engine-feed-empty { font-size: 13px; color: var(--txt3); font-style: italic; padding: 20px 0; }
++.engine-feed-row {
++  display: flex;
++  align-items: baseline;
++  gap: 10px;
++  flex-wrap: wrap;
++  background: var(--surf1);
++  border: 1px solid var(--bdr);
++  border-left: 3px solid var(--bdr);
++  border-radius: 6px;
++  padding: 8px 12px;
++  font-size: 13px;
++}
++.engine-feed-row--hit { border-left-color: var(--result-succ); }
++.engine-feed-row--miss { border-left-color: var(--crim2); }
++.engine-feed-char { font-family: var(--fl); font-weight: 600; color: var(--txt); min-width: 120px; }
++.engine-feed-pool { color: var(--txt3); }
++.engine-feed-label { color: var(--txt2); }
++.engine-feed-successes { font-weight: 700; color: var(--accent); }
++.engine-feed-meta { color: var(--txt3); font-size: 12px; margin-left: auto; }
+diff --git a/public/js/admin.js b/public/js/admin.js
+index b6987276..c43e40cd 100644
+--- a/public/js/admin.js
++++ b/public/js/admin.js
+@@ -53,6 +53,7 @@ import { initEquipmentCatalogueAdmin } from './admin/equipment-catalogue-admin.j
+ // the ST-facing create/edit/delete screen this import used to wire up. File
+ // deleted.
+ import { initStModsAudit } from './admin/st-mods-audit.js';
++import { initRollFeed, onRollLogged as _onRollLoggedFeed } from './admin/roll-feed.js';
+ // ADMR-2: Devlog admin authoring retired to TM Admin. admin/devlog-admin.js
+ // deleted; server/routes/devlog.js unmounted entirely (no live TM Game
+ // consumer survives it - full retirement, unlike Bloodlines' split).
+@@ -258,6 +259,10 @@ async function boot() {
+         // refetchBloodlines' own header. A successful refetch also clears any
+         // banner row the new data has just resolved.
+         onBloodlineUpdate: () => { refetchBloodlines(); },
++        // gdx.8 (#989): live roll feed. Passed straight to the roll-feed
++        // module, which no-ops until the Engine domain has been opened at
++        // least once this session (nothing to paint into before then).
++        onRollLogged: (doc) => { _onRollLoggedFeed(doc); },
+       });
+ 
+       // Epic STM (issue #385): install delegated click handler for the
+@@ -342,6 +347,7 @@ function switchDomain(domain) {
+   if (domain === 'rde') initRulesDataView(document.getElementById('rde-content'));
+   if (domain === 'equipment-catalogue') initEquipmentCatalogueAdmin(document.getElementById('equipment-catalogue-content'), chars);
+   if (domain === 'st-mods-audit') initStModsAudit(document.getElementById('st-mods-audit-content'), chars);
++  if (domain === 'engine') initRollFeed(document.getElementById('engine-content'), chars);
+   if (domain === 'st-mods') {
+     // STM-5 (issue #386): panel works on the currently-selected character.
+     // editorState.editIdx tracks the open sheet; null/-1 → "select a char"
+diff --git a/public/js/data/ws.js b/public/js/data/ws.js
+index 3f200279..475174c4 100644
+--- a/public/js/data/ws.js
++++ b/public/js/data/ws.js
+@@ -33,6 +33,10 @@ let _onSettingsUpdate = null;
+ // (bloodlineId, op) for remote bloodlines create/update/delete events.
+ // Consumers (the bloodlines cache module) refetch on receipt.
+ let _onBloodlineUpdate = null;
++// gdx.8 (#989): callback for roll_log frames. Called with the whole roll
++// doc (no separate refetch — a high-frequency event during a live session,
++// unlike the refetch-on-signal shape catalogue/settings/bloodline use).
++let _onRollLogged = null;
+ 
+ // Recent local writes — { charId+field → timestamp }. Used to suppress
+ // WS echo of our own saves (avoids double-render on the originating client).
+@@ -64,6 +68,7 @@ export function markLocalWrite(charId, fields) {
+  * @param {function} [opts.onCatalogueUpdate] — called with (itemId, op) for remote equipment_catalogue events (ECM-5 / issue #872)
+  * @param {function} [opts.onSettingsUpdate] — called with no args for remote app_settings PATCH events (gdx.5 / #986)
+  * @param {function} [opts.onBloodlineUpdate] — called with (bloodlineId, op) for remote bloodlines events (BL-4 / issue #1008)
++ * @param {function} [opts.onRollLogged] — called with the roll doc for remote roll_log writes (gdx.8 / #989)
+  */
+ export function initWS(opts = {}) {
+   _onTrackerUpdate = opts.onTrackerUpdate || null;
+@@ -71,6 +76,7 @@ export function initWS(opts = {}) {
+   _onCatalogueUpdate = opts.onCatalogueUpdate || null;
+   _onSettingsUpdate = opts.onSettingsUpdate || null;
+   _onBloodlineUpdate = opts.onBloodlineUpdate || null;
++  _onRollLogged = opts.onRollLogged || null;
+   _token = localStorage.getItem('tm_auth_token');
+   _closed = false;
+   if (!_token) return; // not logged in
+@@ -115,6 +121,7 @@ function _connect() {
+       else if (msg.type === 'catalogue') _handleCatalogueMsg(msg);
+       else if (msg.type === 'settings') _handleSettingsMsg();
+       else if (msg.type === 'bloodline') _handleBloodlineMsg(msg);
++      else if (msg.type === 'roll_log') _handleRollLoggedMsg(msg);
+     } catch { /* ignore non-JSON */ }
+   };
+ 
+@@ -228,3 +235,15 @@ function _handleBloodlineMsg(msg) {
+   const { bloodline_id, op } = msg;
+   if (_onBloodlineUpdate) _onBloodlineUpdate(bloodline_id, op);
+ }
++
++/** gdx.8 (#989): the frame carries the whole roll doc (high-frequency event
++ *  during a live session, unlike the refetch-on-signal frames above) — pass
++ *  it straight through, no fetch. No echo suppression: the roller's own
++ *  in-tab addHist() already shows the roll locally the instant it fires, so
++ *  a duplicate arriving back over WS is harmless for the player, and the
++ *  admin feed (the only other consumer) needs every roll including the
++ *  ST's own if they roll from a character sheet. */
++function _handleRollLoggedMsg(msg) {
++  const { type, ...doc } = msg;
++  if (_onRollLogged) _onRollLogged(doc);
++}
+diff --git a/public/js/suite/roll-v2.js b/public/js/suite/roll-v2.js
+index 2892bacd..1cef7cbd 100644
+--- a/public/js/suite/roll-v2.js
++++ b/public/js/suite/roll-v2.js
+@@ -29,6 +29,7 @@ import { skSpecs, skNineAgain } from '../data/accessors.js';
+ import { hasAoE } from '../data/helpers.js';
+ import { getCatalogueEntry } from '../data/equipment-catalogue-cache.js';
+ import { isCombatGearWeaponShaped, isEquipmentOnMe, isStakeWeapon } from '../data/equipment-derivation.js';
++import { apiPost } from '../data/api.js';
+ // gdx.7 (#988): read the game-day flag (gdx.5) and spend from the already-
+ // built, already-correct tracker write path (gdx.6 supplies the cost data
+ // on the rule itself, via pools.js — see spendableCost below).
+@@ -886,6 +887,11 @@ export async function doRoll() {
+   // network round-trip the first time a given character is ever read.
+   if (state.rollChar) await ensureTrackerLoaded(state.rollChar);
+   const spend = _currentSpendDecision();
++  // gdx.8 (#989): what was ACTUALLY spent this roll, for roll_log — not
++  // spend.cost.*, which is what the label OFFERED to spend and stays
++  // populated even when the guard below never fires (game off, can't
++  // afford, already in flight). Zero unless a real trackerAdj happens.
++  let _loggedVitaeSpent = 0, _loggedWillpowerSpent = 0;
+   if (!_spendInFlight && spend.gameInProgress && spend.canAfford && spend.charId &&
+       (spend.cost.vitaeCost > 0 || spend.cost.willpowerCost > 0)) {
+     _spendInFlight = true;
+@@ -896,8 +902,14 @@ export async function doRoll() {
+       // clobbering the other. Awaited in turn instead — negligible cost,
+       // since trackerAdj never actually suspends once confirmed (which the
+       // await above guarantees it now is).
+-      if (spend.cost.vitaeCost > 0) await trackerAdj(spend.charId, 'vitae', -spend.cost.vitaeCost);
+-      if (spend.cost.willpowerCost > 0) await trackerAdj(spend.charId, 'willpower', -spend.cost.willpowerCost);
++      if (spend.cost.vitaeCost > 0) {
++        await trackerAdj(spend.charId, 'vitae', -spend.cost.vitaeCost);
++        _loggedVitaeSpent = spend.cost.vitaeCost;
++      }
++      if (spend.cost.willpowerCost > 0) {
++        await trackerAdj(spend.charId, 'willpower', -spend.cost.willpowerCost);
++        _loggedWillpowerSpent = spend.cost.willpowerCost;
++      }
+     } finally {
+       _spendInFlight = false;
+     }
+@@ -917,6 +929,13 @@ export async function doRoll() {
+     del.textContent = v;
+     area.appendChild(del);
+     addHist('Chance', cls, lbl, cnt, 'Chance die');
++    if (state.rollChar && getGlobalSettings()?.game_in_progress) {
++      _logRoll(state.rollChar._id, buildRollLogPayload({
++        pool: 'Chance', label: lbl, successes: dram ? 0 : suc ? 1 : 0, results: [v],
++        againRule: state.AGAIN, rote: state.ROTE, wpBonus: state.WP,
++        vitaeSpent: _loggedVitaeSpent, willpowerSpent: _loggedWillpowerSpent,
++      }));
++    }
+     return;
+   }
+ 
+@@ -988,6 +1007,13 @@ export async function doRoll() {
+     if (stakeNoteC) area.appendChild(stakeNoteC);
+ 
+     addHist(eff + 'd10', cls, outcome, won ? net : wS, verd);
++    if (state.rollChar && getGlobalSettings()?.game_in_progress) {
++      _logRoll(state.rollChar._id, buildRollLogPayload({
++        pool: eff + 'd10', label: outcome, successes: won ? net : wS, results: wC,
++        againRule: state.AGAIN, rote: state.ROTE, wpBonus: state.WP,
++        vitaeSpent: _loggedVitaeSpent, willpowerSpent: _loggedWillpowerSpent,
++      }));
++    }
+     return;
+   }
+ 
+@@ -1018,6 +1044,13 @@ export async function doRoll() {
+   if (stakeNote) area.appendChild(stakeNote);
+ 
+   addHist(eff + 'd10', cls, lbl, wS, verd);
++  if (state.rollChar && getGlobalSettings()?.game_in_progress) {
++    _logRoll(state.rollChar._id, buildRollLogPayload({
++      pool: eff + 'd10', label: lbl, successes: wS, results: wC,
++      againRule: state.AGAIN, rote: state.ROTE, wpBonus: state.WP,
++      vitaeSpent: _loggedVitaeSpent, willpowerSpent: _loggedWillpowerSpent,
++    }));
++  }
+ 
+   // Auto-reset WP after rolling (one-time spend)
+   if (state.WP) {
+@@ -1029,6 +1062,35 @@ export async function doRoll() {
+ 
+ // ── ROLL HISTORY ──
+ 
++// gdx.8 (#989): persisted roll history, alongside (not instead of) the
++// client-local addHist() below. Pure function — no DOM, no globals — so it
++// is directly testable; builds the exact server-side schema shape (see
++// server/schemas/roll_log.schema.js) from whatever a doRoll() branch already
++// has in scope. character_id is NOT included here — the caller (doRoll())
++// passes it separately to _logRoll(), since it comes from state.rollChar,
++// not from any of the per-branch roll data this function receives.
++export function buildRollLogPayload({ pool, label, successes, results, againRule, rote, wpBonus, vitaeSpent, willpowerSpent }) {
++  return {
++    label,
++    pool,
++    results,
++    successes,
++    again_rule: againRule || null,
++    rote: !!rote,
++    wp_bonus: !!wpBonus,
++    vitae_spent: vitaeSpent || 0,
++    wp_spent: willpowerSpent || 0,
++  };
++}
++
++// Fire-and-forget — mirrors trackerAdj's own established silent-fail shape
++// (game/tracker.js's saveToApi). The roll UI must never block on this
++// write's own round-trip, and a dropped roll_log entry is not worth
++// surfacing an error to the player over.
++function _logRoll(characterId, payload) {
++  apiPost('/api/roll_log', { character_id: String(characterId), ...payload }).catch(() => {});
++}
++
+ export function addHist(pool, cls, lbl, cnt, verd) {
+   const h = state.hist;
+   h.unshift({ pool, lbl, cnt, cls, verd });
+diff --git a/server/index.js b/server/index.js
+index df4d56ec..1017910e 100644
+--- a/server/index.js
++++ b/server/index.js
+@@ -38,6 +38,7 @@ import contestedRollsRouter from './routes/contested-rolls.js';
+ import humanityCheckRouter from './routes/humanity-check.js';
+ import stModsRouter, { auditRouter as stModAuditRouter } from './routes/st_mods.js';
+ import appSettingsRouter from './routes/app-settings.js';
++import rollLogRouter from './routes/roll-log.js';
+ import buildEquipmentCatalogueRouter from './routes/equipment-catalogue.js';
+ import storyCyclesRouter from './routes/story-cycles.js';
+ import buildBloodlinesRouter from './routes/bloodlines.js';
+@@ -216,6 +217,10 @@ app.use('/api/st_mod_audit', requireAuth, noCache(), stModAuditRouter);
+ // PATCH from the STM-5 admin panel needs to surface to all readers without
+ // stale-cache lag.
+ app.use('/api/settings', requireAuth, noCache(), appSettingsRouter);
++// gdx.8 (#989): persisted roll history. POST is player-own-character-scoped
++// inside the router (mirrors tracker.js's canAccess()); GET is ST/dev only,
++// same router-level gating shape as office_actions below.
++app.use('/api/roll_log', requireAuth, noCache(), rollLogRouter);
+ app.use('/api/office_actions', requireAuth, noCache(), officeActionsRouter);
+ app.use('/api/office_merit_dots', requireAuth, noCache(), officeMeritDotsRouter);
+ app.use('/api/office_manoeuvre_rank', requireAuth, noCache(), officeManoeuvreRankRouter);
+@@ -315,6 +320,19 @@ async function start() {
+         partialFilterExpression: { status: { $in: ['resolved', 'declined', 'voided'] } },
+       },
+     );
++    // Ensure the TTL index on roll_log (gdx.8, #989). 30-day retention, same
++    // window as its neighbour above. UNLIKE that neighbour, this one actually
++    // reaps documents: roll-log.js's own POST handler stamps rolled_at with
++    // `new Date()` (a genuine BSON Date), not `.toISOString()`, specifically
++    // so MongoDB's TTL monitor — which only expires documents whose indexed
++    // field holds a real Date — can act on it. Do not "fix" rolled_at to a
++    // string to match this codebase's usual date-as-ISO-string convention;
++    // that would silently repeat crd1_terminal_status_ttl's own documented,
++    // still-live bug.
++    getDb().collection('roll_log').createIndex(
++      { rolled_at: 1 },
++      { name: 'gdx8_roll_log_ttl', background: true, expireAfterSeconds: 2592000 },
++    );
+     // Ensure partial unique index on game_sessions.chapter_id (CM-6, folded into cm-4 per
+     // cycle-model.md §11a step 6) — makes the confirmed-always-1:1 session/Chapter invariant
+     // (Angelus, 2026-08-16) a database constraint rather than a convention.
+diff --git a/server/tests/helpers/test-app.js b/server/tests/helpers/test-app.js
+index 9e87aee6..af33c06a 100644
+--- a/server/tests/helpers/test-app.js
++++ b/server/tests/helpers/test-app.js
+@@ -33,6 +33,7 @@ import { storyCyclesRouter } from '../../routes/story-cycles.js';
+ import buildBloodlinesRouter from '../../routes/bloodlines.js';
+ import cyoaRouter from '../../routes/cyoa.js';
+ import officeActionsRouter from '../../routes/office-actions.js';
++import rollLogRouter from '../../routes/roll-log.js';
+ import officeMeritDotsRouter from '../../routes/office-merit-dots.js';
+ import officeManoeuvreRankRouter from '../../routes/office-manoeuvre-rank.js';
+ import officeSeatsRouter from '../../routes/office-seats.js';
+@@ -126,6 +127,8 @@ export function createTestApp() {
+   app.use('/api/story_cycles', mockAuth, noCache(), storyCyclesRouter);
+   // Issue #971: CYOA cross-project write-back
+   app.use('/api/cyoa', mockAuth, noCache(), cyoaRouter);
++  // gdx.8 (#989): persisted roll history
++  app.use('/api/roll_log', mockAuth, noCache(), rollLogRouter);
+   // Issue #691 / otc.2: office actions (Status Actions)
+   app.use('/api/office_actions', mockAuth, noCache(), officeActionsRouter);
+   app.use('/api/office_merit_dots', mockAuth, noCache(), officeMeritDotsRouter);
+diff --git a/server/tests/rlv-6-dice-engine-removed.test.js b/server/tests/rlv-6-dice-engine-removed.test.js
+index 6acbf347..b1318009 100644
+--- a/server/tests/rlv-6-dice-engine-removed.test.js
++++ b/server/tests/rlv-6-dice-engine-removed.test.js
+@@ -36,8 +36,19 @@ describe('rlv.6 — admin.js drops dead Engine-domain wiring', () => {
+     expect(src).not.toMatch(/import\s*\{\s*initDiceEngine\s*\}/);
+     expect(src).not.toMatch(/from\s*['"]\.\/admin\/dice-engine\.js['"]/);
+   });
+-  it('switchDomain() no longer has an engine branch', () => {
+-    expect(src).not.toMatch(/domain\s*===\s*['"]engine['"]/);
++  // gdx.8 (#989) deliberately reintroduces a `domain === 'engine'` branch for
++  // an unrelated feature (persisted roll history / live ST roll feed, via
++  // initRollFeed in public/js/admin/roll-feed.js). Per this repo's "a test
++  // asserts the behaviour this story changes" convention, this assertion is
++  // corrected rather than deleted: rlv.6's real intent was guarding against
++  // the DELETED dice-engine.js wiring coming back, not against the 'engine'
++  // domain id itself ever being reused for something new.
++  it("switchDomain()'s engine branch never re-wires the deleted dice-engine.js", () => {
++    // A bare /initDiceEngine/ would also match admin.js's own rlv.6 removal
++    // comment (line 37) — check for a live import/call, not the word itself.
++    expect(src).not.toMatch(/import\s*\{\s*initDiceEngine\s*\}/);
++    expect(src).not.toMatch(/initDiceEngine\s*\(/);
++    expect(src).not.toMatch(/from\s*['"]\.\/admin\/dice-engine\.js['"]/);
+   });
+ });
+ 
+diff --git a/server/ws.js b/server/ws.js
+index 7fb5fc74..d0a51138 100644
+--- a/server/ws.js
++++ b/server/ws.js
+@@ -144,6 +144,26 @@ export function broadcastCatalogueUpdate(itemId, op) {
+   }));
+ }
+ 
++/**
++ * Broadcast a newly-persisted roll to all connected clients (gdx.8, #989).
++ *
++ * Frame shape: { type: 'roll_log', ...doc } — the whole small doc, not just
++ * an id, so the admin live feed renders directly from the frame without a
++ * second round-trip per roll (this is a high-frequency event during a live
++ * session, unlike catalogue/settings updates). Mirrors
++ * broadcastCatalogueUpdate's _fanOut-based shape exactly.
++ *
++ * @param {object} doc — the written roll_log document, including _id
++ */
++export function broadcastRollLogged(doc) {
++  if (!_wss) return;
++  _fanOut(JSON.stringify({
++    type: 'roll_log',
++    ...doc,
++    _id: String(doc._id),
++  }));
++}
++
+ /**
+  * ADMR-1: `broadcastBloodlineUpdate` (Epic BL, BL-4 / issue #1008) removed.
+  * It was called only from the three `server/routes/bloodlines.js` write
+diff --git a/server/schemas/roll_log.schema.js b/server/schemas/roll_log.schema.js
+new file mode 100644
+index 00000000..99d21ae4
+--- /dev/null
++++ b/server/schemas/roll_log.schema.js
+@@ -0,0 +1,33 @@
++/**
++ * JSON Schema (Draft-07) for persisted player roll history (GDX-8, #989).
++ * Collection: roll_log
++ *
++ * Validated on POST. `player_id` and `rolled_at` are set server-side and
++ * deliberately NOT included here — player_id is derived from req.user
++ * (never client-supplied, mirrors downtime.js's own player_id pattern),
++ * rolled_at is stamped by the route as a real Date at write time (the TTL
++ * index on this collection depends on that being a genuine BSON Date, not
++ * an ISO string — see server/index.js's own roll_log TTL index comment for
++ * why, and contested_roll_requests' own already-documented gotcha this
++ * collection deliberately avoids repeating).
++ */
++
++export const rollLogSchema = {
++  $schema: 'http://json-schema.org/draft-07/schema#',
++  title: 'TM Roll Log Entry',
++  type: 'object',
++  required: ['character_id', 'label', 'pool', 'results', 'successes'],
++  additionalProperties: false,
++  properties: {
++    character_id: { type: 'string', minLength: 1 },
++    label:        { type: 'string', minLength: 1 },
++    pool:         { type: 'string', minLength: 1 },
++    results:      { type: 'array', items: { type: 'integer', minimum: 1, maximum: 10 } },
++    successes:    { type: 'integer' },
++    again_rule:   { type: ['string', 'null'] },
++    rote:         { type: 'boolean' },
++    wp_bonus:     { type: 'boolean' },
++    vitae_spent: { type: 'integer', minimum: 0 },
++    wp_spent:    { type: 'integer', minimum: 0 },
++  },
++};
+diff --git a/server/routes/roll-log.js b/server/routes/roll-log.js
+new file mode 100644
+index 00000000..ccbbf147
+--- /dev/null
++++ b/server/routes/roll-log.js
+@@ -0,0 +1,60 @@
++/**
++ * GDX-8 (#989): persisted roll history + live ST roll feed.
++ *
++ * POST /api/roll_log — player writes a roll for their OWN character only
++ * (mirrors tracker.js's own canAccess() shape; ST/dev unconditional).
++ * GET  /api/roll_log — ST/dev only, most recent entries for the admin
++ * feed's initial paint (the WS 'roll_log' frame carries live updates
++ * thereafter, see server/ws.js's broadcastRollLogged).
++ */
++
++import { Router } from 'express';
++import { getCollection } from '../db.js';
++import { requireRole } from '../middleware/auth.js';
++import { validate } from '../middleware/validate.js';
++import { rollLogSchema } from '../schemas/roll_log.schema.js';
++import { broadcastRollLogged } from '../ws.js';
++
++const router = Router();
++const col = () => getCollection('roll_log');
++
++// Ownership check: players can only log a roll for their own character.
++// Mirrors tracker.js's canAccess() exactly.
++function canAccess(req, charId) {
++  const role = req.user?.role;
++  if (role === 'st' || role === 'dev') return true;
++  const ids = (req.user?.character_ids || []).map(String);
++  return ids.includes(charId);
++}
++
++router.post('/', validate(rollLogSchema), async (req, res) => {
++  const { character_id } = req.body;
++  if (!canAccess(req, character_id)) return res.status(403).json({ error: 'FORBIDDEN' });
++
++  // player_id is server-derived from req.user, never trusted from the
++  // request body — mirrors downtime.js's own player_id pattern.
++  const doc = {
++    ...req.body,
++    player_id: String(req.user._id || req.user.id || ''),
++    // A genuine BSON Date, not an ISO string — the TTL index on this
++    // collection (server/index.js) depends on this being a real Date to
++    // actually reap documents. See that index's own comment for the
++    // contested_roll_requests precedent this deliberately does not repeat.
++    rolled_at: new Date(),
++  };
++
++  const result = await col().insertOne(doc);
++  const written = { ...doc, _id: result.insertedId };
++
++  broadcastRollLogged(written);
++
++  res.status(201).json(written);
++});
++
++router.get('/', requireRole('st'), async (req, res) => {
++  const limit = Math.min(parseInt(req.query.limit, 10) || 50, 200);
++  const entries = await col().find({}).sort({ rolled_at: -1 }).limit(limit).toArray();
++  res.json(entries);
++});
++
++export default router;
+diff --git a/public/js/admin/roll-feed.js b/public/js/admin/roll-feed.js
+new file mode 100644
+index 00000000..050a77cf
+--- /dev/null
++++ b/public/js/admin/roll-feed.js
+@@ -0,0 +1,93 @@
++/**
++ * Engine domain — live roll feed (gdx.8, #989).
++ *
++ * Read-only. Initial paint via GET /api/roll_log (most recent N); live
++ * updates via the 'roll_log' WS frame thereafter (wired in admin.js's own
++ * initWS({...}) call — a SEPARATE connection from the player app's, per
++ * gdx-5's own established two-initWS-calls precedent).
++ *
++ * This is a NEW Engine domain, not a revival of the old (fully removed in
++ * rlv.6/#836) dice-engine.js/feeding-engine.js/session-tracker.js tools, and
++ * not related to session-log.js's own separately-dead initSessionLog import
++ * (free-text session notes, a different feature — see this story's own Dev
++ * Notes for that finding).
++ */
++
++import { apiGet } from '../data/api.js';
++import { esc, displayName } from '../data/helpers.js';
++
++const FEED_CAP = 50; // mirrors state.hist's own 20-cap precedent in roll-v2.js, sized up for a shared ST view
++
++let _rootEl = null;
++let _charsById = new Map();
++let _feed = [];
++let _initialized = false;
++
++/** init — called from admin.js switchDomain when 'engine' tab activates.
++ *  Idempotent: subsequent calls refresh the char map but reuse the scaffold. */
++export async function initRollFeed(rootEl, chars) {
++  _rootEl = rootEl;
++  if (!_rootEl) return;
++  _charsById = new Map((chars || []).map(c => [String(c._id), c]));
++
++  if (!_initialized) {
++    _rootEl.innerHTML = renderScaffold();
++    _initialized = true;
++  }
++
++  try {
++    const rows = await apiGet('/api/roll_log');
++    _feed = Array.isArray(rows) ? rows : [];
++  } catch {
++    _feed = [];
++  }
++  _render();
++}
++
++/** Called from admin.js's onRollLogged WS callback with the new roll doc. */
++export function onRollLogged(doc) {
++  if (!_initialized) return; // domain never opened this session — nothing to paint into
++  _feed.unshift(doc);
++  if (_feed.length > FEED_CAP) _feed.length = FEED_CAP;
++  _render();
++}
++
++function renderScaffold() {
++  return `
++    <div class="engine-feed-wrap">
++      <div class="engine-feed-heading">Live Roll Feed</div>
++      <div id="engine-feed-list" class="engine-feed-list"></div>
++    </div>`;
++}
++
++function _render() {
++  const listEl = _rootEl?.querySelector('#engine-feed-list');
++  if (!listEl) return;
++  if (!_feed.length) {
++    listEl.innerHTML = '<div class="engine-feed-empty">No rolls yet this session.</div>';
++    return;
++  }
++  listEl.innerHTML = _feed.map(_renderRow).join('');
++}
++
++function _renderRow(entry) {
++  const c = _charsById.get(String(entry.character_id));
++  const name = c ? displayName(c) : (entry.character_id || 'Unknown');
++  const cls = entry.successes > 0 ? 'engine-feed-row--hit' : 'engine-feed-row--miss';
++  const spendParts = [];
++  if (entry.vitae_spent) spendParts.push(`${entry.vitae_spent} Vitae`);
++  if (entry.wp_spent) spendParts.push(`${entry.wp_spent} WP`);
++  const spendStr = spendParts.length ? ` &middot; spent ${esc(spendParts.join(', '))}` : '';
++  const modParts = [];
++  if (entry.rote) modParts.push('rote');
++  if (entry.wp_bonus) modParts.push('WP +3');
++  const modStr = modParts.length ? ` &middot; ${esc(modParts.join(', '))}` : '';
++
++  return `<div class="engine-feed-row ${cls}">
++    <span class="engine-feed-char">${esc(name)}</span>
++    <span class="engine-feed-pool">${esc(entry.pool || '')}</span>
++    <span class="engine-feed-label">${esc(entry.label || '')}</span>
++    <span class="engine-feed-successes">${entry.successes}</span>
++    <span class="engine-feed-meta">${esc(entry.again_rule || '')}${modStr}${spendStr}</span>
++  </div>`;
++}
+diff --git a/server/tests/gdx-8-roll-history.test.js b/server/tests/gdx-8-roll-history.test.js
+new file mode 100644
+index 00000000..83126815
+--- /dev/null
++++ b/server/tests/gdx-8-roll-history.test.js
+@@ -0,0 +1,282 @@
++/**
++ * gdx.8 (#989) — persisted roll history + live ST roll feed.
++ *
++ * Four layers, matching the story's own AC9:
++ *  1. Server auth-boundary (AC3, AC4) — a player can POST a roll for their
++ *     OWN character only; GET is ST/dev only.
++ *  2. The TTL-Date proof (AC2) — `rolled_at` must be a genuine BSON Date at
++ *     write time, unlike `contested_roll_requests.updated_at`'s own
++ *     documented, still-live ISO-string bug
++ *     (`crd-1-contested-roll-request-shape.test.js`'s own "DOCUMENTED
++ *     LIMITATION" test is the direct precedent this one inverts).
++ *  3. `broadcastRollLogged` WS emission (AC5) — fires on a successful POST,
++ *     not on a rejected one. Mirrors `stm-9-ws-broadcast.test.js`'s
++ *     `vi.spyOn(wsModule, ...)` pattern.
++ *  4. `buildRollLogPayload`'s pure-function shape (AC6) — no DOM, directly
++ *     importable with the same `location`/`localStorage`/`document` shim
++ *     `gdx-7-apply-costs-on-roll.test.js` already established for this same
++ *     `roll-v2.js` module.
++ */
++
++const hadLocation = 'location' in globalThis;
++const hadLocalStorage = 'localStorage' in globalThis;
++const hadDocument = 'document' in globalThis;
++if (!hadLocation) globalThis.location = { hostname: 'test', pathname: '/' };
++if (!hadLocalStorage) {
++  const store = new Map();
++  globalThis.localStorage = {
++    getItem: k => (store.has(k) ? store.get(k) : null),
++    setItem: (k, v) => store.set(k, String(v)),
++    removeItem: k => store.delete(k),
++    clear: () => store.clear(),
++  };
++}
++function _fakeElement() {
++  return {
++    _html: '', _text: '', disabled: false,
++    get innerHTML() { return this._html; }, set innerHTML(v) { this._html = v; },
++    get textContent() { return this._text; }, set textContent(v) { this._text = v; },
++    classList: { add() {}, remove() {}, toggle() {} },
++    style: {},
++    querySelectorAll: () => [],
++    querySelector: () => null,
++  };
++}
++if (!hadDocument) {
++  globalThis.document = {
++    getElementById: id => (String(id).startsWith('trk-card-') ? null : _fakeElement()),
++    createElement: () => _fakeElement(),
++  };
++}
++
++import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest';
++import request from 'supertest';
++import { ObjectId } from 'mongodb';
++import { createTestApp, stUser, playerUser } from './helpers/test-app.js';
++import { setupDb, teardownDb, isDbAvailable } from './helpers/db-setup.js';
++import { getCollection } from '../db.js';
++import * as wsModule from '../ws.js';
++
++afterAll(() => {
++  if (!hadLocation) delete globalThis.location;
++  if (!hadLocalStorage) delete globalThis.localStorage;
++  if (!hadDocument) delete globalThis.document;
++});
++
++const dbAvailable = await isDbAvailable();
++const MY_CHAR = new ObjectId().toHexString();
++const OTHER_CHAR = new ObjectId().toHexString();
++
++function validBody(overrides = {}) {
++  return {
++    character_id: MY_CHAR,
++    label: 'Success',
++    pool: '5d10',
++    results: [3, 7, 8, 2, 10],
++    successes: 3,
++    again_rule: '9',
++    rote: false,
++    wp_bonus: false,
++    vitae_spent: 0,
++    wp_spent: 0,
++    ...overrides,
++  };
++}
++
++// ── AC3, AC4: server auth boundary ──────────────────────────────────────
++
++describe.skipIf(!dbAvailable)('gdx.8 — POST /api/roll_log auth boundary (AC3)', () => {
++  let app;
++  const cleanup = () => getCollection('roll_log').deleteMany({ character_id: { $in: [MY_CHAR, OTHER_CHAR] } });
++
++  beforeAll(async () => { await setupDb(); app = createTestApp(); await cleanup(); });
++  afterAll(async () => { await cleanup(); await teardownDb(); });
++
++  it('a player can POST a roll for their own character', async () => {
++    const res = await request(app).post('/api/roll_log')
++      .set('X-Test-User', playerUser([MY_CHAR]))
++      .send(validBody());
++    expect(res.status).toBe(201);
++    expect(res.body.character_id).toBe(MY_CHAR);
++    expect(res.body.player_id).toBe('test-player-001');
++  });
++
++  it('a player is blocked posting a roll for a character they do not own', async () => {
++    const res = await request(app).post('/api/roll_log')
++      .set('X-Test-User', playerUser([MY_CHAR]))
++      .send(validBody({ character_id: OTHER_CHAR }));
++    expect(res.status).toBe(403);
++  });
++
++  it('ST can post a roll for any character', async () => {
++    const res = await request(app).post('/api/roll_log')
++      .set('X-Test-User', stUser())
++      .send(validBody({ character_id: OTHER_CHAR }));
++    expect(res.status).toBe(201);
++  });
++
++  it('player_id is server-derived, not read from the request body', async () => {
++    const res = await request(app).post('/api/roll_log')
++      .set('X-Test-User', playerUser([MY_CHAR]))
++      .send({ ...validBody(), player_id: 'spoofed-player-id' });
++    // additionalProperties: false in the schema rejects the extra field outright.
++    expect(res.status).toBe(400);
++  });
++
++  it('unauthenticated request is rejected', async () => {
++    const res = await request(app).post('/api/roll_log').send(validBody());
++    expect(res.status).toBe(401);
++  });
++});
++
++describe.skipIf(!dbAvailable)('gdx.8 — GET /api/roll_log auth boundary (AC4)', () => {
++  let app;
++  beforeAll(async () => { await setupDb(); app = createTestApp(); });
++  afterAll(async () => { await teardownDb(); });
++
++  it('a player cannot read the roll feed', async () => {
++    const res = await request(app).get('/api/roll_log').set('X-Test-User', playerUser([MY_CHAR]));
++    expect(res.status).toBe(403);
++  });
++
++  it('ST can read the roll feed', async () => {
++    const res = await request(app).get('/api/roll_log').set('X-Test-User', stUser());
++    expect(res.status).toBe(200);
++    expect(Array.isArray(res.body)).toBe(true);
++  });
++});
++
++// ── AC2: rolled_at must be a genuine Date, not an ISO string ────────────
++
++describe.skipIf(!dbAvailable)('gdx.8 AC2 — rolled_at is a real BSON Date, unlike contested_roll_requests.updated_at', () => {
++  let app;
++  const cleanup = () => getCollection('roll_log').deleteMany({ character_id: MY_CHAR });
++
++  beforeAll(async () => { await setupDb(); app = createTestApp(); await cleanup(); });
++  afterAll(async () => { await cleanup(); await teardownDb(); });
++
++  it('the stored rolled_at field is a Date instance, so the TTL index actually reaps this collection', async () => {
++    // Deliberately the inverse of crd-1-contested-roll-request-shape.test.js's
++    // own "DOCUMENTED LIMITATION" test — that one proves updated_at is STILL
++    // a string there; this one proves rolled_at here is NOT, and must stay
++    // that way. If this test ever fails, roll_log's TTL index has silently
++    // gone inert the same way crd1_terminal_status_ttl already has.
++    const res = await request(app).post('/api/roll_log')
++      .set('X-Test-User', playerUser([MY_CHAR]))
++      .send(validBody());
++    expect(res.status).toBe(201);
++    const stored = await getCollection('roll_log').findOne({ _id: new ObjectId(res.body._id) });
++    expect(stored.rolled_at, 'must be a real Date instance, not an ISO string').toBeInstanceOf(Date);
++  });
++
++  it('server/index.js declares the roll_log TTL index with a 30-day window', async () => {
++    const fs = await import('node:fs');
++    const src = await fs.promises.readFile(new URL('../index.js', import.meta.url), 'utf8');
++    const marker = "collection('roll_log').createIndex(";
++    const at = src.indexOf(marker);
++    expect(at, 'exactly one boot-time index declared on roll_log').not.toBe(-1);
++    const end = src.indexOf('\n    );', at);
++    const block = src.slice(at, end).replace(/\s+/g, ' ');
++    expect(block).toContain('rolled_at: 1');
++    expect(block).toContain('expireAfterSeconds: 2592000');
++  });
++});
++
++// ── AC5: broadcastRollLogged WS emission ────────────────────────────────
++
++describe.skipIf(!dbAvailable)('gdx.8 AC5 — POST /api/roll_log emits broadcastRollLogged', () => {
++  let app;
++  let broadcastSpy;
++  const cleanup = () => getCollection('roll_log').deleteMany({ character_id: { $in: [MY_CHAR, OTHER_CHAR] } });
++
++  beforeAll(async () => {
++    await setupDb();
++    app = createTestApp();
++    await cleanup();
++    broadcastSpy = vi.spyOn(wsModule, 'broadcastRollLogged');
++  });
++  afterAll(async () => { await cleanup(); broadcastSpy.mockRestore(); await teardownDb(); });
++
++  it('fires once on a successful POST, with the written doc', async () => {
++    broadcastSpy.mockClear();
++    const res = await request(app).post('/api/roll_log')
++      .set('X-Test-User', playerUser([MY_CHAR]))
++      .send(validBody());
++    expect(res.status).toBe(201);
++    expect(broadcastSpy).toHaveBeenCalledTimes(1);
++    expect(broadcastSpy.mock.calls[0][0].character_id).toBe(MY_CHAR);
++  });
++
++  it('does NOT fire on a rejected (validation-failed) POST', async () => {
++    broadcastSpy.mockClear();
++    const res = await request(app).post('/api/roll_log')
++      .set('X-Test-User', playerUser([MY_CHAR]))
++      .send({ character_id: MY_CHAR }); // missing required fields
++    expect(res.status).toBe(400);
++    expect(broadcastSpy).not.toHaveBeenCalled();
++  });
++
++  it('does NOT fire on a rejected (forbidden) POST', async () => {
++    broadcastSpy.mockClear();
++    const res = await request(app).post('/api/roll_log')
++      .set('X-Test-User', playerUser([MY_CHAR]))
++      .send(validBody({ character_id: OTHER_CHAR }));
++    expect(res.status).toBe(403);
++    expect(broadcastSpy).not.toHaveBeenCalled();
++  });
++});
++
++// ── AC6: buildRollLogPayload (pure function, no DOM) ────────────────────
++
++describe('gdx.8 AC6 — buildRollLogPayload (pure)', () => {
++  let buildRollLogPayload;
++
++  beforeAll(async () => {
++    ({ buildRollLogPayload } = await import('../../public/js/suite/roll-v2.js'));
++  });
++
++  it('builds the full AC1 shape from a standard-roll call site', () => {
++    expect(buildRollLogPayload({
++      pool: '5d10', label: 'Success', successes: 3, results: [3, 7, 8, 2, 10],
++      againRule: '9', rote: false, wpBonus: false, vitaeSpent: 0, willpowerSpent: 0,
++    })).toEqual({
++      label: 'Success', pool: '5d10', results: [3, 7, 8, 2, 10], successes: 3,
++      again_rule: '9', rote: false, wp_bonus: false, vitae_spent: 0, wp_spent: 0,
++    });
++  });
++
++  it('rote/wp_bonus coerce to real booleans, not truthy leftovers', () => {
++    const out = buildRollLogPayload({
++      pool: '5d10', label: 'Success', successes: 1, results: [10],
++      againRule: '10', rote: 1, wpBonus: 0, vitaeSpent: 0, willpowerSpent: 0,
++    });
++    expect(out.rote).toBe(true);
++    expect(out.wp_bonus).toBe(false);
++  });
++
++  it('a null/undefined again_rule becomes null, not undefined (schema-safe)', () => {
++    const out = buildRollLogPayload({
++      pool: 'Chance', label: 'Failure (Chance)', successes: 0, results: [5],
++      againRule: undefined, rote: false, wpBonus: false, vitaeSpent: 0, willpowerSpent: 0,
++    });
++    expect(out.again_rule).toBeNull();
++  });
++
++  it('real vitae/willpower spend amounts are threaded through untouched', () => {
++    const out = buildRollLogPayload({
++      pool: '3d10', label: 'Success', successes: 2, results: [8, 9, 3],
++      againRule: '9', rote: false, wpBonus: true, vitaeSpent: 2, willpowerSpent: 1,
++    });
++    expect(out.vitae_spent).toBe(2);
++    expect(out.wp_spent).toBe(1);
++  });
++
++  it('zero spend stays zero, not falsy-coerced to something else', () => {
++    const out = buildRollLogPayload({
++      pool: '5d10', label: 'Success', successes: 3, results: [3, 7, 8, 2, 10],
++      againRule: '9', rote: false, wpBonus: false, vitaeSpent: 0, willpowerSpent: 0,
++    });
++    expect(out.vitae_spent).toBe(0);
++    expect(out.wp_spent).toBe(0);
++  });
++});

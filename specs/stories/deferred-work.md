@@ -3,6 +3,20 @@
 Items deferred from code reviews and sprint operations. Each entry is pre-existing,
 not caused by the associated story, and not actionable inside that story's scope.
 
+## Deferred from: code review of gdx-8-roll-history (2026-08-26, internal 3-layer)
+
+- **`server/index.js`'s boot-time `createIndex` calls are un-awaited repo-wide, not just this
+  story's own `roll_log` index** — Blind Hunter flagged gdx.8's own `createIndex({ rolled_at: 1 },
+  ...)` call (no `await`, no `.catch()`) as a robustness gap: an `IndexOptionsConflict` on restart
+  becomes an unhandled promise rejection with no operator-visible signal, and the TTL index silently
+  never (re)creates. Verified via direct read of `server/index.js`: 5 of 6 `createIndex` calls in
+  `start()` share this exact shape (`cyoa_passages`, `office_actions`, `contested_roll_requests` x3) —
+  only `game_sessions`' own call is awaited. gdx.8's call matches the dominant existing convention in
+  this exact function; it isn't a deviation this story introduced. Real gap, but story-scoped is the
+  wrong size to fix it — patching just the new call would leave the other 5 (including the
+  already-once-bitten `contested_roll_requests` TTL indexes) exactly as exposed. Needs its own
+  async-hygiene pass across all of `start()`'s index creation, not a one-line patch riding on gdx.8.
+
 ## Deferred from: code review of pp.9-schema-v3-inline-creation (2026-04-24)
 
 - **Apostrophe slug regex strips ASCII only** — `public/js/data/loader.js` and `server/scripts/migrate-schema-v3.js` both use ASCII-only regex. Consistent across repo but brittle to external data with curly quotes (`’`). Harmonise when next touching slug logic.
