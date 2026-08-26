@@ -53,7 +53,9 @@ import { initEquipmentCatalogueAdmin } from './admin/equipment-catalogue-admin.j
 // the ST-facing create/edit/delete screen this import used to wire up. File
 // deleted.
 import { initStModsAudit } from './admin/st-mods-audit.js';
-import { initDevlogAdmin } from './admin/devlog-admin.js';
+// ADMR-2: Devlog admin authoring retired to TM Admin. admin/devlog-admin.js
+// deleted; server/routes/devlog.js unmounted entirely (no live TM Game
+// consumer survives it - full retirement, unlike Bloodlines' split).
 import { initStModsPanel, refreshStModsPanelSettings } from './admin/st-mods-panel.js';
 import { initCycleView } from './admin/cycle-views.js';
 import { initDtStory } from './admin/downtime-story.js';
@@ -340,7 +342,6 @@ function switchDomain(domain) {
   if (domain === 'rde') initRulesDataView(document.getElementById('rde-content'));
   if (domain === 'equipment-catalogue') initEquipmentCatalogueAdmin(document.getElementById('equipment-catalogue-content'), chars);
   if (domain === 'st-mods-audit') initStModsAudit(document.getElementById('st-mods-audit-content'), chars);
-  if (domain === 'devlog') initDevlogAdmin(document.getElementById('devlog-admin-content'));
   if (domain === 'st-mods') {
     // STM-5 (issue #386): panel works on the currently-selected character.
     // editorState.editIdx tracks the open sheet; null/-1 → "select a char"

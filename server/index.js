@@ -38,7 +38,6 @@ import contestedRollsRouter from './routes/contested-rolls.js';
 import humanityCheckRouter from './routes/humanity-check.js';
 import stModsRouter, { auditRouter as stModAuditRouter } from './routes/st_mods.js';
 import appSettingsRouter from './routes/app-settings.js';
-import devlogRouter from './routes/devlog.js';
 import buildEquipmentCatalogueRouter from './routes/equipment-catalogue.js';
 import storyCyclesRouter from './routes/story-cycles.js';
 import buildBloodlinesRouter from './routes/bloodlines.js';
@@ -217,7 +216,6 @@ app.use('/api/st_mod_audit', requireAuth, noCache(), stModAuditRouter);
 // PATCH from the STM-5 admin panel needs to surface to all readers without
 // stale-cache lag.
 app.use('/api/settings', requireAuth, noCache(), appSettingsRouter);
-app.use('/api/devlog',         requireAuth, noCache(), devlogRouter);
 app.use('/api/office_actions', requireAuth, noCache(), officeActionsRouter);
 app.use('/api/office_merit_dots', requireAuth, noCache(), officeMeritDotsRouter);
 app.use('/api/office_manoeuvre_rank', requireAuth, noCache(), officeManoeuvreRankRouter);

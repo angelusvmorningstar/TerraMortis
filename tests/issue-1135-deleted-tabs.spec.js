@@ -182,12 +182,26 @@ test('#1135: admin has no Tickets domain, and no 404 for the deleted stylesheet'
   expect(errors, `admin threw: ${errors.join(' | ')}`).toHaveLength(0);
 });
 
-test('#1135: the admin Devlog domain still opens (authoring survives)', async ({ page }) => {
+// ADMR-2: Devlog admin authoring retired from TM Game (full retirement, not a
+// split - unlike Bloodlines, no live TM Game consumer of /api/devlog survives
+// it). Mirrors the Tickets assertion above.
+test('#1135/ADMR-2: admin has no Devlog domain, and no 404 for a deleted devlog stylesheet', async ({ page }) => {
+  const failed = [];
+  page.on('requestfailed', r => failed.push(r.url()));
+  const notFound = [];
+  page.on('response', r => { if (r.status() === 404) notFound.push(r.url()); });
+  const errors = [];
+  page.on('pageerror', e => errors.push(e.message));
+
   await loginAsAdmin(page);
-  await expect(page.locator('[data-domain="devlog"]')).toBeVisible();
-  await page.click('[data-domain="devlog"]');
-  await page.waitForSelector('#d-devlog.active', { timeout: 10000 });
-  await expect(page.locator('#devlog-admin-content')).toBeVisible();
+
+  await expect(page.locator('[data-domain="devlog"]')).toHaveCount(0);
+  await expect(page.locator('#d-devlog')).toHaveCount(0);
+  await expect(page.locator('#devlog-admin-content')).toHaveCount(0);
+
+  const badCss = [...failed, ...notFound].filter(u => /devlog/i.test(u));
+  expect(badCss, `no devlog-specific asset should be requested at all: ${badCss.join(', ')}`).toHaveLength(0);
+  expect(errors, `admin threw: ${errors.join(' | ')}`).toHaveLength(0);
 });
 
 // AC5 is about the city map OVERLAY still working, not merely the domain opening.
