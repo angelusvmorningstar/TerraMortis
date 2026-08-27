@@ -125,7 +125,31 @@ function checkPurchaseValidity(officeEntry, purchase_kind, merit, meritDotsDoc, 
     throw new RouteResponse(400, { error: 'VALIDATION_ERROR', message: 'This seat\'s office has no manoeuvres' });
 
   const max = officeEntry.manoeuvres.length;
-  const from = (manoeuvreRankDoc && manoeuvreRankDoc.rank) || 0;
+  // A STORED rank that is not a whole non-negative number is refused outright
+  // rather than coerced. Codex review, 2026-08-27 pass 1: `rank: -5` made the
+  // recorded outcome (`to: -4`) disagree with what the clamped pipeline
+  // actually stores (`0`), and `rank: 'bad'` built `to: 'bad1'` and then blew
+  // up inside MongoDB's `$add`, aborting the transaction with an uncaught 500
+  // and stranding the request as pending. Both reproduced here before this
+  // guard was written.
+  //
+  // The non-finite convention is office-xp.js's own (`officeXpSpentForCategory`
+  // skips a value unless `typeof value === 'number' && Number.isFinite(value)`,
+  // on the stated reasoning that `Number(null)` is a lie and `Number('three')`
+  // poisons the total). This goes one step further and REJECTS rather than
+  // skipping, because unlike a derived balance an accept has to write a number
+  // back: silently reading a corrupted rank as 0 would apply a purchase and
+  // record an audit outcome that neither matches the corrupted state nor
+  // names it. This is pre-existing data corruption, not user input, so a
+  // clear refusal naming the field is the honest answer and costs four lines.
+  const rawRank = manoeuvreRankDoc == null ? null : manoeuvreRankDoc.rank;
+  if (rawRank != null && (typeof rawRank !== 'number' || !Number.isFinite(rawRank) || rawRank < 0))
+    throw new RouteResponse(conflictStatus, {
+      error: conflictStatus === 409 ? 'CONFLICT' : 'VALIDATION_ERROR',
+      message: 'This seat\'s stored manoeuvre rank is not a valid rank; an ST must correct it before a purchase can be applied',
+    });
+
+  const from = Number.isFinite(rawRank) ? rawRank : 0;
   if (from >= max)
     throw new RouteResponse(conflictStatus, {
       error: conflictStatus === 409 ? 'CONFLICT' : 'VALIDATION_ERROR',
@@ -145,7 +169,12 @@ function checkPurchaseValidity(officeEntry, purchase_kind, merit, meritDotsDoc, 
 function holderCharacterId(seat, user) {
   const holderId = seat.holder_id == null ? null : String(seat.holder_id);
   if (!holderId) return null;
-  const callerCharIds = (user?.character_ids || []).map(String);
+  // Array.isArray, not `|| []`: a persisted `character_ids` that is present but
+  // not an array (a bare string, an object) made `.map` throw, so the route
+  // failed closed by CRASHING — an uncaught rejection and a 500 rather than a
+  // controlled 403 (Codex review, 2026-08-27 pass 1). Access was never granted
+  // either way; this makes the denial clean.
+  const callerCharIds = Array.isArray(user?.character_ids) ? user.character_ids.map(String) : [];
   return callerCharIds.includes(holderId) ? holderId : null;
 }
 
@@ -182,8 +211,9 @@ router.post('/', validate(officePurchaseRequestSchema), async (req, res) => {
   const meritDotsDoc     = await meritDotsCol().findOne({ _id: seatId });
   const manoeuvreRankDoc = await manoeuvreCol().findOne({ _id: seatId });
 
+  let submittedFrom;
   try {
-    checkPurchaseValidity(officeEntry, purchase_kind, merit, meritDotsDoc, manoeuvreRankDoc, 400);
+    ({ from: submittedFrom } = checkPurchaseValidity(officeEntry, purchase_kind, merit, meritDotsDoc, manoeuvreRankDoc, 400));
   } catch (err) {
     if (err instanceof RouteResponse) return res.status(err.statusCode).json(err.body);
     throw err;
@@ -202,10 +232,19 @@ router.post('/', validate(officePurchaseRequestSchema), async (req, res) => {
 
   // One in-flight request per SEAT, regardless of kind or merit. That is what
   // keeps the accept-time budget check from being defeated by queueing five
-  // requests against one point of XP. A plain findOne pre-check is enough:
-  // this is one holder tapping their own button, not a multi-actor budget
-  // race, and the accept route's own re-check is the real guard either way
-  // (the same reasoning gdx.12's AC2 recorded — no unique index here).
+  // requests against one point of XP.
+  //
+  // This findOne is a FAST PATH ONLY — it spares the common case a wasted
+  // validity/affordability computation and returns the friendlier body. The
+  // AUTHORITATIVE guard is the partial unique index on
+  // `{ seat_id }` filtered to `request_type: 'office_purchase', status:
+  // 'pending'`, declared in server/index.js beside oaq.2's own. The story's
+  // original reasoning ("one holder tapping their own button, not a
+  // multi-actor budget race") was wrong and an external Codex review round
+  // (2026-08-27, passes 1 and 2) reproduced why: the button is not disabled
+  // until a later refresh, a 12-request burst got ten pending rows past this
+  // check, and two of them were then accepted onto the same merit. Same
+  // finding, same fix, as issue #1143's on office_actions.
   const existing = await pendingCol().findOne({ request_type: REQUEST_TYPE, seat_id: seatId, status: 'pending' });
   if (existing)
     return res.status(409).json({ error: 'CONFLICT', message: 'A purchase request is already pending for this seat' });
@@ -234,6 +273,14 @@ router.post('/', validate(officePurchaseRequestSchema), async (req, res) => {
     seat_label: seat.seat_label ?? null,
     purchase_kind,
     merit: purchase_kind === 'merit' ? merit : null,
+    // The value observed AT SUBMISSION, before this request's own effect: the
+    // merit's dot count, or the manoeuvre rank. The accept route compares its
+    // own freshly-read reading against this and refuses on ANY difference, not
+    // just one that crosses a cap. Angelus's ruling, 2026-08-27, after Codex
+    // pass 3 reproduced a below-cap stepper move being silently applied on top
+    // of: an ST approves a SPECIFIC request, so the effect that lands must be
+    // the effect that was queued.
+    submitted_from: submittedFrom,
     // Null when an ST submits on a seat none of their own characters hold.
     // The accept route's requester-still-holds-seat re-check is skipped in
     // that case, deliberately: there is no requester to have lost the seat.
@@ -243,7 +290,18 @@ router.post('/', validate(officePurchaseRequestSchema), async (req, res) => {
     updated_at: timestamp,
   };
 
-  const result  = await pendingCol().insertOne(doc);
+  let result;
+  try {
+    result = await pendingCol().insertOne(doc);
+  } catch (err) {
+    // The partial unique index rejecting a concurrent duplicate. Translated to
+    // the SAME 409 the fast-path pre-check above returns, so a caller cannot
+    // tell which of the two arbitrated — only that one request per seat is in
+    // flight. Any other write error is a real fault and propagates.
+    if (err && err.code === 11000)
+      return res.status(409).json({ error: 'CONFLICT', message: 'A purchase request is already pending for this seat' });
+    throw err;
+  }
   const created = await pendingCol().findOne({ _id: result.insertedId });
   res.status(201).json(created);
 });
@@ -306,6 +364,21 @@ router.put('/:id/accept', requireRole('st'), async (req, res) => {
       const seat = await seatsCol().findOne({ _id: seatOid }, { session: dbSession });
       if (!seat) throw new RouteResponse(404, { error: 'NOT_FOUND', message: 'Office seat no longer exists' });
 
+      // The seat's OFFICE itself can be re-assigned between submission and
+      // approval, and `office_category` is denormalised onto the pending
+      // record for display. Codex review, 2026-08-27 pass 2, reproduced the
+      // consequence: a `Resources` request queued under Head of State was
+      // approved after the seat became Primogen, and the purchase landed under
+      // PRIMOGEN's rules with Primogen's denormalised category. The ST is
+      // shown one office in the queue and signs off on another. A manoeuvre
+      // request is worse still — it advances a completely different named
+      // ladder. Refuse rather than retarget.
+      if (seat.office_category !== pending.office_category)
+        throw new RouteResponse(409, {
+          error: 'CONFLICT',
+          message: `This seat's office changed from ${pending.office_category} to ${seat.office_category} after the request was submitted; decline it and ask the holder to resubmit`,
+        });
+
       const officeEntry = OFFICE_DATA[seat.office_category];
       if (!officeEntry)
         throw new RouteResponse(400, {
@@ -325,6 +398,27 @@ router.put('/:id/accept', requireRole('st'), async (req, res) => {
       const { from, to } = checkPurchaseValidity(
         officeEntry, pending.purchase_kind, pending.merit, meritDotsDoc, manoeuvreRankDoc, 409,
       );
+
+      // STRICT re-validation: ANY intervening movement of the target value is
+      // a 409, not just one that crosses a cap or the rank ceiling. The check
+      // above only asks "is a purchase still legal?"; this asks "is it still
+      // the SAME purchase?".
+      //
+      // Angelus's ruling, 2026-08-27, after Codex pass 3 reproduced the gap: a
+      // request submitted at 0 dots, stepped by an ST to 1 (still below the
+      // cap of 5) and then accepted, returned 200 and landed on 2. The story's
+      // premise is that an ST approves a SPECIFIC request, so the effect that
+      // lands must be the effect that was queued; a permissive "still legal,
+      // apply it anyway" silently changes what was signed off. Failing closed
+      // costs nothing real — the request stays pending and actionable, and the
+      // holder resubmits against the value they can now see.
+      if (from !== pending.submitted_from)
+        throw new RouteResponse(409, {
+          error: 'CONFLICT',
+          message: pending.purchase_kind === 'merit'
+            ? `${pending.merit} moved from ${pending.submitted_from} to ${from} dots after the request was submitted; decline it and ask the holder to resubmit`
+            : `This seat's manoeuvre rank moved from ${pending.submitted_from} to ${from} after the request was submitted; decline it and ask the holder to resubmit`,
+        });
 
       // Losing the seat between submission and approval is a real, narrow case
       // that must not silently apply — the same reasoning office-actions.js

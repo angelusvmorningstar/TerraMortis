@@ -96,6 +96,16 @@ beforeAll(async () => {
   if (!dbAvailable) return;
   await setupDb();
   app = createTestApp();
+  // The one-pending-per-seat partial unique index server/index.js builds at
+  // boot. The test app has no boot path, so the suite declares it here —
+  // exactly what oaq-2-pending-status-actions.test.js and
+  // issue-1143-office-actions-auth-safety.test.js already do for their own
+  // indexes. createIndex is idempotent, so this is safe on every run.
+  // Without it the concurrency test below cannot prove anything.
+  await getCollection('contested_roll_requests').createIndex(
+    { seat_id: 1 },
+    { unique: true, partialFilterExpression: { request_type: 'office_purchase', status: 'pending' } },
+  );
 });
 
 beforeEach(async () => {
@@ -1000,5 +1010,333 @@ describe.skipIf(!dbAvailable)('oxp.9 — accept race safety (AC5)', () => {
     expect(src).toMatch(/getClient\(\)/);
     expect(src).toMatch(/dbSession\.withTransaction\(/);
     expect(src).toMatch(/session: dbSession/);
+  });
+
+  // The BEHAVIOURAL counterpart to the three regex checks above. Codex review,
+  // 2026-08-27 pass 1, found that the static test could not fail if a purchase
+  // write were moved outside the transaction callback, because it only asserts
+  // that three strings appear somewhere in the file.
+  //
+  // The failure is forced with DATA, not a test-only hook in production code:
+  // an `office_merit_dots` document whose `dots` is a scalar rather than a
+  // sub-document passes every route-level check (the dot lookup on a number
+  // reads undefined, so `from` is 0 and the purchase looks perfectly legal),
+  // and then makes MongoDB itself reject `$set: { 'dots.Haven': 1 }` — after
+  // the claim has already been written inside the same transaction.
+  it('a failure in the purchase write rolls the claim back with it (behavioural, not a source-text check)', async () => {
+    await getCollection('office_merit_dots').insertOne({ _id: HOS.toLowerCase(), dots: 5, office_category: 'Head of State' });
+    const pending = await submitAs(holderUser(), { seat_id: HOS, purchase_kind: 'merit', merit: 'Haven' });
+
+    const res = await request(app)
+      .put(`/api/office_purchase_requests/${pending._id}/accept`)
+      .set('X-Test-User', stUser())
+      .send({});
+
+    expect(res.status, 'the purchase write must genuinely fail for this test to prove anything').toBeGreaterThanOrEqual(500);
+
+    // The claim was written BEFORE the purchase write, inside the transaction.
+    // If either write escaped it, this record would be stranded as
+    // resolved-but-unapplied — approved XP spend with nothing bought.
+    const fresh = await getCollection('contested_roll_requests').findOne({ _id: new ObjectId(pending._id) });
+    expect(fresh.status, 'the claim must roll back with the failed purchase write').toBe('pending');
+    expect(fresh.outcome).toBeNull();
+    expect(fresh.resolved_by).toBeUndefined();
+
+    const doc = await getCollection('office_merit_dots').findOne({ _id: HOS.toLowerCase() });
+    expect(doc.dots, 'nothing may be half-applied to the purchase collection either').toBe(5);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// External code-review round, 2026-08-27 — three isolated Codex passes.
+//
+// Every test below covers a defect found OUTSIDE this session, by an external
+// reviewer, and every one was reproduced here (red) before its fix was
+// written. See specs/stories/code-review/oxp-9-spend-routes-through-oaq-codex-
+// findings-pass{1,2,3}.md for the raw findings and the Senior Developer Review
+// section of the story for the triage.
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe.skipIf(!dbAvailable)('oxp.9 review — one-pending-per-seat is enforced by a partial unique index, not a racing findOne (pass 1 + pass 2)', () => {
+  it('a concurrent burst for one seat creates exactly ONE pending record', async () => {
+    // Pass 2's own reproduction, scaled down: it fired twelve, got ten 201s and
+    // ten pending rows, then accepted two of them onto the same merit. The
+    // findOne pre-check alone cannot arbitrate this — every handler completes
+    // its read before any insert commits.
+    const responses = await Promise.all(
+      Array.from({ length: 8 }, () => request(app)
+        .post('/api/office_purchase_requests')
+        .set('X-Test-User', holderUser())
+        .send({ seat_id: HOS, purchase_kind: 'merit', merit: 'Haven' })),
+    );
+
+    const created = responses.filter(r => r.status === 201);
+    const conflicted = responses.filter(r => r.status === 409);
+    expect(created.length, 'exactly one submission may win the seat').toBe(1);
+    expect(conflicted.length).toBe(7);
+    for (const r of conflicted) expect(r.body.error).toBe('CONFLICT');
+
+    const pendingCount = await getCollection('contested_roll_requests')
+      .countDocuments({ request_type: 'office_purchase', seat_id: HOS.toLowerCase(), status: 'pending' });
+    expect(pendingCount, 'the database itself must hold exactly one pending row for this seat').toBe(1);
+  });
+
+  it('a resolved record does not block a later resubmission (the index is partial-filtered to pending)', async () => {
+    const first = await submitAs(holderUser(), { seat_id: HOS, purchase_kind: 'merit', merit: 'Haven' });
+    await request(app).put(`/api/office_purchase_requests/${first._id}/accept`).set('X-Test-User', stUser()).send({});
+
+    const second = await request(app)
+      .post('/api/office_purchase_requests')
+      .set('X-Test-User', holderUser())
+      .send({ seat_id: HOS, purchase_kind: 'manoeuvre' });
+
+    expect(second.status).toBe(201);
+  });
+
+  it('two different seats may each hold their own pending request (the index is keyed on seat_id, not global)', async () => {
+    const a = await request(app).post('/api/office_purchase_requests').set('X-Test-User', holderUser())
+      .send({ seat_id: HOS, purchase_kind: 'merit', merit: 'Haven' });
+    const b = await request(app).post('/api/office_purchase_requests').set('X-Test-User', holderUser())
+      .send({ seat_id: PRIMOGEN, purchase_kind: 'merit', merit: 'Contacts' });
+
+    expect([a.status, b.status]).toEqual([201, 201]);
+  });
+
+  it('server/index.js declares that index at boot, beside oaq.2\'s own', () => {
+    const src = readFile('server/index.js');
+    const marker = "collection('contested_roll_requests').createIndex(";
+    const blocks = [];
+    let at = src.indexOf(marker);
+    while (at !== -1) {
+      blocks.push(src.slice(at, src.indexOf('\n    );', at)).replace(/\s+/g, ' '));
+      at = src.indexOf(marker, at + 1);
+    }
+    const mine = blocks.filter(b => b.includes("request_type: 'office_purchase'"));
+    expect(mine.length, 'exactly one boot-time index for the office_purchase dedupe').toBe(1);
+    expect(mine[0]).toContain('seat_id: 1');
+    expect(mine[0]).toContain('unique: true');
+    expect(mine[0], 'partial-filtered to pending so a resolved record never blocks a resubmission').toContain("status: 'pending'");
+  });
+
+  it('the route translates the duplicate-key error into the same 409 the pre-check returns', () => {
+    const src = readFile('server/routes/office-purchase.js');
+    const post = src.slice(src.indexOf("router.post('/'"), src.indexOf("router.get('/'"));
+    expect(post).toMatch(/err\.code === 11000/);
+    expect(post).toMatch(/A purchase request is already pending for this seat/);
+  });
+});
+
+describe.skipIf(!dbAvailable)('oxp.9 review — a seat whose OFFICE changed after submission is refused, never retargeted (pass 2)', () => {
+  it('409s when the seat moved to another office category between submission and approval', async () => {
+    // Pass 2's exact reproduction: Resources belongs to BOTH Head of State and
+    // Primogen, so the purchase stays superficially legal under the new office
+    // and used to be applied under its rules, with its denormalised category.
+    const pending = await submitAs(holderUser(), { seat_id: HOS, purchase_kind: 'merit', merit: 'Resources' });
+    expect(pending.office_category).toBe('Head of State');
+    await getCollection('office_seats').updateOne({ _id: SEAT_HOS }, { $set: { office_category: 'Primogen' } });
+
+    const res = await request(app)
+      .put(`/api/office_purchase_requests/${pending._id}/accept`)
+      .set('X-Test-User', stUser())
+      .send({});
+
+    expect(res.status).toBe(409);
+    expect(res.body.message).toMatch(/office changed/i);
+    expect(await getCollection('office_merit_dots').findOne({ _id: HOS.toLowerCase() })).toBeNull();
+    const fresh = await getCollection('contested_roll_requests').findOne({ _id: new ObjectId(pending._id) });
+    expect(fresh.status, 'the request stays actionable rather than being applied to the wrong office').toBe('pending');
+  });
+
+  it('409s for a manoeuvre request too, which would otherwise advance a different named ladder', async () => {
+    const pending = await submitAs(holderUser(), { seat_id: HOS, purchase_kind: 'manoeuvre' });
+    await getCollection('office_seats').updateOne({ _id: SEAT_HOS }, { $set: { office_category: 'Enforcer' } });
+
+    const res = await request(app)
+      .put(`/api/office_purchase_requests/${pending._id}/accept`)
+      .set('X-Test-User', stUser())
+      .send({});
+
+    expect(res.status).toBe(409);
+    expect(await getCollection('office_manoeuvre_ranks').findOne({ _id: HOS.toLowerCase() })).toBeNull();
+  });
+});
+
+describe.skipIf(!dbAvailable)('oxp.9 review — STRICT re-validation: any intervening move of the target value is a 409 (pass 3)', () => {
+  it('records the value observed at submission on the pending document', async () => {
+    await getCollection('office_merit_dots').insertOne({ _id: HOS.toLowerCase(), dots: { Haven: 2 }, office_category: 'Head of State' });
+    const merit = await submitAs(holderUser(), { seat_id: HOS, purchase_kind: 'merit', merit: 'Haven' });
+    expect(merit.submitted_from).toBe(2);
+
+    await request(app).put(`/api/office_purchase_requests/${merit._id}/decline`).set('X-Test-User', stUser()).send({});
+    const manoeuvre = await submitAs(holderUser(), { seat_id: HOS, purchase_kind: 'manoeuvre' });
+    expect(manoeuvre.submitted_from).toBe(0);
+  });
+
+  it('MERIT: 409s when an ST stepper moved the dot count BELOW the cap between submission and approval', async () => {
+    // Pass 3's reproduction. The cap is 5, so 0 -> 1 stays perfectly legal and
+    // used to return 200 and land on 2 — a different purchase from the one the
+    // ST was shown.
+    const pending = await submitAs(holderUser(), { seat_id: HOS, purchase_kind: 'merit', merit: 'Haven' });
+    expect(pending.submitted_from).toBe(0);
+    await getCollection('office_merit_dots').insertOne({ _id: HOS.toLowerCase(), dots: { Haven: 1 }, office_category: 'Head of State' });
+
+    const res = await request(app)
+      .put(`/api/office_purchase_requests/${pending._id}/accept`)
+      .set('X-Test-User', stUser())
+      .send({});
+
+    expect(res.status).toBe(409);
+    expect(res.body.message).toMatch(/moved from 0 to 1/);
+    const doc = await getCollection('office_merit_dots').findOne({ _id: HOS.toLowerCase() });
+    expect(doc.dots.Haven, 'nothing may be applied on top of the intervening change').toBe(1);
+    const fresh = await getCollection('contested_roll_requests').findOne({ _id: new ObjectId(pending._id) });
+    expect(fresh.status).toBe('pending');
+  });
+
+  it('MANOEUVRE: 409s when an ST stepper moved the rank BELOW the ceiling between submission and approval', async () => {
+    const pending = await submitAs(holderUser(), { seat_id: HOS, purchase_kind: 'manoeuvre' });
+    expect(pending.submitted_from).toBe(0);
+    await getCollection('office_manoeuvre_ranks').insertOne({ _id: HOS.toLowerCase(), rank: 1, office_category: 'Head of State' });
+
+    const res = await request(app)
+      .put(`/api/office_purchase_requests/${pending._id}/accept`)
+      .set('X-Test-User', stUser())
+      .send({});
+
+    expect(res.status).toBe(409);
+    expect(res.body.message).toMatch(/moved from 0 to 1/);
+    const doc = await getCollection('office_manoeuvre_ranks').findOne({ _id: HOS.toLowerCase() });
+    expect(doc.rank).toBe(1);
+  });
+
+  it('a DOWN-stepper counts too — the rule is "any change", not "any increase"', async () => {
+    await getCollection('office_merit_dots').insertOne({ _id: HOS.toLowerCase(), dots: { Haven: 3 }, office_category: 'Head of State' });
+    const pending = await submitAs(holderUser(), { seat_id: HOS, purchase_kind: 'merit', merit: 'Haven' });
+    await getCollection('office_merit_dots').updateOne({ _id: HOS.toLowerCase() }, { $set: { 'dots.Haven': 2 } });
+
+    const res = await request(app)
+      .put(`/api/office_purchase_requests/${pending._id}/accept`)
+      .set('X-Test-User', stUser())
+      .send({});
+
+    expect(res.status).toBe(409);
+    expect(res.body.message).toMatch(/moved from 3 to 2/);
+  });
+
+  it('an UNCHANGED value still accepts normally (the strict check is not an accept-nothing gate)', async () => {
+    await getCollection('office_merit_dots').insertOne({ _id: HOS.toLowerCase(), dots: { Haven: 2 }, office_category: 'Head of State' });
+    const pending = await submitAs(holderUser(), { seat_id: HOS, purchase_kind: 'merit', merit: 'Haven' });
+
+    const res = await request(app)
+      .put(`/api/office_purchase_requests/${pending._id}/accept`)
+      .set('X-Test-User', stUser())
+      .send({});
+
+    expect(res.status).toBe(200);
+    const doc = await getCollection('office_merit_dots').findOne({ _id: HOS.toLowerCase() });
+    expect(doc.dots.Haven).toBe(3);
+  });
+
+  it('a change to a DIFFERENT merit on the same seat does not block the request', async () => {
+    const pending = await submitAs(holderUser(), { seat_id: HOS, purchase_kind: 'merit', merit: 'Haven' });
+    await getCollection('office_merit_dots').insertOne({ _id: HOS.toLowerCase(), dots: { Staff: 2 }, office_category: 'Head of State' });
+
+    const res = await request(app)
+      .put(`/api/office_purchase_requests/${pending._id}/accept`)
+      .set('X-Test-User', stUser())
+      .send({});
+
+    expect(res.status).toBe(200);
+    const doc = await getCollection('office_merit_dots').findOne({ _id: HOS.toLowerCase() });
+    expect(doc.dots).toEqual({ Staff: 2, Haven: 1 });
+  });
+});
+
+describe.skipIf(!dbAvailable)('oxp.9 review — a corrupted stored manoeuvre rank is refused, never coerced (pass 1)', () => {
+  it('a NEGATIVE stored rank is refused at accept rather than producing an outcome that disagrees with storage', async () => {
+    // Pass 1, hand-traced but never run against a database (its session had no
+    // mongod): `rank: -5` recorded `to: -4` in the audit outcome while the
+    // clamped pipeline stored 0. Reproduced here for real before fixing.
+    const pending = await submitAs(holderUser(), { seat_id: HOS, purchase_kind: 'manoeuvre' });
+    await getCollection('office_manoeuvre_ranks').insertOne({ _id: HOS.toLowerCase(), rank: -5, office_category: 'Head of State' });
+
+    const res = await request(app)
+      .put(`/api/office_purchase_requests/${pending._id}/accept`)
+      .set('X-Test-User', stUser())
+      .send({});
+
+    expect(res.status).toBe(409);
+    expect(res.body.message).toMatch(/not a valid rank/i);
+    const doc = await getCollection('office_manoeuvre_ranks').findOne({ _id: HOS.toLowerCase() });
+    expect(doc.rank, 'the corrupted value is left exactly as found, for an ST to correct').toBe(-5);
+  });
+
+  it('a NON-NUMERIC stored rank is a controlled 409, not an uncaught 500 from MongoDB\'s $add', async () => {
+    const pending = await submitAs(holderUser(), { seat_id: HOS, purchase_kind: 'manoeuvre' });
+    await getCollection('office_manoeuvre_ranks').insertOne({ _id: HOS.toLowerCase(), rank: 'bad', office_category: 'Head of State' });
+
+    const res = await request(app)
+      .put(`/api/office_purchase_requests/${pending._id}/accept`)
+      .set('X-Test-User', stUser())
+      .send({});
+
+    expect(res.status).toBe(409);
+    const fresh = await getCollection('contested_roll_requests').findOne({ _id: new ObjectId(pending._id) });
+    expect(fresh.status, 'the request must stay actionable rather than being stranded by a 500').toBe('pending');
+  });
+
+  it('the same corruption is refused at SUBMISSION with a 400, so it never reaches the queue', async () => {
+    await getCollection('office_manoeuvre_ranks').insertOne({ _id: HOS.toLowerCase(), rank: 'bad', office_category: 'Head of State' });
+
+    const res = await request(app)
+      .post('/api/office_purchase_requests')
+      .set('X-Test-User', holderUser())
+      .send({ seat_id: HOS, purchase_kind: 'manoeuvre' });
+
+    expect(res.status).toBe(400);
+    expect(res.body.message).toMatch(/not a valid rank/i);
+  });
+
+  it('a missing document and a legitimate rank of 0 are both still read as 0', async () => {
+    const a = await submitAs(holderUser(), { seat_id: HOS, purchase_kind: 'manoeuvre' });
+    expect(a.submitted_from).toBe(0);
+    await request(app).put(`/api/office_purchase_requests/${a._id}/decline`).set('X-Test-User', stUser()).send({});
+
+    await getCollection('office_manoeuvre_ranks').insertOne({ _id: HOS.toLowerCase(), rank: 0, office_category: 'Head of State' });
+    const b = await submitAs(holderUser(), { seat_id: HOS, purchase_kind: 'manoeuvre' });
+    expect(b.submitted_from).toBe(0);
+  });
+});
+
+describe.skipIf(!dbAvailable)('oxp.9 review — a non-array character_ids denies access CLEANLY (pass 1)', () => {
+  const brokenUser = () => playerUser([], { character_ids: HOLDER });
+
+  it('POST is a controlled 403, not a 500 from calling .map on a string', async () => {
+    const res = await request(app)
+      .post('/api/office_purchase_requests')
+      .set('X-Test-User', brokenUser())
+      .send({ seat_id: HOS, purchase_kind: 'merit', merit: 'Haven' });
+
+    expect(res.status).toBe(403);
+    expect(res.body.error).toBe('FORBIDDEN');
+  });
+
+  it('GET is a controlled 403 too', async () => {
+    const res = await request(app)
+      .get(`/api/office_purchase_requests?seat_id=${HOS}`)
+      .set('X-Test-User', brokenUser());
+
+    expect(res.status).toBe(403);
+  });
+
+  it('still fails CLOSED — a malformed character_ids never grants holder access', async () => {
+    const res = await request(app)
+      .post('/api/office_purchase_requests')
+      .set('X-Test-User', brokenUser())
+      .send({ seat_id: HOS, purchase_kind: 'merit', merit: 'Haven' });
+
+    expect(res.status).not.toBe(201);
+    expect(await getCollection('contested_roll_requests')
+      .countDocuments({ request_type: 'office_purchase', seat_id: HOS.toLowerCase() })).toBe(0);
   });
 });

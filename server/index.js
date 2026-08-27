@@ -278,6 +278,26 @@ async function start() {
         partialFilterExpression: { request_type: 'status_action', status: 'pending' },
       },
     );
+    // Ensure partial unique index on contested_roll_requests (oxp.9) —
+    // the one-pending-per-seat rule for office XP purchase requests. The
+    // sibling of the oaq.2 index above, for the same reason and by the same
+    // mechanism: office-purchase.js's POST kept a findOne pre-check as a
+    // fast-path, but a findOne-then-insertOne pair is not atomic, and an
+    // external Codex review round (2026-08-27, passes 1 and 2) REPRODUCED the
+    // double spend — a 12-request burst created ten pending rows for one seat
+    // and two of them were then accepted onto the same merit. This index is
+    // the authoritative guard; the route translates its duplicate-key error
+    // (11000) into the same 409 the pre-check already returns. Scoped to
+    // status:'pending' so a resolved/declined record never blocks a later
+    // resubmission, exactly as the oaq.2 index is.
+    getDb().collection('contested_roll_requests').createIndex(
+      { seat_id: 1 },
+      {
+        unique: true,
+        background: true,
+        partialFilterExpression: { request_type: 'office_purchase', status: 'pending' },
+      },
+    );
     // Ensure the defender-queue compound index on contested_roll_requests
     // (crd.1) — contested-rolls.js's GET /mine filters on target_character_id
     // + status and sorts by created_at descending. Until crd.1 the ONLY index

@@ -1471,3 +1471,21 @@ two below were judged real but out of proportion to fix in this pass, or not thi
   playwright test` succeeds normally). Not fixed here — neither file is touched by this story's
   diff, and the real fix (declaring `http-server` as a devDependency, or switching the webServer
   command to the already-declared `serve` package) is a repo-hygiene item, not specific to Devlog.
+
+## Deferred from: code review of oxp-9-spend-routes-through-oaq (2026-08-27, external Codex, 3 isolated passes)
+
+- **`office-tab.js`'s purchase-request control is not disabled while its own POST is in flight**
+  (Low, UX only — `public/js/tabs/office-tab.js:853-866`, `_submitPurchaseRequest`). The handler
+  awaits `apiPost` without first marking the button busy, so a double-click fires two submissions.
+  This was the CLIENT-side trigger Codex pass 1 named for the one-pending-per-seat race, and pass 2
+  used it to reproduce a real double spend (a burst created ten pending rows for one seat, two of
+  which were then accepted onto the same merit). **The defect itself is fixed** — this review round
+  added the partial unique index on `{ seat_id }` that arbitrates it authoritatively at the database
+  level, plus a duplicate-key-to-409 translation, plus a concurrency regression test; see the story's
+  Senior Developer Review section. What is left is purely cosmetic: the second click now gets a
+  toast reading "A purchase request is already pending for this seat", which is correct but reads as
+  an error for what is really just an impatient user. Adding a busy lock (disable, await, re-enable
+  under the existing `el._officeManoeuvreGen` generation guard, the same shape `_adjustMeritDots`
+  would need) would make the second click a silent no-op instead. Not done here: the patch round was
+  scoped to correctness findings and this touches a client render path with its own generation-guard
+  invariants, so it wants its own story rather than a drive-by edit inside a review round.

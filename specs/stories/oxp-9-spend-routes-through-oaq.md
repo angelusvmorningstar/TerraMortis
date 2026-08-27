@@ -1,6 +1,6 @@
 # Story oxp.9: Office XP spend routes through the ST Approval Queue
 
-Status: review
+Status: done
 
 ## Story
 
@@ -477,9 +477,29 @@ Claude Opus 5 (1M context), running as the dev-story subagent of this project's 
 **What was built.** All nine tasks. Server: a new `office_purchase` request type in the existing
 `contested_roll_requests` collection, with its own titled request-body schema and its own route file
 carrying POST / GET / accept / decline. The purchase write happens only on ST accept, inside one
-transaction, in the order the story specified: read live, re-validate, re-check the requester still
-holds the seat, authoritative `officeSeatXp().left >= 1`, claim the pending record (the first write,
-carrying the outcome), apply the purchase. Merit purchases go through the same `$set` plus
+transaction.
+
+**CORRECTED 2026-08-27, external Codex review pass 3 (an acceptance audit).** This paragraph
+originally said the implemented order was "the order the story specified". It is not, and that claim
+was false. The REAL implemented order is: read live → re-validate → re-check the requester still
+holds the seat → authoritative `officeSeatXp().left >= 1` → **claim the pending record** (the first
+write, carrying the outcome) → apply the purchase. AC5's literal order is: resolve pending → claim →
+live re-read → re-validate → requester check → budget check → apply → record outcome. The two differ
+in where the claim sits.
+
+The code was deliberately NOT changed to match AC5's literal wording, because the implemented order
+is the safer of the two: it never marks a request `resolved` before it has confirmed the request is
+still valid to apply. Under AC5's literal order a request that fails re-validation would be claimed
+first and only then rejected, and would depend entirely on the transaction rolling that claim back
+to avoid being stranded as approved-but-unapplied. The implemented order does not need the rollback
+to be correct — it simply never writes the claim in the first place. What AC5's ordering genuinely
+protects (the loser of a concurrent accept race must never reach the purchase write) is preserved
+exactly, because the claim is still the FIRST WRITE, before either purchase write; only the reads
+precede it. Codex pass 3 ran the concurrency tests against a moved claim and found no additional
+runtime failure from this ordering either way. Recorded as an acceptance-criteria mismatch rather
+than silently reconciled; the safer order stands.
+
+Merit purchases go through the same `$set` plus
 denormalised `office_category` plus `upsert` shape `office-merit-dots.js` uses; manoeuvre purchases go
 through the SAME clamped aggregation pipeline `office-manoeuvre-rank.js`'s `/step` route uses, never
 a read-then-write absolute. Client: a third row type in the Approval Queue, and a holder-facing
@@ -562,6 +582,17 @@ PURCHASE, so verifying against live data would have altered a real seat's purcha
 seat and holder in the test database gave the same end-to-end coverage with no live write. Those
 fixtures were deleted afterwards (confirmed: 0 `office_purchase` documents remain in `tm_game_test`).
 
+**A note on what "eyeballed" is worth as evidence, added 2026-08-27 after external Codex pass 3
+raised it as a Low finding.** Everything in the list below was genuinely observed in a live browser
+session at the time, but that session left **no committed artefact** — no screenshot, no console
+capture, no browser trace, and this repo has no Playwright/Puppeteer/jsdom dependency under
+`server/` with which to replay it. So these are first-hand observations, not independently
+reproducible evidence, and a later reader cannot re-derive them from the commit alone. Codex
+corroborated the API-level effects underneath them against a real database (exactly one balance
+point spent; a decline writing nothing; the unaffordable `title` string and the holder gate present
+in source; zero added inline styles), and found nothing contradicting the list — it simply could
+not confirm the DOM and console claims themselves. Read the list on that footing.
+
 Actually eyeballed and confirmed:
 
 - The Office tab's Manoeuvres section rendering the balance line and an enabled **REQUEST RANK 1**
@@ -608,14 +639,32 @@ Actually eyeballed and confirmed:
 
 1. **The Approval Queue badge for a manoeuvre reads "Next manoeuvre rank", not "Manoeuvre rank 3".**
    AC8 gives "Manoeuvre rank 3" as an example, but AC3 fixes the pending document's shape and it
-   carries no rank field: the rank is only read live inside the accept transaction, precisely so the
-   ST's own stepper moving it in between is caught as a 409. Rendering a number here would have meant
-   either adding a field AC3 does not have, or printing a figure that could be stale by the time it
-   is read. The badge says what is true of the request itself.
+   carries no rank field for DISPLAY: the rank is read live inside the accept transaction. Rendering
+   a number here would have meant printing a figure that could be stale by the time it is read. The
+   badge says what is true of the request itself.
+
+   **CORRECTED 2026-08-27, external Codex review pass 3.** This note originally justified itself by
+   claiming "the ST's own stepper moving it in between is caught as a 409". At the time it was
+   written that was FALSE: the accept route only rejected a move that crossed the cap or the rank
+   ceiling, and Codex reproduced a below-cap move (0 → 1, cap 5) being accepted and applied on top,
+   landing on 2. It is TRUE NOW, as of this review round's patch 3: the pending document carries a
+   new `submitted_from` field (the dot count or rank observed at submission, before this request's
+   own effect), and the accept route 409s on ANY difference between that and its own fresh reading,
+   not only a cap-crossing one. Angelus's ruling, 2026-08-27, on the strict-versus-permissive
+   question: strict, because the story's premise is that an ST approves a SPECIFIC request and the
+   effect that lands must be the effect that was queued. Note `submitted_from` is a re-validation
+   field, not a display field — the badge still deliberately prints no number.
 2. **`merit: null` is treated as "not supplied" on a manoeuvre request**, rather than rejected. AC3
    says a merit supplied on a manoeuvre request is a 400; the schema itself permits `null`, so a
    client that always sends the key is not punished for it. A non-null merit on a manoeuvre request
    is a 400 as specified.
+
+   **REVIEWED AND KNOWINGLY KEPT, 2026-08-27.** External Codex review pass 3 raised this as a Low
+   finding against AC1's literal "reject if merit is supplied" wording, and reproduced it (a
+   `merit: null` manoeuvre POST returns 201). Triaged as dismissed, not patched: this is a
+   deliberate, already-disclosed deviation, the behaviour is unchanged, and punishing a client for
+   sending a key it always sends would be a worse API. The literal AC is the thing that is slightly
+   wrong here, not the code.
 3. **`GET /` uses `resolveOfficeSeat`**, which means a read against an Administrator seat returns the
    inherited 400 rather than an empty list. Consistent with POST and accept, and unreachable from the
    Office tab (Administrator has no `OFFICE_DATA` entry, so the tab returns before any purchase-state
@@ -657,3 +706,190 @@ Actually eyeballed and confirmed:
 `server/routes/humanity-check.js`, `public/js/editor/xp.js`, `public/js/editor/sheet.js`,
 `public/js/data/office-seat-resolve.js`, `public/js/game/humanity-check.js`,
 `public/js/tabs/office-data.js`.
+
+**Added by the code-review round below, 2026-08-27:** `server/index.js` gains one more boot-time
+index block (the oxp.9 partial unique index); `server/routes/office-purchase.js` and
+`server/tests/oxp-9-spend-routes-through-oaq.test.js` are further edited. No other file was touched
+by that round, and no client file was touched by it at all.
+
+## Senior Developer Review — external Codex, 2026-08-27
+
+### How this was reviewed
+
+**The findings below came from OUTSIDE this session.** They were produced by **three isolated
+external Codex passes** (CLI-direct, high reasoning effort, three separate `codex exec` processes —
+verified as genuinely separate rather than one collapsed session), each given the story and the diff
+independently: pass 1 a blind bug hunt, pass 2 an edge-case hunt, pass 3 an acceptance audit against
+the ACs and the Dev Agent Record. **None of these were self-discovered.** Raw findings are preserved
+verbatim at:
+
+- `specs/stories/code-review/oxp-9-spend-routes-through-oaq-codex-findings-pass1.md`
+- `specs/stories/code-review/oxp-9-spend-routes-through-oaq-codex-findings-pass2.md`
+- `specs/stories/code-review/oxp-9-spend-routes-through-oaq-codex-findings-pass3.md`
+
+Passes 2 and 3 each stood up their own isolated single-node MongoDB replica set on an alternate port
+and reproduced their findings dynamically, against the real Express router and a real transaction.
+Pass 1's environment had no `mongod` at all, so its two findings were reasoned statically and
+explicitly flagged as unreproduced by their own author — **both were reproduced dynamically in this
+patch round before being fixed** (see finding 4 below for what the reproduction actually showed).
+
+**No High-severity findings in any pass. No finding disputed the story's design; every one was a
+defect in, or an inaccuracy about, the implementation.**
+
+### Findings, by severity and pass
+
+| # | Severity | Pass | Finding | Outcome |
+|---|---|---|---|---|
+| 1 | Medium | 1 + 2 | `POST /`'s one-pending-per-seat guard is a `findOne` then `insertOne`, not atomic — a concurrent burst creates several pending rows for one seat and can double-spend | **PATCHED** |
+| 2 | Medium | 2 | A seat's `office_category` can change between submission and accept; accept never compares it with the pending record's, so the purchase is silently retargeted to the new office's rules | **PATCHED** |
+| 3 | Medium | 3 | An intervening BELOW-CAP change to the target dot/rank is silently applied on top; only cap-crossing moves were caught. The Dev Agent Record's "caught as a 409" claim was false | **PATCHED** + record corrected |
+| 4 | Medium | 1 | A malformed stored manoeuvre `rank` (negative or non-numeric) desyncs the recorded outcome from storage, or 500s | **PATCHED** |
+| 5 | Low | 1 | A non-array `character_ids` makes `holderCharacterId` throw — fails closed by crashing (500) instead of a controlled 403 | **PATCHED** |
+| 6 | Low | 1 | The transaction-atomicity test only regex-checks source text; it cannot fail if a purchase write leaves the transaction callback | **PATCHED** (a real behavioural test added) |
+| 7 | Low | 3 | `merit: null` accepted on a manoeuvre request despite AC1's literal wording | **DISMISSED**, record clarified |
+| 8 | Low | 3 | The implemented accept ordering does not match AC5's literal ordering, and the Dev Agent Record wrongly said it did | **DISMISSED** (the real order is safer), record corrected |
+| 9 | Low | 3 | Browser-only live-verification claims are not independently reproducible from the commit | **DISMISSED**, record's wording tightened |
+
+### What was patched, and why
+
+**1 — one-pending-per-seat dedupe race (Medium, passes 1 and 2).** Pass 2 reproduced a real double
+spend: a 12-request burst returned ten 201s and created ten pending rows for one seat, and accepting
+the first two put two dots on one merit. AC3's own reasoning ("one holder tapping their own button,
+not a multi-actor budget race") was simply wrong — `office-tab.js`'s submit handler does not disable
+the control before awaiting the POST, so a double-click is the natural trigger.
+
+Fixed the way this codebase already fixed the identical shape for `status_action` in oaq.2 and for
+`office_actions` in issue #1143: a **partial unique index**, not app-level locking. `server/index.js`
+now builds `{ seat_id: 1 }`, unique, partial-filtered to
+`{ request_type: 'office_purchase', status: 'pending' }`, in a block beside oaq.2's own. The route's
+`findOne` pre-check is KEPT as a fast path (it spares the common case a wasted validity and
+affordability computation and returns the friendlier body), but the index is now the authoritative
+guard, and `insertOne`'s duplicate-key error (code 11000) is translated into the same `409 CONFLICT`
+the pre-check already returns. The suite declares the same index in its own `beforeAll`, the
+established pattern from `oaq-2-pending-status-actions.test.js` and
+`issue-1143-office-actions-auth-safety.test.js` (the test app has no boot path).
+
+Prove-discrimination, three separate single changes:
+- Dropping the index (and the suite's declaration of it): the 8-request burst produced **5** created
+  rows instead of 1. Pass 2's finding, reproduced here.
+- Removing the 11000 catch: the burst produced 1 created row but only **5** of the expected 7 × 409 —
+  the other two surfaced as 500s.
+- Removing the `server/index.js` block: the static boot-declaration test failed.
+All three restored, all green.
+
+**2 — seat category drift (Medium, pass 2).** `office_category` is denormalised onto the pending
+record for the queue's display. Pass 2 reproduced the consequence: a `Resources` request queued
+under Head of State, the seat then changed to Primogen, accept returned 200 and wrote the purchase
+with `office_category: "Primogen"` — the ST is shown one office and signs off on another. Worse for
+a manoeuvre, which would advance a completely different named ladder. The accept transaction now
+compares the live seat's category with the pending record's immediately after the live re-read, and
+throws `409 CONFLICT` naming both. Prove-discriminated: with the check disabled, BOTH new tests
+fail (the merit one and the manoeuvre one, the latter with a plain 200).
+
+**3 — strict re-validation on ANY intervening change (Medium, pass 3).** Pass 3 reproduced a
+below-cap move being applied on top: submitted at 0 dots, an ST stepper moved it to 1 (cap 5), and
+accept returned 200 and landed on 2. **Angelus's explicit ruling, obtained this session: strict —
+409 on any intervening change, not just cap-crossing ones**, because the story's premise is that an
+ST approves a SPECIFIC request, and the purchased effect must not silently shift between submission
+and approval. `POST /` now stores `submitted_from` (the dot count or manoeuvre rank observed at
+submission, before this request's own effect) on the pending document, and the accept route compares
+its own fresh reading against it — before the budget check and before the claim, alongside the other
+re-validations — throwing `409 CONFLICT` naming the movement. This covers down-steppers too: the
+rule is "any change", not "any increase". Prove-discriminated: with the comparison disabled both the
+merit and the manoeuvre test fail with 200 instead of 409, exactly Pass 3's observation. Two further
+tests pin that the check is not an accept-nothing gate — an unchanged value still accepts, and a
+change to a DIFFERENT merit on the same seat does not block.
+
+A note on legacy records: the comparison is unguarded, so a pending record predating the field would
+409. That is deliberate and safe (nothing is applied, the request stays pending and actionable), and
+there are no such records — this route has never been deployed.
+
+**4 — malformed stored manoeuvre rank (Medium, pass 1).** Pass 1 reasoned this statically and said
+so; it was **reproduced dynamically here first**, with both route-level guards temporarily disabled,
+before anything was patched. Confirmed real, and slightly worse than pass 1 described:
+
+- `rank: -5` → **HTTP 200**, audit outcome `{ from: -5, to: -4, xp_cost: 1, earned: 7,
+  spent_before: -5, left_after: 11 }`, while MongoDB actually stored `rank: 0`. The recorded outcome
+  disagrees with storage in three fields at once, and the balance is nonsense.
+- `rank: 'bad'` → **HTTP 500 with an empty body**, request left stranded as `pending`.
+
+**The decision, and why.** `checkPurchaseValidity` now REFUSES a stored rank that is not a
+non-negative finite number, rather than coercing it to 0 — `409` at accept, `400` at submission so
+it never reaches the queue at all. The non-finite convention cited is `office-xp.js`'s own
+(`officeXpSpentForCategory` skips a value unless `typeof value === 'number' &&
+Number.isFinite(value)`, on the stated reasoning that `Number(null)` is a lie and `Number('three')`
+poisons the total). This goes one step further than that convention and rejects rather than skips,
+and a **negative-but-finite** rank is rejected too rather than read as 0. The reasoning: unlike a
+derived balance, which only has to render a number, an accept has to WRITE one back. Silently
+reading `-5` as `0` would apply a purchase and record an audit outcome that neither matches the
+corrupted state nor names it — the same audit desync, just quieter. This is pre-existing data
+corruption, not user input, so a clear refusal naming the field is the honest answer, and it cost
+four lines plus a message. `null`/missing and a legitimate `0` are still both read as `0`, pinned by
+their own test. Prove-discriminated: reverting to the original `(doc && doc.rank) || 0` fails the
+submission-400 test and the negative-rank message assertion.
+
+**5 — non-array `character_ids` (Low, pass 1).** `(user?.character_ids || []).map(String)` throws
+when the field is present but not an array, so the route failed closed by CRASHING. Access was never
+granted either way, so this is about failing closed CLEANLY rather than through an unhandled
+rejection. Now `Array.isArray(user?.character_ids) ? user.character_ids.map(String) : []`.
+Prove-discriminated: with the fix reverted, both the POST and GET tests fail with **500** instead of
+403 — precisely pass 1's prediction. A third test pins that it still fails CLOSED (a malformed
+`character_ids` never grants holder access and never creates a record).
+
+**6 — the atomicity test proved nothing (Low, pass 1). Attempted, and it landed.** The existing test
+asserts only that `getClient()`, `withTransaction(` and `session: dbSession` appear somewhere in the
+file, so it cannot fail if a purchase write leaves the transaction callback. A real behavioural test
+now sits beside it, and it needed **no test-only hook in production code** — the failure is forced
+with DATA. An `office_merit_dots` document whose `dots` is a scalar rather than a sub-document passes
+every route-level check (the dot lookup on a number reads `undefined`, so `from` is 0 and the
+purchase looks perfectly legal) and then makes MongoDB itself reject `$set: { 'dots.Haven': 1 }` —
+after the claim has already been written inside the same transaction. The test asserts the response
+is a 5xx AND that the pending record is still `pending` with a null outcome, i.e. the claim rolled
+back with the failed write. Prove-discriminated by removing `{ session: dbSession }` from the claim
+alone: the request is left stranded as **`resolved`** with nothing bought — approved XP spend with no
+purchase — while the old regex-only test stays green throughout. Nothing deferred for this item.
+
+### What was dismissed, and why
+
+**7 — `merit: null` on a manoeuvre request (Low, pass 3).** Behaviour left exactly as-is. It is a
+deliberate, already-disclosed deviation, and punishing a client that always sends the key would be a
+worse API. Deviation note 2 above now records that Codex raised and reproduced it and that it was
+knowingly kept. The literal AC is the imprecise thing here, not the code.
+
+**8 — AC5 step ordering (Low, pass 3).** Code left as-is; the Dev Agent Record's claim CORRECTED.
+The implemented order (re-read → re-validate → requester check → budget check → claim → apply →
+outcome) differs from AC5's literal order (claim first, then re-read), and the record wrongly said
+it was "the order the story specified". The implemented order is the safer one: it never marks a
+request `resolved` before confirming it is still valid to apply, so it does not depend on a rollback
+to avoid stranding an approved-but-unapplied purchase. What AC5's ordering genuinely protects is
+untouched — the claim is still the FIRST WRITE, before both purchase writes; only reads precede it.
+Full reasoning is in the corrected Completion Notes paragraph above.
+
+**9 — browser-only live verification (Low, pass 3).** No action beyond honesty. A note now heads the
+live-verification section explaining that those are first-hand observations with no committed
+artefact, not independently reproducible evidence, and that Codex corroborated the API-level effects
+beneath them without being able to confirm the DOM and console claims themselves.
+
+### Post-patch regression
+
+Every suite run against a real replica-set-capable MongoDB. **`0 skipped` throughout** — this
+environment's configured database was reachable for every run, so the accept route's transaction was
+genuinely exercised rather than skipped. (This differs from the Codex sessions, two of which had to
+stand up their own isolated replica set; no such workaround was needed here.)
+
+| Run | Result |
+|---|---|
+| `oxp-9-spend-routes-through-oaq` (new suite, 75 → **96** tests) | 96 passed, 0 failed, 0 skipped |
+| The 8-file named gate (AC11's suites) | 8 files, **342 passed**, 0 failed, 0 skipped |
+| The wider 16-file sweep (every suite touching a changed file) | 16 files, **419 passed**, 0 failed, 0 skipped |
+
+Twenty-one new tests were added, all covering externally-found defects, and every one was watched
+fail against a single reverted change before being accepted as green.
+
+### Deployment note
+
+The new partial unique index is built at API boot and is **not** yet present on the live `tm_game`
+database. It will be created on the first boot after this reaches `main`. A unique index build fails
+if the data already violates it — there is no such data here, because this route has never been
+deployed and `contested_roll_requests` therefore holds no `office_purchase` documents at all in
+production. Confirm that remains true before the deploy rather than assuming it.
