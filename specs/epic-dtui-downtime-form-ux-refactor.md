@@ -15,6 +15,14 @@ inputDocuments:
 
 # Epic: DTUI — Downtime Form UX Refactor
 
+> **CLOSED 2026-08-27.** Waves 1-4 (Story 1.1-1.24, plus dtui-33/34) shipped and are live. The
+> remaining Wave 5/6 backlog (Story 1.25-1.32) was closed superseded, not built — the form this
+> epic targets was retired for players the same week Wave 4 finished
+> (`public/js/downtime/form-retirement.js`, `FORM_RETIRED = true`, commit `a04c562c`, 2026-08-25;
+> filing moved wholesale to the sibling TM Story site per D6). Full reasoning per story:
+> `specs/stories/sprint-status.yaml`, the `dtui-25` through `dtui-32` rows and the `epic-dtui` row
+> itself.
+
 **Goal:** Refactor the player-facing Downtime Submission form to reduce mental load. Extend the form's existing "show only what's relevant" grammar universally. Unify scattered UI patterns into a coherent ticker-and-chip-grid vocabulary. Establish a stable shell for project and merit-action blocks where only Target, Desired Outcome, and Approach morph per action type, so players learn the shape once and reuse it everywhere.
 
 **Why:** A walk-through of the current form on 2026-04-29 surfaced 27 specific issues spanning every section of the form. Code review confirmed that the form was built incrementally — UI patterns, field shapes, and decision flows differ across sections, forcing players to retrain on each section. The form's data shape is genuinely heterogeneous (different actions need different inputs), but the UI shape should be homogeneous (the player's gesture for "configure an action" is always the same). This epic introduces the missing abstraction layer.

@@ -1,5 +1,20 @@
 # Deferred Work
 
+## Deferred from: Epic DTUI closure — downtime-form.js cleanup (2026-08-27)
+
+Closing Epic DTUI's remaining backlog surfaced that `public/js/tabs/downtime-form.js`'s player-facing
+rendering path is now largely unreached in production — `FORM_RETIRED = true`
+(`public/js/downtime/form-retirement.js`, 2026-08-25) means non-ST players never render the real
+form, only STs do (to review/correct pre-cutover submissions). That raised the obvious tech-debt
+question: is the player-facing code now dead weight worth retiring/trimming?
+
+**Angelus's explicit ruling: NOT YET.** Leave `downtime-form.js` as-is until a full downtime cycle
+has completed end-to-end on TM Story's replacement form — it's "still a useful reference" until then
+(a working comparison point if TM Story's form needs debugging, and a fallback shape if anything about
+the cutover doesn't hold up under real use). Do not propose or start a downtime-form.js
+retirement/trim epic until that condition is met. Revisit after the next full cycle closes; check
+`specs/stories/sprint-status.yaml`'s `epic-cm` cycle tracking for cycle status before re-raising this.
+
 ## Deferred from: gdx-9-single-scroll-sheet code review (2026-08-27)
 
 Internal 3-layer review (Blind Hunter/Edge Case Hunter/Acceptance Auditor) surfaced two real edge
