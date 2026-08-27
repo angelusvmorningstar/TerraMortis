@@ -2778,8 +2778,12 @@ body.desktop-mode.sidebar-collapsed .sb-collapse-btn { width: 100%; justify-cont
   padding: 3px;
 }
 .rv2-adj {
+  display: flex;
+  align-items: center;
+  justify-content: center;
   width: var(--control-height-sm);
   height: var(--control-height-sm);
+  padding: 0;
   border-radius: var(--radius-md);
   border: none;
   background: transparent;
@@ -2787,6 +2791,7 @@ body.desktop-mode.sidebar-collapsed .sb-collapse-btn { width: 100%; justify-cont
   font-family: var(--fl);
   font-size: 1.25rem;
   font-weight: 700;
+  line-height: 1;
   cursor: pointer;
   transition: background 0.12s;
 }
