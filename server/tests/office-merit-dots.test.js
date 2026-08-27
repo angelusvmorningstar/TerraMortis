@@ -297,13 +297,13 @@ describe('office-merit-dots — office-tab.js client wiring', () => {
     expect(src).not.toMatch(/style="/);
   });
 
-  it('imports MERIT_DOT_CAPS from office-data.js and applies per-merit caps client-side too', () => {
+  it('imports merit dot caps from the office_content client cache (oxp.10), not a static module', () => {
     const src = readFile('public/js/tabs/office-tab.js');
-    expect(src).toMatch(/import\s*\{\s*OFFICE_DATA,\s*MERIT_DOT_CAPS\s*\}\s*from\s*['"]\.\/office-data\.js['"]/);
+    expect(src).toMatch(/import\s*\{\s*officeEntry,\s*meritCap\s*\}\s*from\s*['"]\.\.\/data\/office-content-cache\.js['"]/);
   });
 
-  it('MERIT_DOT_CAPS caps Trained Observer and Cacophony Savvy at 3, everything else at 5', () => {
-    const src = readFile('public/js/tabs/office-data.js');
+  it('the frozen seed data caps Trained Observer and Cacophony Savvy at 3, everything else at 5 (oxp.10)', () => {
+    const src = readFile('server/scripts/seed-office-content.js');
     expect(src).toMatch(/'Trained Observer':\s*3/);
     expect(src).toMatch(/'Cacophony Savvy':\s*3/);
     expect(src).toMatch(/'Safe Place':\s*5/);

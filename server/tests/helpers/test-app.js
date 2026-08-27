@@ -31,6 +31,7 @@ import appSettingsRouter from '../../routes/app-settings.js';
 import buildEquipmentCatalogueRouter from '../../routes/equipment-catalogue.js';
 import { storyCyclesRouter } from '../../routes/story-cycles.js';
 import buildBloodlinesRouter from '../../routes/bloodlines.js';
+import buildOfficeContentRouter from '../../routes/office-content.js';
 import cyoaRouter from '../../routes/cyoa.js';
 import officeActionsRouter from '../../routes/office-actions.js';
 import rollLogRouter from '../../routes/roll-log.js';
@@ -79,6 +80,9 @@ export function createTestApp() {
   // server/routes/bloodlines.js). Same factory shape as before, so this
   // mount needed no change when the writes retired.
   app.use('/api/bloodlines', buildBloodlinesRouter(mockAuth));
+
+  // oxp.10 office_content — public read only, same factory shape as bloodlines.
+  app.use('/api/office_content', buildOfficeContentRouter(mockAuth));
 
   // Protected routes with mock auth.
   // Issue #255: mirror prod Cache-Control discipline so tests can assert

@@ -1,4 +1,4 @@
-import { OFFICE_DATA, MERIT_DOT_CAPS } from './office-data.js';
+import { officeEntry, meritCap } from '../data/office-content-cache.js';
 import { esc, displayName, shDotsWithBonus } from '../data/helpers.js';
 import { apiGet, apiPost, apiPut } from '../data/api.js';
 import { calcCityStatus } from '../data/accessors.js';
@@ -11,8 +11,8 @@ import { resolveHeldSeat } from '../data/office-seat-resolve.js';
 import { toast } from '../suite/toast.js';
 
 // otc.3: the fixed order the picker lists offices in. All five Court
-// Positions, even 'Administrator' (which has no OFFICE_DATA entry yet — it
-// still hits the existing pending-fallback branch below when selected).
+// Positions, even 'Administrator' (which has no office_content entry yet —
+// it still hits the existing pending-fallback branch below when selected).
 export const OFFICE_CATEGORIES = ['Head of State', 'Primogen', 'Enforcer', 'Socialite', 'Administrator'];
 
 /** ST-level access. 'dev' is a privacy-redacted ST role and is treated as ST
@@ -26,7 +26,7 @@ function _isST() {
  *
  * An office's manoeuvres are bought one at a time in fixed rank order, so a
  * manoeuvre's rank IS its position in the array (index + 1) — see
- * content/rules/office-powers.md, which OFFICE_DATA already matches. Anything
+ * content/rules/office-powers.md, which office_content already matches. Anything
  * above the office's current `rank` renders muted.
  *
  * @param rank        the office's current graduated rank, or null/undefined
@@ -111,7 +111,7 @@ export function manoeuvreDotReasons(rank, count, left) {
  * within reach gets none — a plain hollow dot the ST could buy right now.
  *
  * @param {number} current - dots already bought on this merit
- * @param {number} cap - this merit's dot cap (`MERIT_DOT_CAPS[merit]`)
+ * @param {number} cap - this merit's dot cap (`meritCap(merit)`)
  * @param {number} left - the seat's remaining office XP
  * @returns {Array<string|null>} one entry per dot index (0-based), length `cap`
  */
@@ -198,7 +198,7 @@ export function renderOfficeTab(el, char, chars = [], viewCategory) {
   const category = viewCategory || char.court_category || 'Head of State';
   const isOwnOffice = category === char.court_category;
 
-  const data = OFFICE_DATA[category];
+  const data = officeEntry(category);
   const title = isOwnOffice ? esc(char.court_title || category) : esc(category);
   const role  = esc(category);
 
@@ -559,7 +559,7 @@ function _wireMeritDots(el, outcome, data, dotsBySeat, fetchFailed, balance, isO
 
   const rowsHtml = meritNames.map((merit) => {
     const n = dots[merit] || 0;
-    const cap = MERIT_DOT_CAPS[merit] || 5;
+    const cap = meritCap(merit);
     let row = `<div class="office-merit-row">`;
     row += `<span class="office-merit-chip">${esc(merit)}</span>`;
     const reasons = showReasons && balance ? meritDotReasons(n, cap, balance.left) : null;
@@ -618,7 +618,7 @@ async function _adjustMeritDots(el, outcome, data, isOwnOffice, merit, delta) {
   let dotsBySeat;
   try { dotsBySeat = await apiGet('/api/office_merit_dots'); } catch { return; }
   const current = (dotsBySeat[outcome.seatId] || {})[merit] || 0;
-  const cap = MERIT_DOT_CAPS[merit] || 5;
+  const cap = meritCap(merit);
   const next = Math.max(0, Math.min(cap, current + delta));
   if (next === current) return;
 

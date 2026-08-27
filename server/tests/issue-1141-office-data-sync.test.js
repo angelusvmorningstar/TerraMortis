@@ -2,11 +2,17 @@
  * Issue #1141 — office-data.js is synced to Symon's rewritten Court Position
  * content, and the asset-duplicated-as-merit bug is fixed.
  *
- * Imports office-data.js directly. Deliberately does NOT import office-tab.js —
+ * oxp.10 (2026-08-27): office-data.js was deleted (its static content moved
+ * into the `office_content` MongoDB collection). This suite's actual purpose
+ * — catch drift between the shipped office data and Symon's source doc — now
+ * targets the FROZEN literals in `server/scripts/seed-office-content.js`,
+ * which is what actually seeds `office_content` and is the one place this
+ * content still exists as a plain object literal. Imports that script
+ * directly rather than office-tab.js, for the same reason as before:
  * office-tab.js imports api.js, which reads `location.hostname` at module top
  * level, and this project's vitest has no jsdom environment configured. That
  * import would throw at collection time regardless of what the test exercises.
- * office-data.js has zero imports and is a pure object literal, so it is safe.
+ * seed-office-content.js has no such import chain, so it is safe.
  *
  * AC6 (two concurrent Socialite holders) and AC7's rendered behaviour (the
  * Administrator fallback firing) are proven by construction in the story's Dev
@@ -14,7 +20,7 @@
  * file proves AC7's DATA precondition only (no Administrator entry exists).
  *
  * EXPECTED below is a deliberate byte-for-byte transcript of
- * `content/rules/office-powers.md` (AC1-4 require office-data.js to match
+ * `content/rules/office-powers.md` (AC1-4 require the seeded content to match
  * Symon's rewrite exactly), not a stand-in for a lighter structural check.
  * Any future edit to that source doc must update EXPECTED in the same change,
  * or this suite fails on a real drift — that's the point. Update both files
@@ -22,7 +28,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { OFFICE_DATA } from '../../public/js/tabs/office-data.js';
+import { OFFICE_DATA } from '../scripts/seed-office-content.js';
 
 const EXPECTED = {
   'Head of State': {
@@ -105,7 +111,7 @@ const STATUS_POWER_FLAT = {
   'Socialite': 'Each session, you can raise or lower another character\'s City Status by 1. You can do this a number of times per session equal to your own Effective City Status. You cannot affect your own City Status, and you cannot hold another major court position simultaneously. Your decisions should be grounded in the City Deeds. If you can\'t justify a Status change, others will be justified in dropping yours.',
 };
 
-describe('issue-1141 — office-data.js synced to Symon\'s rewrite', () => {
+describe('issue-1141 — seeded office content synced to Symon\'s rewrite', () => {
   for (const category of Object.keys(EXPECTED)) {
     describe(category, () => {
       it('has the exact ordered manoeuvre names (AC1-4)', () => {

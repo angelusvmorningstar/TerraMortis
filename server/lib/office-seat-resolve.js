@@ -22,7 +22,7 @@
 
 import { ObjectId } from 'mongodb';
 import { getCollection } from '../db.js';
-import { OFFICE_DATA } from '../../public/js/tabs/office-data.js';
+import { getOfficeEntry } from './office-content-read.js';
 
 /**
  * The stored key shape. A seat id is its `office_seats._id` rendered as a
@@ -47,13 +47,19 @@ export const SEAT_ID_PATTERN = /^[0-9a-fA-F]{24}$/;
  *   - seat's office has no rules   -> 400 VALIDATION_ERROR
  *
  * The last of those preserves the behaviour the category-keyed routes already
- * had: 'Administrator' has no `OFFICE_DATA` entry until oxp.8, so a purchase
- * against it cannot be validated and is refused rather than stored unchecked.
+ * had: 'Administrator' has no `office_content` entry until oxp.8, so a
+ * purchase against it cannot be validated and is refused rather than stored
+ * unchecked.
  *
  * @param {string} seatId
+ * @param {{session?: import('mongodb').ClientSession}} [opts] - forwarded to
+ *   the `office_content` read so a caller inside a MongoDB transaction
+ *   (`office-purchase.js`'s accept route) resolves against that same
+ *   transaction's isolation, not a separate implicit read.
  * @returns {Promise<{seatId?:string, seat?:object, category?:string, officeEntry?:object, error?:{status:number, body:object}}>}
  */
-export async function resolveOfficeSeat(seatId) {
+export async function resolveOfficeSeat(seatId, opts = {}) {
+  const { session } = opts;
   if (typeof seatId !== 'string' || !SEAT_ID_PATTERN.test(seatId)) {
     return {
       error: {
@@ -67,7 +73,10 @@ export async function resolveOfficeSeat(seatId) {
   }
 
   const normalised = seatId.toLowerCase();
-  const seat = await getCollection('office_seats').findOne({ _id: new ObjectId(normalised) });
+  const seat = await getCollection('office_seats').findOne(
+    { _id: new ObjectId(normalised) },
+    session ? { session } : undefined,
+  );
   if (!seat) {
     return {
       error: {
@@ -78,7 +87,7 @@ export async function resolveOfficeSeat(seatId) {
   }
 
   const category = seat.office_category;
-  const officeEntry = OFFICE_DATA[category];
+  const officeEntry = await getOfficeEntry(category, { session });
   if (!officeEntry) {
     return {
       error: {

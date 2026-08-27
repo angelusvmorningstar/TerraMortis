@@ -71,6 +71,15 @@ ships), not actually unstarted.
 authoring, not app code, Angelus/Symon) and oxp.10 (`OFFICE_DATA` -> Mongo migration, split out of
 oxp.1, not in this table — see `sprint-status.yaml`) remain genuine backlog.
 
+**CORRECTED 2026-08-27, later same day**: oxp.10 dev-storied to `review` (see `sprint-status.yaml`).
+`OFFICE_DATA`/`MERIT_DOT_CAPS` migrated to a new `office_content` MongoDB collection, mirroring
+bloodlines' own precedent exactly — read-only in this repo (`GET /api/office_content` + a client cache
+module), no write route or admin UI here; a future TM Admin story adds ST authoring. `public/js/tabs/
+office-data.js` is deleted. Re-verifying the "3 import sites" premise at dev-story time (Task 0) found
+it had UNDERCOUNTED even the corrected 6-dependents figure: 5 test files also imported or mocked the
+static module directly and needed reworking. Only oxp.8 (Administrator content) remains genuine
+backlog.
+
 ---
 
 ## Open rules questions (not app work — Angelus/Symon's call, raise when ready)

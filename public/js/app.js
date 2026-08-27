@@ -76,6 +76,7 @@ import { loadCatalogue as loadEquipmentCatalogue, refetchCatalogue as refetchEqu
 // against an unloaded cache; the banner surfaces any bloodline that does not
 // resolve, because an unresolved one silently mis-costs XP.
 import { loadBloodlines, loadFailed as bloodlinesLoadFailed, refetchBloodlines } from './data/bloodlines-cache.js';
+import { loadOfficeContent, loadFailed as officeContentLoadFailed } from './data/office-content-cache.js';
 import { mountBloodlineWarnBanner } from './components/bloodline-warn-banner.js';
 import { initSignIn } from './game/signin-tab.js';
 import { renderEmergencyTab } from './game/emergency-tab.js';
@@ -754,6 +755,10 @@ async function loadAllData() {
     // "cache not loaded" miss cannot fire spuriously. loadBloodlines() never
     // rejects — a genuine failure is read from bloodlinesLoadFailed() below.
     loadBloodlines(),
+    // oxp.10: same reasoning as loadBloodlines() above — office-tab.js and
+    // editor/sheet.js both read office content synchronously mid-render, so
+    // it must be in place before the first render, not fetched per-render.
+    loadOfficeContent(),
   ]);
 
   // BL-2 (#1008): mount before the first sheet render so any miss registered
@@ -763,6 +768,9 @@ async function loadAllData() {
   mountBloodlineWarnBanner();
   if (bloodlinesLoadFailed()) {
     console.error('[app] loadBloodlines failed — every bloodline character is being costed as out-of-clan and discipline editing is locked.');
+  }
+  if (officeContentLoadFailed()) {
+    console.error('[app] loadOfficeContent failed — every Court Position falls back to the "pending" render until the cache loads.');
   }
 
   // Issue #249 (HOTFIX 2026-05-09): preloadRules failure surfaces via

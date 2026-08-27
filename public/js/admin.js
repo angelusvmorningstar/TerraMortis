@@ -20,6 +20,7 @@ import { loadCatalogue as loadEquipmentCatalogue, refetchCatalogue as refetchEqu
 // BL-2 (#1008): see the matching block in app.js. Primed before characters are
 // fetched so nothing renders, or is edited, against an unloaded cache.
 import { loadBloodlines, loadFailed as bloodlinesLoadFailed, refetchBloodlines } from './data/bloodlines-cache.js';
+import { loadOfficeContent, loadFailed as officeContentLoadFailed } from './data/office-content-cache.js';
 import { mountBloodlineWarnBanner } from './components/bloodline-warn-banner.js';
 import { xpLeft, xpEarned } from './editor/xp.js';
 import { applyDerivedMerits, getPoolUsed, getMCIPoolUsed } from './editor/mci.js';
@@ -1251,6 +1252,14 @@ async function init() {
   mountBloodlineWarnBanner();
   if (bloodlinesLoadFailed()) {
     console.error('[admin] loadBloodlines failed — every bloodline character is being costed as out-of-clan and discipline editing is locked.');
+  }
+
+  // oxp.10: same reasoning as loadBloodlines() above — awaited before the
+  // first sheet/office-tab render, since both read office content
+  // synchronously mid-render, not via a per-render fetch.
+  await loadOfficeContent();
+  if (officeContentLoadFailed()) {
+    console.error('[admin] loadOfficeContent failed — every Court Position falls back to the "pending" render until the cache loads.');
   }
 
   try {

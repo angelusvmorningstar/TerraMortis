@@ -38,7 +38,7 @@ import { validate } from '../middleware/validate.js';
 import { isStRole, requireRole } from '../middleware/auth.js';
 import { officePurchaseRequestSchema } from '../schemas/office_purchase_request.schema.js';
 import { resolveOfficeSeat } from '../lib/office-seat-resolve.js';
-import { OFFICE_DATA, MERIT_DOT_CAPS } from '../../public/js/tabs/office-data.js';
+import { getOfficeEntry, getMeritCaps } from '../lib/office-content-read.js';
 import { officeSeatXp } from '../../public/js/data/office-xp.js';
 
 const router = Router();
@@ -104,14 +104,18 @@ function _conflictBody(doc) {
  * otherwise; the caller decides which status a stale-state rejection deserves
  * (400 at submission, 409 at accept).
  *
+ * @param {object} meritCaps the flat merit-name -> dot-cap map read from
+ *   `office_content`'s singleton `kind: 'merit_caps'` document (oxp.10) —
+ *   passed in rather than read here, so the caller controls whether the read
+ *   participates in an active transaction.
  * @param {number} conflictStatus 400 at submission, 409 at accept
  */
-function checkPurchaseValidity(officeEntry, purchase_kind, merit, meritDotsDoc, manoeuvreRankDoc, conflictStatus) {
+function checkPurchaseValidity(officeEntry, purchase_kind, merit, meritDotsDoc, manoeuvreRankDoc, meritCaps, conflictStatus) {
   if (purchase_kind === 'merit') {
     if (!Array.isArray(officeEntry.merits) || !officeEntry.merits.includes(merit))
       throw new RouteResponse(400, { error: 'VALIDATION_ERROR', message: 'That merit does not belong to this office' });
 
-    const cap = MERIT_DOT_CAPS[merit] || 5;
+    const cap = meritCaps[merit] || 5;
     const from = (meritDotsDoc && meritDotsDoc.dots && meritDotsDoc.dots[merit]) || 0;
     if (from >= cap)
       throw new RouteResponse(conflictStatus, {
@@ -188,8 +192,8 @@ router.post('/', validate(officePurchaseRequestSchema), async (req, res) => {
   const merit = req.body.merit;
 
   // Resolved first, so its existing 400/404/400 bodies pass straight through —
-  // which is what preserves the Administrator refusal (no OFFICE_DATA entry
-  // until oxp.8) with the message that route family already returns.
+  // which is what preserves the Administrator refusal (no office_content
+  // entry until oxp.8) with the message that route family already returns.
   const resolved = await resolveOfficeSeat(seat_id);
   if (resolved.error) return res.status(resolved.error.status).json(resolved.error.body);
   const { seatId, seat, category, officeEntry } = resolved;
@@ -211,9 +215,11 @@ router.post('/', validate(officePurchaseRequestSchema), async (req, res) => {
   const meritDotsDoc     = await meritDotsCol().findOne({ _id: seatId });
   const manoeuvreRankDoc = await manoeuvreCol().findOne({ _id: seatId });
 
+  const meritCaps = await getMeritCaps();
+
   let submittedFrom;
   try {
-    ({ from: submittedFrom } = checkPurchaseValidity(officeEntry, purchase_kind, merit, meritDotsDoc, manoeuvreRankDoc, 400));
+    ({ from: submittedFrom } = checkPurchaseValidity(officeEntry, purchase_kind, merit, meritDotsDoc, manoeuvreRankDoc, meritCaps, 400));
   } catch (err) {
     if (err instanceof RouteResponse) return res.status(err.statusCode).json(err.body);
     throw err;
@@ -379,7 +385,7 @@ router.put('/:id/accept', requireRole('st'), async (req, res) => {
           message: `This seat's office changed from ${pending.office_category} to ${seat.office_category} after the request was submitted; decline it and ask the holder to resubmit`,
         });
 
-      const officeEntry = OFFICE_DATA[seat.office_category];
+      const officeEntry = await getOfficeEntry(seat.office_category, { session: dbSession });
       if (!officeEntry)
         throw new RouteResponse(400, {
           error: 'VALIDATION_ERROR',
@@ -392,11 +398,12 @@ router.put('/:id/accept', requireRole('st'), async (req, res) => {
       const allSeats         = await seatsCol().find({}, { session: dbSession }).toArray();
       const meritDotsDoc     = await meritDotsCol().findOne({ _id: seatId }, { session: dbSession });
       const manoeuvreRankDoc = await manoeuvreCol().findOne({ _id: seatId }, { session: dbSession });
+      const meritCaps        = await getMeritCaps({ session: dbSession });
 
       // A 409, not a 400: the ST's own stepper moving the same value since
       // submission is a conflict with current state, not a malformed request.
       const { from, to } = checkPurchaseValidity(
-        officeEntry, pending.purchase_kind, pending.merit, meritDotsDoc, manoeuvreRankDoc, 409,
+        officeEntry, pending.purchase_kind, pending.merit, meritDotsDoc, manoeuvreRankDoc, meritCaps, 409,
       );
 
       // STRICT re-validation: ANY intervening movement of the target value is

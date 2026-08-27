@@ -43,6 +43,7 @@ import rollLogRouter from './routes/roll-log.js';
 import buildEquipmentCatalogueRouter from './routes/equipment-catalogue.js';
 import storyCyclesRouter from './routes/story-cycles.js';
 import buildBloodlinesRouter from './routes/bloodlines.js';
+import buildOfficeContentRouter from './routes/office-content.js';
 import cyoaRouter from './routes/cyoa.js';
 import { attachWS } from './ws.js';
 // NOTE: The old /api/pdf route was removed. Character sheet PDFs are now
@@ -99,6 +100,14 @@ app.use('/api/equipment_catalogue', buildEquipmentCatalogueRouter(requireAuth));
 // router's own sole surviving route; kept only so this mount line needs no
 // change (server/routes/bloodlines.js explains why).
 app.use('/api/bloodlines', buildBloodlinesRouter(requireAuth));
+
+// Office content (public read only). oxp.10 (split out of oxp.1,
+// 2026-08-13): the `office_content` collection lives at /api/office_content,
+// replacing the static OFFICE_DATA/MERIT_DOT_CAPS constants. Public for the
+// same reason as bloodlines above — the player-facing office tab and the
+// sheet editor both need it without a token. Read-only in this repo, same
+// locked-scope decision as bloodlines (see server/schemas/office_content.schema.js).
+app.use('/api/office_content', buildOfficeContentRouter(requireAuth));
 
 // Protected routes — require valid token (role resolved from players collection)
 // Characters and downtime submissions have internal role filtering (ST vs player)

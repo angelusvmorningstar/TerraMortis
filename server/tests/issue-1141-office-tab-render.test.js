@@ -4,13 +4,14 @@
  * Administrator "pending" fallback still fires).
  *
  * Added after code review: `issue-1141-office-data-sync.test.js` deliberately
- * imports only `office-data.js`, never `office-tab.js`, because `office-tab.js`
- * pulls in `../data/api.js`, which reads `location.hostname` at module top
- * level — a bare vitest import throws `ReferenceError: location is not
- * defined` (no jsdom configured in `server/vitest.config.js`). The original
- * story proved AC6/AC7 with a one-off Playwright script that was deleted
- * after use, leaving no permanent regression guard — a real gap the review
- * caught (Blind Hunter, Medium and Low findings).
+ * imports only the seed script's frozen content (see its own header, oxp.10),
+ * never `office-tab.js`, because `office-tab.js` pulls in `../data/api.js`,
+ * which reads `location.hostname` at module top level — a bare vitest import
+ * throws `ReferenceError: location is not defined` (no jsdom configured in
+ * `server/vitest.config.js`). The original story proved AC6/AC7 with a
+ * one-off Playwright script that was deleted after use, leaving no permanent
+ * regression guard — a real gap the review caught (Blind Hunter, Medium and
+ * Low findings).
  *
  * The fix: stub `globalThis.location` with the minimum `office-tab.js`'s
  * import chain needs, import AFTER stubbing, then restore. This technique was
@@ -18,15 +19,27 @@
  * Acceptance Auditor independently ran the equivalent stub-and-import in a
  * throwaway Node script and it rendered correctly).
  *
+ * oxp.10 (2026-08-27): `office-tab.js` now reads office content from
+ * `office-content-cache.js`'s synchronous accessors, not a static import, so
+ * this file primes that cache (via `loadOfficeContent()` against a stubbed
+ * `/api/office_content` response built from the same frozen literals
+ * `seed-office-content.js` seeds the real collection from) BEFORE importing
+ * `office-tab.js` — every render below still runs fully synchronously against
+ * an already-populated cache, exactly as it did against the old static import.
+ *
  * `server/vitest.config.js` sets `fileParallelism: false` and
  * `poolOptions.forks.singleFork: true` — every test file in this project
  * shares ONE process. A `globalThis.location` stub left in place would leak
  * into every test file that runs after this one in the same run. The stub is
  * therefore applied only if `location` was not already defined, and removed
- * in `afterAll` regardless of pass/fail, so no other suite ever sees it.
+ * in `afterAll` regardless of pass/fail, so no other suite ever sees it. The
+ * office-content cache does NOT need the same care — vitest's default
+ * `isolate: true` resets the module registry (and so this module-level cache)
+ * between test files, even though `globalThis` itself is shared.
  */
 
 import { describe, it, expect, beforeAll, afterAll, afterEach } from 'vitest';
+import { OFFICE_DATA, MERIT_DOT_CAPS, buildSeedDocs } from '../scripts/seed-office-content.js';
 
 describe('issue-1141 — office-tab.js render-level regressions', () => {
   let renderOfficeTab;
@@ -40,6 +53,28 @@ describe('issue-1141 — office-tab.js render-level regressions', () => {
     if (!hadLocation) {
       globalThis.location = { hostname: 'test', pathname: '/' };
     }
+
+    const { loadOfficeContent } = await import('../../public/js/data/office-content-cache.js');
+    const seedDocs = buildSeedDocs({ officeData: OFFICE_DATA, meritCaps: MERIT_DOT_CAPS, now: '2026-08-27T00:00:00.000Z' });
+    const bootFetch = globalThis.fetch;
+    // apiGet's own headers() reads localStorage synchronously — not yet
+    // stubbed this early (the 'oxp.3: async rank wiring' describe below sets
+    // up its own stub later, at execution time, so setting one up now cannot
+    // collide with its `hadLocalStorage` check, already fixed at collection
+    // time). A missing localStorage here silently failed this load (caught by
+    // loadOfficeContent's own try/catch), which is what an earlier version of
+    // this fix got wrong — every render fell back to "pending" with no error.
+    const hadLocalStorageForPrime = 'localStorage' in globalThis;
+    if (!hadLocalStorageForPrime) globalThis.localStorage = { getItem: () => null };
+    globalThis.fetch = async (url) => {
+      const u = String(url);
+      if (u.includes('/api/office_content')) return { ok: true, status: 200, json: async () => seedDocs };
+      return { ok: true, status: 200, json: async () => ({}) };
+    };
+    await loadOfficeContent();
+    globalThis.fetch = bootFetch;
+    if (!hadLocalStorageForPrime) delete globalThis.localStorage;
+
     ({ renderOfficeTab, manoeuvreListHtml, manoeuvreRankHtml, manoeuvreDotReasons, meritDotReasons } =
       await import('../../public/js/tabs/office-tab.js'));
   });
@@ -247,6 +282,24 @@ describe('issue-1141 — office-tab.js render-level regressions', () => {
       expect(el.innerHTML).toContain('office-reference-banner');
       expect(el.innerHTML).toContain('Due Diligence'); // a real Head of State manoeuvre
       expect(el.innerHTML).not.toContain('People Talk');
+    });
+
+    it('oxp.10 AC6: Primogen\'s manoeuvre-to-rank mapping is unchanged end to end through the migration (frozen literal -> seed doc -> cache -> render)', () => {
+      // Not a synthetic FIVE fixture (unlike the oxp.3/oxp.6 blocks below) —
+      // this asserts the REAL rank order for a real, multi-manoeuvre office,
+      // rendered from content this file's own beforeAll primed via
+      // buildSeedDocs(OFFICE_DATA), the same pipeline the real app boots
+      // through. A reorder anywhere in that pipeline (seed script, cache
+      // indexing, officeEntry()) would move a name to the wrong position here.
+      const yusuf = { _id: 'yusuf', name: 'Yusuf Kalusicj', court_category: 'Primogen', court_title: 'Primogen' };
+      const html = render(yusuf, [yusuf], 'Primogen');
+
+      const names = ['People Talk', 'Freedom of Information', 'Show of Hands', 'Pull Rank', 'Veto'];
+      const positions = names.map(n => html.indexOf(n));
+      for (const p of positions) expect(p).toBeGreaterThan(-1);
+      for (let i = 1; i < positions.length; i++) {
+        expect(positions[i], `${names[i]} must render after ${names[i - 1]}`).toBeGreaterThan(positions[i - 1]);
+      }
     });
   });
 
