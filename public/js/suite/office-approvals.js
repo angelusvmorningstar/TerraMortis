@@ -1,15 +1,21 @@
-/* Approval Queue (oaq.3) — ST review surface for pending Status Actions and,
- * as of gdx.12, pending Humanity Checks.
+/* Approval Queue (oaq.3) — ST review surface for pending Status Actions,
+ * pending Humanity Checks (gdx.12) and, as of oxp.9, pending Office Purchases
+ * (request_type: 'office_purchase' — a holder spending their seat's own
+ * office XP on one merit dot or the next manoeuvre rank).
  *
  * Lists every pending record from GET /api/office_actions/pending
- * (oldest-first, widened by gdx.12 to also return request_type:
- * 'humanity_check'), with one-click Accept/Decline. Status Actions resolve
+ * (oldest-first, widened by gdx.12 and again by oxp.9 to return all three
+ * types), with one-click Accept/Decline. Status Actions resolve
  * through the ST-only PUT /api/office_actions/:id/accept and /:id/decline
  * routes built and code-reviewed under oaq.2; Humanity Checks resolve
  * through their own PUT /api/humanity_check_requests/:id/accept and
- * /:id/decline (gdx.12) — see _resolve()'s per-request_type routing. This
+ * /:id/decline (gdx.12); Office Purchases through PUT
+ * /api/office_purchase_requests/:id/accept and /:id/decline (oxp.9) — see
+ * _resolve()'s per-request_type routing. This
  * module only submits/reads — it never touches the transaction, budget,
- * precondition, or pool-arithmetic logic those routes own.
+ * precondition, or pool-arithmetic logic those routes own. In particular the
+ * office XP budget check lives entirely in office-purchase.js's accept
+ * transaction; nothing here decides whether a purchase is affordable.
  *
  * Lives in the main game app (app.js's goTab), not the ST admin app — moved
  * here from public/js/admin/office-approvals.js so it's reachable from the
@@ -95,7 +101,7 @@ function renderScaffold() {
     <div class="stm-audit-root">
       <header class="stm-audit-head">
         <h2>Approval Queue</h2>
-        <p class="stm-audit-sub">Pending Status Actions and Humanity Checks awaiting sign-off. Oldest first.</p>
+        <p class="stm-audit-sub">Pending Status Actions, Humanity Checks and Office Purchases awaiting sign-off. Oldest first.</p>
       </header>
       <div class="oaq-queue-list" data-oaq-body>
         <p class="stm-audit-loading">Loading…</p>
@@ -183,8 +189,18 @@ async function _resolve(requestId, action) {
     _refetchAndRender();
     return;
   }
+  // oxp.9 adds a third branch. Kept as an explicit lookup rather than a
+  // request_type-to-path string transform: the three paths do not share a
+  // naming rule (office_actions / humanity_check_requests /
+  // office_purchase_requests), and a derived path would silently 404 the day
+  // a fourth type is named differently again.
   const isHumanityCheck = row.request_type === 'humanity_check';
-  const endpoint = isHumanityCheck ? '/api/humanity_check_requests' : '/api/office_actions';
+  const endpoint = row.request_type === 'office_purchase'
+    ? '/api/office_purchase_requests'
+    : isHumanityCheck ? '/api/humanity_check_requests' : '/api/office_actions';
+  // Office Purchase accept carries no body — every decision the ST is making
+  // is already recorded on the pending document, and the route re-reads and
+  // re-validates all of it live inside its own transaction.
   let body = {};
   if (isHumanityCheck && action === 'accept') {
     const level = state.levelByRequestId.get(requestId);
@@ -244,8 +260,14 @@ function _renderBody() {
 
   // gdx.12: Humanity Check rows need a distinct shape (level picker gating
   // Accept) — dispatched here rather than restructuring _renderRow itself,
-  // per this module's own extension-point design (see file header).
-  body.innerHTML = state.rows.map(r => (r.request_type === 'humanity_check' ? _renderHumanityCheckRow(r) : _renderRow(r))).join('');
+  // per this module's own extension-point design (see file header). oxp.9
+  // adds a third arm the same way; _renderRow and _renderHumanityCheckRow are
+  // both untouched by it.
+  body.innerHTML = state.rows.map(r => (
+    r.request_type === 'office_purchase'
+      ? _renderOfficePurchaseRow(r)
+      : r.request_type === 'humanity_check' ? _renderHumanityCheckRow(r) : _renderRow(r)
+  )).join('');
 }
 
 function _renderRow(r) {
@@ -305,6 +327,52 @@ function _renderHumanityCheckRow(r) {
           <span class="derived-note">${esc(when)}</span>
           <div class="ch-modal-actions oaq-queue-btns">
             <button class="ch-btn ch-btn-accept" data-oaq-action="accept" data-oaq-id="${esc(id)}" ${canAccept ? '' : 'disabled'}>Accept</button>
+            <button class="ch-btn ch-btn-decline" data-oaq-action="decline" data-oaq-id="${esc(id)}" ${busy ? 'disabled' : ''}>Decline</button>
+          </div>
+        </div>
+      </div>
+      ${error ? `<div class="ch-error oaq-queue-error">${esc(error)}</div>` : ''}
+    </div>
+  `;
+}
+
+// oxp.9: Office Purchase's own row shape. No in-row input (unlike gdx.12's
+// level picker), so no new listener and no new state map are needed — the
+// existing delegated click handler, busyIds and errorById cover it unchanged.
+//
+// The row shows the ST everything they need to judge without leaving the tab:
+// which SEAT (office plus its label, where the office has more than one), who
+// asked, and what they are buying. It deliberately does NOT show a balance:
+// the authoritative one is computed server-side inside the accept
+// transaction, against documents re-read at that moment, and a number
+// rendered here from a 10-second-old poll would be a second, staler answer to
+// the same question.
+function _renderOfficePurchaseRow(r) {
+  const id = String(r._id);
+  const busy = state.busyIds.has(id);
+  const error = state.errorById.get(id);
+  const when = r.created_at ? r.created_at.replace('T', ' ').replace(/\..*$/, '') : '';
+
+  const seat = r.seat_label ? `${r.office_category || 'Office'} (${r.seat_label})` : (r.office_category || 'Office');
+  // A null requester means an ST submitted on the seat's behalf (see
+  // office-purchase.js's POST) — named plainly rather than rendered as
+  // "Unknown", which would read as missing data.
+  const who = r.requested_by_character_name
+    ? redactCharName(r.requested_by_character_name)
+    : 'Storyteller';
+  const what = r.purchase_kind === 'merit'
+    ? `Merit: ${r.merit || 'Unknown'}`
+    : 'Next manoeuvre rank';
+
+  return `
+    <div class="oaq-queue-row-wrap" data-oaq-row="${esc(id)}">
+      <div class="oaq-queue-row">
+        <span class="oaq-queue-name">${esc(who)} &rsaquo; ${esc(seat)}</span>
+        <div class="oaq-queue-actions">
+          <span class="dtl-badge">${esc(what)}</span>
+          <span class="derived-note">${esc(when)}</span>
+          <div class="ch-modal-actions oaq-queue-btns">
+            <button class="ch-btn ch-btn-accept" data-oaq-action="accept" data-oaq-id="${esc(id)}" ${busy ? 'disabled' : ''}>Accept</button>
             <button class="ch-btn ch-btn-decline" data-oaq-action="decline" data-oaq-id="${esc(id)}" ${busy ? 'disabled' : ''}>Decline</button>
           </div>
         </div>

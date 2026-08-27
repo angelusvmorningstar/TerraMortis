@@ -280,11 +280,11 @@ describe('oxp.1 office_seat schema, category enum parity with court_category', (
     expect([...OFFICE_CATEGORY_ENUM].sort()).toEqual([...courtCategory].sort());
   });
 
-  it('has five categories, including Administrator (which OFFICE_DATA still lacks)', () => {
-    // public/js/tabs/office-data.js only defines four offices; Administrator's
-    // content is oxp.8 and unwritten. The seat for it is nevertheless real and
-    // filled (Ivana Horvat, since Game 5), so the enum follows the schema, not
-    // the content module.
+  it('has five categories, including Administrator (which has no office_content entry)', () => {
+    // The office_content collection (oxp.10) only carries four office
+    // documents; Administrator's content is oxp.8 and unwritten. The seat
+    // for it is nevertheless real and filled (Ivana Horvat, since Game 5),
+    // so the enum follows the schema, not the content collection.
     expect(OFFICE_CATEGORY_ENUM).toHaveLength(5);
     expect(OFFICE_CATEGORY_ENUM).toContain('Administrator');
   });

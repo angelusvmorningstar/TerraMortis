@@ -3,16 +3,16 @@
  * `if (!meritNames.length) return;` guard (AC3's "the resolved office has
  * zero merits" case).
  *
- * No current `OFFICE_DATA` entry actually has an empty `merits` array — the
- * main oxp-7 test file's own AC3 completion notes said this path was
+ * No real `office_content` document actually has an empty `merits` array —
+ * the main oxp-7 test file's own AC3 completion notes said this path was
  * covered by its four render-nothing tests, which was an overclaim (Codex
  * review, oxp.7): those four tests exercise no-court_category, unconfirmed
- * seat, Administrator (no OFFICE_DATA entry at all — a DIFFERENT guard),
+ * seat, Administrator (no office_content entry at all — a DIFFERENT guard),
  * and a failed fetch, never a real office whose merit list is empty. This
- * file closes that gap directly, mocking `office-data.js` (this codebase's
- * own established convention — see e.g.
- * applyDerivedMerits-null-cache-guard.test.js) rather than waiting for a
- * real zero-merit office to exist.
+ * file closes that gap directly by priming `office-content-cache.js` (oxp.10)
+ * with a synthetic zero-merit category alongside the real ones, via the same
+ * `loadOfficeContent()` + stubbed-fetch path a real boot uses — exercising
+ * the guard through the real accessor code, not a bypass of it.
  */
 
 const hadLocation = 'location' in globalThis;
@@ -32,22 +32,7 @@ if (!hadLocalStorage) {
   };
 }
 
-import { describe, it, expect, vi, beforeAll, afterAll } from 'vitest';
-
-// Hoisted by vitest ahead of the dynamic import() below. Keeps every real
-// office category untouched and adds one synthetic zero-merit category so
-// the guard is exercised via the SAME code path a real office would use,
-// not a bypass of it.
-vi.mock('../../public/js/tabs/office-data.js', async () => {
-  const actual = await vi.importActual('../../public/js/tabs/office-data.js');
-  return {
-    ...actual,
-    OFFICE_DATA: {
-      ...actual.OFFICE_DATA,
-      'Empty Test Office': { asset: 'Nothing', merits: [], style: 'None', manoeuvres: [], statusPower: [] },
-    },
-  };
-});
+import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 
 describe('oxp.7 Codex follow-up: patchOfficeMerits zero-merit-office guard (AC3)', () => {
   let patchOfficeMerits;
@@ -55,6 +40,27 @@ describe('oxp.7 Codex follow-up: patchOfficeMerits zero-merit-office guard (AC3)
   const hadFetch = 'fetch' in globalThis;
 
   beforeAll(async () => {
+    // Prime office-content-cache.js (oxp.10) BEFORE importing sheet.js, with
+    // one synthetic zero-merit category alongside the real ones — the module
+    // registry resets per test file (vitest's default isolate:true), so this
+    // file's cache load cannot leak into or collide with any other file's.
+    const { loadOfficeContent } = await import('../../public/js/data/office-content-cache.js');
+    const bootFetch = globalThis.fetch;
+    globalThis.fetch = async (url) => {
+      const u = String(url);
+      if (u.includes('/api/office_content')) {
+        return {
+          ok: true, status: 200,
+          json: async () => [
+            { kind: 'office', category: 'Empty Test Office', asset: 'Nothing', style: 'None', merits: [], manoeuvres: [{ name: 'x', effect: 'x' }], statusPower: ['x'] },
+          ],
+        };
+      }
+      return { ok: true, status: 200, json: async () => ({}) };
+    };
+    await loadOfficeContent();
+    globalThis.fetch = bootFetch;
+
     ({ patchOfficeMerits } = await import('../../public/js/editor/sheet.js'));
     realFetch = globalThis.fetch;
   });

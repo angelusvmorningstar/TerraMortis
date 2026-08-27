@@ -454,8 +454,11 @@ router.put('/:id/void', requireRole('st'), async (req, res) => {
   // record becomes unreachable by either the correct accept or decline).
   // gdx.12: same reasoning extends to Humanity Checks (request_type:
   // 'humanity_check', humanity-check.js's own accept/decline lifecycle).
+  // oxp.9: and to office XP spend requests (request_type: 'office_purchase',
+  // office-purchase.js's own accept/decline lifecycle) — voiding one would
+  // strand an approved-but-unapplied purchase exactly the same way.
   const result = await col().updateOne(
-    { _id: oid, request_type: { $nin: ['status_action', 'humanity_check'] } },
+    { _id: oid, request_type: { $nin: ['status_action', 'humanity_check', 'office_purchase'] } },
     { $set: { status: 'voided', updated_at: new Date().toISOString() } }
   );
   if (!result.matchedCount) return res.status(404).json({ error: 'NOT_FOUND' });
@@ -477,7 +480,9 @@ async function _findChallenge(req, res) {
   // ownership check below to compare against anyway. gdx.12: same exclusion
   // for humanity_check requests (humanity-check.js's own lifecycle; a
   // humanity_check doc has no challenger/target_character_id fields either).
-  const doc = await col().findOne({ _id: oid, request_type: { $nin: ['status_action', 'humanity_check'] } });
+  // oxp.9: same exclusion for office_purchase requests (office-purchase.js's
+  // own lifecycle; an office_purchase doc has none of those fields either).
+  const doc = await col().findOne({ _id: oid, request_type: { $nin: ['status_action', 'humanity_check', 'office_purchase'] } });
   if (!doc) { res.status(404).json({ error: 'NOT_FOUND' }); return null; }
   if (doc.status !== 'pending') {
     res.status(409).json({ error: 'CONFLICT', message: 'Challenge is no longer pending' });

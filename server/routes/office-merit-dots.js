@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { getCollection } from '../db.js';
 import { requireRole } from '../middleware/auth.js';
 import { resolveOfficeSeat } from '../lib/office-seat-resolve.js';
-import { MERIT_DOT_CAPS } from '../../public/js/tabs/office-data.js';
+import { getMeritCaps } from '../lib/office-content-read.js';
 
 const router = Router();
 const col = () => getCollection('office_merit_dots');
@@ -36,9 +36,10 @@ router.get('/', async (req, res) => {
 // ST-only. Body: { merit, dots }. Sets one merit's dot rating for one office
 // SEAT. The seat is resolved first (oxp.11), which is what yields the office
 // category; the merit name and the value are then validated against that
-// category exactly as before, using the same OFFICE_DATA the client renders
-// from and the same per-merit caps (Trained Observer/Cacophony Savvy cap at 3,
-// everything else at 5 — see MERIT_DOT_CAPS).
+// category exactly as before, using the same `office_content` the client
+// renders from and the same per-merit caps (Trained Observer/Cacophony Savvy
+// cap at 3, everything else at 5 — see office_content's `kind: 'merit_caps'`
+// document, oxp.10).
 //
 // Minimal-scope note (2026-08-12, ahead of Saturday's game): this is
 // direct ST-set purchase state, not Epic OXP's full accrual/spend economy
@@ -58,7 +59,8 @@ router.put('/:seatId', requireRole('st'), async (req, res) => {
   if (typeof merit !== 'string' || !Array.isArray(officeEntry.merits) || !officeEntry.merits.includes(merit))
     return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'That merit does not belong to this office' });
 
-  const cap = MERIT_DOT_CAPS[merit] || 5;
+  const meritCaps = await getMeritCaps();
+  const cap = meritCaps[merit] || 5;
   // Codex review, DBO-4 (2026-08-14): accept a numeric string, but never
   // coerce null/undefined/''/[]/booleans - all of which bare Number() turns
   // into a valid-looking 0, silently accepting malformed input as "clear this

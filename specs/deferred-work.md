@@ -1,5 +1,28 @@
 # Deferred Work
 
+## Deferred from: gdx-9-single-scroll-sheet code review (2026-08-27)
+
+Internal 3-layer review (Blind Hunter/Edge Case Hunter/Acceptance Auditor) surfaced two real edge
+cases, both judged real-but-narrow enough not to block this story — deferred rather than patched:
+
+- **Live viewport resize/rotation crossing the 900px desktop breakpoint while a single-scroll sheet
+  is already open leaves stale phone-only markup behind.** `_applyDesktopMode` (`app.js`'s
+  `DESKTOP_MQ` change listener) toggles `desktop-mode` and re-renders the bottom nav, but never calls
+  `renderSheet()`/`suiteRenderSheet()` — so `#sh-content-suite` keeps its single-scroll markup (the
+  sticky `.gdx9-pinned` bar, jump-nav chips, `.gdx9-section` wrappers) even after the app switches
+  into desktop mode, until the user re-selects a character and forces a fresh render. Narrow in
+  practice: requires an actual live resize/rotation crossing exactly that threshold with a character
+  sheet already open in single-scroll mode (tablet/foldable rotation, or a manually resized desktop
+  browser window) — and the feature itself defaults off, so it can't manifest at all until the flag
+  is enabled. Self-heals on the next character selection. Found by Edge Case Hunter
+  (`gdx-9-single-scroll-sheet.md`'s own code review).
+- **`boot()`'s `isDesktop` local (`app.js`) can go stale across the `await ensureTrackerLoaded(...)`
+  a few lines later** if a resize crosses the 900px breakpoint during that await — a pre-existing
+  hazard (the plain `isDesktop` ternary already had this race before gdx-9) that gdx-9 extends by
+  adding one more dependent local (`gdx9SingleScroll`) and a new phone-branch destination reading off
+  the same stale capture, rather than introducing a new race class. Pre-existing, not gdx-9's to fix
+  solo; worth a dedicated small story if `boot()`'s resize-during-await ordering is ever tightened.
+
 ## Deferred from: dev->main reconciliation (2026-08-25)
 
 Full reconciliation of `dev`'s 30 stranded commits (gdx-1/2/3/4/11/12, xpl-1, dtlt-10, devotion
@@ -1471,3 +1494,21 @@ two below were judged real but out of proportion to fix in this pass, or not thi
   playwright test` succeeds normally). Not fixed here — neither file is touched by this story's
   diff, and the real fix (declaring `http-server` as a devDependency, or switching the webServer
   command to the already-declared `serve` package) is a repo-hygiene item, not specific to Devlog.
+
+## Deferred from: code review of oxp-9-spend-routes-through-oaq (2026-08-27, external Codex, 3 isolated passes)
+
+- **`office-tab.js`'s purchase-request control is not disabled while its own POST is in flight**
+  (Low, UX only — `public/js/tabs/office-tab.js:853-866`, `_submitPurchaseRequest`). The handler
+  awaits `apiPost` without first marking the button busy, so a double-click fires two submissions.
+  This was the CLIENT-side trigger Codex pass 1 named for the one-pending-per-seat race, and pass 2
+  used it to reproduce a real double spend (a burst created ten pending rows for one seat, two of
+  which were then accepted onto the same merit). **The defect itself is fixed** — this review round
+  added the partial unique index on `{ seat_id }` that arbitrates it authoritatively at the database
+  level, plus a duplicate-key-to-409 translation, plus a concurrency regression test; see the story's
+  Senior Developer Review section. What is left is purely cosmetic: the second click now gets a
+  toast reading "A purchase request is already pending for this seat", which is correct but reads as
+  an error for what is really just an impatient user. Adding a busy lock (disable, await, re-enable
+  under the existing `el._officeManoeuvreGen` generation guard, the same shape `_adjustMeritDots`
+  would need) would make the second click a silent no-op instead. Not done here: the patch round was
+  scoped to correctness findings and this touches a client render path with its own generation-guard
+  invariants, so it wants its own story rather than a drive-by edit inside a review round.

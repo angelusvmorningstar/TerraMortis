@@ -343,6 +343,27 @@ body.desktop-mode .sh-powers-grid > .sh-sec{break-inside:avoid;}
 .skill-dots{font-size:0.875rem;color:var(--accent);letter-spacing:2px;flex-shrink:0;}
 .skill-zero{font-size:var(--fs-floor-body);color:var(--txt3);opacity:.4;}
 
+/* ── gdx-9: single-scroll phone sheet — pinned track strip + jump-nav ──
+   Phone-only (single-scroll flag), sits at the top of #sh-content-suite,
+   sticky within #t-sheets's own scroll box. */
+.gdx9-pinned{position:sticky;top:0;z-index:5;background:var(--surf);border-bottom:1px solid var(--bdr2);box-shadow:0 2px 8px rgba(0,0,0,.10);}
+.gdx9-track-strip{display:flex;align-items:center;gap:10px;padding:8px 12px 6px;cursor:pointer;-webkit-tap-highlight-color:transparent;}
+.gdx9-track-chip{display:flex;flex-direction:column;align-items:center;gap:3px;flex:1;min-width:0;}
+.gdx9-track-head{display:flex;align-items:baseline;gap:5px;}
+.gdx9-track-lbl{font-family:var(--fl);font-size:var(--fs-floor-micro);font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--txt3);}
+.gdx9-track-num{font-family:var(--fl);font-size:var(--fs-floor-body);font-weight:900;color:var(--txt);}
+.gdx9-track-bar{width:100%;height:4px;border-radius:2px;background:var(--bdr);overflow:hidden;}
+.gdx9-track-fill{height:100%;border-radius:2px;}
+.gdx9-track-fill.vitae{background:var(--crim);}
+.gdx9-track-fill.wp{background:var(--gold2);}
+.gdx9-track-fill.health{background:var(--green);}
+.gdx9-track-arrow{font-family:var(--fl);font-size:var(--fs-floor-body);color:var(--txt3);flex-shrink:0;padding-left:2px;}
+.gdx9-jump-nav{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;padding:0 10px 8px;}
+.gdx9-jump-nav::-webkit-scrollbar{display:none;}
+.gdx9-jump-chip{flex-shrink:0;font-family:var(--fl);font-size:var(--fs-floor-body);font-weight:700;letter-spacing:.06em;text-transform:uppercase;padding:6px 14px;border-radius:999px;border:1px solid var(--bdr2);background:var(--surf2);color:var(--label-secondary);cursor:pointer;-webkit-tap-highlight-color:transparent;transition:background .12s,color .12s,border-color .12s;}
+.gdx9-jump-chip.active{background:var(--accent);border-color:var(--accent);color:var(--bg);}
+.gdx9-section{scroll-margin-top:0;}
+
 /* Suite-specific merit class names (without sh- prefix) */
 .merit-name{font-family:var(--fl);font-size:var(--fs-floor-body);font-variant:small-caps;font-weight:600;color:var(--label-secondary);letter-spacing:.03em;}
 .merit-sub{font-family:var(--fl);font-size:var(--fs-floor-body);font-weight:400;color:var(--label-secondary);margin-top:2px;}
@@ -2447,6 +2468,27 @@ body.desktop-mode.sidebar-collapsed .sb-collapse-btn { width: 100%; justify-cont
 .office-merit-stepper.cs-edit-stepper { flex-direction: row; margin: 0; gap: 6px; }
 .office-merit-stepper .cs-step-btn { width: var(--control-height-sm); height: var(--control-height-sm); font-size: 0.75rem; }
 
+/* oxp.9 — the holder's own "request this purchase" control, on merit rows and
+   at the foot of the manoeuvre rank readout. A SEPARATE affordance from the
+   ST's .cs-step-btn steppers above (an ST setting purchase state directly is
+   still an ST-approved action and is not queued), so it deliberately does not
+   inherit the stepper chrome. Sized to sit inline with .office-merit-row's
+   own 40px tap target; wraps rather than overflowing on narrow phone widths.
+   Tokens only, per specs/project-context.md. */
+.office-request-btn {
+  font-family: var(--fl); font-size: var(--fs-floor-micro);
+  letter-spacing: .06em; text-transform: uppercase; font-weight: 700;
+  color: var(--txt2); background: var(--surf2);
+  border: 1px solid var(--bdr); border-radius: var(--radius-sm);
+  padding: 5px 10px; min-height: var(--control-height-sm);
+  cursor: pointer; white-space: nowrap;
+  transition: background .15s, color .15s, border-color .15s;
+}
+.office-request-btn:hover:not(:disabled) { background: var(--surf3); color: var(--txt); border-color: var(--gold2); }
+.office-request-btn:disabled { opacity: .5; cursor: default; }
+.office-merit-row { flex-wrap: wrap; }
+.office-manoeuvre-rank { flex-wrap: wrap; }
+
 /* Approval Queue (oaq.3) — moved into the game app; reuses .stm-audit-*
    (scaffold shell, components.css), .dtl-badge (label), .ch-btn/.ch-error
    (the .ch-* accept/decline + error styling shared across this
@@ -2736,8 +2778,12 @@ body.desktop-mode.sidebar-collapsed .sb-collapse-btn { width: 100%; justify-cont
   padding: 3px;
 }
 .rv2-adj {
+  display: flex;
+  align-items: center;
+  justify-content: center;
   width: var(--control-height-sm);
   height: var(--control-height-sm);
+  padding: 0;
   border-radius: var(--radius-md);
   border: none;
   background: transparent;
@@ -2745,6 +2791,7 @@ body.desktop-mode.sidebar-collapsed .sb-collapse-btn { width: 100%; justify-cont
   font-family: var(--fl);
   font-size: 1.25rem;
   font-weight: 700;
+  line-height: 1;
   cursor: pointer;
   transition: background 0.12s;
 }
@@ -2836,13 +2883,24 @@ body.desktop-mode.sidebar-collapsed .sb-collapse-btn { width: 100%; justify-cont
 }
 .rv2-breakdown[open] summary { color: var(--txt2); }
 
+/* Horizontal inset comes from #t-roll's own 20px padding, matching every
+   other block in this tab (Again Rule, Rote/WP, Contested Roll, results,
+   history) - deliberately NOT a left/right margin of its own. A prior
+   version used `width: calc(100% - 32px); margin: 12px 16px 16px`, meant to
+   self-inset by 16px each side - but with non-zero left/right margins
+   present, the browser resolved the width as if the "- 32px" weren't there
+   (measured: identical 845px box either way), so the 16px margins landed on
+   top of an already-full-width box and pushed the whole button 16px right
+   of every sibling below the Again Rule section. Zeroing the side margins
+   is what actually fixed it - width alone or margin alone, tried in
+   isolation, each still reproduced the misalignment. */
 .rv2-roll-btn {
   position: sticky;
   bottom: 8px;
   z-index: 10;
   display: block;
-  width: calc(100% - 32px);
-  margin: 12px 16px 16px;
+  width: 100%;
+  margin: 12px 0 16px;
   padding: 16px;
   min-height: var(--control-height-lg);
   border: none;

@@ -36,12 +36,14 @@ import {
 import adminMigrationsRouter from './routes/admin-migrations.js';
 import contestedRollsRouter from './routes/contested-rolls.js';
 import humanityCheckRouter from './routes/humanity-check.js';
+import officePurchaseRouter from './routes/office-purchase.js';
 import stModsRouter, { auditRouter as stModAuditRouter } from './routes/st_mods.js';
 import appSettingsRouter from './routes/app-settings.js';
 import rollLogRouter from './routes/roll-log.js';
 import buildEquipmentCatalogueRouter from './routes/equipment-catalogue.js';
 import storyCyclesRouter from './routes/story-cycles.js';
 import buildBloodlinesRouter from './routes/bloodlines.js';
+import buildOfficeContentRouter from './routes/office-content.js';
 import cyoaRouter from './routes/cyoa.js';
 import { attachWS } from './ws.js';
 // NOTE: The old /api/pdf route was removed. Character sheet PDFs are now
@@ -98,6 +100,14 @@ app.use('/api/equipment_catalogue', buildEquipmentCatalogueRouter(requireAuth));
 // router's own sole surviving route; kept only so this mount line needs no
 // change (server/routes/bloodlines.js explains why).
 app.use('/api/bloodlines', buildBloodlinesRouter(requireAuth));
+
+// Office content (public read only). oxp.10 (split out of oxp.1,
+// 2026-08-13): the `office_content` collection lives at /api/office_content,
+// replacing the static OFFICE_DATA/MERIT_DOT_CAPS constants. Public for the
+// same reason as bloodlines above — the player-facing office tab and the
+// sheet editor both need it without a token. Read-only in this repo, same
+// locked-scope decision as bloodlines (see server/schemas/office_content.schema.js).
+app.use('/api/office_content', buildOfficeContentRouter(requireAuth));
 
 // Protected routes — require valid token (role resolved from players collection)
 // Characters and downtime submissions have internal role filtering (ST vs player)
@@ -167,6 +177,10 @@ app.use('/api/contested_roll_requests', requireAuth, contestedRollsRouter);
 // contested_roll_requests collection (request_type: 'humanity_check') but
 // has its own route file/schema, same pattern as office_actions below.
 app.use('/api/humanity_check_requests', requireAuth, noCache(), humanityCheckRouter);
+// oxp.9: office XP spend requests — the fourth request_type sharing the
+// contested_roll_requests collection ('office_purchase'), with its own route
+// file/schema, same pattern as humanity_check above and office_actions below.
+app.use('/api/office_purchase_requests', requireAuth, noCache(), officePurchaseRouter);
 
 // /api/pdf removed — PDF generation moved client-side to public/js/print/.
 // Stale browsers calling the old endpoint get a 410 Gone with a refresh hint.
@@ -271,6 +285,26 @@ async function start() {
         unique: true,
         background: true,
         partialFilterExpression: { request_type: 'status_action', status: 'pending' },
+      },
+    );
+    // Ensure partial unique index on contested_roll_requests (oxp.9) —
+    // the one-pending-per-seat rule for office XP purchase requests. The
+    // sibling of the oaq.2 index above, for the same reason and by the same
+    // mechanism: office-purchase.js's POST kept a findOne pre-check as a
+    // fast-path, but a findOne-then-insertOne pair is not atomic, and an
+    // external Codex review round (2026-08-27, passes 1 and 2) REPRODUCED the
+    // double spend — a 12-request burst created ten pending rows for one seat
+    // and two of them were then accepted onto the same merit. This index is
+    // the authoritative guard; the route translates its duplicate-key error
+    // (11000) into the same 409 the pre-check already returns. Scoped to
+    // status:'pending' so a resolved/declined record never blocks a later
+    // resubmission, exactly as the oaq.2 index is.
+    getDb().collection('contested_roll_requests').createIndex(
+      { seat_id: 1 },
+      {
+        unique: true,
+        background: true,
+        partialFilterExpression: { request_type: 'office_purchase', status: 'pending' },
       },
     );
     // Ensure the defender-queue compound index on contested_roll_requests

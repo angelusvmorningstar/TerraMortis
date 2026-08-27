@@ -50,6 +50,7 @@ if (!hadLocalStorage) {
 
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { resolveHeldSeat } from '../../public/js/data/office-seat-resolve.js';
+import { OFFICE_DATA, MERIT_DOT_CAPS, buildSeedDocs } from '../scripts/seed-office-content.js';
 
 const SEAT_A = { _id: 'seat-a', office_category: 'Primogen', holder_id: 'yusuf', created_at: '2026-02-21', seat_label: null };
 const SEAT_B = { _id: 'seat-b', office_category: 'Primogen', holder_id: 'rene', created_at: '2026-02-21', seat_label: null };
@@ -106,6 +107,23 @@ describe('oxp.7 shRenderOfficeMerits + patchOfficeMerits (AC1, 3-8)', () => {
   const hadFetch = 'fetch' in globalThis;
 
   beforeAll(async () => {
+    // oxp.10: editor/sheet.js now reads office content from
+    // office-content-cache.js's synchronous accessors, not a static import —
+    // prime it (real fixtures, via the seed script's own frozen literals)
+    // BEFORE importing sheet.js, same technique as
+    // issue-1141-office-tab-render.test.js. localStorage is already stubbed
+    // above at file scope, so apiGet's headers() read is safe here.
+    const { loadOfficeContent } = await import('../../public/js/data/office-content-cache.js');
+    const seedDocs = buildSeedDocs({ officeData: OFFICE_DATA, meritCaps: MERIT_DOT_CAPS, now: '2026-08-27T00:00:00.000Z' });
+    const bootFetch = globalThis.fetch;
+    globalThis.fetch = async (url) => {
+      const u = String(url);
+      if (u.includes('/api/office_content')) return { ok: true, status: 200, json: async () => seedDocs };
+      return { ok: true, status: 200, json: async () => ({}) };
+    };
+    await loadOfficeContent();
+    globalThis.fetch = bootFetch;
+
     ({ shRenderOfficeMerits, patchOfficeMerits } = await import('../../public/js/editor/sheet.js'));
     realFetch = globalThis.fetch;
   });

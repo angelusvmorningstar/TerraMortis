@@ -273,9 +273,19 @@ export function officeSpendKnownByCategory(allSeats) {
  * its retirement belongs with the first one (oxp.6 or oxp.7). Never simplify it
  * away by defaulting it to true.
  *
- * `left` is allowed to go negative. Both purchase collections are direct
- * ST-set state with no budget check (oxp.9 would add one), so an office can
- * genuinely show more purchased than earned; clamping to 0 would hide that.
+ * `left` is allowed to go negative, and still is after oxp.9. That story added
+ * a budget check on the APPROVAL PATH ONLY: a holder-initiated purchase goes
+ * through `/api/office_purchase_requests`, and its ST-accept route refuses to
+ * apply the purchase unless `officeSeatXp(...).left >= 1`, computed against
+ * documents re-read inside the same transaction. The ST's own direct-set
+ * routes (`PUT /api/office_merit_dots/:seatId`,
+ * `PUT /api/office_manoeuvre_rank/:seatId(/step)`) deliberately still have NO
+ * budget check, so an office can genuinely show more purchased than earned;
+ * clamping to 0 here would hide that. Three concrete reasons that stays true:
+ * the down-steppers are a correction path, not spend; STs still need to seed
+ * and correct historical purchase state that predates this economy; and
+ * office-tab.js's "N over budget" line only works because a negative `left` is
+ * representable. Do not "fix" this by clamping.
  *
  * `spendKnown` is forced `false` — never inferred from `allSeats` alone — if
  * `seat` itself cannot be found in `allSeats` (Codex review, oxp.2: a caller

@@ -35,8 +35,9 @@ router.get('/', async (req, res) => {
 // ST-only. Body: { rank }. Sets how many of this SEAT's office's ranked
 // manoeuvres are currently purchased, as one graduated integer: 0 means none,
 // and the office's own manoeuvre count means all of them. Rank order IS the
-// order of OFFICE_DATA[category].manoeuvres, which already matches the resolved
-// rank table in content/rules/office-powers.md.
+// order of that office's `office_content` document's `manoeuvres` array
+// (oxp.10), which already matches the resolved rank table in
+// content/rules/office-powers.md.
 //
 // The upper bound is read from the resolved seat's own office's manoeuvres
 // array rather than hardcoded, so an office authored later with a different

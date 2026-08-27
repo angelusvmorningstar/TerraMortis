@@ -61,7 +61,7 @@ import { auditCharacter } from '../data/audit.js';
 // object synchronously) — office merit dots are the one thing on this sheet
 // that live in a separate seat-keyed collection, fetched over the API.
 import { apiGet } from '../data/api.js';
-import { OFFICE_DATA, MERIT_DOT_CAPS } from '../tabs/office-data.js';
+import { officeEntry, meritCap } from '../data/office-content-cache.js';
 import { resolveHeldSeat } from '../data/office-seat-resolve.js';
 // Issue #162 (2026-05-08): shEnsureTouchstoneData import dropped — the
 // Touchstone editor no longer needs the NPC list (DB-relational picker
@@ -1800,7 +1800,7 @@ let _officeMeritsGen = 0;
  * placeholder (no `sh-sec`/title chrome at all) when this character could
  * possibly hold a real office merit suite; returns '' outright when they
  * provably cannot (no court_category, or Administrator, which has no
- * OFFICE_DATA entry yet — oxp.8, not app code).
+ * office_content entry yet — oxp.8, not app code).
  *
  * The placeholder carries NO visible content of its own specifically so
  * "renders nothing at all" (AC3) is genuinely true for the unconfirmed-seat
@@ -1810,7 +1810,7 @@ let _officeMeritsGen = 0;
  * unconfirmed match leaves this placeholder permanently empty rather than
  * flashing a title that then has nothing under it. AC3's literal "return ''"
  * wording is satisfied exactly by the two cases this function itself can
- * decide synchronously (no `court_category`, no `OFFICE_DATA` entry) — the
+ * decide synchronously (no `court_category`, no `office_content` entry) — the
  * remaining AC3 cases (unconfirmed seat, failed fetch, zero-merit office)
  * are visually-equivalent-but-mechanically-different: this function still
  * returns the reserved (invisible) placeholder markup, and
@@ -1823,7 +1823,7 @@ let _officeMeritsGen = 0;
  * unlike `shRenderDomainMerits` there is no `editMode` parameter at all.
  */
 export function shRenderOfficeMerits(c) {
-  if (!c || !c.court_category || !OFFICE_DATA[c.court_category]) return '';
+  if (!c || !c.court_category || !officeEntry(c.court_category)) return '';
   return '<div data-office-merits-char="' + esc(String(c._id)) + '"></div>';
 }
 
@@ -1865,7 +1865,7 @@ export function shRenderOfficeMerits(c) {
 export async function patchOfficeMerits(c) {
   const gen = ++_officeMeritsGen;
   if (!c || !c.court_category) return;
-  const data = OFFICE_DATA[c.court_category];
+  const data = officeEntry(c.court_category);
   if (!data) return; // Administrator — no merit suite exists yet (oxp.8)
 
   try {
@@ -1883,7 +1883,7 @@ export async function patchOfficeMerits(c) {
     if (!meritNames.length) return; // AC3: an office with no merit suite at all
 
     const rowsHtml = meritNames.map((merit, i) => {
-      const n = Math.max(0, Math.min(MERIT_DOT_CAPS[merit] || 5, dots[merit] || 0));
+      const n = Math.max(0, Math.min(meritCap(merit), dots[merit] || 0));
       return shRenderMeritRow(merit, 'office', i, '<span class="trait-dots">' + shDots(n) + '</span>');
     }).join('');
 

@@ -392,7 +392,14 @@ describe('oxp.4 client wiring: no character id reaches the office_merit_dots API
     // oxp.6: widened to carry `data` (this office's merit list) and
     // `isOwnOffice` (so a post-adjustment refresh can re-derive the shared
     // seat balance) — neither is a character reference.
-    expect(block).toMatch(/function _wireMeritDots\(el, outcome, data, dotsBySeat, fetchFailed, balance, isOwnOffice, gen\)/);
+    //
+    // oxp.9: widened once more by `requestState`, which is
+    // `{ canRequest, hasPending, unknown }` — three booleans derived from the
+    // seat's own pending-request read. Still not a character reference, so
+    // this test's actual guarantee is unchanged; only the literal it pins
+    // moved. (Same shape of update gdx.12 made to oaq-3's own assertions when
+    // it legitimately widened a signature this way.)
+    expect(block).toMatch(/function _wireMeritDots\(el, outcome, data, dotsBySeat, fetchFailed, balance, isOwnOffice, gen, requestState\)/);
     expect(block).toMatch(/async function _adjustMeritDots\(el, outcome, data, isOwnOffice, merit, delta\)/);
   });
 

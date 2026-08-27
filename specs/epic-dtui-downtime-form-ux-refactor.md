@@ -289,7 +289,7 @@ inputDocuments:
 | dtui.21 | ~~Personal Story — character's NPC correspondents wired in as selectable chips alongside freetext~~ — **WILL NOT IMPLEMENT** (data-custody: NPC/correspondent data belongs to TM Story, not TM Game; ruled by Angelus 2026-08-25) |
 | dtui.22 | Blood Sorcery — Mandragora Garden checkbox visibility filter + Vitae Projection Mandragora calculation using effective dots |
 | dtui.23 | Feeding section restructure — territory pill relocated from Territory & Influence into Feeding directly below dice pool; grouped with Blood Type and Method as three consistent tickers |
-| dtui.24 | Feeding — Method of Feeding label rename ("The Kiss (subtle)" / "The Assault (violent)") |
+| dtui.24 | Feeding — Method of Feeding label rename ("The Kiss (subtle)" / "The Assault (violent)") — **DONE, verified already satisfied by dtui-23** (labels live, test-covered; back-compat AC confirmed moot, no legacy capitalised-enum data ever existed) |
 | dtui.25 | Feeding rote panel — moved below "Describe how your character hunts"; same three feeding selectors (Territory, Blood Type, Method) inside the rote panel |
 
 **Wave dependencies:** Wave 1 complete (uses `.dt-chip-grid` for Acknowledge Peers and NPC correspondents; uses `.dt-ticker` for feeding tickers).

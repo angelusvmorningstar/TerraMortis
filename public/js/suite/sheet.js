@@ -3,7 +3,7 @@
 // ══════════════════════════════════════════════
 
 import state from './data.js';
-import { displayName, getWillpower, redactPlayer, shDotsWithBonus, formatSpecs, hasAoE } from '../data/helpers.js';
+import { displayName, getWillpower, redactPlayer, shDotsWithBonus, formatSpecs, hasAoE, singleScrollEnabled } from '../data/helpers.js';
 // rlv.7 review fix: onSheetChar() below reassigns state.rollChar without a
 // loadPool() following — resetRollPool() clears the previous character's
 // stale POOL_NAME/powerChips/MOD so a leftover chip badge can't persist
@@ -136,6 +136,7 @@ export function repaintSheetTrackers() {
       : '';
     healthNum.innerHTML = `${maxH - dmgTotal}/${maxH}${legend}`;
   }
+  _gdx9SyncPinnedTrack('health', maxH - (agg + leth + bash), maxH);
 
   // Vitae, WP, Influence — simple filled/empty
   const simple = {
@@ -158,7 +159,23 @@ export function repaintSheetTrackers() {
       numEl.textContent = cur + '/' + max;
       if (infoBtn) numEl.appendChild(infoBtn);
     }
+    // gdx-9: Influence has no pinned-strip chip (strip is Vitae/WP/Health only,
+    // per the locked design) — only sync the two types that have one.
+    if (type === 'vitae' || type === 'wp') _gdx9SyncPinnedTrack(type, cur, max);
   }
+}
+
+// ── gdx-9: pinned track-strip live sync (AC7) ──
+// Keeps the compact strip's mini-bars in step with repaintSheetTrackers'
+// own tap-box updates above. No-ops harmlessly when the strip isn't in the
+// DOM (single-scroll mode off, or on desktop).
+function _gdx9SyncPinnedTrack(type, cur, max) {
+  const fillEl = document.getElementById('gdx9-tf-' + type);
+  const numEl  = document.getElementById('gdx9-tn-' + type);
+  if (!fillEl && !numEl) return;
+  const pct = max > 0 ? Math.max(0, Math.min(100, Math.round((cur / max) * 100))) : 0;
+  if (fillEl) fillEl.style.width = pct + '%';
+  if (numEl) numEl.textContent = cur + '/' + max;
 }
 
 // ── Sheet character selection ──
@@ -750,25 +767,162 @@ export function renderSheet() {
   // Desktop mode: render to the full-sheet container so the Sheet tab works.
   // Mobile mode: render to split-tab containers only, clear the full sheet
   // to avoid duplicate IDs that break toggleExp/toggleDisc.
+  // gdx-9: a third mode — phone + the single-scroll flag on — also renders
+  // into the full-sheet container (reusing desktop's own concatenation
+  // path, `#t-sheets`/`#sh-content-suite`, already unused on phone today)
+  // instead of the four split containers, with a new pinned track-strip +
+  // jump-nav block prepended. Flag off: byte-for-byte the original two-mode
+  // behaviour below.
   const isDesktop = document.body.classList.contains('desktop-mode');
-  if (el && isDesktop) {
-    el.innerHTML = infoHtml + statsHtml + skillsHtml + '<div class="sh-powers-grid">' + powersHtml + '</div>';
+  const useSingleScroll = !isDesktop && singleScrollEnabled();
+  if (el && (isDesktop || useSingleScroll)) {
+    el.innerHTML = useSingleScroll
+      ? _gdx9PinnedBlockHtml(c)
+        + `<section id="gdx9-sec-info" class="gdx9-section">${infoHtml}</section>`
+        + `<section id="gdx9-sec-stats" class="gdx9-section">${statsHtml}</section>`
+        + `<section id="gdx9-sec-skills" class="gdx9-section">${skillsHtml}</section>`
+        + `<section id="gdx9-sec-powers" class="gdx9-section"><div class="sh-powers-grid">${powersHtml}</div></section>`
+      : infoHtml + statsHtml + skillsHtml + '<div class="sh-powers-grid">' + powersHtml + '</div>';
   } else if (el) {
     el.innerHTML = '';
   }
-  // Always populate split tabs (used on mobile; invisible on desktop)
-  if (statsEl)  statsEl.innerHTML  = isDesktop ? '' : statsHtml;
-  if (skillsEl) skillsEl.innerHTML = isDesktop ? '' : skillsHtml;
-  if (powersEl) powersEl.innerHTML = isDesktop ? '' : powersHtml;
-  if (infoEl)   infoEl.innerHTML   = isDesktop ? '' : infoHtml;
+  // Always populate split tabs (used on the original 4-tab phone UX; empty
+  // on desktop and in single-scroll mode, both of which render into `el`).
+  const usesFullSheet = isDesktop || useSingleScroll;
+  if (statsEl)  statsEl.innerHTML  = usesFullSheet ? '' : statsHtml;
+  if (skillsEl) skillsEl.innerHTML = usesFullSheet ? '' : skillsHtml;
+  if (powersEl) powersEl.innerHTML = usesFullSheet ? '' : powersHtml;
+  if (infoEl)   infoEl.innerHTML   = usesFullSheet ? '' : infoHtml;
 
-  // Wire attribute+skills carousel indicators
-  _wireAttrCarousel(skillsEl || el);
+  // Wire attribute+skills carousel indicators — target wherever the content
+  // actually landed (skillsEl is left empty, not null, when usesFullSheet).
+  _wireAttrCarousel(usesFullSheet ? el : skillsEl);
+
+  // gdx-9: pinned strip + jump-nav interactivity, phone single-scroll only.
+  if (useSingleScroll) _wireGdx9Pinned(el);
 
   // oxp.7: un-awaited, same as status.js's own appendOfficeActionsLog call —
   // must run AFTER the innerHTML writes above, since it finds its own
   // placeholder(s) by querying the DOM they just landed in.
   patchOfficeMerits(c);
+}
+
+// ── gdx-9: pinned track strip + jump-nav (single-scroll phone sheet) ──
+
+/** Compact Vitae/WP/Health strip HTML, seeded from live tracker state at
+ *  render time. Kept in sync after tap-box writes by
+ *  _gdx9SyncPinnedTrack (called from repaintSheetTrackers above). */
+function _gdx9PinnedBlockHtml(c) {
+  const maxH  = calcHealth(c);
+  const maxV  = calcVitaeMax(c);
+  const maxWP = calcWillpowerMax(c);
+  const cs = trackerRead(String(c._id)) || {};
+  const health = Math.max(0, maxH - (cs.bashing ?? 0) - (cs.lethal ?? 0) - (cs.aggravated ?? 0));
+  const vitae  = Math.max(0, Math.min(cs.vitae ?? maxV, maxV));
+  const wp     = Math.max(0, Math.min(cs.willpower ?? maxWP, maxWP));
+  const pct = (cur, max) => (max > 0 ? Math.max(0, Math.min(100, Math.round((cur / max) * 100))) : 0);
+  const chip = (type, label, cur, max, cls) => `<div class="gdx9-track-chip">
+    <div class="gdx9-track-head"><span class="gdx9-track-lbl">${label}</span><span class="gdx9-track-num" id="gdx9-tn-${type}">${cur}/${max}</span></div>
+    <div class="gdx9-track-bar"><div class="gdx9-track-fill ${cls}" id="gdx9-tf-${type}" style="width:${pct(cur, max)}%"></div></div>
+  </div>`;
+  return `<div class="gdx9-pinned" id="gdx9-pinned">
+    <div class="gdx9-track-strip" id="gdx9-track-strip" role="button" tabindex="0" aria-label="Jump to full tracker">
+      ${chip('vitae', 'Vitae', vitae, maxV, 'vitae')}
+      ${chip('wp', 'WP', wp, maxWP, 'wp')}
+      ${chip('health', 'Health', health, maxH, 'health')}
+      <span class="gdx9-track-arrow">&rsaquo;</span>
+    </div>
+    <nav class="gdx9-jump-nav" aria-label="Sheet sections">
+      <button type="button" class="gdx9-jump-chip active" data-target="gdx9-sec-info">Info</button>
+      <button type="button" class="gdx9-jump-chip" data-target="gdx9-sec-stats">Stats</button>
+      <button type="button" class="gdx9-jump-chip" data-target="gdx9-sec-skills">Skills</button>
+      <button type="button" class="gdx9-jump-chip" data-target="gdx9-sec-powers">Powers</button>
+    </nav>
+  </div>`;
+}
+
+/** Wires jump-chip scroll, active-chip sync, and the track-strip's own
+ *  tap-through to Stats. Mirrors _wireAttrCarousel's own scroll-sync shape.
+ *  container is `el` (#sh-content-suite); the actual scroll box is its
+ *  ancestor `.tab` (#t-sheets, `.tab{overflow-y:auto}` in suite.css). */
+function _wireGdx9Pinned(container) {
+  if (!container) return;
+  const pinned = container.querySelector('#gdx9-pinned');
+  if (!pinned) return;
+  const scrollHost = pinned.closest('.tab') || container;
+  const chips = Array.from(pinned.querySelectorAll('.gdx9-jump-chip'));
+  const sections = chips.map(chip => container.querySelector('#' + chip.dataset.target));
+
+  function applyScrollMargins() {
+    const px = pinned.offsetHeight + 'px';
+    sections.forEach(s => { if (s) s.style.scrollMarginTop = px; });
+  }
+  applyScrollMargins();
+
+  function jumpTo(targetId) {
+    container.querySelector('#' + targetId)?.scrollIntoView({ block: 'start' });
+  }
+
+  chips.forEach(chip => {
+    chip.addEventListener('click', () => jumpTo(chip.dataset.target));
+  });
+
+  const trackStrip = pinned.querySelector('#gdx9-track-strip');
+  if (trackStrip) {
+    trackStrip.addEventListener('click', () => jumpTo('gdx9-sec-stats'));
+    trackStrip.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); jumpTo('gdx9-sec-stats'); }
+    });
+  }
+
+  // Active-chip sync: which section's top has scrolled up to (or past) the
+  // pinned block's bottom edge, picking the LAST one that qualifies. Uses
+  // direct scroll-position math rather than IntersectionObserver — a
+  // short final section (e.g. Powers with no disciplines/merits yet) can
+  // never be scrolled far enough for its own bounding box to enter a
+  // narrow top-of-viewport intersection band, which left the observer
+  // approach unable to ever mark it active.
+  //
+  // That "too short to reach the line" problem isn't fully solved by
+  // switching to distance math alone, though: once scrollTop hits its own
+  // maximum (nothing left to scroll), a short trailing section's offsetTop
+  // can permanently sit past the activation line with no way to close the
+  // gap — the classic scrollspy last-section edge case. Fixed the standard
+  // way: at max scroll, the last section wins regardless of the line math.
+  const validSections = sections.map((s, i) => ({ s, i })).filter(x => x.s);
+  if (validSections.length) {
+    const lastIdx = validSections[validSections.length - 1].i;
+    function updateActiveChip() {
+      const maxScroll = scrollHost.scrollHeight - scrollHost.clientHeight;
+      let activeIdx;
+      // maxScroll > 0 guards a character short enough that the whole sheet
+      // fits without scrolling at all (scrollHeight === clientHeight): the
+      // max-scroll branch below would otherwise read scrollTop(0) >= 0-1 as
+      // true and wrongly snap straight to the last section, overriding the
+      // correct "Info" default before the user has scrolled anywhere.
+      if (maxScroll > 0 && scrollHost.scrollTop >= maxScroll - 1) {
+        activeIdx = lastIdx;
+      } else {
+        const line = scrollHost.scrollTop + pinned.offsetHeight;
+        activeIdx = validSections[0].i;
+        for (const { s, i } of validSections) {
+          if (s.offsetTop <= line + 1) activeIdx = i;
+        }
+      }
+      chips.forEach((c, i) => c.classList.toggle('active', i === activeIdx));
+    }
+    // Code-review finding (all 3 internal layers, independently): #t-sheets
+    // is a static element never recreated between renders, so a 'scroll'
+    // listener attached here on every renderSheet() call (e.g. every
+    // character switch) accumulated without bound — remove any listener
+    // this same scrollHost was given by a previous wiring pass first.
+    if (scrollHost._gdx9ScrollHandler) {
+      scrollHost.removeEventListener('scroll', scrollHost._gdx9ScrollHandler);
+    }
+    scrollHost._gdx9ScrollHandler = updateActiveChip;
+    scrollHost.addEventListener('scroll', updateActiveChip, { passive: true });
+    updateActiveChip();
+  }
 }
 
 function _wireAttrCarousel(container) {

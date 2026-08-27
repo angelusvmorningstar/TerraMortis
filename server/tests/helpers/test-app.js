@@ -31,6 +31,7 @@ import appSettingsRouter from '../../routes/app-settings.js';
 import buildEquipmentCatalogueRouter from '../../routes/equipment-catalogue.js';
 import { storyCyclesRouter } from '../../routes/story-cycles.js';
 import buildBloodlinesRouter from '../../routes/bloodlines.js';
+import buildOfficeContentRouter from '../../routes/office-content.js';
 import cyoaRouter from '../../routes/cyoa.js';
 import officeActionsRouter from '../../routes/office-actions.js';
 import rollLogRouter from '../../routes/roll-log.js';
@@ -39,6 +40,7 @@ import officeManoeuvreRankRouter from '../../routes/office-manoeuvre-rank.js';
 import officeSeatsRouter from '../../routes/office-seats.js';
 import contestedRollsRouter from '../../routes/contested-rolls.js';
 import humanityCheckRouter from '../../routes/humanity-check.js';
+import officePurchaseRouter from '../../routes/office-purchase.js';
 
 /**
  * Create a test app with a mock user injected via header.
@@ -78,6 +80,9 @@ export function createTestApp() {
   // server/routes/bloodlines.js). Same factory shape as before, so this
   // mount needed no change when the writes retired.
   app.use('/api/bloodlines', buildBloodlinesRouter(mockAuth));
+
+  // oxp.10 office_content — public read only, same factory shape as bloodlines.
+  app.use('/api/office_content', buildOfficeContentRouter(mockAuth));
 
   // Protected routes with mock auth.
   // Issue #255: mirror prod Cache-Control discipline so tests can assert
@@ -141,6 +146,8 @@ export function createTestApp() {
   app.use('/api/contested_roll_requests', mockAuth, noCache(), contestedRollsRouter);
   // gdx.12: Humanity Check submit/accept/decline (shares the same collection).
   app.use('/api/humanity_check_requests', mockAuth, noCache(), humanityCheckRouter);
+  // oxp.9: office XP spend requests (shares the same collection again).
+  app.use('/api/office_purchase_requests', mockAuth, noCache(), officePurchaseRouter);
 
   return app;
 }

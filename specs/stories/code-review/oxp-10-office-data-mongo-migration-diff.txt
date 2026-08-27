@@ -1,0 +1,1727 @@
+diff --git a/public/js/admin.js b/public/js/admin.js
+index e5d6b91b..13916ec3 100644
+--- a/public/js/admin.js
++++ b/public/js/admin.js
+@@ -20,6 +20,7 @@ import { loadCatalogue as loadEquipmentCatalogue, refetchCatalogue as refetchEqu
+ // BL-2 (#1008): see the matching block in app.js. Primed before characters are
+ // fetched so nothing renders, or is edited, against an unloaded cache.
+ import { loadBloodlines, loadFailed as bloodlinesLoadFailed, refetchBloodlines } from './data/bloodlines-cache.js';
++import { loadOfficeContent, loadFailed as officeContentLoadFailed } from './data/office-content-cache.js';
+ import { mountBloodlineWarnBanner } from './components/bloodline-warn-banner.js';
+ import { xpLeft, xpEarned } from './editor/xp.js';
+ import { applyDerivedMerits, getPoolUsed, getMCIPoolUsed } from './editor/mci.js';
+@@ -1253,6 +1254,14 @@ async function init() {
+     console.error('[admin] loadBloodlines failed — every bloodline character is being costed as out-of-clan and discipline editing is locked.');
+   }
+ 
++  // oxp.10: same reasoning as loadBloodlines() above — awaited before the
++  // first sheet/office-tab render, since both read office content
++  // synchronously mid-render, not via a per-render fetch.
++  await loadOfficeContent();
++  if (officeContentLoadFailed()) {
++    console.error('[admin] loadOfficeContent failed — every Court Position falls back to the "pending" render until the cache loads.');
++  }
++
+   try {
+     chars = await apiGet('/api/characters');
+     chars.forEach(sanitiseChar);
+diff --git a/public/js/app.js b/public/js/app.js
+index 8f108a1c..7e0b3c48 100644
+--- a/public/js/app.js
++++ b/public/js/app.js
+@@ -76,6 +76,7 @@ import { loadCatalogue as loadEquipmentCatalogue, refetchCatalogue as refetchEqu
+ // against an unloaded cache; the banner surfaces any bloodline that does not
+ // resolve, because an unresolved one silently mis-costs XP.
+ import { loadBloodlines, loadFailed as bloodlinesLoadFailed, refetchBloodlines } from './data/bloodlines-cache.js';
++import { loadOfficeContent, loadFailed as officeContentLoadFailed } from './data/office-content-cache.js';
+ import { mountBloodlineWarnBanner } from './components/bloodline-warn-banner.js';
+ import { initSignIn } from './game/signin-tab.js';
+ import { renderEmergencyTab } from './game/emergency-tab.js';
+@@ -754,6 +755,10 @@ async function loadAllData() {
+     // "cache not loaded" miss cannot fire spuriously. loadBloodlines() never
+     // rejects — a genuine failure is read from bloodlinesLoadFailed() below.
+     loadBloodlines(),
++    // oxp.10: same reasoning as loadBloodlines() above — office-tab.js and
++    // editor/sheet.js both read office content synchronously mid-render, so
++    // it must be in place before the first render, not fetched per-render.
++    loadOfficeContent(),
+   ]);
+ 
+   // BL-2 (#1008): mount before the first sheet render so any miss registered
+@@ -764,6 +769,9 @@ async function loadAllData() {
+   if (bloodlinesLoadFailed()) {
+     console.error('[app] loadBloodlines failed — every bloodline character is being costed as out-of-clan and discipline editing is locked.');
+   }
++  if (officeContentLoadFailed()) {
++    console.error('[app] loadOfficeContent failed — every Court Position falls back to the "pending" render until the cache loads.');
++  }
+ 
+   // Issue #249 (HOTFIX 2026-05-09): preloadRules failure surfaces via
+   // console.error + best-effort status banner. The downstream
+diff --git a/public/js/data/office-content-cache.js b/public/js/data/office-content-cache.js
+new file mode 100644
+index 00000000..3048afb5
+--- /dev/null
++++ b/public/js/data/office-content-cache.js
+@@ -0,0 +1,106 @@
++/**
++ * Office content cache (oxp.10, split out of oxp.1, 2026-08-13).
++ *
++ * Module-level cache fed by `GET /api/office_content` at boot, replacing the
++ * static `OFFICE_DATA` / `MERIT_DOT_CAPS` exports (`public/js/tabs/office-data.js`,
++ * deleted in this same story) as the source every office-content reader uses.
++ * Structurally this follows `bloodlines-cache.js` (BL-2, #1008) closely: a
++ * single fetch at boot, a monotonic generation counter against overlapping
++ * loads, and plain synchronous accessors every render path already expects —
++ * office-tab.js and editor/sheet.js both read office content synchronously
++ * mid-render, exactly as bloodlines' `clanDiscList` reads discipline lists
++ * synchronously mid-render, so there is no fetch-per-render to add here.
++ *
++ * No miss registry, unlike bloodlines. An unresolved bloodline silently
++ * miscosts XP (the wrong-LOW failure `bloodlines-cache.js`'s own header
++ * describes) — a genuinely dangerous, quiet failure. A missing office_content
++ * entry instead lands on office-tab.js's existing, ALREADY-VISIBLE "Office
++ * details for this role are pending." fallback (the same one 'Administrator'
++ * uses today, pre-migration), so an unloaded or short cache is honest on
++ * screen without a second reporting mechanism.
++ */
++
++import { apiGet } from './api.js';
++
++let _byCategory = new Map();
++let _meritCaps = {};
++let _loaded = false;
++let _loadFailed = false;
++let _inFlight = null;
++
++/** See bloodlines-cache.js's own header for why this exists: "newest started
++ *  wins" survives overlapping loads regardless of response order. */
++let _generation = 0;
++
++function _index(docs) {
++  const byCategory = new Map();
++  let meritCaps = {};
++  for (const doc of docs) {
++    if (!doc || typeof doc !== 'object') continue;
++    if (doc.kind === 'office' && typeof doc.category === 'string') {
++      byCategory.set(doc.category, doc);
++    } else if (doc.kind === 'merit_caps' && doc.caps && typeof doc.caps === 'object') {
++      meritCaps = doc.caps;
++    }
++  }
++  _byCategory = byCategory;
++  _meritCaps = meritCaps;
++  _loaded = true;
++  _loadFailed = false;
++}
++
++/**
++ * Fetch the collection and populate the cache. Idempotent — concurrent
++ * callers share one in-flight promise. Never throws: the caller is a boot
++ * sequence, and taking the whole app down over a reference-data fetch would
++ * be worse than running degraded (every office falls back to the existing
++ * "pending" render, the same one Administrator already uses).
++ */
++export async function loadOfficeContent() {
++  if (_inFlight) return _inFlight;
++  const gen = ++_generation;
++  _inFlight = (async () => {
++    try {
++      const docs = await apiGet('/api/office_content');
++      if (!Array.isArray(docs)) throw new Error('malformed payload: expected an array');
++      if (gen !== _generation) return;
++      _index(docs);
++    } catch (err) {
++      console.error('[office-content-cache] load failed:', err);
++      if (gen !== _generation) return;
++      _byCategory = new Map();
++      _meritCaps = {};
++      _loaded = false;
++      _loadFailed = true;
++    } finally {
++      _inFlight = null;
++    }
++  })();
++  return _inFlight;
++}
++
++export function isLoaded() { return _loaded; }
++export function loadFailed() { return _loadFailed; }
++
++/**
++ * The `OFFICE_DATA[category]` equivalent. Returns the raw document (`asset`,
++ * `style`, `merits`, `manoeuvres`, `statusPower`) or `undefined` — a real,
++ * valid state for 'Administrator' until oxp-8, and for EVERY category before
++ * the cache has loaded, both already handled by every existing caller's own
++ * "no entry" branch (see e.g. office-tab.js's pending-office fallback).
++ *
++ * @param {string} category
++ */
++export function officeEntry(category) {
++  return _byCategory.get(category);
++}
++
++/**
++ * The `MERIT_DOT_CAPS[merit] || 5` equivalent, folded into one call so every
++ * caller keeps the same default-cap convention without re-deriving it.
++ *
++ * @param {string} merit
++ */
++export function meritCap(merit) {
++  return _meritCaps[merit] || 5;
++}
+diff --git a/public/js/editor/sheet.js b/public/js/editor/sheet.js
+index 9353cc04..e982f908 100644
+--- a/public/js/editor/sheet.js
++++ b/public/js/editor/sheet.js
+@@ -61,7 +61,7 @@ import { auditCharacter } from '../data/audit.js';
+ // object synchronously) — office merit dots are the one thing on this sheet
+ // that live in a separate seat-keyed collection, fetched over the API.
+ import { apiGet } from '../data/api.js';
+-import { OFFICE_DATA, MERIT_DOT_CAPS } from '../tabs/office-data.js';
++import { officeEntry, meritCap } from '../data/office-content-cache.js';
+ import { resolveHeldSeat } from '../data/office-seat-resolve.js';
+ // Issue #162 (2026-05-08): shEnsureTouchstoneData import dropped — the
+ // Touchstone editor no longer needs the NPC list (DB-relational picker
+@@ -1800,7 +1800,7 @@ let _officeMeritsGen = 0;
+  * placeholder (no `sh-sec`/title chrome at all) when this character could
+  * possibly hold a real office merit suite; returns '' outright when they
+  * provably cannot (no court_category, or Administrator, which has no
+- * OFFICE_DATA entry yet — oxp.8, not app code).
++ * office_content entry yet — oxp.8, not app code).
+  *
+  * The placeholder carries NO visible content of its own specifically so
+  * "renders nothing at all" (AC3) is genuinely true for the unconfirmed-seat
+@@ -1810,7 +1810,7 @@ let _officeMeritsGen = 0;
+  * unconfirmed match leaves this placeholder permanently empty rather than
+  * flashing a title that then has nothing under it. AC3's literal "return ''"
+  * wording is satisfied exactly by the two cases this function itself can
+- * decide synchronously (no `court_category`, no `OFFICE_DATA` entry) — the
++ * decide synchronously (no `court_category`, no `office_content` entry) — the
+  * remaining AC3 cases (unconfirmed seat, failed fetch, zero-merit office)
+  * are visually-equivalent-but-mechanically-different: this function still
+  * returns the reserved (invisible) placeholder markup, and
+@@ -1823,7 +1823,7 @@ let _officeMeritsGen = 0;
+  * unlike `shRenderDomainMerits` there is no `editMode` parameter at all.
+  */
+ export function shRenderOfficeMerits(c) {
+-  if (!c || !c.court_category || !OFFICE_DATA[c.court_category]) return '';
++  if (!c || !c.court_category || !officeEntry(c.court_category)) return '';
+   return '<div data-office-merits-char="' + esc(String(c._id)) + '"></div>';
+ }
+ 
+@@ -1865,7 +1865,7 @@ export function shRenderOfficeMerits(c) {
+ export async function patchOfficeMerits(c) {
+   const gen = ++_officeMeritsGen;
+   if (!c || !c.court_category) return;
+-  const data = OFFICE_DATA[c.court_category];
++  const data = officeEntry(c.court_category);
+   if (!data) return; // Administrator — no merit suite exists yet (oxp.8)
+ 
+   try {
+@@ -1883,7 +1883,7 @@ export async function patchOfficeMerits(c) {
+     if (!meritNames.length) return; // AC3: an office with no merit suite at all
+ 
+     const rowsHtml = meritNames.map((merit, i) => {
+-      const n = Math.max(0, Math.min(MERIT_DOT_CAPS[merit] || 5, dots[merit] || 0));
++      const n = Math.max(0, Math.min(meritCap(merit), dots[merit] || 0));
+       return shRenderMeritRow(merit, 'office', i, '<span class="trait-dots">' + shDots(n) + '</span>');
+     }).join('');
+ 
+diff --git a/public/js/tabs/office-data.js b/public/js/tabs/office-data.js
+deleted file mode 100644
+index 5d0dddbb..00000000
+--- a/public/js/tabs/office-data.js
++++ /dev/null
+@@ -1,85 +0,0 @@
+-// Per-merit dot caps, keyed by merit name (not per-category — the same
+-// merit name has the same cap wherever it appears). Sourced from
+-// docs/merits/merits-ssot.md. Trained Observer and Cacophony Savvy are the
+-// two three-dot exceptions Symon's rules doc flags explicitly; everything
+-// else here caps at five.
+-export const MERIT_DOT_CAPS = {
+-  'Safe Place':       5,
+-  'Haven':             5,
+-  'Staff':             5,
+-  'Resources':         5,
+-  'Contacts':          5,
+-  'Retainer (Aide)':   5,
+-  'Retainer (Hound)':  5,
+-  'Retainer (Spy)':    5,
+-  'Cacophony Savvy':   3,
+-  'Trained Observer':  3,
+-};
+-
+-export const OFFICE_DATA = {
+-  'Head of State': {
+-    asset: 'Government House',
+-    merits: ['Safe Place', 'Haven', 'Staff', 'Resources'],
+-    style: 'First Among Equals',
+-    manoeuvres: [
+-      { name: 'Due Diligence',       effect: 'Each Court, a number of times equal to your City Status; spend 1 Influence to learn the rating of one named merit, Kindred or mortal, held by a Kindred you can see. They will know this was done, unless you also spend Influence equal to their City Status.' },
+-      { name: 'Call in a Favour',    effect: 'Each Court, a number of times equal to your City Status; spend 1 Influence to require any Court Position holder to use an ability from their own sheet on your behalf. You pay its cost.' },
+-      { name: 'Sovereignty Inviolate', effect: 'Once per Court; spend Influence equal to Clan Status or Covenant Status to add to City Status for a single role (this can influence Blood Potency for resistance).' },
+-      { name: 'Willing Coalition',   effect: 'Once per Court; spend Influence equal to a Court Position holder\'s City Status to force them use an equal amount of Influence in a vote of your choosing.' },
+-      { name: 'Executive Order',     effect: 'Spend Influence equal to the City Status of a target you can see to order them to act. The target chooses between compliance and a Condition of the Storyteller\'s choice.' },
+-    ],
+-    statusPower: [
+-      'Each session, you can raise or lower another\'s City Status by 1. You can do this a number of times per session equal to your own Effective City Status. You cannot raise or lower the same character more than once per session (but you can coordinate with your Socialite or other Court roles to stack changes).',
+-      'You can strip a character\'s last dot of City Status, casting them out of the domain. You can grant the first dot of City Status to newcomers at no cost.',
+-      'Your decisions should be grounded in the City Deeds. If you can\'t justify a Status change, others will be justified in dropping yours.',
+-    ],
+-  },
+-  'Primogen': {
+-    asset: 'Chains of Office',
+-    merits: ['Contacts', 'Retainer (Aide)', 'Resources'],
+-    style: 'Balance of Power',
+-    manoeuvres: [
+-      { name: 'People Talk',            effect: 'Once per Court; spend Influence equal to the City Status of a target you can see to learn their rating in one Discipline you name. If they hold that Discipline, you may then name one of its powers and learn their dice pool for it.' },
+-      { name: 'Freedom of Information', effect: 'Spend 1 Influence to read the Position sheet of any one Position in play. The cost rises by 1 Influence with each further use.' },
+-      { name: 'Show of Hands',          effect: 'Spend 1 Influence to look inside one bidding box: Territory, Primogen, or Harpy. The cost rises by 1 Influence with each further use.' },
+-      { name: 'Pull Rank',              effect: 'Once per Court; spend Influence equal to the target\'s City Status to deny them the effects of an exceptional success.' },
+-      { name: 'Veto',                   effect: 'Each Court, a number of times equal to your City Status; block a manoeuvre from any Position by spending Influence equal to that manoeuvre\'s cost.' },
+-    ],
+-    statusPower: [
+-      'Each session, you can raise or lower another character\'s City Status by 1, once. You may permanently sacrifice one of your own City Status dots to make a second Status change in the same session. You cannot affect your own City Status.',
+-      'Your decisions should be grounded in the City Deeds. If you can\'t justify a Status change, others will be justified in dropping yours.',
+-    ],
+-  },
+-  'Socialite': {
+-    asset: 'Elan',
+-    merits: ['Cacophony Savvy', 'Contacts', 'Retainer (Spy)'],
+-    style: 'Elan',
+-    manoeuvres: [
+-      { name: 'Size Them Up',       effect: 'Each Court, a number of times equal to your City Status; spend 1 Influence to learn the rating of one named Status type, Kindred or mortal, for a Kindred you can see. They will know this was done, unless you also spend Influence equal to their City Status.' },
+-      { name: 'Saving Face',        effect: 'Once per Court; spend 1 Influence to reroll a failed Resistance roll against a contested mental Discipline, or to force a reroll against a resisted one.' },
+-      { name: 'Goad',               effect: 'Once per Court; spend Influence equal to the target\'s City Status to learn their Mask and Dirge.' },
+-      { name: 'Playing Favourites', effect: 'Once per Court; when a Kindred\'s City Status is being changed, spend Influence equal to the new Status to make that change cost one further point of Status.' },
+-      { name: 'Curry Favour',       effect: 'Once per Court; spend 1 Influence to impose the Leveraged Condition publicly on a Kindred you can see.' },
+-    ],
+-    statusPower: [
+-      'Each session, you can raise or lower another character\'s City Status by 1. You can do this a number of times per session equal to your own Effective City Status. You cannot affect your own City Status, and you cannot hold another major court position simultaneously.',
+-      'Your decisions should be grounded in the City Deeds. If you can\'t justify a Status change, others will be justified in dropping yours.',
+-    ],
+-  },
+-  'Enforcer': {
+-    asset: 'Goon Squad',
+-    merits: ['Safe Place', 'Retainer (Hound)', 'Trained Observer'],
+-    style: 'Goon Squad',
+-    manoeuvres: [
+-      { name: 'Perimeter',           effect: 'Once per Downtime; choose a Territory and spend Influence equal to its Ambience rating to receive a report as though you had scored an exceptional success on a Patrol or Scout action.' },
+-      { name: 'Ear to the Ground',   effect: 'At Court, you count as holding Contacts in every sphere for the purpose of news from the city at large reaching you, such as a potential Masquerade breach coming to the attention of the police. Each time the Storyteller offers you such information, you must pay Influence to receive it.' },
+-      { name: 'Stakeout',            effect: 'Each Court, a number of times equal to your City Status; spend 1 Influence to learn one of the following about a target you can see: their Herd rating, their Feeding Grounds rating, or where they hold Feeding Rights. They will know this was done, unless you also spend Influence equal to their City Status.' },
+-      { name: 'Crackdown',           effect: 'Once per Downtime; spend Influence equal to the target\'s City Status to give your attempts to interfere with their Downtime actions the rote quality. This is not subtle.' },
+-      { name: 'Neighbourhood Watch', effect: 'Once per Court; spend Influence equal to the City Status of a target you can see to learn one of their Resistance Attributes.' },
+-    ],
+-    statusPower: [
+-      'Each session, you can lower another character\'s City Status by 1 when they breach what you are charged to enforce. Your enforcement must conform to the norms of court.',
+-      'If you overstep, others will be justified in dropping your own City Status.',
+-    ],
+-  },
+-};
+diff --git a/public/js/tabs/office-tab.js b/public/js/tabs/office-tab.js
+index 57dfaa08..9e2f183d 100644
+--- a/public/js/tabs/office-tab.js
++++ b/public/js/tabs/office-tab.js
+@@ -1,4 +1,4 @@
+-import { OFFICE_DATA, MERIT_DOT_CAPS } from './office-data.js';
++import { officeEntry, meritCap } from '../data/office-content-cache.js';
+ import { esc, displayName, shDotsWithBonus } from '../data/helpers.js';
+ import { apiGet, apiPost, apiPut } from '../data/api.js';
+ import { calcCityStatus } from '../data/accessors.js';
+@@ -11,8 +11,8 @@ import { resolveHeldSeat } from '../data/office-seat-resolve.js';
+ import { toast } from '../suite/toast.js';
+ 
+ // otc.3: the fixed order the picker lists offices in. All five Court
+-// Positions, even 'Administrator' (which has no OFFICE_DATA entry yet — it
+-// still hits the existing pending-fallback branch below when selected).
++// Positions, even 'Administrator' (which has no office_content entry yet —
++// it still hits the existing pending-fallback branch below when selected).
+ export const OFFICE_CATEGORIES = ['Head of State', 'Primogen', 'Enforcer', 'Socialite', 'Administrator'];
+ 
+ /** ST-level access. 'dev' is a privacy-redacted ST role and is treated as ST
+@@ -26,7 +26,7 @@ function _isST() {
+  *
+  * An office's manoeuvres are bought one at a time in fixed rank order, so a
+  * manoeuvre's rank IS its position in the array (index + 1) — see
+- * content/rules/office-powers.md, which OFFICE_DATA already matches. Anything
++ * content/rules/office-powers.md, which office_content already matches. Anything
+  * above the office's current `rank` renders muted.
+  *
+  * @param rank        the office's current graduated rank, or null/undefined
+@@ -111,7 +111,7 @@ export function manoeuvreDotReasons(rank, count, left) {
+  * within reach gets none — a plain hollow dot the ST could buy right now.
+  *
+  * @param {number} current - dots already bought on this merit
+- * @param {number} cap - this merit's dot cap (`MERIT_DOT_CAPS[merit]`)
++ * @param {number} cap - this merit's dot cap (`meritCap(merit)`)
+  * @param {number} left - the seat's remaining office XP
+  * @returns {Array<string|null>} one entry per dot index (0-based), length `cap`
+  */
+@@ -198,7 +198,7 @@ export function renderOfficeTab(el, char, chars = [], viewCategory) {
+   const category = viewCategory || char.court_category || 'Head of State';
+   const isOwnOffice = category === char.court_category;
+ 
+-  const data = OFFICE_DATA[category];
++  const data = officeEntry(category);
+   const title = isOwnOffice ? esc(char.court_title || category) : esc(category);
+   const role  = esc(category);
+ 
+@@ -559,7 +559,7 @@ function _wireMeritDots(el, outcome, data, dotsBySeat, fetchFailed, balance, isO
+ 
+   const rowsHtml = meritNames.map((merit) => {
+     const n = dots[merit] || 0;
+-    const cap = MERIT_DOT_CAPS[merit] || 5;
++    const cap = meritCap(merit);
+     let row = `<div class="office-merit-row">`;
+     row += `<span class="office-merit-chip">${esc(merit)}</span>`;
+     const reasons = showReasons && balance ? meritDotReasons(n, cap, balance.left) : null;
+@@ -618,7 +618,7 @@ async function _adjustMeritDots(el, outcome, data, isOwnOffice, merit, delta) {
+   let dotsBySeat;
+   try { dotsBySeat = await apiGet('/api/office_merit_dots'); } catch { return; }
+   const current = (dotsBySeat[outcome.seatId] || {})[merit] || 0;
+-  const cap = MERIT_DOT_CAPS[merit] || 5;
++  const cap = meritCap(merit);
+   const next = Math.max(0, Math.min(cap, current + delta));
+   if (next === current) return;
+ 
+diff --git a/server/index.js b/server/index.js
+index 90c2270f..53f1c60a 100644
+--- a/server/index.js
++++ b/server/index.js
+@@ -43,6 +43,7 @@ import rollLogRouter from './routes/roll-log.js';
+ import buildEquipmentCatalogueRouter from './routes/equipment-catalogue.js';
+ import storyCyclesRouter from './routes/story-cycles.js';
+ import buildBloodlinesRouter from './routes/bloodlines.js';
++import buildOfficeContentRouter from './routes/office-content.js';
+ import cyoaRouter from './routes/cyoa.js';
+ import { attachWS } from './ws.js';
+ // NOTE: The old /api/pdf route was removed. Character sheet PDFs are now
+@@ -100,6 +101,14 @@ app.use('/api/equipment_catalogue', buildEquipmentCatalogueRouter(requireAuth));
+ // change (server/routes/bloodlines.js explains why).
+ app.use('/api/bloodlines', buildBloodlinesRouter(requireAuth));
+ 
++// Office content (public read only). oxp.10 (split out of oxp.1,
++// 2026-08-13): the `office_content` collection lives at /api/office_content,
++// replacing the static OFFICE_DATA/MERIT_DOT_CAPS constants. Public for the
++// same reason as bloodlines above — the player-facing office tab and the
++// sheet editor both need it without a token. Read-only in this repo, same
++// locked-scope decision as bloodlines (see server/schemas/office_content.schema.js).
++app.use('/api/office_content', buildOfficeContentRouter(requireAuth));
++
+ // Protected routes — require valid token (role resolved from players collection)
+ // Characters and downtime submissions have internal role filtering (ST vs player)
+ //
+diff --git a/server/lib/office-content-index.js b/server/lib/office-content-index.js
+new file mode 100644
+index 00000000..ecb89081
+--- /dev/null
++++ b/server/lib/office-content-index.js
+@@ -0,0 +1,38 @@
++/**
++ * The `office_content` collection's uniqueness indexes (oxp.10).
++ *
++ * Two constraints, both as partial unique indexes on the one shared
++ * collection (see `office_content.schema.js` for why `kind: 'office'` and
++ * `kind: 'merit_caps'` documents share one collection):
++ *
++ *   - at most one `kind: 'office'` document per `category`
++ *   - at most one `kind: 'merit_caps'` document, full stop
++ *
++ * Office category names are fixed, ASCII, code-controlled strings (unlike
++ * bloodline names, which are player/ST-authored free text) — no collation
++ * or case-insensitivity concern the way `bloodline-name-index.js` had to
++ * solve for. This repo also has no concurrent write path against this
++ * collection (locked scope: read-only in TM Game, see the schema file's own
++ * header), so there is no race to defend against the way BL-4's admin CRUD
++ * needed — the seed script's own reconciliation (DIFFERS/orphan/dupe
++ * reporting) is the real defence; these indexes are a backstop, not the
++ * primary guard.
++ */
++
++export const OFFICE_CATEGORY_INDEX = 'office_content_category_unique';
++export const MERIT_CAPS_SINGLETON_INDEX = 'office_content_merit_caps_singleton';
++
++/**
++ * Create both indexes if absent. Idempotent.
++ * @param {import('mongodb').Collection} col
++ */
++export async function ensureOfficeContentIndexes(col) {
++  await col.createIndex(
++    { category: 1 },
++    { unique: true, partialFilterExpression: { kind: 'office' }, name: OFFICE_CATEGORY_INDEX },
++  );
++  await col.createIndex(
++    { kind: 1 },
++    { unique: true, partialFilterExpression: { kind: 'merit_caps' }, name: MERIT_CAPS_SINGLETON_INDEX },
++  );
++}
+diff --git a/server/lib/office-content-read.js b/server/lib/office-content-read.js
+new file mode 100644
+index 00000000..1878f240
+--- /dev/null
++++ b/server/lib/office-content-read.js
+@@ -0,0 +1,45 @@
++/**
++ * oxp.10 — the two read shapes every `office_content` consumer needs, in one
++ * place, so a repointed call site never re-derives the collection's own
++ * discriminated-`kind` shape (see `server/schemas/office_content.schema.js`).
++ *
++ * No caching module here, unlike the client-side `office-content-cache.js`
++ * (`public/js/data/office-content-cache.js`). `office-purchase.js` reads
++ * `office_content` from directly inside an active MongoDB transaction
++ * alongside its other `{session: dbSession}` reads (`office_seats`,
++ * `office_merit_dots`, `office_manoeuvre_ranks`) — a client-style cache would
++ * either be blind to the transaction's own isolation level or would have to
++ * bypass it, either of which is a correctness risk a cache buys nothing
++ * against on a collection this small and this rarely read per request.
++ */
++
++import { getCollection } from '../db.js';
++
++const col = () => getCollection('office_content');
++
++/**
++ * The one `kind: 'office'` document for `category`, or `undefined` if none
++ * exists yet (a real, valid state for 'Administrator' until oxp-8 — see the
++ * schema file's own header).
++ *
++ * @param {string} category
++ * @param {{session?: import('mongodb').ClientSession}} [opts]
++ */
++export async function getOfficeEntry(category, opts = {}) {
++  const { session } = opts;
++  return col().findOne({ kind: 'office', category }, session ? { session } : undefined) ?? undefined;
++}
++
++/**
++ * The flat merit-name -> dot-cap map from the singleton `kind: 'merit_caps'`
++ * document. Returns `{}` if the document is somehow missing rather than
++ * throwing, so a caller's existing `caps[merit] || 5` default-cap fallback
++ * degrades to "every merit defaults to 5" instead of a 500.
++ *
++ * @param {{session?: import('mongodb').ClientSession}} [opts]
++ */
++export async function getMeritCaps(opts = {}) {
++  const { session } = opts;
++  const doc = await col().findOne({ kind: 'merit_caps' }, session ? { session } : undefined);
++  return doc?.caps || {};
++}
+diff --git a/server/lib/office-seat-resolve.js b/server/lib/office-seat-resolve.js
+index 90a45b28..0747dc35 100644
+--- a/server/lib/office-seat-resolve.js
++++ b/server/lib/office-seat-resolve.js
+@@ -22,7 +22,7 @@
+ 
+ import { ObjectId } from 'mongodb';
+ import { getCollection } from '../db.js';
+-import { OFFICE_DATA } from '../../public/js/tabs/office-data.js';
++import { getOfficeEntry } from './office-content-read.js';
+ 
+ /**
+  * The stored key shape. A seat id is its `office_seats._id` rendered as a
+@@ -47,13 +47,19 @@ export const SEAT_ID_PATTERN = /^[0-9a-fA-F]{24}$/;
+  *   - seat's office has no rules   -> 400 VALIDATION_ERROR
+  *
+  * The last of those preserves the behaviour the category-keyed routes already
+- * had: 'Administrator' has no `OFFICE_DATA` entry until oxp.8, so a purchase
+- * against it cannot be validated and is refused rather than stored unchecked.
++ * had: 'Administrator' has no `office_content` entry until oxp.8, so a
++ * purchase against it cannot be validated and is refused rather than stored
++ * unchecked.
+  *
+  * @param {string} seatId
++ * @param {{session?: import('mongodb').ClientSession}} [opts] - forwarded to
++ *   the `office_content` read so a caller inside a MongoDB transaction
++ *   (`office-purchase.js`'s accept route) resolves against that same
++ *   transaction's isolation, not a separate implicit read.
+  * @returns {Promise<{seatId?:string, seat?:object, category?:string, officeEntry?:object, error?:{status:number, body:object}}>}
+  */
+-export async function resolveOfficeSeat(seatId) {
++export async function resolveOfficeSeat(seatId, opts = {}) {
++  const { session } = opts;
+   if (typeof seatId !== 'string' || !SEAT_ID_PATTERN.test(seatId)) {
+     return {
+       error: {
+@@ -67,7 +73,10 @@ export async function resolveOfficeSeat(seatId) {
+   }
+ 
+   const normalised = seatId.toLowerCase();
+-  const seat = await getCollection('office_seats').findOne({ _id: new ObjectId(normalised) });
++  const seat = await getCollection('office_seats').findOne(
++    { _id: new ObjectId(normalised) },
++    session ? { session } : undefined,
++  );
+   if (!seat) {
+     return {
+       error: {
+@@ -78,7 +87,7 @@ export async function resolveOfficeSeat(seatId) {
+   }
+ 
+   const category = seat.office_category;
+-  const officeEntry = OFFICE_DATA[category];
++  const officeEntry = await getOfficeEntry(category, { session });
+   if (!officeEntry) {
+     return {
+       error: {
+diff --git a/server/routes/office-content.js b/server/routes/office-content.js
+new file mode 100644
+index 00000000..9064d6ee
+--- /dev/null
++++ b/server/routes/office-content.js
+@@ -0,0 +1,42 @@
++/**
++ * Office content routes (oxp.10, split out of oxp.1, 2026-08-13).
++ *
++ * Mongo-backed replacement for the static `OFFICE_DATA` / `MERIT_DOT_CAPS`
++ * constants (`public/js/tabs/office-data.js`, deleted in this same story),
++ * following Epic BL's bloodlines precedent exactly: reads are public (the
++ * player-facing office tab and the sheet editor both need this without a
++ * token, same as bloodlines and the equipment catalogue), and this repo is
++ * READ-ONLY against this collection — no write route, no admin UI here. A
++ * future TM Admin story adds ST authoring against this same shared
++ * `office_content` collection (see `server/schemas/office_content.schema.js`
++ * for the locked scope decision and the two document kinds it holds).
++ *
++ * Endpoints:
++ *
++ *   GET    /api/office_content             public   both kinds, unfiltered
++ *
++ * A single unfiltered list (not split into two endpoints, and not filtered
++ * by `kind`) because every real consumer (`office-content-cache.js` client
++ * side; the four server dependents) wants both the office documents and the
++ * merit-caps document on every load, the same shape as `bloodlines-cache.js`
++ * fetching its one collection whole. Sorted by `kind` then `category` so
++ * office documents sort together, ahead of the singleton `merit_caps`
++ * document (which sorts last since `'merit_caps' > 'office'`
++ * lexicographically) - a stable, human-scannable order, not a functional
++ * requirement any consumer depends on.
++ */
++
++import { Router } from 'express';
++import { getCollection } from '../db.js';
++
++export default function buildOfficeContentRouter(authMiddleware) {
++  const router = Router();
++  const col = () => getCollection('office_content');
++
++  router.get('/', async (req, res) => {
++    const docs = await col().find({}).sort({ kind: 1, category: 1 }).toArray();
++    res.json(docs);
++  });
++
++  return router;
++}
+diff --git a/server/routes/office-manoeuvre-rank.js b/server/routes/office-manoeuvre-rank.js
+index 8c527acc..1687bc0e 100644
+--- a/server/routes/office-manoeuvre-rank.js
++++ b/server/routes/office-manoeuvre-rank.js
+@@ -35,8 +35,9 @@ router.get('/', async (req, res) => {
+ // ST-only. Body: { rank }. Sets how many of this SEAT's office's ranked
+ // manoeuvres are currently purchased, as one graduated integer: 0 means none,
+ // and the office's own manoeuvre count means all of them. Rank order IS the
+-// order of OFFICE_DATA[category].manoeuvres, which already matches the resolved
+-// rank table in content/rules/office-powers.md.
++// order of that office's `office_content` document's `manoeuvres` array
++// (oxp.10), which already matches the resolved rank table in
++// content/rules/office-powers.md.
+ //
+ // The upper bound is read from the resolved seat's own office's manoeuvres
+ // array rather than hardcoded, so an office authored later with a different
+diff --git a/server/routes/office-merit-dots.js b/server/routes/office-merit-dots.js
+index b01599d4..0a8b63db 100644
+--- a/server/routes/office-merit-dots.js
++++ b/server/routes/office-merit-dots.js
+@@ -2,7 +2,7 @@ import { Router } from 'express';
+ import { getCollection } from '../db.js';
+ import { requireRole } from '../middleware/auth.js';
+ import { resolveOfficeSeat } from '../lib/office-seat-resolve.js';
+-import { MERIT_DOT_CAPS } from '../../public/js/tabs/office-data.js';
++import { getMeritCaps } from '../lib/office-content-read.js';
+ 
+ const router = Router();
+ const col = () => getCollection('office_merit_dots');
+@@ -36,9 +36,10 @@ router.get('/', async (req, res) => {
+ // ST-only. Body: { merit, dots }. Sets one merit's dot rating for one office
+ // SEAT. The seat is resolved first (oxp.11), which is what yields the office
+ // category; the merit name and the value are then validated against that
+-// category exactly as before, using the same OFFICE_DATA the client renders
+-// from and the same per-merit caps (Trained Observer/Cacophony Savvy cap at 3,
+-// everything else at 5 — see MERIT_DOT_CAPS).
++// category exactly as before, using the same `office_content` the client
++// renders from and the same per-merit caps (Trained Observer/Cacophony Savvy
++// cap at 3, everything else at 5 — see office_content's `kind: 'merit_caps'`
++// document, oxp.10).
+ //
+ // Minimal-scope note (2026-08-12, ahead of Saturday's game): this is
+ // direct ST-set purchase state, not Epic OXP's full accrual/spend economy
+@@ -58,7 +59,8 @@ router.put('/:seatId', requireRole('st'), async (req, res) => {
+   if (typeof merit !== 'string' || !Array.isArray(officeEntry.merits) || !officeEntry.merits.includes(merit))
+     return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'That merit does not belong to this office' });
+ 
+-  const cap = MERIT_DOT_CAPS[merit] || 5;
++  const meritCaps = await getMeritCaps();
++  const cap = meritCaps[merit] || 5;
+   // Codex review, DBO-4 (2026-08-14): accept a numeric string, but never
+   // coerce null/undefined/''/[]/booleans - all of which bare Number() turns
+   // into a valid-looking 0, silently accepting malformed input as "clear this
+diff --git a/server/routes/office-purchase.js b/server/routes/office-purchase.js
+index 9c8586d5..0b1d9523 100644
+--- a/server/routes/office-purchase.js
++++ b/server/routes/office-purchase.js
+@@ -38,7 +38,7 @@ import { validate } from '../middleware/validate.js';
+ import { isStRole, requireRole } from '../middleware/auth.js';
+ import { officePurchaseRequestSchema } from '../schemas/office_purchase_request.schema.js';
+ import { resolveOfficeSeat } from '../lib/office-seat-resolve.js';
+-import { OFFICE_DATA, MERIT_DOT_CAPS } from '../../public/js/tabs/office-data.js';
++import { getOfficeEntry, getMeritCaps } from '../lib/office-content-read.js';
+ import { officeSeatXp } from '../../public/js/data/office-xp.js';
+ 
+ const router = Router();
+@@ -104,14 +104,18 @@ function _conflictBody(doc) {
+  * otherwise; the caller decides which status a stale-state rejection deserves
+  * (400 at submission, 409 at accept).
+  *
++ * @param {object} meritCaps the flat merit-name -> dot-cap map read from
++ *   `office_content`'s singleton `kind: 'merit_caps'` document (oxp.10) —
++ *   passed in rather than read here, so the caller controls whether the read
++ *   participates in an active transaction.
+  * @param {number} conflictStatus 400 at submission, 409 at accept
+  */
+-function checkPurchaseValidity(officeEntry, purchase_kind, merit, meritDotsDoc, manoeuvreRankDoc, conflictStatus) {
++function checkPurchaseValidity(officeEntry, purchase_kind, merit, meritDotsDoc, manoeuvreRankDoc, meritCaps, conflictStatus) {
+   if (purchase_kind === 'merit') {
+     if (!Array.isArray(officeEntry.merits) || !officeEntry.merits.includes(merit))
+       throw new RouteResponse(400, { error: 'VALIDATION_ERROR', message: 'That merit does not belong to this office' });
+ 
+-    const cap = MERIT_DOT_CAPS[merit] || 5;
++    const cap = meritCaps[merit] || 5;
+     const from = (meritDotsDoc && meritDotsDoc.dots && meritDotsDoc.dots[merit]) || 0;
+     if (from >= cap)
+       throw new RouteResponse(conflictStatus, {
+@@ -188,8 +192,8 @@ router.post('/', validate(officePurchaseRequestSchema), async (req, res) => {
+   const merit = req.body.merit;
+ 
+   // Resolved first, so its existing 400/404/400 bodies pass straight through —
+-  // which is what preserves the Administrator refusal (no OFFICE_DATA entry
+-  // until oxp.8) with the message that route family already returns.
++  // which is what preserves the Administrator refusal (no office_content
++  // entry until oxp.8) with the message that route family already returns.
+   const resolved = await resolveOfficeSeat(seat_id);
+   if (resolved.error) return res.status(resolved.error.status).json(resolved.error.body);
+   const { seatId, seat, category, officeEntry } = resolved;
+@@ -211,9 +215,11 @@ router.post('/', validate(officePurchaseRequestSchema), async (req, res) => {
+   const meritDotsDoc     = await meritDotsCol().findOne({ _id: seatId });
+   const manoeuvreRankDoc = await manoeuvreCol().findOne({ _id: seatId });
+ 
++  const meritCaps = await getMeritCaps();
++
+   let submittedFrom;
+   try {
+-    ({ from: submittedFrom } = checkPurchaseValidity(officeEntry, purchase_kind, merit, meritDotsDoc, manoeuvreRankDoc, 400));
++    ({ from: submittedFrom } = checkPurchaseValidity(officeEntry, purchase_kind, merit, meritDotsDoc, manoeuvreRankDoc, meritCaps, 400));
+   } catch (err) {
+     if (err instanceof RouteResponse) return res.status(err.statusCode).json(err.body);
+     throw err;
+@@ -379,7 +385,7 @@ router.put('/:id/accept', requireRole('st'), async (req, res) => {
+           message: `This seat's office changed from ${pending.office_category} to ${seat.office_category} after the request was submitted; decline it and ask the holder to resubmit`,
+         });
+ 
+-      const officeEntry = OFFICE_DATA[seat.office_category];
++      const officeEntry = await getOfficeEntry(seat.office_category, { session: dbSession });
+       if (!officeEntry)
+         throw new RouteResponse(400, {
+           error: 'VALIDATION_ERROR',
+@@ -392,11 +398,12 @@ router.put('/:id/accept', requireRole('st'), async (req, res) => {
+       const allSeats         = await seatsCol().find({}, { session: dbSession }).toArray();
+       const meritDotsDoc     = await meritDotsCol().findOne({ _id: seatId }, { session: dbSession });
+       const manoeuvreRankDoc = await manoeuvreCol().findOne({ _id: seatId }, { session: dbSession });
++      const meritCaps        = await getMeritCaps({ session: dbSession });
+ 
+       // A 409, not a 400: the ST's own stepper moving the same value since
+       // submission is a conflict with current state, not a malformed request.
+       const { from, to } = checkPurchaseValidity(
+-        officeEntry, pending.purchase_kind, pending.merit, meritDotsDoc, manoeuvreRankDoc, 409,
++        officeEntry, pending.purchase_kind, pending.merit, meritDotsDoc, manoeuvreRankDoc, meritCaps, 409,
+       );
+ 
+       // STRICT re-validation: ANY intervening movement of the target value is
+diff --git a/server/schemas/office_content.schema.js b/server/schemas/office_content.schema.js
+new file mode 100644
+index 00000000..7a1a0861
+--- /dev/null
++++ b/server/schemas/office_content.schema.js
+@@ -0,0 +1,135 @@
++/**
++ * JSON Schema (Draft-07) for TM Office Content.
++ * Collection: office_content
++ *
++ * oxp.10 (split out of oxp.1, 2026-08-13) — migrate `OFFICE_DATA`/
++ * `MERIT_DOT_CAPS` (`public/js/tabs/office-data.js`) off static JS, following
++ * the same "reference data stops requiring a deploy" shape Epic BL already
++ * proved out for bloodlines. Shape follows `bloodline.schema.js`: Draft-07,
++ * explicit `required`, `additionalProperties: false`.
++ *
++ * **Locked scope decision (Angelus, 2026-08-27):** this migration is
++ * READ-ONLY in TM Game, matching the bloodlines precedent exactly (ADMR-1 —
++ * all write handlers retired from `server/routes/bloodlines.js`, ST authoring
++ * moved entirely to TM Admin). This repo gets a schema (for the seed script's
++ * own validation gate) and a `GET` route. No write route, no admin UI, no
++ * admin CRUD screen anywhere in this repo. A future, separate TM Admin story
++ * adds ST-editable authoring against this same shared collection.
++ *
++ * **Two document shapes share this one collection, discriminated by `kind`**:
++ *
++ *   - `kind: 'office'` — one per office CATEGORY (not per seat; Primogen and
++ *     Socialite each carry two concurrent seats per oxp-11, but share one
++ *     content document). Exactly 4 real documents today (Head of State,
++ *     Primogen, Socialite, Enforcer) — Administrator is a real, filled seat
++ *     (`office_seat.schema.js`'s own `OFFICE_CATEGORY_ENUM`) with NO content
++ *     document until oxp-8 authors it. Every reader of this collection MUST
++ *     treat "no document for this category" as a normal, valid state — see
++ *     `server/lib/office-seat-resolve.js`'s own docstring for the existing
++ *     "seat's office has no rules -> 400 VALIDATION_ERROR, not a crash"
++ *     convention this migration preserves, not introduces.
++ *   - `kind: 'merit_caps'` — exactly ONE document, `MERIT_DOT_CAPS`'s flat
++ *     12-entry merit-name -> dot-cap map. Not per-office (the same merit name
++ *     has the same cap wherever it appears), so it doesn't fit the per-
++ *     category shape above. Modelled as a single well-known document rather
++ *     than its own 12-document collection, mirroring this repo's own
++ *     `app_settings` collection (`_id: 'global'`, one flat config document)
++ *     — the closer real precedent for "a small, rarely-changing, non-per-
++ *     entity flat map" than treating each merit name as its own entity.
++ *
++ * A single `oneOf`-discriminated schema (rather than two files) so the seed
++ * script and any future reader validate every document in this collection
++ * through one `ajv.compile(officeContentSchema)` call, matching how this
++ * collection is actually queried (one `find({})`, both kinds together).
++ */
++
++import { OFFICE_CATEGORY_ENUM } from './office_seat.schema.js';
++
++// The 4 categories that can genuinely have office content today. Deliberately
++// NOT importing OFFICE_CATEGORY_ENUM's full 5-value list as this field's own
++// enum: 'Administrator' has no content until oxp-8, and admitting it here
++// would let a malformed/placeholder Administrator document slip past the
++// integrity gate silently. Add it to this list in the same change that
++// authors its real content, not before.
++export const OFFICE_CONTENT_CATEGORY_ENUM = OFFICE_CATEGORY_ENUM.filter(
++  (c) => c !== 'Administrator',
++);
++
++const officeDoc = {
++  type: 'object',
++  required: ['kind', 'category', 'asset', 'style', 'merits', 'manoeuvres', 'statusPower'],
++  additionalProperties: false,
++  properties: {
++    _id: {},
++    kind: { const: 'office' },
++    category: { type: 'string', enum: OFFICE_CONTENT_CATEGORY_ENUM },
++    asset: { type: 'string', minLength: 1 },
++    style: { type: 'string', minLength: 1 },
++    // Merit NAMES only, not embedded cap values — dot caps live in the
++    // separate merit_caps document (a merit's cap does not vary by which
++    // office grants it). Cross-referenced against merit_caps by the seed
++    // script's integrity gate, not enforced here (an unlisted merit
++    // legitimately defaults to a cap of 5 — see MERIT_DOT_CAPS's own
++    // existing `|| 5` fallback convention, preserved by every repointed
++    // consumer, not re-litigated by this schema).
++    merits: {
++      type: 'array',
++      minItems: 1,
++      items: { type: 'string', minLength: 1 },
++    },
++    // ORDER-PRESERVING. office-manoeuvre-rank.js's own "rank" is a graduated
++    // integer whose meaning IS the array index into this list — see that
++    // file's own comment. A migration that reorders this array silently
++    // changes what a stored rank grants. minItems: 1 because every real
++    // office has at least one manoeuvre; uniqueItems on name is enforced by
++    // the integrity gate (a schema-level check here can't compare only the
++    // `name` sub-field without a much heavier keyword).
++    manoeuvres: {
++      type: 'array',
++      minItems: 1,
++      items: {
++        type: 'object',
++        required: ['name', 'effect'],
++        additionalProperties: false,
++        properties: {
++          name: { type: 'string', minLength: 1 },
++          effect: { type: 'string', minLength: 1 },
++        },
++      },
++    },
++    statusPower: {
++      type: 'array',
++      minItems: 1,
++      items: { type: 'string', minLength: 1 },
++    },
++    created_at: { type: 'string' },
++    updated_at: { type: 'string' },
++  },
++};
++
++const meritCapsDoc = {
++  type: 'object',
++  required: ['kind', 'caps'],
++  additionalProperties: false,
++  properties: {
++    _id: {},
++    kind: { const: 'merit_caps' },
++    // Flat merit-name -> dot-cap map. Deliberately not a fixed enum of merit
++    // names here (that would put the merit list itself back behind a
++    // deploy) — the seed script's integrity gate checks internal
++    // consistency (positive integers, no empty keys) instead.
++    caps: {
++      type: 'object',
++      minProperties: 1,
++      additionalProperties: { type: 'integer', minimum: 1 },
++    },
++    created_at: { type: 'string' },
++    updated_at: { type: 'string' },
++  },
++};
++
++export const officeContentSchema = {
++  $schema: 'http://json-schema.org/draft-07/schema#',
++  title: 'TM Office Content',
++  oneOf: [officeDoc, meritCapsDoc],
++};
+diff --git a/server/scripts/seed-office-content.js b/server/scripts/seed-office-content.js
+new file mode 100644
+index 00000000..2165b0e8
+--- /dev/null
++++ b/server/scripts/seed-office-content.js
+@@ -0,0 +1,438 @@
++/**
++ * oxp.10 (split out of oxp.1, 2026-08-13) — seed the `office_content`
++ * collection from `OFFICE_DATA`/`MERIT_DOT_CAPS`
++ * (`public/js/tabs/office-data.js`), and put uniqueness indexes on it.
++ *
++ * Follows the #826-hardened pattern `seed-bloodlines.js` already proved out:
++ * --dry-run is the default, --apply is required to write, the run is
++ * idempotent, and dotenv is loaded first.
++ *
++ * Source of truth for the seed WAS `public/js/tabs/office-data.js`:
++ *   MERIT_DOT_CAPS — merit name -> dot cap (flat, not per-office)
++ *   OFFICE_DATA    — office category -> {asset, style, merits, manoeuvres,
++ *                    statusPower}
++ * Both are frozen below, copied verbatim at the moment this script was
++ * written. `office-data.js` itself is deleted in the same change (see the
++ * story's own Task 0 decision) — this script's frozen copy is now the only
++ * place the pre-migration shape exists, kept for provenance and as the one
++ * remaining bulk-seed path into a collection that starts empty.
++ *
++ * ──────────────────────────────────────────────────────────────────────────
++ *   Why the integrity gate comes first
++ * ──────────────────────────────────────────────────────────────────────────
++ *
++ *   OFFICE_DATA and MERIT_DOT_CAPS are hand-maintained and can disagree — a
++ *   merit an office grants but that has no dot cap, a duplicate manoeuvre
++ *   name, an empty field. Bloodlines' own seed script was written after
++ *   exactly this class of drift caused a real two-week production defect
++ *   (a bloodline's disciplines silently costing wrong). Every check runs
++ *   BEFORE anything is written, in dry-run and apply alike, and any failure
++ *   aborts with a non-zero exit having written nothing.
++ *
++ *   The manoeuvre-array ORDER is checked for presence (non-empty, no
++ *   duplicate names) but NOT cross-referenced automatically against
++ *   `content/rules/office-powers.md` — that file lives outside this repo
++ *   (the umbrella workspace root, not TM Game's own git checkout), so an
++ *   automated dependency on it would be a fragile, environment-specific
++ *   read this codebase does not otherwise do. Manually confirmed instead,
++ *   2026-08-27: Primogen's 5-manoeuvre order in the frozen literal below
++ *   matches `content/rules/office-powers.md`'s own "The Primogen" section
++ *   exactly (People Talk, Freedom of Information, Show of Hands, Pull Rank,
++ *   Veto) — spot-check judged sufficient for four offices; re-confirm by
++ *   hand if this script is ever re-run against edited source data.
++ *
++ * Usage — run these FROM `server/`, so cwd-relative `dotenv/config` picks up
++ * the local .env.
++ *
++ *   # preview (default — no writes):
++ *   node scripts/seed-office-content.js
++ *
++ *   # apply:
++ *   node scripts/seed-office-content.js --apply
++ *
++ * NEVER run --apply against live during development; the real seed is an
++ * operational act for the ST.
++ */
++
++import 'dotenv/config';
++import { pathToFileURL } from 'url';
++import Ajv from 'ajv';
++import { connectDb, getCollection, closeDb } from '../db.js';
++import { officeContentSchema, OFFICE_CONTENT_CATEGORY_ENUM } from '../schemas/office_content.schema.js';
++import { ensureOfficeContentIndexes } from '../lib/office-content-index.js';
++
++const COLLECTION = 'office_content';
++
++/**
++ * FROZEN 2026-08-27. Copied verbatim out of `public/js/tabs/office-data.js`
++ * in the same change that deletes it. Do not edit: the `office_content`
++ * collection is canonical from this point on, and a future TM Admin story
++ * is where office content is added or edited.
++ */
++export const MERIT_DOT_CAPS = {
++  'Safe Place':       5,
++  'Haven':             5,
++  'Staff':             5,
++  'Resources':         5,
++  'Contacts':          5,
++  'Retainer (Aide)':   5,
++  'Retainer (Hound)':  5,
++  'Retainer (Spy)':    5,
++  'Cacophony Savvy':   3,
++  'Trained Observer':  3,
++};
++
++/** FROZEN 2026-08-27 alongside MERIT_DOT_CAPS above. Same rules apply. */
++export const OFFICE_DATA = {
++  'Head of State': {
++    asset: 'Government House',
++    merits: ['Safe Place', 'Haven', 'Staff', 'Resources'],
++    style: 'First Among Equals',
++    manoeuvres: [
++      { name: 'Due Diligence',       effect: 'Each Court, a number of times equal to your City Status; spend 1 Influence to learn the rating of one named merit, Kindred or mortal, held by a Kindred you can see. They will know this was done, unless you also spend Influence equal to their City Status.' },
++      { name: 'Call in a Favour',    effect: 'Each Court, a number of times equal to your City Status; spend 1 Influence to require any Court Position holder to use an ability from their own sheet on your behalf. You pay its cost.' },
++      { name: 'Sovereignty Inviolate', effect: 'Once per Court; spend Influence equal to Clan Status or Covenant Status to add to City Status for a single role (this can influence Blood Potency for resistance).' },
++      { name: 'Willing Coalition',   effect: 'Once per Court; spend Influence equal to a Court Position holder\'s City Status to force them use an equal amount of Influence in a vote of your choosing.' },
++      { name: 'Executive Order',     effect: 'Spend Influence equal to the City Status of a target you can see to order them to act. The target chooses between compliance and a Condition of the Storyteller\'s choice.' },
++    ],
++    statusPower: [
++      'Each session, you can raise or lower another\'s City Status by 1. You can do this a number of times per session equal to your own Effective City Status. You cannot raise or lower the same character more than once per session (but you can coordinate with your Socialite or other Court roles to stack changes).',
++      'You can strip a character\'s last dot of City Status, casting them out of the domain. You can grant the first dot of City Status to newcomers at no cost.',
++      'Your decisions should be grounded in the City Deeds. If you can\'t justify a Status change, others will be justified in dropping yours.',
++    ],
++  },
++  'Primogen': {
++    asset: 'Chains of Office',
++    merits: ['Contacts', 'Retainer (Aide)', 'Resources'],
++    style: 'Balance of Power',
++    manoeuvres: [
++      { name: 'People Talk',            effect: 'Once per Court; spend Influence equal to the City Status of a target you can see to learn their rating in one Discipline you name. If they hold that Discipline, you may then name one of its powers and learn their dice pool for it.' },
++      { name: 'Freedom of Information', effect: 'Spend 1 Influence to read the Position sheet of any one Position in play. The cost rises by 1 Influence with each further use.' },
++      { name: 'Show of Hands',          effect: 'Spend 1 Influence to look inside one bidding box: Territory, Primogen, or Harpy. The cost rises by 1 Influence with each further use.' },
++      { name: 'Pull Rank',              effect: 'Once per Court; spend Influence equal to the target\'s City Status to deny them the effects of an exceptional success.' },
++      { name: 'Veto',                   effect: 'Each Court, a number of times equal to your City Status; block a manoeuvre from any Position by spending Influence equal to that manoeuvre\'s cost.' },
++    ],
++    statusPower: [
++      'Each session, you can raise or lower another character\'s City Status by 1, once. You may permanently sacrifice one of your own City Status dots to make a second Status change in the same session. You cannot affect your own City Status.',
++      'Your decisions should be grounded in the City Deeds. If you can\'t justify a Status change, others will be justified in dropping yours.',
++    ],
++  },
++  'Socialite': {
++    asset: 'Elan',
++    merits: ['Cacophony Savvy', 'Contacts', 'Retainer (Spy)'],
++    style: 'Elan',
++    manoeuvres: [
++      { name: 'Size Them Up',       effect: 'Each Court, a number of times equal to your City Status; spend 1 Influence to learn the rating of one named Status type, Kindred or mortal, for a Kindred you can see. They will know this was done, unless you also spend Influence equal to their City Status.' },
++      { name: 'Saving Face',        effect: 'Once per Court; spend 1 Influence to reroll a failed Resistance roll against a contested mental Discipline, or to force a reroll against a resisted one.' },
++      { name: 'Goad',               effect: 'Once per Court; spend Influence equal to the target\'s City Status to learn their Mask and Dirge.' },
++      { name: 'Playing Favourites', effect: 'Once per Court; when a Kindred\'s City Status is being changed, spend Influence equal to the new Status to make that change cost one further point of Status.' },
++      { name: 'Curry Favour',       effect: 'Once per Court; spend 1 Influence to impose the Leveraged Condition publicly on a Kindred you can see.' },
++    ],
++    statusPower: [
++      'Each session, you can raise or lower another character\'s City Status by 1. You can do this a number of times per session equal to your own Effective City Status. You cannot affect your own City Status, and you cannot hold another major court position simultaneously.',
++      'Your decisions should be grounded in the City Deeds. If you can\'t justify a Status change, others will be justified in dropping yours.',
++    ],
++  },
++  'Enforcer': {
++    asset: 'Goon Squad',
++    merits: ['Safe Place', 'Retainer (Hound)', 'Trained Observer'],
++    style: 'Goon Squad',
++    manoeuvres: [
++      { name: 'Perimeter',           effect: 'Once per Downtime; choose a Territory and spend Influence equal to its Ambience rating to receive a report as though you had scored an exceptional success on a Patrol or Scout action.' },
++      { name: 'Ear to the Ground',   effect: 'At Court, you count as holding Contacts in every sphere for the purpose of news from the city at large reaching you, such as a potential Masquerade breach coming to the attention of the police. Each time the Storyteller offers you such information, you must pay Influence to receive it.' },
++      { name: 'Stakeout',            effect: 'Each Court, a number of times equal to your City Status; spend 1 Influence to learn one of the following about a target you can see: their Herd rating, their Feeding Grounds rating, or where they hold Feeding Rights. They will know this was done, unless you also spend Influence equal to their City Status.' },
++      { name: 'Crackdown',           effect: 'Once per Downtime; spend Influence equal to the target\'s City Status to give your attempts to interfere with their Downtime actions the rote quality. This is not subtle.' },
++      { name: 'Neighbourhood Watch', effect: 'Once per Court; spend Influence equal to the City Status of a target you can see to learn one of their Resistance Attributes.' },
++    ],
++    statusPower: [
++      'Each session, you can lower another character\'s City Status by 1 when they breach what you are charged to enforce. Your enforcement must conform to the norms of court.',
++      'If you overstep, others will be justified in dropping your own City Status.',
++    ],
++  },
++};
++
++/**
++ * Verify the source structures agree with each other and with the office
++ * category enum, before a single document is built.
++ *
++ * @param {object} args
++ * @param {object} args.officeData - OFFICE_DATA shape
++ * @param {object} args.meritCaps  - MERIT_DOT_CAPS shape
++ * @returns {{ errors: string[], officeCount: number, meritCount: number }}
++ */
++export function checkIntegrity({ officeData, meritCaps }) {
++  const errors = [];
++  const categories = Object.keys(officeData);
++
++  for (const category of categories) {
++    if (!OFFICE_CONTENT_CATEGORY_ENUM.includes(category)) {
++      errors.push(`"${category}" is not a known office category (or is Administrator, which has no content yet — see oxp-8).`);
++      continue;
++    }
++    const entry = officeData[category];
++    for (const field of ['asset', 'style']) {
++      if (typeof entry[field] !== 'string' || !entry[field].trim()) {
++        errors.push(`"${category}" has an empty or non-string "${field}".`);
++      }
++    }
++    if (!Array.isArray(entry.merits) || entry.merits.length === 0) {
++      errors.push(`"${category}" has no merits array, or it is empty.`);
++    } else {
++      for (const merit of entry.merits) {
++        if (typeof merit !== 'string' || !merit.trim()) {
++          errors.push(`"${category}" lists an empty or non-string merit.`);
++        }
++        // An unlisted merit legitimately defaults to a cap of 5 (the
++        // existing `MERIT_DOT_CAPS[merit] || 5` convention every consumer
++        // preserves) — this is a WARNING-shaped check only in that it does
++        // not error, but it is worth surfacing so a genuinely mistyped
++        // merit name doesn't silently ride the default instead of being
++        // caught as a typo. Not pushed to `errors` (would break existing,
++        // intentional default-cap merits); left as a console note by the
++        // caller instead — see `seedOfficeContent`'s own summary output.
++      }
++    }
++    if (!Array.isArray(entry.manoeuvres) || entry.manoeuvres.length === 0) {
++      errors.push(`"${category}" has no manoeuvres array, or it is empty.`);
++    } else {
++      const seenNames = new Set();
++      for (const m of entry.manoeuvres) {
++        if (typeof m?.name !== 'string' || !m.name.trim()) {
++          errors.push(`"${category}" has a manoeuvre with an empty or missing name.`);
++          continue;
++        }
++        if (typeof m?.effect !== 'string' || !m.effect.trim()) {
++          errors.push(`"${category}" manoeuvre "${m.name}" has an empty or missing effect.`);
++        }
++        if (seenNames.has(m.name)) {
++          errors.push(`"${category}" lists manoeuvre "${m.name}" more than once.`);
++        }
++        seenNames.add(m.name);
++      }
++    }
++    if (!Array.isArray(entry.statusPower) || entry.statusPower.length === 0) {
++      errors.push(`"${category}" has no statusPower array, or it is empty.`);
++    }
++  }
++
++  for (const [merit, cap] of Object.entries(meritCaps)) {
++    if (typeof merit !== 'string' || !merit.trim()) {
++      errors.push('MERIT_DOT_CAPS has an empty or non-string merit name key.');
++    }
++    if (!Number.isInteger(cap) || cap < 1) {
++      errors.push(`MERIT_DOT_CAPS["${merit}"] is ${JSON.stringify(cap)}, expected a positive integer.`);
++    }
++  }
++
++  return { errors, officeCount: categories.length, meritCount: Object.keys(meritCaps).length };
++}
++
++/**
++ * Build the seed documents (both kinds). Throws if the source does not pass
++ * the integrity gate.
++ */
++export function buildSeedDocs({ officeData, meritCaps, now = new Date().toISOString() }) {
++  const { errors } = checkIntegrity({ officeData, meritCaps });
++  if (errors.length) {
++    throw new Error(`buildSeedDocs refused: ${errors.length} integrity failure(s).\n${errors.map(e => `  - ${e}`).join('\n')}`);
++  }
++
++  const officeDocs = Object.keys(officeData)
++    .sort((a, b) => a.localeCompare(b))
++    .map(category => {
++      const entry = officeData[category];
++      return {
++        kind: 'office',
++        category,
++        asset: entry.asset,
++        style: entry.style,
++        merits: [...entry.merits],
++        manoeuvres: entry.manoeuvres.map(m => ({ name: m.name, effect: m.effect })),
++        statusPower: [...entry.statusPower],
++        created_at: now,
++        updated_at: now,
++      };
++    });
++
++  const meritCapsDoc = {
++    kind: 'merit_caps',
++    caps: { ...meritCaps },
++    created_at: now,
++    updated_at: now,
++  };
++
++  return [...officeDocs, meritCapsDoc];
++}
++
++/**
++ * Drive the seed. Returns the summary; throws on an integrity or schema
++ * failure, having written nothing.
++ *
++ * @param {object} [opts]
++ * @param {boolean} [opts.dryRun=true]
++ * @param {boolean} [opts.log=true]
++ */
++export async function seedOfficeContent(opts = {}) {
++  const { dryRun = true, log = true } = opts;
++
++  // ── Gate 1: the source is internally consistent ──
++  const integrity = checkIntegrity({ officeData: OFFICE_DATA, meritCaps: MERIT_DOT_CAPS });
++  if (log) {
++    console.log(`Integrity: ${integrity.officeCount} office(s), ${integrity.meritCount} merit cap(s) in source.`);
++  }
++  if (integrity.errors.length) {
++    const detail = integrity.errors.map(e => `  - ${e}`).join('\n');
++    throw new Error(`Seed aborted: ${integrity.errors.length} integrity failure(s), nothing written.\n${detail}`);
++  }
++  if (log) console.log('Integrity: OK (every office has non-empty asset/style/merits/manoeuvres/statusPower; no duplicate manoeuvre names; every merit cap is a positive integer).');
++
++  // ── Gate 2: every built document satisfies the schema ──
++  const docs = buildSeedDocs({ officeData: OFFICE_DATA, meritCaps: MERIT_DOT_CAPS });
++  const ajv = new Ajv({ allErrors: true, coerceTypes: false });
++  const validate = ajv.compile(officeContentSchema);
++  const schemaFailures = [];
++  for (const d of docs) {
++    if (!validate(d)) {
++      schemaFailures.push(`  - ${d.kind === 'office' ? d.category : 'merit_caps'}: ${JSON.stringify(validate.errors)}`);
++    }
++  }
++  if (schemaFailures.length) {
++    throw new Error(`Seed aborted: ${schemaFailures.length} document(s) failed schema validation, nothing written.\n${schemaFailures.join('\n')}`);
++  }
++
++  // ── Reconcile against what is already in the collection ──
++  // Same three-state report as seed-bloodlines.js: DIFFERS (never
++  // auto-overwritten), orphan, dupe.
++  const col = getCollection(COLLECTION);
++  const existing = await col.find({}).toArray();
++  const existingByKey = new Map(); // key = category, or 'merit_caps' sentinel
++  const duplicateKeys = [];
++  const keyOf = (d) => (d.kind === 'office' ? d.category : 'merit_caps');
++  for (const d of existing) {
++    const key = keyOf(d);
++    if (existingByKey.has(key)) duplicateKeys.push(key);
++    else existingByKey.set(key, d);
++  }
++
++  const sameList = (a, b) => Array.isArray(a) && Array.isArray(b)
++    && a.length === b.length && a.every((x, i) => JSON.stringify(x) === JSON.stringify(b[i]));
++  const sameCaps = (a, b) => a && b && JSON.stringify(a) === JSON.stringify(b);
++
++  const differing = [];
++  for (const d of docs) {
++    const key = keyOf(d);
++    const live = existingByKey.get(key);
++    if (!live) continue;
++    const deltas = [];
++    if (d.kind === 'office') {
++      if (live.asset !== d.asset) deltas.push(`asset ${JSON.stringify(live.asset)} -> ${JSON.stringify(d.asset)}`);
++      if (live.style !== d.style) deltas.push(`style ${JSON.stringify(live.style)} -> ${JSON.stringify(d.style)}`);
++      if (!sameList(live.merits, d.merits)) deltas.push('merits differ');
++      if (!sameList(live.manoeuvres, d.manoeuvres)) deltas.push('manoeuvres differ (content or order)');
++      if (!sameList(live.statusPower, d.statusPower)) deltas.push('statusPower differs');
++    } else if (!sameCaps(live.caps, d.caps)) {
++      deltas.push('merit dot caps differ');
++    }
++    if (deltas.length) differing.push({ key, deltas });
++  }
++
++  const sourceKeys = new Set(docs.map(keyOf));
++  const orphans = [...existingByKey.keys()].filter(k => !sourceKeys.has(k));
++  const toInsert = docs.filter(d => !existingByKey.has(keyOf(d)));
++  const differingKeys = new Set(differing.map(d => d.key));
++
++  if (log) {
++    console.log('');
++    console.log('  Office / doc                Status');
++    console.log('  ' + '-'.repeat(50));
++    for (const d of docs) {
++      const key = keyOf(d);
++      let status;
++      if (!existingByKey.has(key)) status = dryRun ? 'would insert' : 'inserting';
++      else if (differingKeys.has(key)) status = 'DIFFERS';
++      else status = 'present';
++      console.log('  ' + key.padEnd(28) + status);
++    }
++  }
++
++  let inserted = 0;
++  if (!dryRun) {
++    if (duplicateKeys.length) {
++      throw new Error(`Seed aborted: the collection already holds duplicate document(s) for: ${duplicateKeys.join(', ')}. Nothing written.`);
++    }
++    await ensureOfficeContentIndexes(col);
++    if (toInsert.length) {
++      try {
++        const result = await col.insertMany(toInsert);
++        inserted = result.insertedCount;
++      } catch (err) {
++        const landed = err?.result?.insertedCount ?? err?.insertedCount ?? 0;
++        console.error(`Insert failed after ${landed} of ${toInsert.length} document(s). The collection is PARTIALLY seeded; re-run to insert the remainder.`);
++        throw err;
++      }
++    }
++  }
++
++  const summary = {
++    dryRun,
++    total: docs.length,
++    alreadyPresent: docs.length - toInsert.length,
++    wouldInsert: toInsert.length,
++    inserted,
++    differing,
++    orphans,
++    duplicateKeys,
++  };
++
++  if (log) {
++    console.log('');
++    const verb = dryRun ? 'would insert' : 'inserted';
++    console.log(`Summary: ${docs.length} document(s) in source; ${summary.alreadyPresent} already present; ${verb} ${inserted || toInsert.length}.`);
++    if (differing.length) {
++      console.log('');
++      console.log(`  DIFFERS (${differing.length}) — present but disagreeing with the source. NOT overwritten; a human decides which side is right:`);
++      for (const d of differing) console.log(`    ${d.key}: ${d.deltas.join('; ')}`);
++    }
++    if (orphans.length) {
++      console.log('');
++      console.log(`  ORPHANS (${orphans.length}) — in the collection but not in the source: ${orphans.join(', ')}`);
++    }
++    if (duplicateKeys.length) {
++      console.log('');
++      console.log(`  DUPLICATES (${duplicateKeys.length}) — the unique index cannot be created until these are resolved: ${duplicateKeys.join(', ')}`);
++    }
++  }
++
++  return summary;
++}
++
++/**
++ * @param {string[]} [argv]
++ * @param {object} [opts]
++ * @param {boolean} [opts.closeConnection=true]
++ */
++export async function main(argv = process.argv, opts = {}) {
++  const { closeConnection = true } = opts;
++  const dryRun = !argv.includes('--apply');
++
++  console.log(`Mode: ${dryRun ? 'DRY RUN (read only; pass --apply to write)' : 'APPLY (will write)'}`);
++  console.log(`Target DB: ${process.env.MONGODB_DB || 'tm_game'}`);
++  console.log('');
++
++  await connectDb();
++  try {
++    const summary = await seedOfficeContent({ dryRun });
++    if (!dryRun) {
++      console.log('');
++      console.log('Idempotency check: re-run with --apply and confirm "inserted 0".');
++    }
++    return summary;
++  } finally {
++    if (closeConnection) await closeDb();
++  }
++}
++
++// Auto-run only when invoked directly (not when imported by a test).
++if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
++  main().catch(err => { console.error(err); process.exit(1); });
++}
+diff --git a/server/tests/helpers/db-setup.js b/server/tests/helpers/db-setup.js
+index 0fb1b809..01237396 100644
+--- a/server/tests/helpers/db-setup.js
++++ b/server/tests/helpers/db-setup.js
+@@ -3,6 +3,8 @@
+  */
+ 
+ import { connectDb, closeDb, getCollection, getDb } from '../../db.js';
++import { ensureOfficeContentIndexes } from '../../lib/office-content-index.js';
++import { OFFICE_DATA, MERIT_DOT_CAPS, buildSeedDocs } from '../../scripts/seed-office-content.js';
+ 
+ export async function setupDb() {
+   try {
+@@ -23,6 +25,39 @@ export async function setupDb() {
+         `Tests must use a *_test database — check tests/helpers/setup-env.js ordering.`
+     );
+   }
++
++  // Non-fatal: a small number of DB-adjacent suites mock '../db.js' with a
++  // minimal surface (connectDb/getDb only, e.g. issue-1143-db-setup-skip.test.js's
++  // own positive control) that has no working getCollection(). Letting a
++  // seeding failure abort setupDb() itself would fail EVERY DB-backed suite
++  // over a concern most of them never touch; a suite that actually needs
++  // office_content and doesn't have it will fail its own specific assertion
++  // instead, which is a clearer signal than an opaque setupDb() rejection.
++  try {
++    await ensureOfficeContentSeeded();
++  } catch (err) {
++    console.error('[setupDb] office_content auto-seed failed (non-fatal):', err.message);
++  }
++}
++
++/**
++ * oxp.10: every office-purchase route (`office-merit-dots.js`,
++ * `office-manoeuvre-rank.js`, `office-purchase.js`) now resolves a seat's
++ * office rules by READING the `office_content` collection, not a static
++ * import — so any DB-backed suite that PUTs against a real office category
++ * needs real documents there, the same way `getTestCharacterIds` auto-seeds
++ * minimal characters above. Upserted (not deleted-then-inserted) and keyed on
++ * the real natural keys, so this is safe to call from every test file's
++ * `setupDb()` without one file's call racing or clobbering another's.
++ */
++async function ensureOfficeContentSeeded() {
++  const col = getCollection('office_content');
++  await ensureOfficeContentIndexes(col);
++  const docs = buildSeedDocs({ officeData: OFFICE_DATA, meritCaps: MERIT_DOT_CAPS, now: '2026-08-27T00:00:00.000Z' });
++  await Promise.all(docs.map(doc => {
++    const filter = doc.kind === 'office' ? { kind: 'office', category: doc.category } : { kind: 'merit_caps' };
++    return col.updateOne(filter, { $setOnInsert: doc }, { upsert: true });
++  }));
+ }
+ 
+ export async function teardownDb() {
+diff --git a/server/tests/helpers/test-app.js b/server/tests/helpers/test-app.js
+index e6974230..65d5b2b9 100644
+--- a/server/tests/helpers/test-app.js
++++ b/server/tests/helpers/test-app.js
+@@ -31,6 +31,7 @@ import appSettingsRouter from '../../routes/app-settings.js';
+ import buildEquipmentCatalogueRouter from '../../routes/equipment-catalogue.js';
+ import { storyCyclesRouter } from '../../routes/story-cycles.js';
+ import buildBloodlinesRouter from '../../routes/bloodlines.js';
++import buildOfficeContentRouter from '../../routes/office-content.js';
+ import cyoaRouter from '../../routes/cyoa.js';
+ import officeActionsRouter from '../../routes/office-actions.js';
+ import rollLogRouter from '../../routes/roll-log.js';
+@@ -80,6 +81,9 @@ export function createTestApp() {
+   // mount needed no change when the writes retired.
+   app.use('/api/bloodlines', buildBloodlinesRouter(mockAuth));
+ 
++  // oxp.10 office_content — public read only, same factory shape as bloodlines.
++  app.use('/api/office_content', buildOfficeContentRouter(mockAuth));
++
+   // Protected routes with mock auth.
+   // Issue #255: mirror prod Cache-Control discipline so tests can assert
+   // the headers are wired correctly through the same middleware stack.
+diff --git a/server/tests/issue-1141-office-data-sync.test.js b/server/tests/issue-1141-office-data-sync.test.js
+index 0542e5f5..c05af292 100644
+--- a/server/tests/issue-1141-office-data-sync.test.js
++++ b/server/tests/issue-1141-office-data-sync.test.js
+@@ -2,11 +2,17 @@
+  * Issue #1141 — office-data.js is synced to Symon's rewritten Court Position
+  * content, and the asset-duplicated-as-merit bug is fixed.
+  *
+- * Imports office-data.js directly. Deliberately does NOT import office-tab.js —
++ * oxp.10 (2026-08-27): office-data.js was deleted (its static content moved
++ * into the `office_content` MongoDB collection). This suite's actual purpose
++ * — catch drift between the shipped office data and Symon's source doc — now
++ * targets the FROZEN literals in `server/scripts/seed-office-content.js`,
++ * which is what actually seeds `office_content` and is the one place this
++ * content still exists as a plain object literal. Imports that script
++ * directly rather than office-tab.js, for the same reason as before:
+  * office-tab.js imports api.js, which reads `location.hostname` at module top
+  * level, and this project's vitest has no jsdom environment configured. That
+  * import would throw at collection time regardless of what the test exercises.
+- * office-data.js has zero imports and is a pure object literal, so it is safe.
++ * seed-office-content.js has no such import chain, so it is safe.
+  *
+  * AC6 (two concurrent Socialite holders) and AC7's rendered behaviour (the
+  * Administrator fallback firing) are proven by construction in the story's Dev
+@@ -14,7 +20,7 @@
+  * file proves AC7's DATA precondition only (no Administrator entry exists).
+  *
+  * EXPECTED below is a deliberate byte-for-byte transcript of
+- * `content/rules/office-powers.md` (AC1-4 require office-data.js to match
++ * `content/rules/office-powers.md` (AC1-4 require the seeded content to match
+  * Symon's rewrite exactly), not a stand-in for a lighter structural check.
+  * Any future edit to that source doc must update EXPECTED in the same change,
+  * or this suite fails on a real drift — that's the point. Update both files
+@@ -22,7 +28,7 @@
+  */
+ 
+ import { describe, it, expect } from 'vitest';
+-import { OFFICE_DATA } from '../../public/js/tabs/office-data.js';
++import { OFFICE_DATA } from '../scripts/seed-office-content.js';
+ 
+ const EXPECTED = {
+   'Head of State': {
+@@ -105,7 +111,7 @@ const STATUS_POWER_FLAT = {
+   'Socialite': 'Each session, you can raise or lower another character\'s City Status by 1. You can do this a number of times per session equal to your own Effective City Status. You cannot affect your own City Status, and you cannot hold another major court position simultaneously. Your decisions should be grounded in the City Deeds. If you can\'t justify a Status change, others will be justified in dropping yours.',
+ };
+ 
+-describe('issue-1141 — office-data.js synced to Symon\'s rewrite', () => {
++describe('issue-1141 — seeded office content synced to Symon\'s rewrite', () => {
+   for (const category of Object.keys(EXPECTED)) {
+     describe(category, () => {
+       it('has the exact ordered manoeuvre names (AC1-4)', () => {
+diff --git a/server/tests/issue-1141-office-tab-render.test.js b/server/tests/issue-1141-office-tab-render.test.js
+index afd69ffe..41c69aed 100644
+--- a/server/tests/issue-1141-office-tab-render.test.js
++++ b/server/tests/issue-1141-office-tab-render.test.js
+@@ -4,13 +4,14 @@
+  * Administrator "pending" fallback still fires).
+  *
+  * Added after code review: `issue-1141-office-data-sync.test.js` deliberately
+- * imports only `office-data.js`, never `office-tab.js`, because `office-tab.js`
+- * pulls in `../data/api.js`, which reads `location.hostname` at module top
+- * level — a bare vitest import throws `ReferenceError: location is not
+- * defined` (no jsdom configured in `server/vitest.config.js`). The original
+- * story proved AC6/AC7 with a one-off Playwright script that was deleted
+- * after use, leaving no permanent regression guard — a real gap the review
+- * caught (Blind Hunter, Medium and Low findings).
++ * imports only the seed script's frozen content (see its own header, oxp.10),
++ * never `office-tab.js`, because `office-tab.js` pulls in `../data/api.js`,
++ * which reads `location.hostname` at module top level — a bare vitest import
++ * throws `ReferenceError: location is not defined` (no jsdom configured in
++ * `server/vitest.config.js`). The original story proved AC6/AC7 with a
++ * one-off Playwright script that was deleted after use, leaving no permanent
++ * regression guard — a real gap the review caught (Blind Hunter, Medium and
++ * Low findings).
+  *
+  * The fix: stub `globalThis.location` with the minimum `office-tab.js`'s
+  * import chain needs, import AFTER stubbing, then restore. This technique was
+@@ -18,15 +19,27 @@
+  * Acceptance Auditor independently ran the equivalent stub-and-import in a
+  * throwaway Node script and it rendered correctly).
+  *
++ * oxp.10 (2026-08-27): `office-tab.js` now reads office content from
++ * `office-content-cache.js`'s synchronous accessors, not a static import, so
++ * this file primes that cache (via `loadOfficeContent()` against a stubbed
++ * `/api/office_content` response built from the same frozen literals
++ * `seed-office-content.js` seeds the real collection from) BEFORE importing
++ * `office-tab.js` — every render below still runs fully synchronously against
++ * an already-populated cache, exactly as it did against the old static import.
++ *
+  * `server/vitest.config.js` sets `fileParallelism: false` and
+  * `poolOptions.forks.singleFork: true` — every test file in this project
+  * shares ONE process. A `globalThis.location` stub left in place would leak
+  * into every test file that runs after this one in the same run. The stub is
+  * therefore applied only if `location` was not already defined, and removed
+- * in `afterAll` regardless of pass/fail, so no other suite ever sees it.
++ * in `afterAll` regardless of pass/fail, so no other suite ever sees it. The
++ * office-content cache does NOT need the same care — vitest's default
++ * `isolate: true` resets the module registry (and so this module-level cache)
++ * between test files, even though `globalThis` itself is shared.
+  */
+ 
+ import { describe, it, expect, beforeAll, afterAll, afterEach } from 'vitest';
++import { OFFICE_DATA, MERIT_DOT_CAPS, buildSeedDocs } from '../scripts/seed-office-content.js';
+ 
+ describe('issue-1141 — office-tab.js render-level regressions', () => {
+   let renderOfficeTab;
+@@ -40,6 +53,28 @@ describe('issue-1141 — office-tab.js render-level regressions', () => {
+     if (!hadLocation) {
+       globalThis.location = { hostname: 'test', pathname: '/' };
+     }
++
++    const { loadOfficeContent } = await import('../../public/js/data/office-content-cache.js');
++    const seedDocs = buildSeedDocs({ officeData: OFFICE_DATA, meritCaps: MERIT_DOT_CAPS, now: '2026-08-27T00:00:00.000Z' });
++    const bootFetch = globalThis.fetch;
++    // apiGet's own headers() reads localStorage synchronously — not yet
++    // stubbed this early (the 'oxp.3: async rank wiring' describe below sets
++    // up its own stub later, at execution time, so setting one up now cannot
++    // collide with its `hadLocalStorage` check, already fixed at collection
++    // time). A missing localStorage here silently failed this load (caught by
++    // loadOfficeContent's own try/catch), which is what an earlier version of
++    // this fix got wrong — every render fell back to "pending" with no error.
++    const hadLocalStorageForPrime = 'localStorage' in globalThis;
++    if (!hadLocalStorageForPrime) globalThis.localStorage = { getItem: () => null };
++    globalThis.fetch = async (url) => {
++      const u = String(url);
++      if (u.includes('/api/office_content')) return { ok: true, status: 200, json: async () => seedDocs };
++      return { ok: true, status: 200, json: async () => ({}) };
++    };
++    await loadOfficeContent();
++    globalThis.fetch = bootFetch;
++    if (!hadLocalStorageForPrime) delete globalThis.localStorage;
++
+     ({ renderOfficeTab, manoeuvreListHtml, manoeuvreRankHtml, manoeuvreDotReasons, meritDotReasons } =
+       await import('../../public/js/tabs/office-tab.js'));
+   });
+@@ -248,6 +283,24 @@ describe('issue-1141 — office-tab.js render-level regressions', () => {
+       expect(el.innerHTML).toContain('Due Diligence'); // a real Head of State manoeuvre
+       expect(el.innerHTML).not.toContain('People Talk');
+     });
++
++    it('oxp.10 AC6: Primogen\'s manoeuvre-to-rank mapping is unchanged end to end through the migration (frozen literal -> seed doc -> cache -> render)', () => {
++      // Not a synthetic FIVE fixture (unlike the oxp.3/oxp.6 blocks below) —
++      // this asserts the REAL rank order for a real, multi-manoeuvre office,
++      // rendered from content this file's own beforeAll primed via
++      // buildSeedDocs(OFFICE_DATA), the same pipeline the real app boots
++      // through. A reorder anywhere in that pipeline (seed script, cache
++      // indexing, officeEntry()) would move a name to the wrong position here.
++      const yusuf = { _id: 'yusuf', name: 'Yusuf Kalusicj', court_category: 'Primogen', court_title: 'Primogen' };
++      const html = render(yusuf, [yusuf], 'Primogen');
++
++      const names = ['People Talk', 'Freedom of Information', 'Show of Hands', 'Pull Rank', 'Veto'];
++      const positions = names.map(n => html.indexOf(n));
++      for (const p of positions) expect(p).toBeGreaterThan(-1);
++      for (let i = 1; i < positions.length; i++) {
++        expect(positions[i], `${names[i]} must render after ${names[i - 1]}`).toBeGreaterThan(positions[i - 1]);
++      }
++    });
+   });
+ 
+   // ───────────────────────────────────────────────────────────────────────
+diff --git a/server/tests/office-merit-dots.test.js b/server/tests/office-merit-dots.test.js
+index 031a21b5..a08be6cf 100644
+--- a/server/tests/office-merit-dots.test.js
++++ b/server/tests/office-merit-dots.test.js
+@@ -297,13 +297,13 @@ describe('office-merit-dots — office-tab.js client wiring', () => {
+     expect(src).not.toMatch(/style="/);
+   });
+ 
+-  it('imports MERIT_DOT_CAPS from office-data.js and applies per-merit caps client-side too', () => {
++  it('imports merit dot caps from the office_content client cache (oxp.10), not a static module', () => {
+     const src = readFile('public/js/tabs/office-tab.js');
+-    expect(src).toMatch(/import\s*\{\s*OFFICE_DATA,\s*MERIT_DOT_CAPS\s*\}\s*from\s*['"]\.\/office-data\.js['"]/);
++    expect(src).toMatch(/import\s*\{\s*officeEntry,\s*meritCap\s*\}\s*from\s*['"]\.\.\/data\/office-content-cache\.js['"]/);
+   });
+ 
+-  it('MERIT_DOT_CAPS caps Trained Observer and Cacophony Savvy at 3, everything else at 5', () => {
+-    const src = readFile('public/js/tabs/office-data.js');
++  it('the frozen seed data caps Trained Observer and Cacophony Savvy at 3, everything else at 5 (oxp.10)', () => {
++    const src = readFile('server/scripts/seed-office-content.js');
+     expect(src).toMatch(/'Trained Observer':\s*3/);
+     expect(src).toMatch(/'Cacophony Savvy':\s*3/);
+     expect(src).toMatch(/'Safe Place':\s*5/);
+diff --git a/server/tests/oxp-1-office-seats.test.js b/server/tests/oxp-1-office-seats.test.js
+index 676772c0..6da16561 100644
+--- a/server/tests/oxp-1-office-seats.test.js
++++ b/server/tests/oxp-1-office-seats.test.js
+@@ -280,11 +280,11 @@ describe('oxp.1 office_seat schema, category enum parity with court_category', (
+     expect([...OFFICE_CATEGORY_ENUM].sort()).toEqual([...courtCategory].sort());
+   });
+ 
+-  it('has five categories, including Administrator (which OFFICE_DATA still lacks)', () => {
+-    // public/js/tabs/office-data.js only defines four offices; Administrator's
+-    // content is oxp.8 and unwritten. The seat for it is nevertheless real and
+-    // filled (Ivana Horvat, since Game 5), so the enum follows the schema, not
+-    // the content module.
++  it('has five categories, including Administrator (which has no office_content entry)', () => {
++    // The office_content collection (oxp.10) only carries four office
++    // documents; Administrator's content is oxp.8 and unwritten. The seat
++    // for it is nevertheless real and filled (Ivana Horvat, since Game 5),
++    // so the enum follows the schema, not the content collection.
+     expect(OFFICE_CATEGORY_ENUM).toHaveLength(5);
+     expect(OFFICE_CATEGORY_ENUM).toContain('Administrator');
+   });
+diff --git a/server/tests/oxp-7-office-merits-empty-list-guard.test.js b/server/tests/oxp-7-office-merits-empty-list-guard.test.js
+index ff28bb09..57a1185d 100644
+--- a/server/tests/oxp-7-office-merits-empty-list-guard.test.js
++++ b/server/tests/oxp-7-office-merits-empty-list-guard.test.js
+@@ -3,16 +3,16 @@
+  * `if (!meritNames.length) return;` guard (AC3's "the resolved office has
+  * zero merits" case).
+  *
+- * No current `OFFICE_DATA` entry actually has an empty `merits` array — the
+- * main oxp-7 test file's own AC3 completion notes said this path was
++ * No real `office_content` document actually has an empty `merits` array —
++ * the main oxp-7 test file's own AC3 completion notes said this path was
+  * covered by its four render-nothing tests, which was an overclaim (Codex
+  * review, oxp.7): those four tests exercise no-court_category, unconfirmed
+- * seat, Administrator (no OFFICE_DATA entry at all — a DIFFERENT guard),
++ * seat, Administrator (no office_content entry at all — a DIFFERENT guard),
+  * and a failed fetch, never a real office whose merit list is empty. This
+- * file closes that gap directly, mocking `office-data.js` (this codebase's
+- * own established convention — see e.g.
+- * applyDerivedMerits-null-cache-guard.test.js) rather than waiting for a
+- * real zero-merit office to exist.
++ * file closes that gap directly by priming `office-content-cache.js` (oxp.10)
++ * with a synthetic zero-merit category alongside the real ones, via the same
++ * `loadOfficeContent()` + stubbed-fetch path a real boot uses — exercising
++ * the guard through the real accessor code, not a bypass of it.
+  */
+ 
+ const hadLocation = 'location' in globalThis;
+@@ -32,22 +32,7 @@ if (!hadLocalStorage) {
+   };
+ }
+ 
+-import { describe, it, expect, vi, beforeAll, afterAll } from 'vitest';
+-
+-// Hoisted by vitest ahead of the dynamic import() below. Keeps every real
+-// office category untouched and adds one synthetic zero-merit category so
+-// the guard is exercised via the SAME code path a real office would use,
+-// not a bypass of it.
+-vi.mock('../../public/js/tabs/office-data.js', async () => {
+-  const actual = await vi.importActual('../../public/js/tabs/office-data.js');
+-  return {
+-    ...actual,
+-    OFFICE_DATA: {
+-      ...actual.OFFICE_DATA,
+-      'Empty Test Office': { asset: 'Nothing', merits: [], style: 'None', manoeuvres: [], statusPower: [] },
+-    },
+-  };
+-});
++import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+ 
+ describe('oxp.7 Codex follow-up: patchOfficeMerits zero-merit-office guard (AC3)', () => {
+   let patchOfficeMerits;
+@@ -55,6 +40,27 @@ describe('oxp.7 Codex follow-up: patchOfficeMerits zero-merit-office guard (AC3)
+   const hadFetch = 'fetch' in globalThis;
+ 
+   beforeAll(async () => {
++    // Prime office-content-cache.js (oxp.10) BEFORE importing sheet.js, with
++    // one synthetic zero-merit category alongside the real ones — the module
++    // registry resets per test file (vitest's default isolate:true), so this
++    // file's cache load cannot leak into or collide with any other file's.
++    const { loadOfficeContent } = await import('../../public/js/data/office-content-cache.js');
++    const bootFetch = globalThis.fetch;
++    globalThis.fetch = async (url) => {
++      const u = String(url);
++      if (u.includes('/api/office_content')) {
++        return {
++          ok: true, status: 200,
++          json: async () => [
++            { kind: 'office', category: 'Empty Test Office', asset: 'Nothing', style: 'None', merits: [], manoeuvres: [{ name: 'x', effect: 'x' }], statusPower: ['x'] },
++          ],
++        };
++      }
++      return { ok: true, status: 200, json: async () => ({}) };
++    };
++    await loadOfficeContent();
++    globalThis.fetch = bootFetch;
++
+     ({ patchOfficeMerits } = await import('../../public/js/editor/sheet.js'));
+     realFetch = globalThis.fetch;
+   });
+diff --git a/server/tests/oxp-7-sheet-office-merits-section.test.js b/server/tests/oxp-7-sheet-office-merits-section.test.js
+index 60dceb89..aede6105 100644
+--- a/server/tests/oxp-7-sheet-office-merits-section.test.js
++++ b/server/tests/oxp-7-sheet-office-merits-section.test.js
+@@ -50,6 +50,7 @@ if (!hadLocalStorage) {
+ 
+ import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+ import { resolveHeldSeat } from '../../public/js/data/office-seat-resolve.js';
++import { OFFICE_DATA, MERIT_DOT_CAPS, buildSeedDocs } from '../scripts/seed-office-content.js';
+ 
+ const SEAT_A = { _id: 'seat-a', office_category: 'Primogen', holder_id: 'yusuf', created_at: '2026-02-21', seat_label: null };
+ const SEAT_B = { _id: 'seat-b', office_category: 'Primogen', holder_id: 'rene', created_at: '2026-02-21', seat_label: null };
+@@ -106,6 +107,23 @@ describe('oxp.7 shRenderOfficeMerits + patchOfficeMerits (AC1, 3-8)', () => {
+   const hadFetch = 'fetch' in globalThis;
+ 
+   beforeAll(async () => {
++    // oxp.10: editor/sheet.js now reads office content from
++    // office-content-cache.js's synchronous accessors, not a static import —
++    // prime it (real fixtures, via the seed script's own frozen literals)
++    // BEFORE importing sheet.js, same technique as
++    // issue-1141-office-tab-render.test.js. localStorage is already stubbed
++    // above at file scope, so apiGet's headers() read is safe here.
++    const { loadOfficeContent } = await import('../../public/js/data/office-content-cache.js');
++    const seedDocs = buildSeedDocs({ officeData: OFFICE_DATA, meritCaps: MERIT_DOT_CAPS, now: '2026-08-27T00:00:00.000Z' });
++    const bootFetch = globalThis.fetch;
++    globalThis.fetch = async (url) => {
++      const u = String(url);
++      if (u.includes('/api/office_content')) return { ok: true, status: 200, json: async () => seedDocs };
++      return { ok: true, status: 200, json: async () => ({}) };
++    };
++    await loadOfficeContent();
++    globalThis.fetch = bootFetch;
++
+     ({ shRenderOfficeMerits, patchOfficeMerits } = await import('../../public/js/editor/sheet.js'));
+     realFetch = globalThis.fetch;
+   });
