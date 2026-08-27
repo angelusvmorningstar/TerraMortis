@@ -49,6 +49,18 @@ const CHAR = {
   merits: [], powers: [], ordeals: [], banes: [],
 };
 
+// A character sparse enough that the whole single-scroll page fits on
+// screen at PHONE_VIEWPORT without needing to scroll at all — the
+// `maxScroll === 0` edge case for the active-chip sync (code-review
+// finding: the max-scroll branch must not fire when there's nothing to
+// scroll, or it wrongly snaps straight to Powers instead of leaving Info
+// active).
+const SPARSE_CHAR = {
+  ...CHAR,
+  _id: 'char-gdx9-sparse', name: 'Sparse Tester',
+  attributes: attrs({}), skills: {}, disciplines: {},
+};
+
 async function setupSuite(page, { singleScroll }) {
   await page.addInitScript((opts) => {
     localStorage.setItem('tm_auth_token', 'local-test-token');
@@ -110,10 +122,16 @@ test.describe('gdx-9 — single-scroll flag ON (phone)', () => {
     await expect(chips.nth(0)).toHaveClass(/active/);
 
     // Real tracker-derived numbers, not placeholders — full health/vitae/wp
-    // at a fresh character with no tracker_state writes yet.
-    await expect(page.locator('#gdx9-tn-health')).toHaveText(/\d+\/\d+/);
-    await expect(page.locator('#gdx9-tn-vitae')).toHaveText(/\d+\/\d+/);
-    await expect(page.locator('#gdx9-tn-wp')).toHaveText(/\d+\/\d+/);
+    // at a fresh character with no tracker_state writes yet. A bare
+    // /\d+\/\d+/ regex would pass for "0/0" or "5/2" (current > max), so
+    // assert the parsed values are actually sane, not just digit-shaped.
+    for (const id of ['gdx9-tn-health', 'gdx9-tn-vitae', 'gdx9-tn-wp']) {
+      const text = await page.locator('#' + id).textContent();
+      const [cur, max] = text.split('/').map(Number);
+      expect(max, `${id}: "${text}"`).toBeGreaterThan(0);
+      expect(cur, `${id}: "${text}"`).toBeGreaterThanOrEqual(0);
+      expect(cur, `${id}: "${text}"`).toBeLessThanOrEqual(max);
+    }
 
     // The four sections are all present in one scroll, in order.
     const ids = await page.locator('.gdx9-section').evaluateAll(els => els.map(e => e.id));
@@ -122,6 +140,57 @@ test.describe('gdx-9 — single-scroll flag ON (phone)', () => {
     // The real tracker (tap-boxes) lives inside Stats, not duplicated elsewhere.
     await expect(page.locator('#gdx9-sec-stats .sh-tracker-block')).toBeVisible();
     await expect(page.locator('#gdx9-sec-info .sh-tracker-block')).toHaveCount(0);
+  });
+
+  test('Info stays active for a sparse character whose whole sheet fits without scrolling', async ({ page }) => {
+    // A tall-enough viewport, not a sparser fixture: bio/derived-stats/
+    // tracker/one-carousel-card is a floor of real content no VtR character
+    // can go below, so the fixture is fixed and the viewport grows instead.
+    await page.setViewportSize({ width: 390, height: 2000 });
+    await setupSuite(page, { singleScroll: true });
+    await openSheetFixture(page, SPARSE_CHAR);
+
+    const maxScroll = await page.evaluate(() => {
+      const host = document.getElementById('gdx9-pinned').closest('.tab');
+      return host.scrollHeight - host.clientHeight;
+    });
+    expect(maxScroll, 'fixture must be sparse enough to fit on one screen for this test to be meaningful').toBeLessThanOrEqual(0);
+
+    await expect(page.locator('.gdx9-jump-chip', { hasText: 'Info' })).toHaveClass(/active/);
+    await expect(page.locator('.gdx9-jump-chip', { hasText: 'Powers' })).not.toHaveClass(/active/);
+  });
+
+  test('re-rendering the sheet does not accumulate scroll listeners on #t-sheets', async ({ page }) => {
+    // Code-review finding (all 3 internal layers): #t-sheets is never
+    // recreated between renders, so a 'scroll' listener attached on every
+    // renderSheet() call (e.g. every character switch) without removing the
+    // previous one accumulates without bound. Count real addEventListener/
+    // removeEventListener('scroll', ...) traffic on that exact element
+    // across three consecutive renders and assert the net count stays 1.
+    await page.addInitScript(() => {
+      window.__scrollListenerNet = 0;
+      const origAdd = EventTarget.prototype.addEventListener;
+      const origRemove = EventTarget.prototype.removeEventListener;
+      EventTarget.prototype.addEventListener = function (type, ...rest) {
+        if (type === 'scroll' && this.id === 't-sheets') window.__scrollListenerNet++;
+        return origAdd.call(this, type, ...rest);
+      };
+      EventTarget.prototype.removeEventListener = function (type, ...rest) {
+        if (type === 'scroll' && this.id === 't-sheets') window.__scrollListenerNet--;
+        return origRemove.call(this, type, ...rest);
+      };
+    });
+
+    await setupSuite(page, { singleScroll: true });
+    await openSheetFixture(page);
+    await page.evaluate(async () => {
+      const m = await import('/js/suite/data.js');
+      window.onSheetChar(m.default.chars[0].name); // re-render #2
+      window.onSheetChar(m.default.chars[0].name); // re-render #3
+    });
+
+    const net = await page.evaluate(() => window.__scrollListenerNet);
+    expect(net).toBe(1);
   });
 
   test('clicking a jump chip scrolls to its section and updates the active chip', async ({ page }) => {
@@ -135,9 +204,14 @@ test.describe('gdx-9 — single-scroll flag ON (phone)', () => {
     // its own top can never reach the activation line (max-scroll case).
     await expect(page.locator('.gdx9-jump-chip', { hasText: 'Powers' })).toHaveClass(/active/);
 
+    // A bare `r.top >= 0` also passes for a section scrolled just barely
+    // under the sticky pinned bar (e.g. a stale scroll-margin-top) — assert
+    // the section's top clears the pinned block's real height, not just the
+    // viewport's literal top edge.
     const inView = await page.locator('#gdx9-sec-powers').evaluate((el) => {
+      const pinnedHeight = document.getElementById('gdx9-pinned').offsetHeight;
       const r = el.getBoundingClientRect();
-      return r.top >= 0 && r.top < window.innerHeight;
+      return r.top >= pinnedHeight - 2 && r.top < window.innerHeight;
     });
     expect(inView).toBe(true);
   });
@@ -150,8 +224,9 @@ test.describe('gdx-9 — single-scroll flag ON (phone)', () => {
     await expect(page.locator('.gdx9-jump-chip', { hasText: 'Stats' })).toHaveClass(/active/);
 
     const inView = await page.locator('#gdx9-sec-stats').evaluate((el) => {
+      const pinnedHeight = document.getElementById('gdx9-pinned').offsetHeight;
       const r = el.getBoundingClientRect();
-      return r.top >= 0 && r.top < window.innerHeight;
+      return r.top >= pinnedHeight - 2 && r.top < window.innerHeight;
     });
     expect(inView).toBe(true);
   });

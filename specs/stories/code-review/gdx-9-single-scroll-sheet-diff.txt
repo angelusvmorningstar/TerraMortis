@@ -1,0 +1,562 @@
+diff --git a/public/css/suite.css b/public/css/suite.css
+index 34667047..43c7f018 100644
+--- a/public/css/suite.css
++++ b/public/css/suite.css
+@@ -343,6 +343,27 @@ body.desktop-mode .sh-powers-grid > .sh-sec{break-inside:avoid;}
+ .skill-dots{font-size:0.875rem;color:var(--accent);letter-spacing:2px;flex-shrink:0;}
+ .skill-zero{font-size:var(--fs-floor-body);color:var(--txt3);opacity:.4;}
+ 
++/* ── gdx-9: single-scroll phone sheet — pinned track strip + jump-nav ──
++   Phone-only (single-scroll flag), sits at the top of #sh-content-suite,
++   sticky within #t-sheets's own scroll box. */
++.gdx9-pinned{position:sticky;top:0;z-index:5;background:var(--surf);border-bottom:1px solid var(--bdr2);box-shadow:0 2px 8px rgba(0,0,0,.10);}
++.gdx9-track-strip{display:flex;align-items:center;gap:10px;padding:8px 12px 6px;cursor:pointer;-webkit-tap-highlight-color:transparent;}
++.gdx9-track-chip{display:flex;flex-direction:column;align-items:center;gap:3px;flex:1;min-width:0;}
++.gdx9-track-head{display:flex;align-items:baseline;gap:5px;}
++.gdx9-track-lbl{font-family:var(--fl);font-size:var(--fs-floor-micro);font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--txt3);}
++.gdx9-track-num{font-family:var(--fl);font-size:var(--fs-floor-body);font-weight:900;color:var(--txt);}
++.gdx9-track-bar{width:100%;height:4px;border-radius:2px;background:var(--bdr);overflow:hidden;}
++.gdx9-track-fill{height:100%;border-radius:2px;}
++.gdx9-track-fill.vitae{background:var(--crim);}
++.gdx9-track-fill.wp{background:var(--gold2);}
++.gdx9-track-fill.health{background:var(--green);}
++.gdx9-track-arrow{font-family:var(--fl);font-size:var(--fs-floor-body);color:var(--txt3);flex-shrink:0;padding-left:2px;}
++.gdx9-jump-nav{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;padding:0 10px 8px;}
++.gdx9-jump-nav::-webkit-scrollbar{display:none;}
++.gdx9-jump-chip{flex-shrink:0;font-family:var(--fl);font-size:var(--fs-floor-body);font-weight:700;letter-spacing:.06em;text-transform:uppercase;padding:6px 14px;border-radius:999px;border:1px solid var(--bdr2);background:var(--surf2);color:var(--label-secondary);cursor:pointer;-webkit-tap-highlight-color:transparent;transition:background .12s,color .12s,border-color .12s;}
++.gdx9-jump-chip.active{background:var(--accent);border-color:var(--accent);color:var(--bg);}
++.gdx9-section{scroll-margin-top:0;}
++
+ /* Suite-specific merit class names (without sh- prefix) */
+ .merit-name{font-family:var(--fl);font-size:var(--fs-floor-body);font-variant:small-caps;font-weight:600;color:var(--label-secondary);letter-spacing:.03em;}
+ .merit-sub{font-family:var(--fl);font-size:var(--fs-floor-body);font-weight:400;color:var(--label-secondary);margin-top:2px;}
+diff --git a/public/js/app.js b/public/js/app.js
+index 16eee19d..8f108a1c 100644
+--- a/public/js/app.js
++++ b/public/js/app.js
+@@ -15,7 +15,7 @@ import { ICONS } from './data/icons.js';
+ import { isFeedingOpen } from './downtime/db.js';
+ import { FORM_RETIRED, RETIRED_TILE_REASON } from './downtime/form-retirement.js';
+ import { ORDEALS_RETIRED, RETIRED_TILE_REASON as ORDEALS_RETIRED_REASON } from './ordeals/ordeal-retirement.js';
+-import { CLAN_ICON_KEY, covIcon, displayName, dropdownName, sortName, redactPlayer, discordAvatarUrl, esc } from './data/helpers.js';
++import { CLAN_ICON_KEY, covIcon, displayName, dropdownName, sortName, redactPlayer, discordAvatarUrl, esc, singleScrollEnabled } from './data/helpers.js';
+ import { renderList, filterList, setListLimit } from './editor/list.js';
+ import { renderSheet as editorRenderSheet, toggleExp as editorToggleExp, toggleDisc as editorToggleDisc } from './editor/sheet.js';
+ import { loadDB, saveDB, saveAll, syncToSuite, downloadCSV, registerCallbacks as registerExportCallbacks } from './editor/export.js';
+@@ -427,6 +427,33 @@ const NAV_ITEMS = [
+   { id: 'settings',  label: 'Settings',  icon: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>', goTab: 'settings' },
+ ];
+ 
++// gdx-9: when the single-scroll flag is on, the separate stats/skills/
++// powers/misc destinations collapse into one "Sheet" entry pointing at the
++// existing goTab('sheets') destination — satisfies "no duplicate nav
++// layers" (there is exactly one way to reach those four sections: the new
++// jump-nav chips inside the single scroll, not a second tab-switcher).
++// Flag off: returns NAV_ITEMS itself, unchanged.
++const GDX9_CONSOLIDATED_IDS = new Set(['stats', 'skills', 'powers', 'misc']);
++
++function _gdx9NavItems() {
++  if (!singleScrollEnabled()) return NAV_ITEMS;
++  const sheetItem = {
++    id: 'sheet', label: 'Sheet',
++    icon: NAV_ITEMS.find(i => i.id === 'stats').icon,
++    goTab: 'sheets',
++  };
++  const out = [];
++  let inserted = false;
++  for (const item of NAV_ITEMS) {
++    if (GDX9_CONSOLIDATED_IDS.has(item.id)) {
++      if (!inserted) { out.push(sheetItem); inserted = true; }
++      continue;
++    }
++    out.push(item);
++  }
++  return out;
++}
++
+ function renderBottomNav() {
+   const el = document.getElementById('bnav');
+   if (!el) return;
+@@ -435,7 +462,7 @@ function renderBottomNav() {
+   const isCoord = role === 'st' || role === 'dev' || role === 'coordinator';
+ 
+   let h = '';
+-  for (const item of NAV_ITEMS) {
++  for (const item of _gdx9NavItems()) {
+     if (item.stOnly && !isST) continue;
+     if (item.coordinatorOnly && !isCoord) continue;
+     if (item.condition && !_moreGridCondition(item)) continue;
+@@ -460,7 +487,15 @@ function renderBottomNav() {
+   const active = document.querySelector('.tab.active');
+   if (active) {
+     const tabId = active.id.replace('t-', '');
+-    const navId = 'n-' + (NAV_ALIAS[tabId] || tabId);
++    // gdx-9: this bottom nav is phone-only — desktop's own sidebar
++    // (renderDesktopSidebar) highlights independently via the SAME shared
++    // NAV_ALIAS object, which must stay untouched for AC4 (desktop
++    // unchanged). So the 'sheets' -> 'n-sheet' remap is local to this
++    // function, gated on both the flag and !desktop-mode.
++    const isDesktopNow = document.body.classList.contains('desktop-mode');
++    const navId = (!isDesktopNow && singleScrollEnabled() && tabId === 'sheets')
++      ? 'n-sheet'
++      : 'n-' + (NAV_ALIAS[tabId] || tabId);
+     const navEl = document.getElementById(navId);
+     if (navEl) navEl.classList.add('on');
+   }
+@@ -1782,11 +1817,14 @@ async function boot() {
+           }
+         }
+         // Desktop: STs → character grid, players → sheet.
+-        // Phone: players → stats (split tab), STs → dice (works without a character).
++        // Phone: players → stats (split tab) or, gdx-9 flag on, the same
++        // 'sheets' destination desktop already uses (single-scroll mode).
++        // STs → dice (works without a character).
+         const hasChar = !!suiteState.sheetChar;
++        const gdx9SingleScroll = !isDesktop && singleScrollEnabled();
+         goTab(isDesktop
+           ? (!isST && hasChar ? 'sheets' : 'chars')
+-          : (hasChar ? 'stats' : 'roll'));
++          : (hasChar ? (gdx9SingleScroll ? 'sheets' : 'stats') : 'roll'));
+ 
+         // Atomic reveal — first paint already committed, body class already set.
+         loginScreen.style.display = 'none';
+diff --git a/public/js/data/helpers.js b/public/js/data/helpers.js
+index 0fdc0dd1..b55cfc0e 100644
+--- a/public/js/data/helpers.js
++++ b/public/js/data/helpers.js
+@@ -38,6 +38,19 @@ export function redactPlayer(s) {
+   return isRedactMode() ? _blockOut(s, 6, 12) : s;
+ }
+ 
++/* ── gdx-9: single-scroll phone sheet rollout flag ─────────────────────────
++   No live feature-flag precedent existed in this codebase when this was
++   added — tm-use-new-dice-roller (the one prior example) was retired
++   outright in rlv.2, its code deleted rather than soaked. Per-device
++   localStorage flag, defaulting off until a deployed phone smoke-test
++   confirms the interaction (Angelus cannot test locally). Flip the default
++   in a fast-follow commit once verified live. */
++const SINGLE_SCROLL_FLAG_KEY = 'tm_gdx9_single_scroll';
++
++export function singleScrollEnabled() {
++  return localStorage.getItem(SINGLE_SCROLL_FLAG_KEY) === '1';
++}
++
+ /** Wrap a raw character-name string for display (use when you need to show
+  *  a name that didn't come through displayName(c) — e.g. legacy lookups). */
+ export function redactCharName(s) {
+diff --git a/public/js/suite/sheet.js b/public/js/suite/sheet.js
+index 2645b518..a023c97b 100644
+--- a/public/js/suite/sheet.js
++++ b/public/js/suite/sheet.js
+@@ -3,7 +3,7 @@
+ // ══════════════════════════════════════════════
+ 
+ import state from './data.js';
+-import { displayName, getWillpower, redactPlayer, shDotsWithBonus, formatSpecs, hasAoE } from '../data/helpers.js';
++import { displayName, getWillpower, redactPlayer, shDotsWithBonus, formatSpecs, hasAoE, singleScrollEnabled } from '../data/helpers.js';
+ // rlv.7 review fix: onSheetChar() below reassigns state.rollChar without a
+ // loadPool() following — resetRollPool() clears the previous character's
+ // stale POOL_NAME/powerChips/MOD so a leftover chip badge can't persist
+@@ -136,6 +136,7 @@ export function repaintSheetTrackers() {
+       : '';
+     healthNum.innerHTML = `${maxH - dmgTotal}/${maxH}${legend}`;
+   }
++  _gdx9SyncPinnedTrack('health', maxH - (agg + leth + bash), maxH);
+ 
+   // Vitae, WP, Influence — simple filled/empty
+   const simple = {
+@@ -158,9 +159,25 @@ export function repaintSheetTrackers() {
+       numEl.textContent = cur + '/' + max;
+       if (infoBtn) numEl.appendChild(infoBtn);
+     }
++    // gdx-9: Influence has no pinned-strip chip (strip is Vitae/WP/Health only,
++    // per the locked design) — only sync the two types that have one.
++    if (type === 'vitae' || type === 'wp') _gdx9SyncPinnedTrack(type, cur, max);
+   }
+ }
+ 
++// ── gdx-9: pinned track-strip live sync (AC7) ──
++// Keeps the compact strip's mini-bars in step with repaintSheetTrackers'
++// own tap-box updates above. No-ops harmlessly when the strip isn't in the
++// DOM (single-scroll mode off, or on desktop).
++function _gdx9SyncPinnedTrack(type, cur, max) {
++  const fillEl = document.getElementById('gdx9-tf-' + type);
++  const numEl  = document.getElementById('gdx9-tn-' + type);
++  if (!fillEl && !numEl) return;
++  const pct = max > 0 ? Math.max(0, Math.min(100, Math.round((cur / max) * 100))) : 0;
++  if (fillEl) fillEl.style.width = pct + '%';
++  if (numEl) numEl.textContent = cur + '/' + max;
++}
++
+ // ── Sheet character selection ──
+ 
+ export function onSheetChar(name) {
+@@ -750,20 +767,39 @@ export function renderSheet() {
+   // Desktop mode: render to the full-sheet container so the Sheet tab works.
+   // Mobile mode: render to split-tab containers only, clear the full sheet
+   // to avoid duplicate IDs that break toggleExp/toggleDisc.
++  // gdx-9: a third mode — phone + the single-scroll flag on — also renders
++  // into the full-sheet container (reusing desktop's own concatenation
++  // path, `#t-sheets`/`#sh-content-suite`, already unused on phone today)
++  // instead of the four split containers, with a new pinned track-strip +
++  // jump-nav block prepended. Flag off: byte-for-byte the original two-mode
++  // behaviour below.
+   const isDesktop = document.body.classList.contains('desktop-mode');
+-  if (el && isDesktop) {
+-    el.innerHTML = infoHtml + statsHtml + skillsHtml + '<div class="sh-powers-grid">' + powersHtml + '</div>';
++  const useSingleScroll = !isDesktop && singleScrollEnabled();
++  if (el && (isDesktop || useSingleScroll)) {
++    el.innerHTML = useSingleScroll
++      ? _gdx9PinnedBlockHtml(c)
++        + `<section id="gdx9-sec-info" class="gdx9-section">${infoHtml}</section>`
++        + `<section id="gdx9-sec-stats" class="gdx9-section">${statsHtml}</section>`
++        + `<section id="gdx9-sec-skills" class="gdx9-section">${skillsHtml}</section>`
++        + `<section id="gdx9-sec-powers" class="gdx9-section"><div class="sh-powers-grid">${powersHtml}</div></section>`
++      : infoHtml + statsHtml + skillsHtml + '<div class="sh-powers-grid">' + powersHtml + '</div>';
+   } else if (el) {
+     el.innerHTML = '';
+   }
+-  // Always populate split tabs (used on mobile; invisible on desktop)
+-  if (statsEl)  statsEl.innerHTML  = isDesktop ? '' : statsHtml;
+-  if (skillsEl) skillsEl.innerHTML = isDesktop ? '' : skillsHtml;
+-  if (powersEl) powersEl.innerHTML = isDesktop ? '' : powersHtml;
+-  if (infoEl)   infoEl.innerHTML   = isDesktop ? '' : infoHtml;
++  // Always populate split tabs (used on the original 4-tab phone UX; empty
++  // on desktop and in single-scroll mode, both of which render into `el`).
++  const usesFullSheet = isDesktop || useSingleScroll;
++  if (statsEl)  statsEl.innerHTML  = usesFullSheet ? '' : statsHtml;
++  if (skillsEl) skillsEl.innerHTML = usesFullSheet ? '' : skillsHtml;
++  if (powersEl) powersEl.innerHTML = usesFullSheet ? '' : powersHtml;
++  if (infoEl)   infoEl.innerHTML   = usesFullSheet ? '' : infoHtml;
+ 
+-  // Wire attribute+skills carousel indicators
+-  _wireAttrCarousel(skillsEl || el);
++  // Wire attribute+skills carousel indicators — target wherever the content
++  // actually landed (skillsEl is left empty, not null, when usesFullSheet).
++  _wireAttrCarousel(usesFullSheet ? el : skillsEl);
++
++  // gdx-9: pinned strip + jump-nav interactivity, phone single-scroll only.
++  if (useSingleScroll) _wireGdx9Pinned(el);
+ 
+   // oxp.7: un-awaited, same as status.js's own appendOfficeActionsLog call —
+   // must run AFTER the innerHTML writes above, since it finds its own
+@@ -771,6 +807,110 @@ export function renderSheet() {
+   patchOfficeMerits(c);
+ }
+ 
++// ── gdx-9: pinned track strip + jump-nav (single-scroll phone sheet) ──
++
++/** Compact Vitae/WP/Health strip HTML, seeded from live tracker state at
++ *  render time. Kept in sync after tap-box writes by
++ *  _gdx9SyncPinnedTrack (called from repaintSheetTrackers above). */
++function _gdx9PinnedBlockHtml(c) {
++  const maxH  = calcHealth(c);
++  const maxV  = calcVitaeMax(c);
++  const maxWP = calcWillpowerMax(c);
++  const cs = trackerRead(String(c._id)) || {};
++  const health = Math.max(0, maxH - (cs.bashing ?? 0) - (cs.lethal ?? 0) - (cs.aggravated ?? 0));
++  const vitae  = Math.max(0, Math.min(cs.vitae ?? maxV, maxV));
++  const wp     = Math.max(0, Math.min(cs.willpower ?? maxWP, maxWP));
++  const pct = (cur, max) => (max > 0 ? Math.max(0, Math.min(100, Math.round((cur / max) * 100))) : 0);
++  const chip = (type, label, cur, max, cls) => `<div class="gdx9-track-chip">
++    <div class="gdx9-track-head"><span class="gdx9-track-lbl">${label}</span><span class="gdx9-track-num" id="gdx9-tn-${type}">${cur}/${max}</span></div>
++    <div class="gdx9-track-bar"><div class="gdx9-track-fill ${cls}" id="gdx9-tf-${type}" style="width:${pct(cur, max)}%"></div></div>
++  </div>`;
++  return `<div class="gdx9-pinned" id="gdx9-pinned">
++    <div class="gdx9-track-strip" id="gdx9-track-strip" role="button" tabindex="0" aria-label="Jump to full tracker">
++      ${chip('vitae', 'Vitae', vitae, maxV, 'vitae')}
++      ${chip('wp', 'WP', wp, maxWP, 'wp')}
++      ${chip('health', 'Health', health, maxH, 'health')}
++      <span class="gdx9-track-arrow">&rsaquo;</span>
++    </div>
++    <nav class="gdx9-jump-nav" aria-label="Sheet sections">
++      <button type="button" class="gdx9-jump-chip active" data-target="gdx9-sec-info">Info</button>
++      <button type="button" class="gdx9-jump-chip" data-target="gdx9-sec-stats">Stats</button>
++      <button type="button" class="gdx9-jump-chip" data-target="gdx9-sec-skills">Skills</button>
++      <button type="button" class="gdx9-jump-chip" data-target="gdx9-sec-powers">Powers</button>
++    </nav>
++  </div>`;
++}
++
++/** Wires jump-chip scroll, active-chip sync, and the track-strip's own
++ *  tap-through to Stats. Mirrors _wireAttrCarousel's own scroll-sync shape.
++ *  container is `el` (#sh-content-suite); the actual scroll box is its
++ *  ancestor `.tab` (#t-sheets, `.tab{overflow-y:auto}` in suite.css). */
++function _wireGdx9Pinned(container) {
++  if (!container) return;
++  const pinned = container.querySelector('#gdx9-pinned');
++  if (!pinned) return;
++  const scrollHost = pinned.closest('.tab') || container;
++  const chips = Array.from(pinned.querySelectorAll('.gdx9-jump-chip'));
++  const sections = chips.map(chip => container.querySelector('#' + chip.dataset.target));
++
++  function applyScrollMargins() {
++    const px = pinned.offsetHeight + 'px';
++    sections.forEach(s => { if (s) s.style.scrollMarginTop = px; });
++  }
++  applyScrollMargins();
++
++  function jumpTo(targetId) {
++    container.querySelector('#' + targetId)?.scrollIntoView({ block: 'start' });
++  }
++
++  chips.forEach(chip => {
++    chip.addEventListener('click', () => jumpTo(chip.dataset.target));
++  });
++
++  const trackStrip = pinned.querySelector('#gdx9-track-strip');
++  if (trackStrip) {
++    trackStrip.addEventListener('click', () => jumpTo('gdx9-sec-stats'));
++    trackStrip.addEventListener('keydown', (e) => {
++      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); jumpTo('gdx9-sec-stats'); }
++    });
++  }
++
++  // Active-chip sync: which section's top has scrolled up to (or past) the
++  // pinned block's bottom edge, picking the LAST one that qualifies. Uses
++  // direct scroll-position math rather than IntersectionObserver — a
++  // short final section (e.g. Powers with no disciplines/merits yet) can
++  // never be scrolled far enough for its own bounding box to enter a
++  // narrow top-of-viewport intersection band, which left the observer
++  // approach unable to ever mark it active.
++  //
++  // That "too short to reach the line" problem isn't fully solved by
++  // switching to distance math alone, though: once scrollTop hits its own
++  // maximum (nothing left to scroll), a short trailing section's offsetTop
++  // can permanently sit past the activation line with no way to close the
++  // gap — the classic scrollspy last-section edge case. Fixed the standard
++  // way: at max scroll, the last section wins regardless of the line math.
++  if (sections.length) {
++    const validSections = sections.map((s, i) => ({ s, i })).filter(x => x.s);
++    const lastIdx = validSections[validSections.length - 1].i;
++    function updateActiveChip() {
++      const maxScroll = scrollHost.scrollHeight - scrollHost.clientHeight;
++      let activeIdx;
++      if (scrollHost.scrollTop >= maxScroll - 1) {
++        activeIdx = lastIdx;
++      } else {
++        const line = scrollHost.scrollTop + pinned.offsetHeight;
++        activeIdx = validSections[0].i;
++        for (const { s, i } of validSections) {
++          if (s.offsetTop <= line + 1) activeIdx = i;
++        }
++      }
++      chips.forEach((c, i) => c.classList.toggle('active', i === activeIdx));
++    }
++    scrollHost.addEventListener('scroll', updateActiveChip, { passive: true });
++    updateActiveChip();
++  }
++}
++
+ function _wireAttrCarousel(container) {
+   if (!container) return;
+   const carousel = container.querySelector('#attr-carousel');
+diff --git a/tests/gdx-9-single-scroll-sheet.spec.js b/tests/gdx-9-single-scroll-sheet.spec.js
+new file mode 100644
+index 00000000..8707aab3
+--- /dev/null
++++ b/tests/gdx-9-single-scroll-sheet.spec.js
+@@ -0,0 +1,203 @@
++// E2E coverage for gdx-9 — the single-scroll phone sheet with a pinned
++// track strip + jump-nav chips, gated behind the tm_gdx9_single_scroll
++// localStorage flag (see public/js/data/helpers.js's singleScrollEnabled()).
++//
++// Character injection: this app registers a Service Worker (public/sw.js)
++// that can intercept /api/characters ahead of Playwright's page.route()
++// stubs — see [[project-sw-leaks-live-data-in-playwright-tests]] and
++// tests/rlv-4-custom-pool-builder.spec.js's own header comment for the
++// full diagnosis. This suite sidesteps it entirely: /api/characters is
++// stubbed to return an empty array (so boot never auto-selects a real
++// character), and the fixture character is injected directly into
++// suite/data.js's state, then rendered via the real exposed
++// window.onSheetChar(name) — the same function the app's own character
++// list uses, just skipping the network fetch the SW would otherwise hijack.
++
++const { test, expect } = require('@playwright/test');
++test.use({ serviceWorkers: 'block' });
++
++// Playwright's default viewport (1280x720) exceeds this app's own
++// DESKTOP_MQ breakpoint (min-width: 900px, app.js), so without an explicit
++// override every test would boot into desktop-mode regardless of intent —
++// desktop-mode is what this suite's own dedicated describe block wants,
++// but the "phone" describe blocks below need a real phone-width viewport
++// to exercise the single-scroll behaviour at all.
++const PHONE_VIEWPORT = { width: 390, height: 844 };
++
++const PLAYER_USER = {
++  id: '900000009', username: 'test_player_gdx9', global_name: 'Test Player gdx9',
++  avatar: null, role: 'player', player_id: 'p-gdx9', character_ids: ['char-gdx9'], is_dual_role: false,
++};
++
++function attrs(overrides = {}) {
++  return {
++    Intelligence: { dots: 3, bonus: 0 }, Wits: { dots: 2, bonus: 0 }, Resolve: { dots: 2, bonus: 0 },
++    Strength: { dots: 2, bonus: 0 }, Dexterity: { dots: 2, bonus: 0 }, Stamina: { dots: 2, bonus: 0 },
++    Presence: { dots: 2, bonus: 0 }, Manipulation: { dots: 2, bonus: 0 }, Composure: { dots: 2, bonus: 0 },
++    ...overrides,
++  };
++}
++
++const CHAR = {
++  _id: 'char-gdx9', name: 'Gdx9 Tester', moniker: null, honorific: null,
++  clan: 'Mekhet', covenant: 'Invictus', player: 'Test Player',
++  blood_potency: 1, humanity: 7, humanity_base: 7, court_title: null, retired: false,
++  status: { city: 1, clan: 1, covenant: {} },
++  attributes: attrs(),
++  skills: { Occult: { dots: 3, bonus: 0, specs: [], nine_again: false } },
++  disciplines: { Auspex: { dots: 2 } },
++  merits: [], powers: [], ordeals: [], banes: [],
++};
++
++async function setupSuite(page, { singleScroll }) {
++  await page.addInitScript((opts) => {
++    localStorage.setItem('tm_auth_token', 'local-test-token');
++    localStorage.setItem('tm_auth_expires', String(Date.now() + 3600000));
++    localStorage.setItem('tm_auth_user', JSON.stringify(opts.user));
++    if (opts.singleScroll) localStorage.setItem('tm_gdx9_single_scroll', '1');
++  }, { user: PLAYER_USER, singleScroll });
++
++  await page.route('**/api/**', r => r.fulfill({ status: 200, contentType: 'application/json', body: '[]' }));
++  // Boot never auto-selects a real character (empty roster) — this test
++  // injects its own fixture directly instead, below.
++  await page.route(/\/api\/characters$/, r => r.fulfill({ status: 200, contentType: 'application/json', body: '[]' }));
++
++  await page.goto('/');
++  await page.waitForSelector('#app', { state: 'visible', timeout: 15000 });
++}
++
++// Injects CHAR via the real exposed window.onSheetChar(name) rather than
++// depending on /api/characters — see file header comment. `landingTab`
++// defaults to 'sheets' (single-scroll mode's destination); the flag-OFF
++// test passes 'stats' instead, since 'sheets' renders nothing on phone
++// when the flag is off (that's the whole point of AC5).
++async function openSheetFixture(page, char = CHAR, landingTab = 'sheets') {
++  await page.evaluate(async ({ c, tab }) => {
++    const m = await import('/js/suite/data.js');
++    m.default.chars = [c];
++    window.onSheetChar(c.name);
++    window.goTab(tab);
++  }, { c: char, tab: landingTab });
++  await page.waitForSelector(`#t-${landingTab}.active`, { state: 'visible', timeout: 5000 });
++}
++
++// ── Flag ON, phone viewport ──────────────────────────────────────────────
++
++test.describe('gdx-9 — single-scroll flag ON (phone)', () => {
++  test.use({ viewport: PHONE_VIEWPORT });
++
++  test('nav consolidates to one Sheet button', async ({ page }) => {
++    await setupSuite(page, { singleScroll: true });
++    await expect(page.locator('#n-sheet')).toBeVisible();
++    await expect(page.locator('#n-stats')).toHaveCount(0);
++    await expect(page.locator('#n-skills')).toHaveCount(0);
++    await expect(page.locator('#n-powers')).toHaveCount(0);
++    await expect(page.locator('#n-misc')).toHaveCount(0);
++  });
++
++  test('pinned track strip + jump-nav render with real tracker data', async ({ page }) => {
++    await setupSuite(page, { singleScroll: true });
++    await openSheetFixture(page);
++
++    await expect(page.locator('#gdx9-pinned')).toBeVisible();
++    const chips = page.locator('.gdx9-jump-chip');
++    await expect(chips).toHaveCount(4);
++    await expect(chips.nth(0)).toHaveText('Info');
++    await expect(chips.nth(1)).toHaveText('Stats');
++    await expect(chips.nth(2)).toHaveText('Skills');
++    await expect(chips.nth(3)).toHaveText('Powers');
++    // Info starts active (top of the scroll on open).
++    await expect(chips.nth(0)).toHaveClass(/active/);
++
++    // Real tracker-derived numbers, not placeholders — full health/vitae/wp
++    // at a fresh character with no tracker_state writes yet.
++    await expect(page.locator('#gdx9-tn-health')).toHaveText(/\d+\/\d+/);
++    await expect(page.locator('#gdx9-tn-vitae')).toHaveText(/\d+\/\d+/);
++    await expect(page.locator('#gdx9-tn-wp')).toHaveText(/\d+\/\d+/);
++
++    // The four sections are all present in one scroll, in order.
++    const ids = await page.locator('.gdx9-section').evaluateAll(els => els.map(e => e.id));
++    expect(ids).toEqual(['gdx9-sec-info', 'gdx9-sec-stats', 'gdx9-sec-skills', 'gdx9-sec-powers']);
++
++    // The real tracker (tap-boxes) lives inside Stats, not duplicated elsewhere.
++    await expect(page.locator('#gdx9-sec-stats .sh-tracker-block')).toBeVisible();
++    await expect(page.locator('#gdx9-sec-info .sh-tracker-block')).toHaveCount(0);
++  });
++
++  test('clicking a jump chip scrolls to its section and updates the active chip', async ({ page }) => {
++    await setupSuite(page, { singleScroll: true });
++    await openSheetFixture(page);
++
++    await page.locator('.gdx9-jump-chip', { hasText: 'Powers' }).click();
++    // Powers is the last section and, with this fixture's minimal data
++    // (one collapsed discipline, no merits), shorter than the viewport —
++    // the scroll-position sync must still resolve it active even though
++    // its own top can never reach the activation line (max-scroll case).
++    await expect(page.locator('.gdx9-jump-chip', { hasText: 'Powers' })).toHaveClass(/active/);
++
++    const inView = await page.locator('#gdx9-sec-powers').evaluate((el) => {
++      const r = el.getBoundingClientRect();
++      return r.top >= 0 && r.top < window.innerHeight;
++    });
++    expect(inView).toBe(true);
++  });
++
++  test('tapping the track strip scrolls to Stats — the section with the real tracker', async ({ page }) => {
++    await setupSuite(page, { singleScroll: true });
++    await openSheetFixture(page);
++
++    await page.locator('#gdx9-track-strip').click();
++    await expect(page.locator('.gdx9-jump-chip', { hasText: 'Stats' })).toHaveClass(/active/);
++
++    const inView = await page.locator('#gdx9-sec-stats').evaluate((el) => {
++      const r = el.getBoundingClientRect();
++      return r.top >= 0 && r.top < window.innerHeight;
++    });
++    expect(inView).toBe(true);
++  });
++});
++
++// ── Flag OFF — must be byte-for-byte the original four-tab behaviour ────
++
++test.describe('gdx-9 — single-scroll flag OFF (default)', () => {
++  test.use({ viewport: PHONE_VIEWPORT });
++
++  test('original four separate nav buttons still exist; no pinned block anywhere', async ({ page }) => {
++    await setupSuite(page, { singleScroll: false });
++    await expect(page.locator('#n-stats')).toBeVisible();
++    await expect(page.locator('#n-skills')).toBeVisible();
++    await expect(page.locator('#n-powers')).toBeVisible();
++    await expect(page.locator('#n-misc')).toBeVisible();
++    await expect(page.locator('#n-sheet')).toHaveCount(0);
++
++    await openSheetFixture(page, CHAR, 'stats');
++    await expect(page.locator('#gdx9-pinned')).toHaveCount(0);
++    // Content goes into the original split containers, not #sh-content-suite.
++    await expect(page.locator('#stats-content .sh-stats-strip')).toBeVisible();
++  });
++});
++
++// ── Desktop mode — must be completely unaffected even with the flag on ──
++
++test.describe('gdx-9 — desktop mode unaffected (AC4)', () => {
++  // No viewport override — Playwright's default (1280x720) already exceeds
++  // this app's own 900px desktop breakpoint, so it boots into desktop-mode
++  // on its own. That's deliberately relied on here rather than driving the
++  // real toggle button, which is ST-only chrome (app.js's own
++  // _applyDesktopMode: "Header controls ... are ST-only") and this test
++  // uses PLAYER_USER, matching every other test in this file.
++  test('flag ON has no effect in desktop mode', async ({ page }) => {
++    await setupSuite(page, { singleScroll: true });
++    await expect.poll(() => page.evaluate(() => document.body.classList.contains('desktop-mode')))
++      .toBe(true);
++    await expect(page.locator('#bnav')).toBeHidden();
++
++    await openSheetFixture(page);
++    // Desktop's own concatenation still runs (content present), but with no
++    // pinned block and no gdx9-section wrappers — byte-for-byte the original
++    // desktop shape.
++    await expect(page.locator('#sh-content-suite .sh-stats-strip')).toBeVisible();
++    await expect(page.locator('#gdx9-pinned')).toHaveCount(0);
++    await expect(page.locator('.gdx9-section')).toHaveCount(0);
++  });
++});

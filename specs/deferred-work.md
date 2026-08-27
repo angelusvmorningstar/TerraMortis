@@ -1,5 +1,28 @@
 # Deferred Work
 
+## Deferred from: gdx-9-single-scroll-sheet code review (2026-08-27)
+
+Internal 3-layer review (Blind Hunter/Edge Case Hunter/Acceptance Auditor) surfaced two real edge
+cases, both judged real-but-narrow enough not to block this story — deferred rather than patched:
+
+- **Live viewport resize/rotation crossing the 900px desktop breakpoint while a single-scroll sheet
+  is already open leaves stale phone-only markup behind.** `_applyDesktopMode` (`app.js`'s
+  `DESKTOP_MQ` change listener) toggles `desktop-mode` and re-renders the bottom nav, but never calls
+  `renderSheet()`/`suiteRenderSheet()` — so `#sh-content-suite` keeps its single-scroll markup (the
+  sticky `.gdx9-pinned` bar, jump-nav chips, `.gdx9-section` wrappers) even after the app switches
+  into desktop mode, until the user re-selects a character and forces a fresh render. Narrow in
+  practice: requires an actual live resize/rotation crossing exactly that threshold with a character
+  sheet already open in single-scroll mode (tablet/foldable rotation, or a manually resized desktop
+  browser window) — and the feature itself defaults off, so it can't manifest at all until the flag
+  is enabled. Self-heals on the next character selection. Found by Edge Case Hunter
+  (`gdx-9-single-scroll-sheet.md`'s own code review).
+- **`boot()`'s `isDesktop` local (`app.js`) can go stale across the `await ensureTrackerLoaded(...)`
+  a few lines later** if a resize crosses the 900px breakpoint during that await — a pre-existing
+  hazard (the plain `isDesktop` ternary already had this race before gdx-9) that gdx-9 extends by
+  adding one more dependent local (`gdx9SingleScroll`) and a new phone-branch destination reading off
+  the same stale capture, rather than introducing a new race class. Pre-existing, not gdx-9's to fix
+  solo; worth a dedicated small story if `boot()`'s resize-during-await ordering is ever tightened.
+
 ## Deferred from: dev->main reconciliation (2026-08-25)
 
 Full reconciliation of `dev`'s 30 stranded commits (gdx-1/2/3/4/11/12, xpl-1, dtlt-10, devotion

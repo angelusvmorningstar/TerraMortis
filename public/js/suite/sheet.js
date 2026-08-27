@@ -889,13 +889,18 @@ function _wireGdx9Pinned(container) {
   // can permanently sit past the activation line with no way to close the
   // gap — the classic scrollspy last-section edge case. Fixed the standard
   // way: at max scroll, the last section wins regardless of the line math.
-  if (sections.length) {
-    const validSections = sections.map((s, i) => ({ s, i })).filter(x => x.s);
+  const validSections = sections.map((s, i) => ({ s, i })).filter(x => x.s);
+  if (validSections.length) {
     const lastIdx = validSections[validSections.length - 1].i;
     function updateActiveChip() {
       const maxScroll = scrollHost.scrollHeight - scrollHost.clientHeight;
       let activeIdx;
-      if (scrollHost.scrollTop >= maxScroll - 1) {
+      // maxScroll > 0 guards a character short enough that the whole sheet
+      // fits without scrolling at all (scrollHeight === clientHeight): the
+      // max-scroll branch below would otherwise read scrollTop(0) >= 0-1 as
+      // true and wrongly snap straight to the last section, overriding the
+      // correct "Info" default before the user has scrolled anywhere.
+      if (maxScroll > 0 && scrollHost.scrollTop >= maxScroll - 1) {
         activeIdx = lastIdx;
       } else {
         const line = scrollHost.scrollTop + pinned.offsetHeight;
@@ -906,6 +911,15 @@ function _wireGdx9Pinned(container) {
       }
       chips.forEach((c, i) => c.classList.toggle('active', i === activeIdx));
     }
+    // Code-review finding (all 3 internal layers, independently): #t-sheets
+    // is a static element never recreated between renders, so a 'scroll'
+    // listener attached here on every renderSheet() call (e.g. every
+    // character switch) accumulated without bound — remove any listener
+    // this same scrollHost was given by a previous wiring pass first.
+    if (scrollHost._gdx9ScrollHandler) {
+      scrollHost.removeEventListener('scroll', scrollHost._gdx9ScrollHandler);
+    }
+    scrollHost._gdx9ScrollHandler = updateActiveChip;
     scrollHost.addEventListener('scroll', updateActiveChip, { passive: true });
     updateActiveChip();
   }

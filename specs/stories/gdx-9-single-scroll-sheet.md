@@ -1,6 +1,6 @@
 # Story gdx.9: single-scroll phone sheet with sticky jump-nav + pinned track strip
 
-Status: review
+Status: done
 
 ## Story
 
@@ -373,13 +373,24 @@ Claude Sonnet 5 (`claude-sonnet-5`)
   (`desktop-and-css.spec.js`'s gdx-2 AC1/AC2 CSS-audit tests) forbidding exactly this. Fixed to
   `var(--fs-floor-body)`, matching the identical existing pattern for every other small arrow-glyph in
   this codebase (`.disc-tap-arr`/`.exp-arr`/`.rules-expander-arr`).
-- **Task 0 finding**: the real character-switch/re-render entry point for AC6 is `openChar()`
-  (`app.js:310-361`), not `onSheetChar` as this story's own Dev Notes originally guessed — it already
-  calls `suiteRenderSheet()` unconditionally on every device, so AC6 needed no separate wiring.
+- **Task 0 finding, corrected during code review**: `openChar()` (`app.js:310-361`) does call
+  `suiteRenderSheet()` unconditionally on every device, satisfying AC6 — but the Acceptance Auditor
+  caught that my original framing ("the real entry point is `openChar()`, not `onSheetChar` as the
+  Dev Notes guessed") overstated it. `onSheetChar()` (`sheet.js`) **already** called `renderSheet()`
+  unconditionally too, even before this diff, and is in fact the path this story's own e2e suite uses
+  (the same function the real character-list UI calls). AC6 is satisfied by both paths, for the same
+  underlying reason — singling out `openChar()` while implying `onSheetChar` needed fixing was
+  inaccurate. Corrected here rather than left standing.
 - **Task 1 finding**: `_wireAttrCarousel(skillsEl || el)`'s existing fallback to `el` was dead code
-  pre-story (desktop's own CSS already disables/degrids the carousel there, so nothing needed wiring on
-  desktop either way) — but in single-scroll mode the carousel IS live there, so the same dead fallback
-  would have silently left it unwired. Fixed by targeting wherever content actually landed.
+  pre-story (desktop's own CSS already disables/degrids the carousel there — confirmed directly by the
+  Acceptance Auditor: `body.desktop-mode .attr-carousel-badges{display:none}`, `suite.css:316`, and the
+  carousel itself degrids to a static, non-scrolling grid, `suite.css:314-315`). **Correction from code
+  review**: describing this only as "dead code removed" understates the change — the fix also moves
+  desktop's own wiring target from `skillsEl` to `el`, so `_wireAttrCarousel` now genuinely runs (and
+  attaches real scroll/click listeners) on desktop too, not just in single-scroll mode. Practically
+  inert there (nothing the CSS shows is interactive), but it is a real behavioural change on desktop's
+  JS, not pure dead-code cleanup, and single-scroll mode needed it live regardless (the carousel IS
+  interactive there).
 
 ### File List
 
@@ -387,9 +398,132 @@ Claude Sonnet 5 (`claude-sonnet-5`)
 - `public/js/suite/sheet.js` — widened the desktop concatenation branch to also cover phone + flag-on;
   added `_gdx9PinnedBlockHtml()`, `_wireGdx9Pinned()`; extended `repaintSheetTrackers()` with
   `_gdx9SyncPinnedTrack()`; fixed the `_wireAttrCarousel` target-selection bug found along the way.
+  Code review: fixed a scroll-listener accumulation leak (track/remove the previous handler on
+  `scrollHost` before attaching a new one) and a max-scroll misfire for sparse characters whose sheet
+  fits without scrolling (`maxScroll > 0` guard) — see Senior Developer Review below.
 - `public/js/app.js` — added `_gdx9NavItems()`, wired into `renderBottomNav()`; added the phone-only
   `'sheets'` active-tab highlight special case; updated the initial-load `goTab(...)` call.
 - `public/css/suite.css` — new `.gdx9-*` rules for the pinned track strip + jump-nav.
-- `tests/gdx-9-single-scroll-sheet.spec.js` — new, 6 e2e tests.
+- `tests/gdx-9-single-scroll-sheet.spec.js` — 8 e2e tests (6 original + 2 added during code review:
+  the sparse-character max-scroll case, and the scroll-listener-accumulation regression). Two existing
+  assertions also tightened (exact-value tracker-number checks instead of a format-only regex;
+  scroll-position checks that verify clearing the pinned bar's real height, not just `>= 0`).
+- `specs/deferred-work.md` — two narrow, real edge cases found by code review, deferred not patched
+  (see their own entries).
 - `specs/stories/gdx-9-single-scroll-sheet.md` — this file.
 - `specs/stories/sprint-status.yaml` — status updates (`ready-for-dev` → `in-progress`, this pass).
+
+## Senior Developer Review
+
+**Mode:** Internal 3-layer (Blind Hunter / Edge Case Hunter / Acceptance Auditor, parallel Opus
+subagents in-session). An external Codex pass was attempted first and hit a usage-limit quota
+mid-run (zero real analysis produced, `try again at 2:12 PM`) — fell back to internal per the user's
+own choice rather than wait. All findings below came from **outside this session's own authorship**
+(none from the agent that wrote the code, satisfying the independence the loop's own review-mode
+default recommends when the author and reviewer would otherwise be the same session).
+
+**Process note, disclosed rather than concealed**: the Acceptance Auditor subagent accidentally
+deleted two pre-existing, untracked scratch files from the aborted external-Codex attempt
+(`specs/stories/code-review/gdx-9-single-scroll-sheet-codex-review.md` and `...-codex-run.log`) via
+an unrequested `rm -f`. Neither was ever git-tracked, so neither is recoverable via git. Low impact —
+the prompt file's full content survives in this session's own conversation and could be
+reconstructed if wanted; the run log only ever contained the two usage-limit error lines, already
+captured in memory (`feedback-review-mode.md`). No other files were touched by any layer.
+
+### Findings
+
+**Patched (2, cross-validated by multiple layers or independently re-derived and confirmed real):**
+
+1. **Scroll-listener accumulation on `#t-sheets`** [Blind Hunter: High; Edge Case Hunter: Low;
+   Acceptance Auditor: Medium — all three independently traced the identical mechanism, disagreeing
+   only on real-world severity]. `_wireGdx9Pinned`'s `scrollHost.addEventListener('scroll', ...)` was
+   never paired with a `removeEventListener`, and `#t-sheets` (the resolved `scrollHost`) is a static
+   element never recreated between renders — so every character switch (or any other re-render)
+   stacked one more listener, unboundedly, each closing over the previous render's now-detached DOM.
+   Settled severity: real and worth fixing (a long ST session switching between many characters would
+   accumulate a growing pile of dead handlers), but not blocking-severe (Edge Case Hunter's read holds
+   up — detached nodes just no-op, no observable UI corruption). **Fixed**: track the handler on
+   `scrollHost._gdx9ScrollHandler`, remove it before attaching a new one. **Prove-discriminated**: a
+   new test instruments `addEventListener`/`removeEventListener` globally, counts net `'scroll'`
+   listeners on `#t-sheets` across 3 renders, asserts net `1`. Reverting the fix reproduces `4`
+   (matches the leak mechanism exactly); restoring it returns to `1`, confirmed by a clean full-suite
+   run afterward.
+2. **`updateActiveChip`'s max-scroll branch misfires when there's nothing to scroll** [Blind Hunter,
+   High confidence — independently re-derived and confirmed correct by hand-tracing the arithmetic].
+   For a character sparse enough that the whole single-scroll page fits on one screen
+   (`scrollHeight === clientHeight`, so `maxScroll === 0`), the check `scrollTop >= maxScroll - 1`
+   reads as `0 >= -1`, always true — snapping straight to the last section (Powers) instead of leaving
+   Info active, even though nothing has been scrolled and Info is what's actually on screen. **Fixed**:
+   guard the branch with `maxScroll > 0`. **Prove-discriminated**: a new test with a sparse fixture
+   (`SPARSE_CHAR`) and a tall viewport (so the whole page genuinely fits) asserts Info stays active.
+   Reverting the guard fails the test with exactly the predicted symptom (Powers active, Info not);
+   restoring it passes.
+
+**Also patched, lower severity (Blind Hunter):**
+
+3. **`if (sections.length)` guarded the wrong array** — `sections.length` is always 4 (same length as
+   `chips`), so it never actually protected the real risk: `validSections[validSections.length - 1]`
+   throwing if every `#gdx9-sec-*` target were ever absent. Currently unreachable in practice (the
+   same render call that builds the pinned block also builds the matching sections), but a latent
+   landmine for a future refactor. Fixed by computing `validSections` first and gating on its own
+   length instead.
+4. **Two Playwright assertions weaker than their test names claimed** — `toHaveText(/\d+\/\d+/)` on
+   the tracker numbers passed for any two-digit-shaped string including `0/0`; the scroll-position
+   checks (`r.top >= 0`) passed even for a section landed just under the sticky pinned bar, which is
+   exactly the failure mode a stale `scroll-margin-top` would produce. Tightened both: the tracker
+   assertions now parse and check `0 <= cur <= max` with `max > 0`; the scroll-position checks now
+   require clearing the pinned block's real measured height, not just the literal viewport top.
+
+**Dismissed with evidence (2, both Blind Hunter "worth checking" items, both verified false on direct
+inspection):**
+
+5. `trackerRead(...) || {}` "what if it throws" — read `trackerRead`'s real implementation
+   (`public/js/game/tracker.js:159-163`): it only ever returns `null` or a real object, never throws.
+   The `|| {}` guard is already sufficient for every real failure mode.
+6. Pinned-strip health number vs. the tap-box tracker's own `dmgTotal` — read both formulas
+   (`sheet.js:133` and `:411`): both are `agg + leth + bash`, byte-identical. No divergence risk.
+
+**Dismissed as not currently reachable, confirmed by direct repo-wide grep (Edge Case Hunter did the
+verification; Blind Hunter raised the same concern independently without the grep):**
+
+7. `renderBottomNav`'s new `'sheets'` → `n-sheet` highlight remap doesn't cover the other `NAV_ALIAS`
+   targets that also resolve to `'stats'` (`chars`/`editor`/`edit`/`sheet`) — if any of those tabs were
+   ever active on phone with the flag on, the highlight would silently fail (target id no longer
+   exists post-consolidation). Edge Case Hunter grepped `public/js/**/*.js` for every `goTab(...)` call
+   site and found none of those four ids reachable from phone while the flag would matter — every real
+   sheet entry point on phone routes through `'sheets'` only. Latent, not live; left as-is rather than
+   defensively coded against an unreachable path.
+
+**Informational only, no action (Blind Hunter):**
+
+8. `NAV_ITEMS.find(i => i.id === 'stats').icon` would throw if the `'stats'` nav item were ever
+   renamed/removed independently of this diff — true, but the same brittle-coupling pattern already
+   exists throughout `NAV_ALIAS` and the rest of `NAV_ITEMS`-consuming code; not a new risk class this
+   diff introduced.
+
+**Deferred, not patched (2, both Edge Case Hunter — real but narrow, see `specs/deferred-work.md`
+for full detail):**
+
+9. A live viewport resize/rotation crossing the 900px desktop breakpoint while a single-scroll sheet
+   is already open leaves stale phone-only markup behind until the next character selection.
+10. `boot()`'s `isDesktop` local can go stale across an `await` mid-boot — a pre-existing hazard this
+    story extends (one more dependent local, one more destination) rather than introduces.
+
+**Documentation corrections to this story's own Completion Notes** (Acceptance Auditor, Sub-pass B —
+both are accuracy fixes to claims already in this file, not code changes): the "openChar() is the
+real AC6 entry point, not onSheetChar" framing overstated its case (`onSheetChar` already worked too,
+for the same reason); the `_wireAttrCarousel` fix was characterized as pure dead-code removal when it
+also changes desktop's real wiring target (practically inert, but a genuine behavioural change, not
+just cleanup). Both corrected in place above.
+
+**AC3's literal wording** (Acceptance Auditor, Sub-pass A) — already disclosed in this story's own
+Completion Notes before this review (the `IntersectionObserver` named in AC3 was not what shipped, for
+a real, verified reason). The Auditor's independent read reached the same conclusion this session
+already recorded: intent satisfied, named mechanism not literally used, correctly disclosed rather than
+silently substituted.
+
+**Verdict**: not blocking, needed exactly the two patches above (both applied, both prove-discriminated
+with reverts, both green afterward). Final regression: `tests/gdx-9-single-scroll-sheet.spec.js`
+8/8 pass.
+
+Status: done.
