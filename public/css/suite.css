@@ -2883,13 +2883,24 @@ body.desktop-mode.sidebar-collapsed .sb-collapse-btn { width: 100%; justify-cont
 }
 .rv2-breakdown[open] summary { color: var(--txt2); }
 
+/* Horizontal inset comes from #t-roll's own 20px padding, matching every
+   other block in this tab (Again Rule, Rote/WP, Contested Roll, results,
+   history) - deliberately NOT a left/right margin of its own. A prior
+   version used `width: calc(100% - 32px); margin: 12px 16px 16px`, meant to
+   self-inset by 16px each side - but with non-zero left/right margins
+   present, the browser resolved the width as if the "- 32px" weren't there
+   (measured: identical 845px box either way), so the 16px margins landed on
+   top of an already-full-width box and pushed the whole button 16px right
+   of every sibling below the Again Rule section. Zeroing the side margins
+   is what actually fixed it - width alone or margin alone, tried in
+   isolation, each still reproduced the misalignment. */
 .rv2-roll-btn {
   position: sticky;
   bottom: 8px;
   z-index: 10;
   display: block;
-  width: calc(100% - 32px);
-  margin: 12px 16px 16px;
+  width: 100%;
+  margin: 12px 0 16px;
   padding: 16px;
   min-height: var(--control-height-lg);
   border: none;
