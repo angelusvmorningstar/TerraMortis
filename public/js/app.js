@@ -15,7 +15,7 @@ import { ICONS } from './data/icons.js';
 import { isFeedingOpen } from './downtime/db.js';
 import { FORM_RETIRED, RETIRED_TILE_REASON } from './downtime/form-retirement.js';
 import { ORDEALS_RETIRED, RETIRED_TILE_REASON as ORDEALS_RETIRED_REASON } from './ordeals/ordeal-retirement.js';
-import { CLAN_ICON_KEY, covIcon, displayName, dropdownName, sortName, redactPlayer, discordAvatarUrl, esc } from './data/helpers.js';
+import { CLAN_ICON_KEY, covIcon, displayName, dropdownName, sortName, redactPlayer, discordAvatarUrl, esc, singleScrollEnabled } from './data/helpers.js';
 import { renderList, filterList, setListLimit } from './editor/list.js';
 import { renderSheet as editorRenderSheet, toggleExp as editorToggleExp, toggleDisc as editorToggleDisc } from './editor/sheet.js';
 import { loadDB, saveDB, saveAll, syncToSuite, downloadCSV, registerCallbacks as registerExportCallbacks } from './editor/export.js';
@@ -427,6 +427,33 @@ const NAV_ITEMS = [
   { id: 'settings',  label: 'Settings',  icon: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>', goTab: 'settings' },
 ];
 
+// gdx-9: when the single-scroll flag is on, the separate stats/skills/
+// powers/misc destinations collapse into one "Sheet" entry pointing at the
+// existing goTab('sheets') destination — satisfies "no duplicate nav
+// layers" (there is exactly one way to reach those four sections: the new
+// jump-nav chips inside the single scroll, not a second tab-switcher).
+// Flag off: returns NAV_ITEMS itself, unchanged.
+const GDX9_CONSOLIDATED_IDS = new Set(['stats', 'skills', 'powers', 'misc']);
+
+function _gdx9NavItems() {
+  if (!singleScrollEnabled()) return NAV_ITEMS;
+  const sheetItem = {
+    id: 'sheet', label: 'Sheet',
+    icon: NAV_ITEMS.find(i => i.id === 'stats').icon,
+    goTab: 'sheets',
+  };
+  const out = [];
+  let inserted = false;
+  for (const item of NAV_ITEMS) {
+    if (GDX9_CONSOLIDATED_IDS.has(item.id)) {
+      if (!inserted) { out.push(sheetItem); inserted = true; }
+      continue;
+    }
+    out.push(item);
+  }
+  return out;
+}
+
 function renderBottomNav() {
   const el = document.getElementById('bnav');
   if (!el) return;
@@ -435,7 +462,7 @@ function renderBottomNav() {
   const isCoord = role === 'st' || role === 'dev' || role === 'coordinator';
 
   let h = '';
-  for (const item of NAV_ITEMS) {
+  for (const item of _gdx9NavItems()) {
     if (item.stOnly && !isST) continue;
     if (item.coordinatorOnly && !isCoord) continue;
     if (item.condition && !_moreGridCondition(item)) continue;
@@ -460,7 +487,15 @@ function renderBottomNav() {
   const active = document.querySelector('.tab.active');
   if (active) {
     const tabId = active.id.replace('t-', '');
-    const navId = 'n-' + (NAV_ALIAS[tabId] || tabId);
+    // gdx-9: this bottom nav is phone-only — desktop's own sidebar
+    // (renderDesktopSidebar) highlights independently via the SAME shared
+    // NAV_ALIAS object, which must stay untouched for AC4 (desktop
+    // unchanged). So the 'sheets' -> 'n-sheet' remap is local to this
+    // function, gated on both the flag and !desktop-mode.
+    const isDesktopNow = document.body.classList.contains('desktop-mode');
+    const navId = (!isDesktopNow && singleScrollEnabled() && tabId === 'sheets')
+      ? 'n-sheet'
+      : 'n-' + (NAV_ALIAS[tabId] || tabId);
     const navEl = document.getElementById(navId);
     if (navEl) navEl.classList.add('on');
   }
@@ -1782,11 +1817,14 @@ async function boot() {
           }
         }
         // Desktop: STs → character grid, players → sheet.
-        // Phone: players → stats (split tab), STs → dice (works without a character).
+        // Phone: players → stats (split tab) or, gdx-9 flag on, the same
+        // 'sheets' destination desktop already uses (single-scroll mode).
+        // STs → dice (works without a character).
         const hasChar = !!suiteState.sheetChar;
+        const gdx9SingleScroll = !isDesktop && singleScrollEnabled();
         goTab(isDesktop
           ? (!isST && hasChar ? 'sheets' : 'chars')
-          : (hasChar ? 'stats' : 'roll'));
+          : (hasChar ? (gdx9SingleScroll ? 'sheets' : 'stats') : 'roll'));
 
         // Atomic reveal — first paint already committed, body class already set.
         loginScreen.style.display = 'none';

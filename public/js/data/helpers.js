@@ -38,6 +38,19 @@ export function redactPlayer(s) {
   return isRedactMode() ? _blockOut(s, 6, 12) : s;
 }
 
+/* ── gdx-9: single-scroll phone sheet rollout flag ─────────────────────────
+   No live feature-flag precedent existed in this codebase when this was
+   added — tm-use-new-dice-roller (the one prior example) was retired
+   outright in rlv.2, its code deleted rather than soaked. Per-device
+   localStorage flag, defaulting off until a deployed phone smoke-test
+   confirms the interaction (Angelus cannot test locally). Flip the default
+   in a fast-follow commit once verified live. */
+const SINGLE_SCROLL_FLAG_KEY = 'tm_gdx9_single_scroll';
+
+export function singleScrollEnabled() {
+  return localStorage.getItem(SINGLE_SCROLL_FLAG_KEY) === '1';
+}
+
 /** Wrap a raw character-name string for display (use when you need to show
  *  a name that didn't come through displayName(c) — e.g. legacy lookups). */
 export function redactCharName(s) {

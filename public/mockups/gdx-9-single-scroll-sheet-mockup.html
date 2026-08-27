@@ -1,0 +1,612 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GDX-9 Single-Scroll Sheet Mockup — Terra Mortis</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700;900&family=Lato:wght@300;400;600;700;900&family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../css/theme.css">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  background: var(--bg2, var(--bg));
+  color: var(--txt);
+  font-family: var(--ft);
+  font-size: 14px;
+  min-height: 100dvh;
+}
+body { padding: 0; display: flex; flex-direction: column; align-items: center; }
+
+/* ── Mockup chrome (not part of the shipped UI) ── */
+.mock-bar {
+  position: sticky; top: 0; z-index: 500;
+  width: 100%;
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  padding: 8px 16px;
+  background: var(--surf3);
+  border-bottom: 2px solid var(--gold2);
+  font-family: var(--fl); font-size: 11px; color: var(--txt3);
+}
+.mock-bar strong { color: var(--accent); letter-spacing: .08em; }
+.mock-bar .mock-controls { display: flex; align-items: center; gap: 6px; margin-left: auto; flex-wrap: wrap; }
+.mock-btn {
+  font-family: var(--fl); font-size: 10px; font-weight: 700; letter-spacing: .04em;
+  color: var(--txt2); background: var(--surf2); border: 1px solid var(--bdr2);
+  border-radius: var(--radius-sm, 4px); padding: 5px 9px; cursor: pointer;
+}
+.mock-btn.on { color: var(--bg); background: var(--accent); border-color: var(--accent); }
+.mock-note {
+  width: 100%;
+  font-family: var(--ft); font-size: 11.5px; line-height: 1.55; color: var(--txt2);
+  background: var(--surf2); border: 1px solid var(--bdr); border-left: 3px solid var(--accent);
+  border-radius: var(--radius-sm, 4px);
+  padding: 9px 12px; margin-top: 2px;
+}
+.mock-note b { color: var(--accent); }
+
+/* ── Phone frame ── */
+.frame-outer { width: 100%; display: flex; justify-content: center; padding: 18px 0 48px; }
+.phone-frame {
+  width: 360px;
+  background: var(--bg);
+  border: 1px solid var(--bdr2);
+  border-radius: 14px;
+  box-shadow: 0 12px 32px rgba(0,0,0,.28);
+  transition: width .18s ease;
+  /* Simulates the device viewport itself scrolling (as it would on a real
+     phone) — this is also what gives .gdx9-pinned a scroll container to
+     stick within, separate from this mockup's own page-level toolbar. */
+  height: 700px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  scroll-behavior: smooth;
+}
+
+/* ── Existing character-select bar (out of scope — shown for continuity only) ── */
+.sh-top {
+  padding: 10px 14px 8px; background: var(--surf); border-bottom: 1px solid var(--bdr);
+}
+.sh-top-lbl {
+  font-family: var(--fl); font-size: 9px; font-weight: 900; letter-spacing: .16em;
+  text-transform: uppercase; color: var(--txt3); margin-bottom: 5px;
+}
+.sh-char-sel-mock {
+  display: flex; align-items: center; justify-content: space-between;
+  height: 40px; padding: 0 12px; background: var(--surf2); border: 1px solid var(--bdr2);
+  border-radius: var(--radius-md, 6px); color: var(--gold); font-family: var(--fl); font-size: 12px;
+}
+.sh-char-sel-mock .arr { color: var(--gdim); font-size: 11px; }
+
+/* ══════════════════════════════════════════════════════════════════════
+   NEW — gdx-9: pinned track strip + jump-nav (the two components this
+   story introduces). Everything else on the page reuses existing sheet
+   markup/classes unchanged.
+   ══════════════════════════════════════════════════════════════════════ */
+.gdx9-pinned {
+  position: sticky; top: 0; z-index: 50;
+  background: var(--surf); border-bottom: 1px solid var(--bdr2);
+  box-shadow: 0 2px 8px rgba(0,0,0,.10);
+}
+
+.gdx9-track-strip {
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 12px 6px;
+  cursor: pointer; -webkit-tap-highlight-color: transparent;
+}
+.gdx9-track-chip { display: flex; flex-direction: column; align-items: center; gap: 3px; flex: 1; min-width: 0; }
+.gdx9-track-head { display: flex; align-items: baseline; gap: 5px; }
+.gdx9-track-lbl {
+  font-family: var(--fl); font-size: 8.5px; font-weight: 700; letter-spacing: .12em;
+  text-transform: uppercase; color: var(--txt3);
+}
+.gdx9-track-num { font-family: var(--fl); font-size: 11px; font-weight: 900; color: var(--txt); }
+.gdx9-track-bar { width: 100%; height: 4px; border-radius: 2px; background: var(--bdr); overflow: hidden; }
+.gdx9-track-fill { height: 100%; border-radius: 2px; }
+.gdx9-track-fill.vitae  { background: var(--crim); }
+.gdx9-track-fill.wp     { background: var(--gold2); }
+.gdx9-track-fill.health { background: var(--green); }
+.gdx9-track-arrow {
+  font-family: var(--fl); font-size: 13px; color: var(--label-tertiary, var(--txt3));
+  flex-shrink: 0; padding-left: 2px;
+}
+
+.gdx9-jump-nav {
+  display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none;
+  padding: 0 10px 8px;
+}
+.gdx9-jump-nav::-webkit-scrollbar { display: none; }
+.gdx9-jump-chip {
+  flex-shrink: 0;
+  font-family: var(--fl); font-size: 10.5px; font-weight: 700; letter-spacing: .06em;
+  text-transform: uppercase;
+  padding: 6px 14px; border-radius: 999px;
+  border: 1px solid var(--bdr2); background: var(--surf2); color: var(--label-secondary, var(--txt2));
+  cursor: pointer; -webkit-tap-highlight-color: transparent;
+  transition: background .12s, color .12s, border-color .12s;
+}
+.gdx9-jump-chip.active {
+  background: var(--accent); border-color: var(--accent); color: var(--bg);
+}
+
+/* Section anchors — offset scroll target below the pinned bar */
+.gdx9-section { scroll-margin-top: 98px; }
+
+/* ── Sheet body (reuses existing sheet.js visual language) ── */
+.sheet-scroll { background: var(--bg); }
+.sh-body { padding: 0 14px 40px; }
+
+.sh-char-hdr { padding: 14px 14px 4px; }
+.sh-namerow { display: flex; flex-direction: column; gap: 2px; margin-bottom: 10px; }
+.char-name { font-family: var(--fh); font-size: 21px; font-weight: 900; color: var(--accent); letter-spacing: .03em; line-height: 1.15; }
+.char-concept { font-family: var(--fl); font-size: 11px; color: var(--label-secondary, var(--txt2)); }
+
+.sh-char-meta { display: flex; flex-direction: column; gap: 4px; margin-bottom: 6px; }
+.sh-meta-pair { display: flex; gap: 6px; }
+.sh-meta-pair .sh-meta-row { flex: 1; }
+.sh-meta-row {
+  display: flex; align-items: baseline; gap: 10px; padding: 5px 10px;
+  background: var(--surf2); border: 1px solid var(--bdr); border-radius: 4px;
+}
+.sh-meta-lbl {
+  font-family: var(--fl); font-size: 9.5px; font-weight: 700; letter-spacing: .12em;
+  text-transform: uppercase; color: var(--label-tertiary, var(--txt3)); min-width: 74px; flex-shrink: 0;
+}
+.sh-meta-val { font-family: var(--fl); font-size: 11px; font-weight: 600; color: var(--label-secondary, var(--txt2)); flex: 1; }
+.sh-meta-val.accent { color: var(--accent); }
+
+.exp-row { background: var(--surf2); border: 1px solid var(--bdr); border-radius: 4px; margin-bottom: 4px; overflow: hidden; }
+.exp-row-head {
+  display: flex; align-items: center; justify-content: space-between; padding: 8px 10px;
+  cursor: pointer; -webkit-tap-highlight-color: transparent;
+}
+.exp-row-lbl { font-family: var(--fl); font-size: 10px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--label-tertiary, var(--txt3)); }
+.exp-row-val { font-family: var(--fl); font-size: 11px; font-weight: 600; color: var(--accent); flex: 1; text-align: right; padding-right: 8px; }
+.exp-row-arr { font-size: 11px; color: var(--label-tertiary, var(--txt3)); transition: transform .15s; }
+.exp-row.open .exp-row-arr { transform: rotate(90deg); }
+.exp-row-body { display: none; padding: 0 10px 9px; font-family: var(--ft); font-size: 11px; color: var(--label-secondary, var(--txt2)); line-height: 1.55; }
+.exp-row.open .exp-row-body { display: block; }
+
+.section-title {
+  font-family: var(--fl); font-size: 11px; font-weight: 900; letter-spacing: .18em; text-transform: uppercase;
+  color: var(--accent); padding-bottom: 6px; border-bottom: 1px solid var(--bdr);
+  margin-top: 18px; margin-bottom: 10px;
+}
+.gdx9-section:first-of-type .section-title:first-child { margin-top: 14px; }
+
+/* ── Stats section: reused verbatim from the REAL live classes in
+   public/css/suite.css + components.css (sh-stats-strip / sh-tracker-block /
+   .tbox), not invented — this section is the actual full interactive
+   tracker, which is why the pinned strip's tap-through target is simply
+   this section, not a separate destination. ── */
+.sh-stats-strip { display: flex; background: var(--surf2); border-top: 1px solid var(--bdr2); border-bottom: 1px solid var(--bdr2); margin: 0 -14px; }
+.sh-stat-cell { flex: 1; text-align: center; padding: 8px 4px; display: flex; flex-direction: column; align-items: center; gap: 0; }
+.sh-stat-icon { position: relative; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; }
+.sh-stat-icon .stat-diamond { position: absolute; inset: 0; background: var(--crim); opacity: .9; clip-path: polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%); }
+.sh-stat-n { position: relative; z-index: 1; font-family: var(--fl); font-size: 1.0625rem; font-weight: 700; color: var(--txt-on-dark, #fff); line-height: 1; }
+.sh-stat-lbl { font-size: 8px; font-family: var(--fl); font-weight: 700; text-transform: uppercase; letter-spacing: .10em; color: var(--accent); margin-top: 2px; }
+
+.sh-tracker-block { padding: 12px 0; }
+.sh-tracker-row { display: flex; flex-wrap: wrap; align-items: center; margin-bottom: 10px; }
+.sh-tracker-row:last-child { margin-bottom: 0; }
+.sh-tracker-lbl { font-family: var(--fl); font-size: 9px; letter-spacing: .08em; text-transform: uppercase; color: var(--txt2); flex: 1; }
+.sh-tracker-boxes { display: flex; gap: 4px; flex-wrap: wrap; width: 100%; order: 1; margin-top: 4px; }
+.tbox { width: 24px; height: 22px; border-radius: 3px; border: 1px solid var(--gold-a30, var(--bdr2)); background: transparent; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+.tbox.health-filled { background: var(--green); border-color: var(--green2, var(--green)); }
+.tbox.vitae-filled { background: var(--crim-a85, var(--crim)); border-color: var(--err5, var(--crim)); }
+.tbox.wp-filled { background: var(--gold); border-color: var(--gold); }
+.tbox.inf-filled { background: var(--info3-a8, var(--accent-a8)); border-color: var(--info-a9, var(--accent-a40)); }
+.tbox-mark { width: 13px; height: 13px; stroke-width: 2.5; stroke-linecap: round; }
+.tbox-bashing .tbox-mark { stroke: var(--txt2); }
+.tbox-lethal { background: rgba(139,0,0,.1); } .tbox-lethal .tbox-mark { stroke: var(--crim); }
+.tbox-agg { background: rgba(139,0,0,.2); } .tbox-agg .tbox-mark { stroke: var(--dmg-agg, var(--crim)); stroke-width: 3; }
+.sh-tracker-num { font-family: var(--fl); font-size: 10.5px; color: var(--txt3); text-align: right; margin-left: auto; }
+.sh-health-legend { font-size: 10px; margin-left: 4px; letter-spacing: .02em; }
+.sh-hl-agg { color: var(--dmg-agg, var(--crim)); margin-right: 3px; font-weight: 700; }
+.sh-hl-let { color: var(--crim); margin-right: 3px; font-weight: 600; }
+
+/* ── Skills section: the real combined Attributes+Skills carousel
+   (Mental/Physical/Social), horizontally swipeable, badge-synced —
+   sheet.js's own attr-carousel, unchanged. ── */
+.attr-carousel-badges { display: flex; justify-content: center; gap: 6px; margin: 10px 0 4px; }
+.attr-carousel-badge { font-family: var(--fl); font-size: 9px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; padding: 4px 12px; border-radius: 999px; border: 1px solid var(--bdr); background: var(--surf2); color: var(--txt3); cursor: pointer; }
+.attr-carousel-badge.active { background: var(--accent); color: var(--bg); border-color: var(--accent); }
+.attr-skills-carousel { display: flex; overflow-x: auto; overflow-y: hidden; scroll-snap-type: x mandatory; -webkit-overflow-scrolling: touch; scrollbar-width: none; gap: 0; }
+.attr-skills-carousel::-webkit-scrollbar { display: none; }
+.attr-skills-card { flex: 0 0 88%; scroll-snap-align: center; display: flex; flex-direction: column; gap: 12px; padding: 0 8px; min-width: 0; }
+.attr-skills-card:first-child { padding-left: 0; }
+.attr-skills-card:last-child { padding-right: 0; }
+.attr-cell { display: flex; flex-direction: column; gap: 0; }
+.attr-group-hd { font-family: var(--fl); font-size: 9px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: var(--txt3); text-align: center; padding: 5px 8px 6px; border-bottom: .5px solid var(--bdr); }
+.attr-row-item { display: flex; justify-content: space-between; align-items: center; padding: 5px 8px; border-bottom: .5px solid var(--bdr); }
+.attr-row-item:last-child { border-bottom: none; }
+.attr-name { font-family: var(--fl); font-size: 10px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--label-secondary, var(--txt2)); }
+.attr-dots { font-size: 13px; color: var(--accent); letter-spacing: 1.5px; }
+.skill-col-block { display: flex; flex-direction: column; }
+.skill-row { display: flex; flex-direction: column; padding: 5px 6px; border-bottom: .5px solid var(--bdr); }
+.skill-row:last-child { border-bottom: none; }
+.skill-row.has-dots { background: var(--surf2); }
+.skill-row-top { display: flex; justify-content: space-between; align-items: flex-start; width: 100%; gap: 6px; }
+.skill-name-wrap { display: flex; flex-direction: column; min-width: 0; }
+.skill-name { font-family: var(--fl); font-size: 9.5px; font-weight: 700; color: var(--label-secondary, var(--txt2)); letter-spacing: .08em; text-transform: uppercase; }
+.skill-row.has-dots .skill-name { color: var(--txt); }
+.skill-spec { font-family: var(--fl); font-size: 9.5px; font-weight: 400; color: var(--txt3); line-height: 1.3; }
+.skill-dots-wrap { display: flex; align-items: center; gap: 5px; flex-shrink: 0; }
+.skill-dots { font-size: 13px; color: var(--accent); letter-spacing: 1.5px; }
+.skill-zero { font-size: 9.5px; color: var(--txt3); opacity: .4; }
+.skill-na { font-family: var(--fl); font-size: 9px; font-weight: 700; font-variant: small-caps; letter-spacing: .04em; color: var(--accent); border: 1px solid var(--accent-a40, var(--gold-a30)); border-radius: 3px; padding: 1px 5px; background: var(--accent-a8, transparent); }
+
+/* ── Powers section: disciplines / manoeuvres / merits ── */
+.disc-list, .man-list, .merit-list { display: flex; flex-direction: column; gap: 3px; }
+.disc-tap-row, .man-tap-row {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 10px 12px; min-height: 44px;
+  background: var(--surf2); border: 1px solid var(--bdr); border-radius: 6px;
+  cursor: pointer; user-select: none; -webkit-tap-highlight-color: transparent;
+}
+.disc-tap-row.open, .man-tap-row.open { border-bottom-left-radius: 0; border-bottom-right-radius: 0; border-bottom-color: transparent; }
+.disc-tap-left, .man-tap-left { display: flex; align-items: center; gap: 8px; }
+.disc-tap-name, .man-tap-name { font-family: var(--fl); font-size: 10.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--label-secondary, var(--txt2)); }
+.disc-clan-tag { font-family: var(--fl); font-size: 10px; font-variant: small-caps; font-weight: 600; color: var(--label-tertiary, var(--txt3)); }
+.disc-tap-dots, .man-tap-rank { font-family: var(--fl); font-size: 13px; color: var(--accent); letter-spacing: 1.5px; white-space: nowrap; }
+.disc-tap-arr, .man-tap-arr { font-size: 11px; color: var(--label-tertiary, var(--txt3)); transition: transform .15s; margin-left: 6px; }
+.disc-tap-row.open .disc-tap-arr, .man-tap-row.open .man-tap-arr { transform: rotate(90deg); }
+.disc-drawer, .man-drawer {
+  display: none; background: var(--surf3); border: 1px solid var(--bdr); border-top: none;
+  border-radius: 0 0 6px 6px; margin-bottom: 6px; overflow: hidden;
+}
+.disc-drawer.visible, .man-drawer.visible { display: block; }
+.disc-power { padding: 8px 12px; border-bottom: .5px solid var(--bdr); }
+.disc-power:last-child { border-bottom: none; }
+.disc-power-name { font-family: var(--fl); font-size: 10.5px; font-weight: 700; font-variant: small-caps; color: var(--accent); margin-bottom: 3px; }
+.disc-power-stats { font-family: var(--fl); font-size: 9.5px; font-weight: 700; color: var(--label-secondary, var(--txt2)); margin-bottom: 4px; }
+.disc-power-effect { font-family: var(--ft); font-size: 10.5px; color: var(--label-secondary, var(--txt2)); line-height: 1.5; }
+.man-effect { font-family: var(--fl); font-size: 10.5px; color: var(--label-secondary, var(--txt2)); line-height: 1.5; padding: 8px 12px; }
+
+.merit-row { display: flex; flex-direction: column; gap: 3px; padding: 6px 10px; background: var(--surf2); border: 1px solid var(--bdr); border-radius: 4px; }
+.merit-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.merit-name { font-family: var(--fl); font-size: 10.5px; font-weight: 600; font-variant: small-caps; color: var(--label-secondary, var(--txt2)); }
+.merit-dots { font-family: var(--fl); color: var(--accent); font-size: 13px; letter-spacing: 1.5px; }
+</style>
+</head>
+<body>
+
+<div class="mock-bar">
+  <strong>MOCKUP</strong> — GDX-9 Single-Scroll Phone Sheet (#990)
+  <div class="mock-controls">
+    <button class="mock-btn on" data-w="360" onclick="setWidth(360, this)">360px</button>
+    <button class="mock-btn" data-w="390" onclick="setWidth(390, this)">390px</button>
+    <button class="mock-btn" data-w="414" onclick="setWidth(414, this)">414px</button>
+    <button class="mock-btn" id="themeBtn" onclick="toggleTheme()">Dark theme</button>
+  </div>
+  <div class="mock-note">
+    <b>New in this story:</b> the pinned track strip and the jump-nav chip row below.
+    Everything under them (Info → Stats → Skills → Powers) reuses existing sheet markup,
+    concatenated into one scroll instead of four separate tab destinations.
+    <br><b>Locked-decision callout:</b> when this mode is on, the bottom nav's separate
+    Stats/Skills/Powers/Info buttons collapse into a single "Sheet" entry — the jump-chips
+    replace tab-switching for those four, so there is exactly one way to navigate between
+    them (AC2: no duplicate nav layers). Correction from the first draft: "the full trackers"
+    the pinned strip taps through to are NOT a separate Status tab (that tab is City/Covenant/
+    Clan standing, unrelated) — they're sheet.js's own sh-tracker-block, which already lives
+    inside the Stats section content itself. So tapping the strip just jumps to Stats, same
+    as the Stats chip; the strip is a compact glance-and-jump for the same tracker, not a
+    pointer to a different destination. Desktop's existing concatenated view (sheet.js:755)
+    is untouched.
+  </div>
+</div>
+
+<div class="frame-outer">
+<div class="phone-frame" id="frame">
+
+  <!-- Existing character-select bar — out of scope, shown for continuity -->
+  <div class="sh-top">
+    <div class="sh-top-lbl">Character</div>
+    <div class="sh-char-sel-mock"><span>Lord Victor Ashworth</span><span class="arr">▾</span></div>
+  </div>
+
+  <!-- ══════════ NEW: pinned track strip + jump-nav ══════════ -->
+  <div class="gdx9-pinned" id="pinned">
+    <div class="gdx9-track-strip" onclick="jumpTo('sec-stats')" role="button" tabindex="0" aria-label="Jump to full tracker">
+      <div class="gdx9-track-chip">
+        <div class="gdx9-track-head"><span class="gdx9-track-lbl">Vitae</span><span class="gdx9-track-num">8/12</span></div>
+        <div class="gdx9-track-bar"><div class="gdx9-track-fill vitae" style="width:66%"></div></div>
+      </div>
+      <div class="gdx9-track-chip">
+        <div class="gdx9-track-head"><span class="gdx9-track-lbl">WP</span><span class="gdx9-track-num">4/6</span></div>
+        <div class="gdx9-track-bar"><div class="gdx9-track-fill wp" style="width:67%"></div></div>
+      </div>
+      <div class="gdx9-track-chip">
+        <div class="gdx9-track-head"><span class="gdx9-track-lbl">Health</span><span class="gdx9-track-num">5/6</span></div>
+        <div class="gdx9-track-bar"><div class="gdx9-track-fill health" style="width:83%"></div></div>
+      </div>
+      <span class="gdx9-track-arrow">&rsaquo;</span>
+    </div>
+    <nav class="gdx9-jump-nav" id="jumpNav" aria-label="Sheet sections">
+      <button class="gdx9-jump-chip active" data-target="sec-info">Info</button>
+      <button class="gdx9-jump-chip" data-target="sec-stats">Stats</button>
+      <button class="gdx9-jump-chip" data-target="sec-skills">Skills</button>
+      <button class="gdx9-jump-chip" data-target="sec-powers">Powers</button>
+    </nav>
+  </div>
+
+  <!-- ══════════ Single scrolling body ══════════ -->
+  <div class="sheet-scroll">
+    <div class="sh-body">
+
+      <!-- ── INFO ── -->
+      <section id="sec-info" class="gdx9-section">
+        <div class="sh-char-hdr">
+          <div class="sh-namerow">
+            <div class="char-name">Lord Victor Ashworth</div>
+            <div class="char-concept">Manipulative Corporate Predator</div>
+          </div>
+          <div class="sh-char-meta">
+            <div class="sh-meta-pair">
+              <div class="sh-meta-row"><span class="sh-meta-lbl">Mask</span><span class="sh-meta-val accent">Architect</span></div>
+              <div class="sh-meta-row"><span class="sh-meta-lbl">Dirge</span><span class="sh-meta-val accent">Devil</span></div>
+            </div>
+            <div class="sh-meta-row"><span class="sh-meta-lbl">Touchstones</span><span class="sh-meta-val">Eleanor Voss · The Ashworth Foundation</span></div>
+
+            <div class="exp-row" onclick="toggleExp(this)">
+              <div class="exp-row-head"><span class="exp-row-lbl">Bane</span><span class="exp-row-val">Preferred Prey</span><span class="exp-row-arr">&rsaquo;</span></div>
+              <div class="exp-row-body">The Ventrue may only feed from a specific type of prey. Feeding from any other source provides no Vitae. Preferred prey: financial elite.</div>
+            </div>
+
+            <div class="sh-meta-pair">
+              <div class="sh-meta-row"><span class="sh-meta-lbl">Embrace</span><span class="sh-meta-val">14 Feb 1923</span></div>
+              <div class="sh-meta-row"><span class="sh-meta-lbl">App. Age</span><span class="sh-meta-val">Mid-Thirties</span></div>
+            </div>
+            <div class="sh-meta-row"><span class="sh-meta-lbl">Features</span><span class="sh-meta-val">Sharply dressed; cold grey eyes; silver at the temples</span></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ── STATS ── -->
+      <section id="sec-stats" class="gdx9-section">
+        <div class="sh-stats-strip">
+          <div class="sh-stat-cell"><div class="sh-stat-icon"><span class="stat-diamond"></span><span class="sh-stat-n">3</span></div><div class="sh-stat-lbl">BP</div></div>
+          <div class="sh-stat-cell"><div class="sh-stat-icon"><span class="stat-diamond"></span><span class="sh-stat-n">6</span></div><div class="sh-stat-lbl">Humanity</div></div>
+          <div class="sh-stat-cell"><div class="sh-stat-icon"><span class="stat-diamond"></span><span class="sh-stat-n">5</span></div><div class="sh-stat-lbl">Size</div></div>
+          <div class="sh-stat-cell"><div class="sh-stat-icon"><span class="stat-diamond"></span><span class="sh-stat-n">7</span></div><div class="sh-stat-lbl">Speed</div></div>
+          <div class="sh-stat-cell"><div class="sh-stat-icon"><span class="stat-diamond"></span><span class="sh-stat-n">2</span></div><div class="sh-stat-lbl">Defence</div></div>
+        </div>
+
+        <!-- This IS "the full trackers" the pinned strip taps through to —
+             the real Health/Vitae/WP/Influence tap-box tracker (sheet.js's
+             own sh-tracker-block), reused verbatim, not a separate tab. -->
+        <div class="sh-tracker-block" id="tracker-block">
+          <div class="sh-tracker-row">
+            <div class="sh-tracker-lbl">Health</div>
+            <div class="sh-tracker-boxes" id="tb-health">
+              <div class="tbox health-filled"></div><div class="tbox health-filled"></div><div class="tbox health-filled"></div><div class="tbox health-filled"></div><div class="tbox health-filled"></div>
+              <div class="tbox tbox-bashing"><svg class="tbox-mark" viewBox="0 0 20 20"><line x1="4" y1="16" x2="16" y2="4"/></svg></div>
+            </div>
+            <div class="sh-tracker-num">5/6<span class="sh-health-legend"><span class="sh-hl-bash">1B</span></span></div>
+          </div>
+          <div class="sh-tracker-row">
+            <div class="sh-tracker-lbl">Vitae</div>
+            <div class="sh-tracker-boxes" id="tb-vitae">
+              <div class="tbox vitae-filled"></div><div class="tbox vitae-filled"></div><div class="tbox vitae-filled"></div><div class="tbox vitae-filled"></div><div class="tbox vitae-filled"></div><div class="tbox vitae-filled"></div><div class="tbox vitae-filled"></div><div class="tbox vitae-filled"></div>
+              <div class="tbox"></div><div class="tbox"></div><div class="tbox"></div><div class="tbox"></div>
+            </div>
+            <div class="sh-tracker-num">8/12</div>
+          </div>
+          <div class="sh-tracker-row">
+            <div class="sh-tracker-lbl">Willpower</div>
+            <div class="sh-tracker-boxes" id="tb-wp">
+              <div class="tbox wp-filled"></div><div class="tbox wp-filled"></div><div class="tbox wp-filled"></div><div class="tbox wp-filled"></div>
+              <div class="tbox"></div><div class="tbox"></div>
+            </div>
+            <div class="sh-tracker-num">4/6</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ── SKILLS ── real combined Attributes+Skills carousel (sheet.js's
+           own attr-carousel), Mental/Physical/Social swipeable cards -->
+      <section id="sec-skills" class="gdx9-section">
+        <div class="attr-carousel-badges">
+          <span class="attr-carousel-badge active" data-carousel-idx="0">Mental</span>
+          <span class="attr-carousel-badge" data-carousel-idx="1">Physical</span>
+          <span class="attr-carousel-badge" data-carousel-idx="2">Social</span>
+        </div>
+        <div class="attr-skills-carousel" id="attr-carousel">
+
+          <div class="attr-skills-card">
+            <div class="attr-cell"><div class="attr-group-hd">Mental Attributes</div>
+              <div class="attr-row-item"><span class="attr-name">Intelligence</span><span class="attr-dots">●●●</span></div>
+              <div class="attr-row-item"><span class="attr-name">Wits</span><span class="attr-dots">●●</span></div>
+              <div class="attr-row-item"><span class="attr-name">Resolve</span><span class="attr-dots">●●●</span></div>
+            </div>
+            <div class="skill-col-block"><div class="attr-group-hd">Mental Skills</div>
+              <div class="skill-row has-dots"><div class="skill-row-top"><div class="skill-name-wrap"><span class="skill-name">Academics</span></div><div class="skill-dots-wrap"><span class="skill-dots">●●●</span></div></div></div>
+              <div class="skill-row"><div class="skill-row-top"><div class="skill-name-wrap"><span class="skill-name">Computer</span></div><div class="skill-dots-wrap"><span class="skill-zero">&ndash;</span></div></div></div>
+              <div class="skill-row"><div class="skill-row-top"><div class="skill-name-wrap"><span class="skill-name">Crafts</span></div><div class="skill-dots-wrap"><span class="skill-zero">&ndash;</span></div></div></div>
+              <div class="skill-row has-dots"><div class="skill-row-top"><div class="skill-name-wrap"><span class="skill-name">Investigation</span></div><div class="skill-dots-wrap"><span class="skill-dots">●</span></div></div></div>
+              <div class="skill-row"><div class="skill-row-top"><div class="skill-name-wrap"><span class="skill-name">Medicine</span></div><div class="skill-dots-wrap"><span class="skill-zero">&ndash;</span></div></div></div>
+              <div class="skill-row"><div class="skill-row-top"><div class="skill-name-wrap"><span class="skill-name">Occult</span></div><div class="skill-dots-wrap"><span class="skill-zero">&ndash;</span></div></div></div>
+              <div class="skill-row has-dots"><div class="skill-row-top"><div class="skill-name-wrap"><span class="skill-name">Politics</span><span class="skill-spec">Finance, Law</span></div><div class="skill-dots-wrap"><span class="skill-dots">●●</span></div></div></div>
+              <div class="skill-row"><div class="skill-row-top"><div class="skill-name-wrap"><span class="skill-name">Science</span></div><div class="skill-dots-wrap"><span class="skill-zero">&ndash;</span></div></div></div>
+            </div>
+          </div>
+
+          <div class="attr-skills-card">
+            <div class="attr-cell"><div class="attr-group-hd">Physical Attributes</div>
+              <div class="attr-row-item"><span class="attr-name">Strength</span><span class="attr-dots">●</span></div>
+              <div class="attr-row-item"><span class="attr-name">Dexterity</span><span class="attr-dots">●●</span></div>
+              <div class="attr-row-item"><span class="attr-name">Stamina</span><span class="attr-dots">●●</span></div>
+            </div>
+            <div class="skill-col-block"><div class="attr-group-hd">Physical Skills</div>
+              <div class="skill-row"><div class="skill-row-top"><div class="skill-name-wrap"><span class="skill-name">Athletics</span></div><div class="skill-dots-wrap"><span class="skill-zero">&ndash;</span></div></div></div>
+              <div class="skill-row"><div class="skill-row-top"><div class="skill-name-wrap"><span class="skill-name">Brawl</span></div><div class="skill-dots-wrap"><span class="skill-zero">&ndash;</span></div></div></div>
+              <div class="skill-row has-dots"><div class="skill-row-top"><div class="skill-name-wrap"><span class="skill-name">Drive</span></div><div class="skill-dots-wrap"><span class="skill-dots">●</span></div></div></div>
+              <div class="skill-row"><div class="skill-row-top"><div class="skill-name-wrap"><span class="skill-name">Firearms</span></div><div class="skill-dots-wrap"><span class="skill-zero">&ndash;</span></div></div></div>
+              <div class="skill-row"><div class="skill-row-top"><div class="skill-name-wrap"><span class="skill-name">Larceny</span></div><div class="skill-dots-wrap"><span class="skill-zero">&ndash;</span></div></div></div>
+              <div class="skill-row has-dots"><div class="skill-row-top"><div class="skill-name-wrap"><span class="skill-name">Stealth</span></div><div class="skill-dots-wrap"><span class="skill-dots">●</span></div></div></div>
+              <div class="skill-row"><div class="skill-row-top"><div class="skill-name-wrap"><span class="skill-name">Survival</span></div><div class="skill-dots-wrap"><span class="skill-zero">&ndash;</span></div></div></div>
+              <div class="skill-row"><div class="skill-row-top"><div class="skill-name-wrap"><span class="skill-name">Weaponry</span></div><div class="skill-dots-wrap"><span class="skill-zero">&ndash;</span></div></div></div>
+            </div>
+          </div>
+
+          <div class="attr-skills-card">
+            <div class="attr-cell"><div class="attr-group-hd">Social Attributes</div>
+              <div class="attr-row-item"><span class="attr-name">Presence</span><span class="attr-dots">●●●●</span></div>
+              <div class="attr-row-item"><span class="attr-name">Manipulation</span><span class="attr-dots">●●●●</span></div>
+              <div class="attr-row-item"><span class="attr-name">Composure</span><span class="attr-dots">●●●</span></div>
+            </div>
+            <div class="skill-col-block"><div class="attr-group-hd">Social Skills</div>
+              <div class="skill-row"><div class="skill-row-top"><div class="skill-name-wrap"><span class="skill-name">Animal Ken</span></div><div class="skill-dots-wrap"><span class="skill-zero">&ndash;</span></div></div></div>
+              <div class="skill-row has-dots"><div class="skill-row-top"><div class="skill-name-wrap"><span class="skill-name">Empathy</span></div><div class="skill-dots-wrap"><span class="skill-dots">●●</span></div></div></div>
+              <div class="skill-row"><div class="skill-row-top"><div class="skill-name-wrap"><span class="skill-name">Expression</span></div><div class="skill-dots-wrap"><span class="skill-zero">&ndash;</span></div></div></div>
+              <div class="skill-row"><div class="skill-row-top"><div class="skill-name-wrap"><span class="skill-name">Intimidation</span></div><div class="skill-dots-wrap"><span class="skill-zero">&ndash;</span></div></div></div>
+              <div class="skill-row has-dots"><div class="skill-row-top"><div class="skill-name-wrap"><span class="skill-name">Persuasion</span></div><div class="skill-dots-wrap"><span class="skill-dots">●●●●</span><span class="skill-na">9-Again</span></div></div></div>
+              <div class="skill-row has-dots"><div class="skill-row-top"><div class="skill-name-wrap"><span class="skill-name">Socialise</span><span class="skill-spec">High Society</span></div><div class="skill-dots-wrap"><span class="skill-dots">●●●</span></div></div></div>
+              <div class="skill-row"><div class="skill-row-top"><div class="skill-name-wrap"><span class="skill-name">Streetwise</span></div><div class="skill-dots-wrap"><span class="skill-zero">&ndash;</span></div></div></div>
+              <div class="skill-row has-dots"><div class="skill-row-top"><div class="skill-name-wrap"><span class="skill-name">Subterfuge</span></div><div class="skill-dots-wrap"><span class="skill-dots">●●●</span></div></div></div>
+            </div>
+          </div>
+
+        </div>
+      </section>
+
+      <!-- ── POWERS ── -->
+      <section id="sec-powers" class="gdx9-section">
+        <div class="section-title">Disciplines</div>
+        <div class="disc-list">
+          <div class="disc-tap-row open" onclick="toggleExp(this)">
+            <div class="disc-tap-left"><span class="disc-tap-name">Dominate</span><span class="disc-clan-tag">Clan</span></div>
+            <div style="display:flex;align-items:center;"><span class="disc-tap-dots">●●●●</span><span class="disc-tap-arr">&rsaquo;</span></div>
+          </div>
+          <div class="disc-drawer visible">
+            <div class="disc-power">
+              <div class="disc-power-name">● Command</div>
+              <div class="disc-power-stats">Cost: 1 Vitae · Pool: Presence + Persuasion</div>
+              <div class="disc-power-effect">Issue a single verbal command the subject must obey immediately.</div>
+            </div>
+            <div class="disc-power">
+              <div class="disc-power-name">●● Mesmerise</div>
+              <div class="disc-power-stats">Cost: 1 Vitae · Pool: Presence + Persuasion</div>
+              <div class="disc-power-effect">Trap the subject's mind in a reverie until the vampire speaks again.</div>
+            </div>
+          </div>
+
+          <div class="disc-tap-row" onclick="toggleExp(this)">
+            <div class="disc-tap-left"><span class="disc-tap-name">Resilience</span><span class="disc-clan-tag">Clan</span></div>
+            <div style="display:flex;align-items:center;"><span class="disc-tap-dots">●●</span><span class="disc-tap-arr">&rsaquo;</span></div>
+          </div>
+          <div class="disc-drawer">
+            <div class="disc-power">
+              <div class="disc-power-name">● Toughness</div>
+              <div class="disc-power-stats">Cost: — · Passive</div>
+              <div class="disc-power-effect">Add Resilience dots to Stamina for damage-resistance purposes.</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="section-title">Manoeuvres</div>
+        <div class="man-list">
+          <div class="man-tap-row open" onclick="toggleExp(this)">
+            <div class="man-tap-left"><span class="man-tap-name">Knockout Blow</span></div>
+            <div style="display:flex;align-items:center;"><span class="man-tap-rank">●</span><span class="man-tap-arr">&rsaquo;</span></div>
+          </div>
+          <div class="man-drawer visible"><div class="man-effect">Spend 1 Willpower before rolling. On a hit, the target is knocked unconscious for a number of turns equal to the successes rolled.</div></div>
+
+          <div class="man-tap-row" onclick="toggleExp(this)">
+            <div class="man-tap-left"><span class="man-tap-name">Combination Blows</span></div>
+            <div style="display:flex;align-items:center;"><span class="man-tap-rank">●●</span><span class="man-tap-arr">&rsaquo;</span></div>
+          </div>
+          <div class="man-drawer"><div class="man-effect">Make two attacks as a single action. The second attack is at -1 die.</div></div>
+        </div>
+
+        <div class="section-title">Merits</div>
+        <div class="merit-list">
+          <div class="merit-row"><div class="merit-head"><span class="merit-name">Resources</span><span class="merit-dots">●●●●</span></div></div>
+          <div class="merit-row"><div class="merit-head"><span class="merit-name">Retainer</span><span class="merit-dots">●●</span></div><span class="qualifier">Charlotte</span></div>
+          <div class="merit-row"><div class="merit-head"><span class="merit-name">Striking Looks</span><span class="merit-dots">●●</span></div></div>
+        </div>
+      </section>
+
+    </div>
+  </div>
+
+</div>
+</div>
+
+<script>
+// ── Frame width toggle ──
+function setWidth(w, btn) {
+  document.getElementById('frame').style.width = w + 'px';
+  document.querySelectorAll('.mock-btn[data-w]').forEach(b => b.classList.remove('on'));
+  btn.classList.add('on');
+}
+
+// ── Theme toggle (default Parchment = no attribute; dark via data-theme) ──
+function toggleTheme() {
+  const root = document.documentElement;
+  const dark = root.getAttribute('data-theme') === 'dark';
+  root.setAttribute('data-theme', dark ? 'light' : 'dark');
+  document.getElementById('themeBtn').textContent = dark ? 'Dark theme' : 'Parchment theme';
+}
+
+// ── Expandable rows (bane / disciplines / manoeuvres) ──
+function toggleExp(row) {
+  const open = row.classList.toggle('open');
+  if (row.classList.contains('exp-row')) return; // exp-row body visibility is pure CSS off .open
+  const drawer = row.nextElementSibling;
+  if (drawer) drawer.classList.toggle('visible', open);
+}
+
+// ── Jump-nav: click scrolls, IntersectionObserver keeps active chip in sync.
+// The track strip reuses this exact function to jump to Stats (the section
+// that actually contains the full tracker) — there is no separate destination. ──
+const chips = Array.from(document.querySelectorAll('.gdx9-jump-chip'));
+const sections = chips.map(c => document.getElementById(c.dataset.target));
+const scrollHost = document.querySelector('.phone-frame');
+
+function jumpTo(id) {
+  document.getElementById(id)?.scrollIntoView({ block: 'start' }); // 'behavior' left to the container's CSS scroll-behavior: smooth
+}
+
+chips.forEach(chip => {
+  chip.addEventListener('click', () => jumpTo(chip.dataset.target));
+});
+
+const io = new IntersectionObserver((entries) => {
+  entries.forEach(entry => {
+    if (!entry.isIntersecting) return;
+    const idx = sections.indexOf(entry.target);
+    if (idx === -1) return;
+    chips.forEach(c => c.classList.remove('active'));
+    chips[idx].classList.add('active');
+  });
+}, { root: scrollHost, rootMargin: '-100px 0px -70% 0px', threshold: 0 });
+
+sections.forEach(s => s && io.observe(s));
+
+// ── Attributes+Skills carousel (Mental/Physical/Social) — mirrors
+// sheet.js's own _wireAttrCarousel exactly: scroll updates the active badge,
+// tapping a badge scrolls to that card. ──
+(function wireAttrCarousel() {
+  const carousel = document.getElementById('attr-carousel');
+  const badges = document.querySelectorAll('.attr-carousel-badge');
+  if (!carousel || !badges.length) return;
+  const cards = carousel.querySelectorAll('.attr-skills-card');
+  if (!cards.length) return;
+
+  carousel.addEventListener('scroll', () => {
+    const idx = Math.round(carousel.scrollLeft / cards[0].offsetWidth);
+    badges.forEach((b, i) => b.classList.toggle('active', i === idx));
+  }, { passive: true });
+
+  badges.forEach((badge, i) => {
+    badge.addEventListener('click', () => {
+      cards[i]?.scrollIntoView({ block: 'nearest', inline: 'center' });
+    });
+  });
+})();
+</script>
+</body>
+</html>
