@@ -34,7 +34,7 @@ import { getOfficeEntry } from './office-content-read.js';
 export const SEAT_ID_PATTERN = /^[0-9a-fA-F]{24}$/;
 
 /**
- * Resolve `seatId` to its seat, office category and OFFICE_DATA entry.
+ * Resolve `seatId` to its seat, office category and `office_content` entry.
  *
  * Returns either `{ seatId, seat, category, officeEntry }` on success, or
  * `{ error: { status, body } }` on any of the three failure modes, which the

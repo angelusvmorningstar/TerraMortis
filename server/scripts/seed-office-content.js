@@ -58,7 +58,8 @@ import 'dotenv/config';
 import { pathToFileURL } from 'url';
 import Ajv from 'ajv';
 import { connectDb, getCollection, closeDb } from '../db.js';
-import { officeContentSchema, OFFICE_CONTENT_CATEGORY_ENUM } from '../schemas/office_content.schema.js';
+import { officeContentSchema } from '../schemas/office_content.schema.js';
+import { OFFICE_CATEGORY_ENUM } from '../schemas/office_seat.schema.js';
 import { ensureOfficeContentIndexes } from '../lib/office-content-index.js';
 
 const COLLECTION = 'office_content';
@@ -158,15 +159,21 @@ export const OFFICE_DATA = {
  * @param {object} args
  * @param {object} args.officeData - OFFICE_DATA shape
  * @param {object} args.meritCaps  - MERIT_DOT_CAPS shape
- * @returns {{ errors: string[], officeCount: number, meritCount: number }}
+ * @returns {{ errors: string[], warnings: string[], officeCount: number, meritCount: number }}
  */
 export function checkIntegrity({ officeData, meritCaps }) {
   const errors = [];
+  const warnings = [];
   const categories = Object.keys(officeData);
 
   for (const category of categories) {
-    if (!OFFICE_CONTENT_CATEGORY_ENUM.includes(category)) {
-      errors.push(`"${category}" is not a known office category (or is Administrator, which has no content yet — see oxp-8).`);
+    // Checked against the FULL 5-value OFFICE_CATEGORY_ENUM (Codex review,
+    // oxp-10 — the schema's own category enum is the full set too, so a
+    // premature "Administrator" entry in OFFICE_DATA would pass THIS check;
+    // what actually keeps oxp-8's content out of this migration is that
+    // OFFICE_DATA's frozen literal below simply has no such key today).
+    if (!OFFICE_CATEGORY_ENUM.includes(category)) {
+      errors.push(`"${category}" is not a known office category.`);
       continue;
     }
     const entry = officeData[category];
@@ -181,15 +188,21 @@ export function checkIntegrity({ officeData, meritCaps }) {
       for (const merit of entry.merits) {
         if (typeof merit !== 'string' || !merit.trim()) {
           errors.push(`"${category}" lists an empty or non-string merit.`);
+          continue;
         }
         // An unlisted merit legitimately defaults to a cap of 5 (the
         // existing `MERIT_DOT_CAPS[merit] || 5` convention every consumer
-        // preserves) — this is a WARNING-shaped check only in that it does
-        // not error, but it is worth surfacing so a genuinely mistyped
-        // merit name doesn't silently ride the default instead of being
-        // caught as a typo. Not pushed to `errors` (would break existing,
-        // intentional default-cap merits); left as a console note by the
-        // caller instead — see `seedOfficeContent`'s own summary output.
+        // preserves) — this is a WARNING, not an error, so it does not
+        // block a build/seed (an intentional default-cap merit is common
+        // and correct), but it must actually surface: a genuinely mistyped
+        // merit name (e.g. "Contact" for "Contacts") is otherwise
+        // indistinguishable from an intentional one. Codex review, oxp-10
+        // (Low): an earlier draft's comment promised this warning but never
+        // implemented it — `checkIntegrity` silently returned no signal at
+        // all, and `seedOfficeContent` printed "Integrity: OK" either way.
+        if (!(merit in meritCaps)) {
+          warnings.push(`"${category}" lists merit "${merit}", which has no MERIT_DOT_CAPS entry — it will default to a cap of 5. If this is a typo, fix the name; if intentional, no action needed.`);
+        }
       }
     }
     if (!Array.isArray(entry.manoeuvres) || entry.manoeuvres.length === 0) {
@@ -224,7 +237,7 @@ export function checkIntegrity({ officeData, meritCaps }) {
     }
   }
 
-  return { errors, officeCount: categories.length, meritCount: Object.keys(meritCaps).length };
+  return { errors, warnings, officeCount: categories.length, meritCount: Object.keys(meritCaps).length };
 }
 
 /**
@@ -285,6 +298,11 @@ export async function seedOfficeContent(opts = {}) {
     throw new Error(`Seed aborted: ${integrity.errors.length} integrity failure(s), nothing written.\n${detail}`);
   }
   if (log) console.log('Integrity: OK (every office has non-empty asset/style/merits/manoeuvres/statusPower; no duplicate manoeuvre names; every merit cap is a positive integer).');
+  if (log && integrity.warnings.length) {
+    console.log('');
+    console.log(`Integrity WARNINGS (${integrity.warnings.length}) — not blocking, but worth a human's eyes:`);
+    for (const w of integrity.warnings) console.log(`  - ${w}`);
+  }
 
   // ── Gate 2: every built document satisfies the schema ──
   const docs = buildSeedDocs({ officeData: OFFICE_DATA, meritCaps: MERIT_DOT_CAPS });
@@ -307,10 +325,30 @@ export async function seedOfficeContent(opts = {}) {
   const existing = await col.find({}).toArray();
   const existingByKey = new Map(); // key = category, or 'merit_caps' sentinel
   const duplicateKeys = [];
-  const keyOf = (d) => (d.kind === 'office' ? d.category : 'merit_caps');
+  // Codex review, oxp-10 (Medium, reproduced against real MongoDB): the
+  // previous `d.kind === 'office' ? d.category : 'merit_caps'` treated EVERY
+  // non-'office' kind as the merit_caps singleton, including a malformed or
+  // legacy document this seed script has never heard of (kind:'legacy',
+  // kind: undefined, ...). That aliased a real orphan onto the merit_caps
+  // slot: the orphan was never reported as an orphan, the real merit_caps
+  // document was skipped from `toInsert` (its key already looked "present"),
+  // and `--apply` could finish successfully having never written the
+  // singleton at all. Only the two real kinds this collection ever holds map
+  // to a source-matchable key; anything else gets a key that can never equal
+  // a real source key (`docs` — built by buildSeedDocs — only ever contains
+  // 'office'/'merit_caps' kinds), so it always resolves as a genuine orphan.
+  const keyOf = (d) => {
+    if (d.kind === 'office') return `office:${d.category}`;
+    if (d.kind === 'merit_caps') return 'merit_caps';
+    return `unrecognised-kind:${d._id}`;
+  };
+  // Human-readable label for console output only — never used for
+  // dedup/lookup, so it can stay collision-tolerant (falls back to the raw
+  // key for anything not recognised as a real office or the caps singleton).
+  const labelOf = (d) => (d.kind === 'office' ? d.category : d.kind === 'merit_caps' ? 'merit_caps' : keyOf(d));
   for (const d of existing) {
     const key = keyOf(d);
-    if (existingByKey.has(key)) duplicateKeys.push(key);
+    if (existingByKey.has(key)) duplicateKeys.push(labelOf(d));
     else existingByKey.set(key, d);
   }
 
@@ -333,7 +371,7 @@ export async function seedOfficeContent(opts = {}) {
     } else if (!sameCaps(live.caps, d.caps)) {
       deltas.push('merit dot caps differ');
     }
-    if (deltas.length) differing.push({ key, deltas });
+    if (deltas.length) differing.push({ key, label: labelOf(d), deltas });
   }
 
   const sourceKeys = new Set(docs.map(keyOf));
@@ -351,7 +389,7 @@ export async function seedOfficeContent(opts = {}) {
       if (!existingByKey.has(key)) status = dryRun ? 'would insert' : 'inserting';
       else if (differingKeys.has(key)) status = 'DIFFERS';
       else status = 'present';
-      console.log('  ' + key.padEnd(28) + status);
+      console.log('  ' + labelOf(d).padEnd(28) + status);
     }
   }
 
@@ -391,7 +429,7 @@ export async function seedOfficeContent(opts = {}) {
     if (differing.length) {
       console.log('');
       console.log(`  DIFFERS (${differing.length}) — present but disagreeing with the source. NOT overwritten; a human decides which side is right:`);
-      for (const d of differing) console.log(`    ${d.key}: ${d.deltas.join('; ')}`);
+      for (const d of differing) console.log(`    ${d.label}: ${d.deltas.join('; ')}`);
     }
     if (orphans.length) {
       console.log('');

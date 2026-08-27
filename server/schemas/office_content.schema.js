@@ -20,22 +20,31 @@
  *
  *   - `kind: 'office'` — one per office CATEGORY (not per seat; Primogen and
  *     Socialite each carry two concurrent seats per oxp-11, but share one
- *     content document). Exactly 4 real documents today (Head of State,
- *     Primogen, Socialite, Enforcer) — Administrator is a real, filled seat
- *     (`office_seat.schema.js`'s own `OFFICE_CATEGORY_ENUM`) with NO content
- *     document until oxp-8 authors it. Every reader of this collection MUST
- *     treat "no document for this category" as a normal, valid state — see
- *     `server/lib/office-seat-resolve.js`'s own docstring for the existing
- *     "seat's office has no rules -> 400 VALIDATION_ERROR, not a crash"
- *     convention this migration preserves, not introduces.
+ *     content document). `category`'s enum is the FULL 5-value
+ *     `office_seat.schema.js`'s own `OFFICE_CATEGORY_ENUM`, including
+ *     'Administrator' — matching it exactly (AC1). Exactly 4 real documents
+ *     exist today (Head of State, Primogen, Socialite, Enforcer);
+ *     Administrator is a real, filled seat with NO content document until
+ *     oxp-8 authors it. That absence is enforced by this migration's seed
+ *     script simply never producing an Administrator document (`OFFICE_DATA`
+ *     has no such key) — deliberately NOT by narrowing this enum, which
+ *     would force oxp-8 (explicitly "not app code, no code dependency" per
+ *     the epic doc) into a TM Game code deploy just to widen it. Every
+ *     reader of this collection MUST treat "no document for this category"
+ *     as a normal, valid state — see `server/lib/office-seat-resolve.js`'s
+ *     own docstring for the existing "seat's office has no rules -> 400
+ *     VALIDATION_ERROR, not a crash" convention this migration preserves,
+ *     not introduces.
  *   - `kind: 'merit_caps'` — exactly ONE document, `MERIT_DOT_CAPS`'s flat
- *     12-entry merit-name -> dot-cap map. Not per-office (the same merit name
- *     has the same cap wherever it appears), so it doesn't fit the per-
- *     category shape above. Modelled as a single well-known document rather
- *     than its own 12-document collection, mirroring this repo's own
- *     `app_settings` collection (`_id: 'global'`, one flat config document)
- *     — the closer real precedent for "a small, rarely-changing, non-per-
- *     entity flat map" than treating each merit name as its own entity.
+ *     merit-name -> dot-cap map (10 entries as of this migration — not fixed
+ *     at any particular count; the schema itself imposes no cardinality).
+ *     Not per-office (the same merit name has the same cap wherever it
+ *     appears), so it doesn't fit the per-category shape above. Modelled as
+ *     a single well-known document rather than its own per-merit
+ *     collection, mirroring this repo's own `app_settings` collection
+ *     (`_id: 'global'`, one flat config document) — the closer real
+ *     precedent for "a small, rarely-changing, non-per-entity flat map"
+ *     than treating each merit name as its own entity.
  *
  * A single `oneOf`-discriminated schema (rather than two files) so the seed
  * script and any future reader validate every document in this collection
@@ -45,16 +54,6 @@
 
 import { OFFICE_CATEGORY_ENUM } from './office_seat.schema.js';
 
-// The 4 categories that can genuinely have office content today. Deliberately
-// NOT importing OFFICE_CATEGORY_ENUM's full 5-value list as this field's own
-// enum: 'Administrator' has no content until oxp-8, and admitting it here
-// would let a malformed/placeholder Administrator document slip past the
-// integrity gate silently. Add it to this list in the same change that
-// authors its real content, not before.
-export const OFFICE_CONTENT_CATEGORY_ENUM = OFFICE_CATEGORY_ENUM.filter(
-  (c) => c !== 'Administrator',
-);
-
 const officeDoc = {
   type: 'object',
   required: ['kind', 'category', 'asset', 'style', 'merits', 'manoeuvres', 'statusPower'],
@@ -62,7 +61,19 @@ const officeDoc = {
   properties: {
     _id: {},
     kind: { const: 'office' },
-    category: { type: 'string', enum: OFFICE_CONTENT_CATEGORY_ENUM },
+    // The FULL 5-value OFFICE_CATEGORY_ENUM, including 'Administrator' —
+    // matching it "exactly" is AC1's own literal wording (oxp-10). Codex
+    // review, oxp-10 (Medium): an earlier draft filtered Administrator out
+    // of this enum specifically to keep a malformed placeholder from
+    // validating, but that would make oxp-8 (Administrator content
+    // authoring, explicitly "not app code, no code dependency" per the
+    // epic doc) require a TM Game code deploy to widen this schema before a
+    // real document could ever be written — contradicting the epic's own
+    // constraint on that story. "No Administrator document exists yet" is
+    // enforced by this migration's seed script simply never producing one
+    // (OFFICE_DATA has no Administrator key), not by the schema refusing to
+    // admit the category as a legal value.
+    category: { type: 'string', enum: OFFICE_CATEGORY_ENUM },
     asset: { type: 'string', minLength: 1 },
     style: { type: 'string', minLength: 1 },
     // Merit NAMES only, not embedded cap values — dot caps live in the

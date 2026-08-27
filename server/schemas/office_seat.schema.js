@@ -42,11 +42,11 @@
 // in character.schema.js, minus the '' / null members that mean "holds no
 // office". A seat document is never "no office", so those two are dropped.
 //
-// Note that `OFFICE_DATA` (public/js/tabs/office-data.js) still defines only
-// FOUR offices: Administrator's manoeuvre and merit content is oxp.8 and has
-// not been written yet. The Administrator SEAT is nonetheless real and filled
-// (Ivana Horvat, since Game 5), so this enum follows character.schema.js
-// rather than the content module.
+// Note that the `office_content` collection (oxp.10) still holds only
+// FOUR office documents: Administrator's manoeuvre and merit content is
+// oxp.8 and has not been written yet. The Administrator SEAT is nonetheless
+// real and filled (Ivana Horvat, since Game 5), so this enum follows
+// character.schema.js rather than the content collection.
 export const OFFICE_CATEGORY_ENUM = [
   'Head of State',
   'Primogen',

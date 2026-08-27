@@ -83,16 +83,29 @@ export function isLoaded() { return _loaded; }
 export function loadFailed() { return _loadFailed; }
 
 /**
- * The `OFFICE_DATA[category]` equivalent. Returns the raw document (`asset`,
- * `style`, `merits`, `manoeuvres`, `statusPower`) or `undefined` — a real,
- * valid state for 'Administrator' until oxp-8, and for EVERY category before
- * the cache has loaded, both already handled by every existing caller's own
- * "no entry" branch (see e.g. office-tab.js's pending-office fallback).
+ * The `OFFICE_DATA[category]` equivalent. Returns a COPY of the document
+ * (`asset`, `style`, `merits`, `manoeuvres`, `statusPower`), never a live
+ * reference, so a caller cannot mutate the shared cache — or `undefined`, a
+ * real, valid state for 'Administrator' until oxp-8, and for EVERY category
+ * before the cache has loaded, both already handled by every existing
+ * caller's own "no entry" branch (see e.g. office-tab.js's pending-office
+ * fallback). Matches `bloodlineDiscs()`'s own copy-not-reference convention
+ * in `bloodlines-cache.js`. Codex review, oxp-10 (High, Pass 3a): an earlier
+ * draft returned the cached document directly — no current consumer
+ * mutates it, but the story's own AC7 promised copies, and the cost of a
+ * shallow-plus-array copy on a ~5-document collection is unmeasurable.
  *
  * @param {string} category
  */
 export function officeEntry(category) {
-  return _byCategory.get(category);
+  const doc = _byCategory.get(category);
+  if (!doc) return undefined;
+  return {
+    ...doc,
+    merits: doc.merits.slice(),
+    manoeuvres: doc.manoeuvres.map(m => ({ ...m })),
+    statusPower: doc.statusPower.slice(),
+  };
 }
 
 /**

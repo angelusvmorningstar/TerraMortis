@@ -1,6 +1,6 @@
 # Story oxp.10: migrate office content (OFFICE_DATA/MERIT_DOT_CAPS) to MongoDB
 
-Status: review
+Status: done
 
 ## Story
 
@@ -152,6 +152,25 @@ re-verify again at dev-story time (things drift), but as of this story's own inv
    must keep the last-good cache rather than wipe it, exactly mirroring bloodlines' own stated
    rationale). Office content's own miss case is narrower than bloodlines' (no cross-collection
    validation like clan/discipline matching) — don't port complexity bloodlines needed but this doesn't.
+
+   **AMENDED at dev-story time (2026-08-27), after external Codex review flagged the built module as
+   not literally satisfying this AC's own wording (Pass 3a, High):** built with the `_generation`
+   counter and copy-not-reference accessors (both now true — the latter was a genuine gap the review
+   caught and patched, see the Dev Agent Record), but DELIBERATELY WITHOUT a miss registry or a
+   separate `refetch...()` function. Both exist in bloodlines to guard against a specific, dangerous
+   failure shape this collection cannot have: a *silently wrong but plausible* number (bloodlines'
+   own "wrong-LOW" XP-costing incident its header comment documents). Every office-content failure mode
+   instead — cache never loaded, a category genuinely absent, the collection empty — lands on the
+   SAME already-visible, honest "Office details for this role are pending." fallback office-tab.js
+   already used for Administrator before this migration; there is no silently-plausible-wrong state to
+   catch, so a miss registry has nothing to report that isn't already on screen. A `refetch...()`
+   function would also be genuinely dead code in the CURRENT repo: this collection is read-only here
+   (AC8/locked scope decision), nothing ever changes it mid-session, so there is nothing to refetch
+   against. Building either anyway, to satisfy this AC's literal wording rather than its underlying
+   purpose, would be exactly the kind of speculative unused capability this codebase's own conventions
+   argue against. If a future TM Admin-side write path ever needs office content to update live in an
+   open TM Game tab (the same real, disclosed gap ADMR-1 left for bloodlines' own WebSocket push), that
+   is the point to add both — not before there is a caller for them.
 8. **Server-side reads do NOT reuse the client cache module, and do not need their own cache at all** —
    read Dev Notes for why (transactional consistency inside `office-purchase.js`'s accept flow is a
    real correctness concern, not just a style preference). Each of the four server dependents reads the
@@ -219,9 +238,13 @@ re-verify again at dev-story time (things drift), but as of this story's own inv
         test coverage proving manoeuvre order survived the migration (AC6).
   - [x] A small shared helper for the direct Mongo read, mirroring `office-seat-resolve.js`'s own
         stated rationale for existing exactly once rather than being copied into every route.
-- [x] Task 5 — Client cache module + repoint the two client dependents (AC: 5, 7)
-  - [x] New cache module mirroring `bloodlines-cache.js`: generation counter, miss registry, copies
-        not live references, distinct boot-load vs. refetch failure semantics.
+- [x] Task 5 — Client cache module + repoint the two client dependents (AC: 5, 7 — AC7 AMENDED, see its
+      own entry above) (AC: 5, 7)
+  - [x] New cache module mirroring `bloodlines-cache.js`: generation counter, copies not live
+        references (patched after Codex review — an earlier draft returned live references; see the
+        Dev Agent Record). Deliberately NO miss registry, NO refetch function — AC7's own amendment
+        above explains why (no dangerous silently-wrong failure shape to guard against, no write path
+        to refetch after).
   - [x] `public/js/tabs/office-tab.js` repointed, behaviour unchanged including the Administrator
         no-content case.
   - [x] `public/js/editor/sheet.js` repointed (`shRenderOfficeMerits`), same unchanged-behaviour bar.
@@ -235,11 +258,18 @@ re-verify again at dev-story time (things drift), but as of this story's own inv
         or the wider doc still carries it.
 - [x] Task 7 — Tests + full regression (AC: 10)
   - [x] Seed script: integrity gate + reconciliation unit tests (no live Mongo required for the gate
-        itself).
-  - [x] Schema validation tests.
+        itself; reconciliation IS DB-backed — `server/tests/oxp-10-seed-office-content.test.js`, added
+        after Codex review flagged this coverage as missing entirely, Medium — includes a permanent
+        regression test for the review's own real reconciliation-bug finding).
+  - [x] Schema validation tests (same file — `officeContentSchema`'s `oneOf` discrimination, the
+        Administrator-is-schema-valid correction, a hybrid-document rejection case).
   - [x] Each of the six dependents: repointed-behaviour test, including the Administrator no-document
         case (AC5) and the manoeuvre-order case (AC6) as their own explicit tests.
-  - [x] Client cache module: generation-counter and miss-registry tests.
+  - [x] Client cache module: generation-counter, failure-state and copy-not-reference tests —
+        `server/tests/oxp-10-office-content-cache.test.js`, added after the same Codex review flagged
+        this coverage as missing (Medium) and, separately, found the copy-not-reference gap itself
+        (High, patched — see AC7's own amendment above). NO miss-registry tests, deliberately: this
+        module was built without one (AC7's amendment explains why), so there is nothing there to test.
   - [x] Run the six dependents' own existing test files (find them, don't assume names) plus the new
         suites together; cross-check any failure against `CLAUDE.md`'s own "Known pre-existing
         failures" list before treating it as a regression.
@@ -374,11 +404,15 @@ own `beforeAll`, found from the assertion diffs alone (every render fell back to
   both `server/index.js` and `server/tests/helpers/test-app.js`.
 - Server dependents repointed via a new shared helper, `server/lib/office-content-read.js`
   (`getOfficeEntry(category, {session})`, `getMeritCaps({session})`) — no server-side cache, per the
-  story's own Dev Notes: `office-purchase.js`'s accept route now passes `{session: dbSession}` through
-  both `resolveOfficeSeat()` and the direct `getOfficeEntry`/`getMeritCaps` calls inside its
-  transaction, so the read participates in the same snapshot as the surrounding writes.
-  `checkPurchaseValidity` gained a `meritCaps` parameter (previously a module-level import) so its
-  caller controls whether that read is session-scoped.
+  story's own Dev Notes. `office-purchase.js`'s accept route does NOT call `resolveOfficeSeat()`
+  (correction, Codex review Pass 3b — an earlier draft of this note overstated this) — it re-reads the
+  seat directly (`seatsCol().findOne({_id}, {session: dbSession})`) because it must re-verify the
+  seat's office category still matches what was submitted before trusting anything else, then passes
+  `{session: dbSession}` through the direct `getOfficeEntry`/`getMeritCaps` calls. `resolveOfficeSeat()`
+  itself IS used elsewhere in the same file (the POST submission and GET routes, both outside any
+  transaction) and gained the `{session}` option for callers that need it, but the accept route is not
+  one of them. `checkPurchaseValidity` gained a `meritCaps` parameter (previously a module-level
+  import) so its caller controls whether that read is session-scoped.
 - Client dependents repointed via a new `public/js/data/office-content-cache.js`, structurally
   following `bloodlines-cache.js` (fetch-once-at-boot, monotonic generation counter, synchronous
   accessors) but WITHOUT a miss registry — an unresolved office category lands on the pre-existing,
@@ -397,10 +431,19 @@ own `beforeAll`, found from the assertion diffs alone (every render fell back to
   already auto-seeds minimal characters — every server route test that resolves a real office category
   needs real content there now, not just a static import that was always present.
 - Full targeted regression (office-merit-dots, oxp-1, oxp-3, oxp-4, oxp-5, oxp-6, oxp-7, oxp-9, both
-  issue-1141 suites) green: 358 passed, 0 failed on the second run. The single failure on the first run
-  (`oxp-1-office-seats.test.js`'s concurrent-seat-creation race test) reproduced clean in isolation
-  immediately after — a pre-existing flake under full-suite load (same class as this repo's own
-  documented Atlas-connection-contention flakes), not a regression from this story.
+  issue-1141 suites): consistently 415+/416 across every run, with the ONE recurring failure being
+  `oxp-1-office-seats.test.js`'s own concurrent-seat-creation race test (`seed-office-seats.mjs`'s
+  overlapping `applySeats(...)` calls, unrelated to `office_content` — that file never touches this
+  story's own collection). **Correction (Codex review, Pass 3b): an earlier draft of this note called
+  this "reproduced clean in isolation," which overstated it** — it is a genuine, pre-existing FLAKE
+  (same class as this repo's own documented Atlas-connection-contention flakes), not a test that fails
+  once and then reliably passes. Across multiple runs, mine and the external reviewer's, it failed with
+  a varying wrong seat count (8, 10, 11 instead of the expected 7) and also passed clean at least once
+  in isolation — both outcomes are real, neither is "the" answer, because the underlying
+  `seed-office-seats.mjs` script genuinely has no unique index on its own natural key
+  (`{office_category, holder_id}`), so overlapping upserts race non-deterministically. This is a real,
+  pre-existing bug in oxp-1's own seed script, out of this story's scope to fix, not a regression this
+  migration introduced or a claim this record should have called "clean."
 - Full untargeted suite run (4430 tests, all files): 28 failed / 4324 passed / 76 skipped. One was a
   REAL regression this story introduced, found and fixed: `issue-1143-db-setup-skip.test.js`'s positive
   control mocks `../db.js` with a minimal surface (`connectDb`/`getDb` only, no working
@@ -435,32 +478,159 @@ own `beforeAll`, found from the assertion diffs alone (every render fell back to
 
 ### File List
 
-- `server/schemas/office_content.schema.js` (new)
+- `server/schemas/office_content.schema.js` (new; category enum widened to the full 5-value
+  `OFFICE_CATEGORY_ENUM` after Codex review, Pass 3a — see AC1's own correction note)
 - `server/lib/office-content-index.js` (new)
 - `server/lib/office-content-read.js` (new)
 - `server/routes/office-content.js` (new)
-- `server/scripts/seed-office-content.js` (new)
+- `server/scripts/seed-office-content.js` (new; `keyOf()` reconciliation-aliasing bug fixed after Codex
+  review, Pass 2 — see the Dev Agent Record; `checkIntegrity` now returns and `seedOfficeContent` now
+  prints unmapped-merit warnings, Codex review Low)
 - `server/index.js` (modified — mount office-content router)
 - `server/tests/helpers/test-app.js` (modified — mount office-content router)
-- `server/tests/helpers/db-setup.js` (modified — auto-seed `office_content`, non-fatal on failure)
-- `server/lib/office-seat-resolve.js` (modified — reads `office_content`, session-aware)
+- `server/tests/helpers/db-setup.js` (modified — auto-seeds `office_content`, NOT wrapped in a
+  swallowing try/catch — an earlier draft's blanket catch was itself a Codex review finding, Medium,
+  reverted; see `issue-1143-db-setup-skip.test.js`)
+- `server/lib/office-seat-resolve.js` (modified — reads `office_content`, session-aware; stale
+  `OFFICE_DATA` prose corrected)
 - `server/routes/office-merit-dots.js` (modified — reads merit caps from `office_content`)
 - `server/routes/office-manoeuvre-rank.js` (modified — comment only, no import change)
 - `server/routes/office-purchase.js` (modified — session-aware `office_content` reads inside the accept
   transaction; `checkPurchaseValidity` gained a `meritCaps` parameter)
-- `public/js/data/office-content-cache.js` (new)
+- `server/routes/office-seats.js` (modified — comment only: corrected a stale claim about
+  `resolveOfficeSeat`'s session support, Codex review Low)
+- `server/schemas/office_seat.schema.js` (modified — comment only: stale `office-data.js` reference
+  corrected, Codex review Low)
+- `public/js/data/office-content-cache.js` (new; `officeEntry()` now returns a copy, not the live
+  cached document — Codex review, Pass 3a, High)
 - `public/js/tabs/office-tab.js` (modified — repointed to the cache)
 - `public/js/editor/sheet.js` (modified — repointed to the cache)
 - `public/js/app.js` (modified — boot-time `loadOfficeContent()`)
 - `public/js/admin.js` (modified — boot-time `loadOfficeContent()`)
 - `public/js/tabs/office-data.js` (deleted)
+- `server/tests/oxp-10-seed-office-content.test.js` (new — seed script + schema unit/integration
+  coverage, added after Codex review Medium finding; includes the permanent regression test for the
+  Pass 2 reconciliation bug)
+- `server/tests/oxp-10-office-content-cache.test.js` (new — cache module unit coverage, added after
+  Codex review Medium finding)
+- `server/tests/issue-1143-db-setup-skip.test.js` (modified — its positive control's `db.js` mock now
+  includes a working `getCollection` stub, completing the mock rather than weakening `setupDb()`'s own
+  contract; see the `db-setup.js` entry above)
 - `server/tests/issue-1141-office-data-sync.test.js` (modified — imports the seed script instead)
-- `server/tests/issue-1141-office-tab-render.test.js` (modified — primes the cache before import)
+- `server/tests/issue-1141-office-tab-render.test.js` (modified — primes the cache before import; new
+  AC6 explicit ordering test added)
 - `server/tests/office-merit-dots.test.js` (modified — two source-contract assertions repointed)
 - `server/tests/oxp-1-office-seats.test.js` (modified — comment only)
 - `server/tests/oxp-7-office-merits-empty-list-guard.test.js` (modified — primes the cache instead of
   `vi.mock`ing the deleted static module)
+- `server/tests/oxp-7-sheet-office-merits-section.test.js` (modified — same cache-priming technique)
 - `specs/reference-data-ssot.md` (modified — new table row + note)
+- `specs/epic-oxp-office-xp-economy.md` (modified — status correction)
+- `specs/stories/code-review/oxp-10-office-data-mongo-migration-diff.txt` (new — the scoped review diff)
+- `specs/stories/code-review/oxp-10-office-data-mongo-migration-codex-review.md` (new — the review
+  prompt)
+- `specs/stories/code-review/oxp-10-office-data-mongo-migration-codex-findings.md` (new — Codex's own
+  findings)
+- `specs/stories/code-review/oxp-10-office-data-mongo-migration-codex-run.log` (new — the raw run log)
 - `specs/stories/oxp-10-office-data-mongo-migration.md` (this file — tasks, Open Questions, Dev Agent
-  Record)
+  Record, AC1/AC7 amendments)
 - `specs/stories/sprint-status.yaml` (modified — status progression)
+
+## Senior Developer Review (AI)
+
+**Reviewer:** External — Codex, CLI-direct (`codex exec`, `model_reasoning_effort=high`), 3-pass
+adversarial protocol (Blind Hunter → Edge Case Hunter → Acceptance Auditor), single session, against
+commit `5c3d168e` (base `fcf5bd2b`). Went well beyond a static read: stood up an isolated,
+transaction-capable local MongoDB replica set (the configured Atlas URI was unreachable in its
+sandbox, and the plain local daemon is standalone and can't run this repo's transactions) to actually
+reproduce every DB-backed claim, including the one real bug it found. Full raw output:
+`specs/stories/code-review/oxp-10-office-data-mongo-migration-codex-findings.md`.
+
+**Outcome: 1 High, 5 Medium, 5 Low.** Every finding independently re-verified against this session's
+own environment before triage — none accepted on the reviewer's word alone.
+
+### High
+
+- **AC7's cache module omitted 3 of its own literal sub-requirements (miss registry, refetch function,
+  copy-not-reference accessors), checked off as done anyway.** CONFIRMED, split triage:
+  - Copy-not-reference: **PATCHED**. `officeEntry()` returned the live cached document; nothing
+    currently mutates it, but the AC promised copies and the fix is free. Now returns a shallow copy
+    with `merits`/`manoeuvres`/`statusPower` copied too. New regression test:
+    `oxp-10-office-content-cache.test.js`'s "mutating a returned entry does NOT corrupt the cache".
+  - Miss registry + separate `refetch...()`: **AC7 AMENDED, not implemented.** Both exist in bloodlines
+    to guard a real, dangerous failure shape (a silently-wrong-but-plausible XP cost) this collection
+    cannot have — every office-content failure mode already lands on the same honest, already-visible
+    "pending" fallback. A `refetch...()` would be genuinely dead code today (read-only collection,
+    nothing to refetch against). Building either just to satisfy the AC's literal wording would be
+    exactly the speculative-unused-capability this codebase's own conventions argue against. See AC7's
+    own amendment text above for the full reasoning and the condition under which they should be added
+    later.
+
+### Medium
+
+- **`db-setup.js`'s new office_content seed swallowed every seeding failure, not just the one it was
+  meant to accommodate.** CONFIRMED. **PATCHED** — reverted the blanket try/catch; `setupDb()` keeps
+  its pre-existing throw-on-failure contract (other suites already depend on it, per its own
+  docstring). Fixed the ACTUAL problem instead: `issue-1143-db-setup-skip.test.js`'s minimal `db.js`
+  mock now includes a working `getCollection` stub, so the suite whose mock was incomplete completes
+  its own mock rather than the shared function growing an exception.
+- **Seed reconciliation's `keyOf()` aliased any unrecognised-`kind` document onto the `merit_caps`
+  sentinel key.** CONFIRMED and independently reproduced against real MongoDB (both by the reviewer and
+  by me, prove-discriminated with a single-change revert). A real, operationally significant bug:
+  `--apply` could finish "successfully" having never written the merit-caps singleton at all, with the
+  aliased orphan never reported. **PATCHED** — `keyOf()` now gives office/merit_caps documents their
+  own unambiguous keys and anything else an always-orphan key; a separate `labelOf()` keeps console
+  output human-readable. Permanent regression test added:
+  `oxp-10-seed-office-content.test.js`'s "an unrecognised-kind orphan..." test.
+- **AC1's schema enum contradicted the epic's own "oxp-8 is content-only, no code dependency" premise.**
+  CONFIRMED — narrowing the category enum to 4 values (excluding Administrator) meant oxp-8 could never
+  actually be content-only; authoring Administrator content would require a TM Game code deploy to
+  widen the schema first. **PATCHED** — schema's `category` now uses the full 5-value
+  `OFFICE_CATEGORY_ENUM`, matching AC1's own literal "matching... exactly" wording. "No Administrator
+  document exists yet" is now enforced by the seed script's frozen `OFFICE_DATA` simply having no such
+  key, not by schema refusal.
+- **Task 7/AC10 claimed seed/schema/cache tests that did not exist.** CONFIRMED — a real coverage gap,
+  and the reconciliation bug above is direct evidence of it. **PATCHED** — two new test files,
+  `oxp-10-seed-office-content.test.js` (26+ tests: checkIntegrity, buildSeedDocs, schema validation,
+  DB-backed reconciliation including the regression test) and `oxp-10-office-content-cache.test.js`
+  (13 tests: load/failure states, copy-not-reference, meritCap default).
+- **The Dev Agent Record's "reproduced clean in isolation" claim about `oxp-1`'s race test was itself
+  overstated.** CONFIRMED — it is a genuine flake (varying wrong seat counts across runs), not a test
+  that fails once and then reliably passes. **CORRECTED IN THE RECORD** (not the code — the underlying
+  bug is in `seed-office-seats.mjs`, oxp-1's own script, unrelated to `office_content`, out of this
+  story's scope). See the completion-notes entry above for the corrected wording.
+
+### Low
+
+- **Schema comment claimed 12 merit-cap entries; the real frozen source has 10.** CONFIRMED. **PATCHED**
+  — comment corrected, no longer claims a fixed cardinality at all.
+- **The integrity gate's own comment promised a console warning for an unmapped merit that was never
+  implemented.** CONFIRMED. **PATCHED** — `checkIntegrity` now returns `warnings`, `seedOfficeContent`
+  prints them. New tests cover both the warning firing and the real frozen source producing none.
+- **Several stale comments still described the deleted `office-data.js`/`OFFICE_DATA` as if it were
+  still the live source.** CONFIRMED for the three the reviewer named as production-file prose (not the
+  many legitimate `OFFICE_DATA` references to the still-real export from `seed-office-content.js`).
+  **PATCHED** — `office_seat.schema.js`, `office-seats.js` (also corrected a second, independently stale
+  claim in the same comment block — that `resolveOfficeSeat` had no session support and should not gain
+  one; it now has one, used by `office-purchase.js`), `office-seat-resolve.js`.
+- **The Dev Agent Record claimed the accept route threads `{session}` through `resolveOfficeSeat()`;
+  it doesn't call that function at all.** CONFIRMED — an overstatement with no runtime consequence (the
+  actual direct reads are correctly session-scoped), but a future reader could go looking for a call
+  that isn't there. **CORRECTED IN THE RECORD.**
+- **Test-DB office_content fixtures never get repaired if stale (`$setOnInsert` + no-op teardown).**
+  CONFIRMED as a real, low-frequency operational quirk — accepted, not patched. This is the same
+  never-auto-clobber philosophy this collection's own seed script uses everywhere else (a human decides
+  when a disagreement is resolved); a developer who suspects stale test fixtures can drop the collection
+  directly. Changing this would mean the test suite silently overwrites what a human might have put
+  there deliberately.
+
+### Verification
+
+Every patch re-run and green: full office-domain batch (`oxp-10-seed-office-content.test.js`,
+`oxp-10-office-content-cache.test.js`, `office-merit-dots`, `oxp-1`, `oxp-2`, `oxp-3`, `oxp-4`, `oxp-5`,
+`oxp-7` both files, `oxp-9`, `oxp-11`, both `issue-1141` suites, `issue-1143`) — 429 passed / 1 failed
+(the confirmed-pre-existing `issue-823` rebrand-drift assertion) across the last full run. The
+reconciliation-bug fix and the `issue-1143` mock fix were both prove-discriminated with single-change
+reverts before being accepted as real fixes, not just re-run to confirm green.
+
+**Not pushed, not merged** — commit only, per this repo's standing rule.

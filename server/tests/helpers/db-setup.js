@@ -26,18 +26,18 @@ export async function setupDb() {
     );
   }
 
-  // Non-fatal: a small number of DB-adjacent suites mock '../db.js' with a
-  // minimal surface (connectDb/getDb only, e.g. issue-1143-db-setup-skip.test.js's
-  // own positive control) that has no working getCollection(). Letting a
-  // seeding failure abort setupDb() itself would fail EVERY DB-backed suite
-  // over a concern most of them never touch; a suite that actually needs
-  // office_content and doesn't have it will fail its own specific assertion
-  // instead, which is a clearer signal than an opaque setupDb() rejection.
-  try {
-    await ensureOfficeContentSeeded();
-  } catch (err) {
-    console.error('[setupDb] office_content auto-seed failed (non-fatal):', err.message);
-  }
+  // Deliberately NOT wrapped in a swallowing try/catch (Codex review,
+  // oxp-10, Medium — reverted after an earlier draft did exactly that and
+  // was correctly flagged: a blanket catch here would silently mask a REAL
+  // seeding failure — a bad index conflict, a permissions error, a genuine
+  // MongoDB fault — for every other DB-backed suite in the repo, leaving
+  // them to run against missing reference data with no clear signal why.
+  // setupDb()'s own docstring already promises "other suites already depend
+  // on" its throw-on-failure contract; a suite whose own db.js mock is too
+  // minimal to support this (issue-1143-db-setup-skip.test.js's positive
+  // control) should complete its OWN mock instead of this shared function
+  // growing an exception for it.
+  await ensureOfficeContentSeeded();
 }
 
 /**

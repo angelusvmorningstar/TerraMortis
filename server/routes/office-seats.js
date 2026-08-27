@@ -172,23 +172,25 @@ function resolveCourtTitle(requestedTitle, category) {
 // `office_manoeuvre_ranks` is reset below.
 //
 // WHY resolveOfficeSeat() IS NOT USED HERE, and must not be reintroduced by a
-// later tidy-up (oxp.5 Finding 2, both reasons independently disqualifying):
+// later tidy-up (oxp.5 Finding 2):
 //
-//   1. It 400s any seat whose office has no OFFICE_DATA entry. That is
-//      Administrator, until oxp.8 authors its content — and the Administrator
-//      seat is real, filled (Ivana Horvat, since Game 5) and must be
-//      handoverable. That refusal is CORRECT for a purchase route, which
-//      cannot validate a merit or a rank without rules, and wrong for a
-//      handover route, which needs no rules at all. A test pins that an
-//      Administrator handover succeeds.
-//   2. It does its findOne with no session parameter, so it would read OUTSIDE
-//      this route's transaction.
+//   It 400s any seat whose office has no `office_content` entry (oxp.10).
+//   That is Administrator, until oxp.8 authors its content — and the
+//   Administrator seat is real, filled (Ivana Horvat, since Game 5) and must
+//   be handoverable. That refusal is CORRECT for a purchase route, which
+//   cannot validate a merit or a rank without rules, and wrong for a
+//   handover route, which needs no rules at all. A test pins that an
+//   Administrator handover succeeds.
 //
 // Only its exported SEAT_ID_PATTERN is reused, so the 24-hex shape still lives
 // in exactly one place — that module's own stated reason for existing. Do not
-// add a session parameter to resolveOfficeSeat and do not relax its
-// OFFICE_DATA check: two live callers depend on that refusal and oxp-3's and
-// oxp-11's tests pin it.
+// relax `resolveOfficeSeat`'s office_content refusal to accommodate this
+// route: two live callers depend on that refusal and oxp-3's and oxp-11's
+// tests pin it. (oxp.10: `resolveOfficeSeat` gained an optional `{session}`
+// parameter for callers inside a transaction — office-purchase.js uses it —
+// but that is orthogonal to this file's own reason for not calling it at
+// all; nothing about session support changes the Administrator refusal
+// above.)
 //
 // WHY THE CHARACTER WRITES BYPASS PUT /api/characters/:id: that route's
 // stripEphemeral -> validateCharacterPartial -> three normalise/validate

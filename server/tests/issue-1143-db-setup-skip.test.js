@@ -15,6 +15,15 @@
  * suites depend on.
  *
  * This test needs no real MongoDB — it is intentionally NOT DB-backed.
+ *
+ * `getCollection` mocks below return a minimal fake collection (oxp-10):
+ * `setupDb()` now also runs `ensureOfficeContentSeeded()`
+ * (`createIndex`/`updateOne` against `office_content`), unconditionally and
+ * without a swallowing try/catch around it on purpose (Codex review, oxp-10
+ * — a blanket catch there would mask a REAL seeding failure for every other
+ * DB-backed suite, not just this file's own synthetic one). This file's own
+ * mock completing that surface is the correct fix, not weakening the shared
+ * function's contract.
  */
 
 import { describe, it, expect, vi, afterEach } from 'vitest';
@@ -40,10 +49,17 @@ describe('issue-1143 AC5 — isDbAvailable() clean-skip contract', () => {
 
   it('resolves true when the underlying connection succeeds (positive control)', async () => {
     vi.resetModules();
+    // oxp-10: setupDb() now also runs ensureOfficeContentSeeded() against
+    // whatever getCollection('office_content') returns — this fake supports
+    // exactly the two calls that function makes (createIndex, updateOne),
+    // both resolving immediately, so the positive control still proves what
+    // it always did (connectDb succeeds + getDb reports a *_test database
+    // -> isDbAvailable() resolves true) without depending on real MongoDB.
+    const fakeCollection = { createIndex: vi.fn().mockResolvedValue(undefined), updateOne: vi.fn().mockResolvedValue(undefined) };
     vi.doMock('../db.js', () => ({
       connectDb: vi.fn().mockResolvedValue(undefined),
       closeDb: vi.fn(),
-      getCollection: vi.fn(),
+      getCollection: vi.fn(() => fakeCollection),
       getDb: vi.fn(() => ({ databaseName: 'tm_game_test' })),
     }));
 
