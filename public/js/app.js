@@ -853,7 +853,13 @@ async function loadAllData() {
   // char BEFORE applyOverlayToAll so 'derived.defence' STM mods compose
   // additively on top of the real mechanical base.
   for (const c of (suiteState.chars || [])) materialiseDerivedDefence(c);
-  await applyOverlayToAll(suiteState.chars, globalEnabled);
+  // Fetch the bulk CSV against the player's OWN character ids only
+  // (sortedChars, pre-combat-merge) — suiteState.chars can carry non-owned
+  // combat opponents (2b above), and st_mods' bulk route 403s the whole
+  // batch atomically on the first id the caller doesn't own, silently
+  // zeroing the overlay for the player's own characters too. STs already
+  // own everything editorState.chars returns, so this is a no-op for them.
+  await applyOverlayToAll(suiteState.chars, globalEnabled, sortedChars.map(c => c._id));
   // editorState.chars is the same set of references for the player-owned
   // subset (sortedChars came from editorState.chars.slice()). Combat-only
   // chars are not in editorState. Nothing more to mirror.

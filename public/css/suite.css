@@ -1509,6 +1509,9 @@ details.city-section[open] > .city-section-hd::before { transform: rotate(90deg)
 }
 .dt-mobile-show-anyway:hover { filter: brightness(1.08); }
 
+/* ── DT form-retirement notice footnote (flight-check copy pass) ── */
+.dt-retired-notice-footnote { font-size: var(--fs-floor-body); color: var(--txt3); margin-top: 12px; }
+
 /* Nav badge (used by More tab and app icons — Story 3.3) */
 .nav-badge {
   position: absolute; top: 6px; right: 6px;
