@@ -653,3 +653,31 @@ describe('TBID.1 AC13 — the DB-backed territory API is untouched', () => {
     expect(js).not.toMatch(/\/api\//);
   });
 });
+
+// ═════════════════════════════════════════════════════════════════════════════
+//  Review-fix regressions (Codex external review, 2026-08-29)
+// ═════════════════════════════════════════════════════════════════════════════
+
+describe('Review fix — esc() escapes quote characters for safe attribute embedding', () => {
+  it('a character name containing a double quote does not break out of an option value attribute', async () => {
+    await boot();
+    globalThis._charNames = [...CHAR_NAMES, 'Jane "JJ" Doe'];
+    window.terrOpenTerritoryPicker();
+    window.terrPickTerritory('harbour');
+    const markup = html();
+    expect(markup).toContain('Jane &quot;JJ&quot; Doe');
+    expect(markup).not.toMatch(/value="Jane "JJ"/);
+  });
+});
+
+describe('Review fix — a confirmed catalogue-only Regent still shows selected in the card select', () => {
+  it('renders a defaultRegent absent from _charNames as a selected option, not "— none —"', async () => {
+    await boot();
+    window.terrOpenTerritoryPicker();
+    window.terrPickTerritory('academy');
+    submitRegent('Jack Fallow');   // Academy's defaultRegent; not in CHAR_NAMES
+    flush();
+    const markup = html();
+    expect(markup).toMatch(/class="regent-sel"[\s\S]*?<option value="Jack Fallow" selected>/);
+  });
+});

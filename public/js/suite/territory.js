@@ -111,7 +111,11 @@ function total(bid) {
 function esc(s) {
   const d = document.createElement('div');
   d.textContent = s;
-  return d.innerHTML;
+  // innerHTML escapes &, < and > but leaves quote characters untouched, which
+  // matters here because callers interpolate esc() into HTML attribute values
+  // (e.g. option value="${esc(name)}") as well as text content. A name
+  // containing a double quote would otherwise break out of the attribute.
+  return d.innerHTML.replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }
 
 function nameOpts(sel) {
@@ -428,6 +432,8 @@ function renderCard(t) {
       <span class="regent-lbl">Regent:</span>
       <select class="regent-sel" onchange="terrSetRegent('${t.id}',this.value)">
         <option value="">\u2014 none \u2014</option>
+        ${t.regent && !(window._charNames || []).includes(t.regent)
+          ? `<option value="${esc(t.regent)}" selected>${esc(t.regent)}</option>` : ''}
         ${nameOpts(t.regent || '')}
       </select>
     </div>

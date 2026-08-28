@@ -2,7 +2,7 @@
 id: tbid.1
 epic: tbid
 epic_file: none — ad-hoc story, no epic doc exists for this tool (see "Why this story exists")
-status: review
+status: done
 priority: medium
 type: feature
 depends_on: []
@@ -367,6 +367,108 @@ render correctly in Parchment and dark.
 - `tests/tbid-1-territory-bid-open-flow.spec.js` (new)
 - `specs/stories/tbid-1-territory-bid-open-flow.md` (this file)
 - `specs/stories/sprint-status.yaml` (status transitions)
+
+## Senior Developer Review (AI)
+
+**Reviewer:** Codex external review (`codex exec`, `model_reasoning_effort=high`), 2026-08-29 — a
+three-pass blind/edge-case/acceptance review with no access to this conversation. Findings verified
+and triaged by the session that ran `bmad-loop` for this story (Claude, same date). Full raw findings:
+`specs/stories/code-review/tbid-1-territory-bid-open-flow-codex-findings.md`. Diff reviewed:
+`specs/stories/code-review/tbid-1-territory-bid-open-flow-diff.txt` (base `34759457`, scoped to source
++ tests, story/tracking files excluded).
+
+**Verdict as returned:** needs patches before shipping. No High findings; 5 Medium, 7 Low.
+
+### Patched (all from outside this session; verified before and after)
+
+1. **`esc()` did not escape `"`/`'`** (`territory.js`), so a character name containing a double
+   quote could break out of the `value="..."` attribute in `nameOpts()`/`regentOpts()` — Codex
+   reproduced a headless-Chromium parse of `Jane "JJ" Doe` truncating to value `Jane ` plus stray
+   attributes. Fixed by appending `.replace(/"/g,'&quot;').replace(/'/g,'&#39;')` to `esc()`'s
+   existing `textContent`→`innerHTML` escape. This is a pre-existing latent issue in `nameOpts`
+   (unchanged by this diff) that `regentOpts` (new) inherited and extended to a second call site —
+   fixed at the shared root rather than patched per call site. Closes 2 Medium findings (Pass 1 +
+   Pass 2, same root cause). New regression test added and prove-discriminated (revert → both new
+   tests fail with exactly this shape; restore → green).
+2. **A confirmed catalogue-only Regent (a `defaultRegent` NPC absent from `window._charNames`, e.g.
+   Academy's "Jack Fallow") left the card's own `regent-sel` `<select>` showing "— none —"** even
+   though the card's header tag correctly showed "Regent: Jack Fallow" and defence scoring correctly
+   used the stored name — a real display contradiction for the ST on 3 of 5 territories' ordinary
+   default-accept flow. `regentOpts()` (the modal) already solved this by carrying the pre-fill as
+   its own option when absent from the roster; `renderCard`'s select did not. Fixed by applying the
+   same extra-option pattern to the card's `regent-sel`. Closes 2 Medium findings (Pass 2 + Pass 3b,
+   same root cause). New regression test added and prove-discriminated.
+3. **The Playwright spec's boot helper looked for a `#auth-gate` element that has never existed**
+   (the real id is `#login-screen`) and never hid it, so all 14 captured screenshots retain the app's
+   real "Loading…" screen painted over the territory board underneath — confirmed by reading the real
+   boot sequence in `app.js` (it shows `#login-screen` and only hides it after `loadAllData()` and
+   friends resolve, which this spec's minimal route stubs don't let happen). This did not affect any
+   DOM/computed-style assertion (all scoped under `#terr-root`, unaffected by the overlay, and every
+   test passed both before and after), only the completion note's claim that the screenshots
+   demonstrate the finished surface — which was overstated. Fixed by hiding `#login-screen` directly
+   instead of the nonexistent `#auth-gate`, and added a `toBeHidden()` assertion so a regression
+   fails a real test rather than only being visible in a screenshot. Prove-discriminated (revert → all
+   5 tests fail on the new assertion; restore → green).
+
+All three patches: `cd server && npx vitest run tests/tbid-1-territory-bid-open-flow.test.js`
+(**50/50**, was 48/48) and `npx playwright test tests/tbid-1-territory-bid-open-flow.spec.js`
+(**5/5**) both re-run green after patching, on top of the pre-patch fresh-run baseline that matched
+Codex's own numbers exactly (tripwire check: this review is genuinely about this change).
+
+### Deferred
+
+- **`terrConfirmRegent` branches on array membership, not on the modal's own `mode` field** (Pass 1,
+  Low) — exposed-handler hardening, not a demonstrated ordinary-UI path (every real constructor keeps
+  `mode` and membership aligned). Logged: `specs/deferred-work.md`, "Deferred from: Codex external
+  review of tbid-1-territory-bid-open-flow (2026-08-29)".
+
+### Dismissed (with evidence)
+
+- **Regression-count correction claim (Pass 3b, Low)** — Codex's own re-run of the seven named
+  changed-area suites reported "205 passed, 29 skipped, 3 failed (237)" and flagged the Debug Log's
+  "234 pass, 3 pre-existing failures" as false for counting skips as passes. **Re-verified independently:
+  a fresh run of the correct seven files (`gdx-4-css-standards-grep`, `issue-830-inherited-card-css`,
+  `issue-1128-dot-wrapper`, `feature.687.ranking-score-models`, `feature.691.hos-city-status-power`,
+  `issue-1141-office-tab-render`, `oxp-3-office-manoeuvre-rank`) with a local `mongod` running
+  produced 234 passed / 3 failed / 0 skipped (237) — exactly matching the original Debug Log claim.**
+  This repo's suites skip (not fail) tests that need a local `mongod` when one isn't running
+  (documented in this repo's own `CLAUDE.md`); Codex's 29-skip figure is consistent with its own
+  session not having one available, not with the record being wrong. The three failures themselves
+  (`gdx-4`, two in `issue-830`) are confirmed pre-existing either way. Dismissed as an environmental
+  artifact of the reviewer's own machine state, not a defect in the record.
+- **Version-detection accepts any non-null `schemaVersion` as current** (Pass 1, Low) — true as read,
+  but no code path in this app ever writes anything but `SCHEMA_VERSION` (currently `1`) or omits the
+  field; the `!= null` check correctly distinguishes "has a schemaVersion field at all" (current or
+  migrated) from "predates this story" (grandfathered) or "malformed" (falls to `dflt()`). No
+  adversarial-input surface for a client-only, single-user localStorage tool.
+- **Invalid exported `window.terr*` actions fail silently with no user-facing error** (Pass 1, Low) —
+  matches this file's own pre-existing convention for out-of-band/invalid calls (unchanged by this
+  story), not a regression it introduced.
+- **Some static checks claim a broader guarantee than they literally establish** (Pass 1, Low; test
+  quality only) — acknowledged, no functional risk; not worth further test-hardening against
+  hypothetical future drift for this story.
+- **Reused `.form-select`/`.form-input` classes change the claimant/seconder/amount modals'
+  typography and spacing, not just the new Regent field** (Pass 2, Low) — this is Task 4's explicit,
+  spec-directed intent ("the already-existing shared `.form-select`/`.form-input` classes" per the
+  story's own scope), not an accidental side effect.
+- **The vitest stand-in DOM stores unparsed markup, so it can't itself catch attribute-breakout bugs
+  that only a real browser parser exposes** (Pass 2, Low) — true of the harness generally; addressed
+  in effect for the specific case that mattered by the `esc()` fix above plus its new regression test,
+  which asserts on the escaped substring rather than relying on browser parsing.
+- **AC12's "built entirely from existing theme.css tokens" wording is contradicted by raw px/rem
+  spacing and font-size values in the new CSS** (Pass 3a, Low) — a wording imprecision in the AC
+  itself, not an implementation defect: `theme.css` has no spacing scale (confirmed), AC11 itself
+  prescribes raw pixel values, and this repo's actual CSS-standards convention (`CLAUDE.md`) is
+  colour/token-only — never a bare hex/`rgba()`/inline `style`, not a spacing-token requirement. The
+  implementation follows the real convention correctly.
+
+### Ship assessment
+
+**Ready.** All 5 Medium findings closed by 3 root-cause patches, each with a new regression test and
+a single-change prove-discrimination revert. The 1 deferred Low is a hardening item with no
+demonstrated real-world path. All other Lows are dismissed with recorded evidence. Full suite green:
+50/50 (vitest) + 5/5 (Playwright) + the seven-file changed-area regression at 234/237 with the same 3
+pre-existing, unrelated failures as base.
 
 ## Change Log
 

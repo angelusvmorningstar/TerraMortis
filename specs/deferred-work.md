@@ -1,5 +1,22 @@
 # Deferred Work
 
+## Deferred from: Codex external review of tbid-1-territory-bid-open-flow (2026-08-29)
+
+**`terrConfirmRegent(tid, regentName)` (`public/js/suite/territory.js`) decides "is this a reopen"
+purely from `state.territories.some(t => t.id === tid)`, ignoring the modal's own `mode: 'open'` /
+`mode: 'reopen'` field.** Every constructor that builds a `{type: 'regent', ...}` modal today keeps
+`mode` and array-membership aligned (`terrPickTerritory` only opens `mode: 'open'` for a territory
+confirmed absent from `state.territories`; `terrReopen` only opens `mode: 'reopen'` for one confirmed
+present), so under the real UI this cannot diverge. But the function is assigned to
+`window.terrConfirmRegent`, reachable from the console or any future caller — if one ever called it
+directly (or a future code path built a `mode: 'open'` modal for a `tid` already on the board) it
+would silently replace the live entry in place (bids cleared, resolved reset) as if reopening it,
+with no warning that a contest in progress was discarded. Judged Low severity and out of this story's
+scope by Codex's own external review (Pass 1) — not a demonstrated ordinary-click path, "primarily an
+exposed-handler/invariant-hardening defect." Fix, if picked up: branch on `m.mode` explicitly rather
+than array membership, passing `mode` through from `terrModalSubmit`'s `window.terrConfirmRegent(m.tid,
+rg)` call.
+
 ## Deferred from: Epic DTUI closure — downtime-form.js cleanup (2026-08-27)
 
 Closing Epic DTUI's remaining backlog surfaced that `public/js/tabs/downtime-form.js`'s player-facing

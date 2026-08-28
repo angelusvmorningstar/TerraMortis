@@ -57,8 +57,13 @@ async function openTerritoryTab(page, { seed = null, theme = null } = {}) {
   await page.evaluate(({ names, theme }) => {
     window._charNames = names;
     if (theme) document.documentElement.setAttribute('data-theme', theme);
-    const gate = document.getElementById('auth-gate');
-    if (gate) gate.style.display = 'none';
+    // The real boot sequence shows #login-screen (its "Loading…" state) while
+    // it awaits network calls this test never stubs, so it never reaches its
+    // own reveal. Force both halves of that reveal directly rather than
+    // leaving the (non-existent) #auth-gate id as a no-op and #login-screen
+    // sitting visible over the territory tab underneath it.
+    const loginScreen = document.getElementById('login-screen');
+    if (loginScreen) loginScreen.style.display = 'none';
     const app = document.getElementById('app');
     if (app) app.style.display = '';
     document.querySelectorAll('.tab').forEach(el => el.classList.remove('active'));
@@ -67,6 +72,10 @@ async function openTerritoryTab(page, { seed = null, theme = null } = {}) {
   }, { names: CHAR_NAMES, theme });
 
   await expect(page.locator('#terr-root .toolbar')).toBeVisible();
+  // Review fix: the boot sequence's own Loading… screen must actually be
+  // gone, not just painted-over, or screenshots taken from here on are not
+  // proof of what the finished surface looks like.
+  await expect(page.locator('#login-screen')).toBeHidden();
 }
 
 test.describe('TBID.1 — Territory Bids open flow (real browser)', () => {
