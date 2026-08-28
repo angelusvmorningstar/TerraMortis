@@ -534,6 +534,7 @@ body.desktop-mode .sh-powers-grid > .sh-sec{break-inside:avoid;}
 #t-territory .adj{width:44px;height:44px;background:var(--surf);border:1px solid var(--bdr);color:var(--txt2);cursor:pointer;font-size:1.125rem;display:flex;align-items:center;justify-content:center;-webkit-tap-highlight-color:transparent;}
 #t-territory .adj:active{border-color:var(--gold);}
 #t-territory .adj-val{font-family:var(--fl);font-size:0.875rem;font-weight:600;min-width:30px;text-align:center;}
+#t-territory .ruler-row .btn-sm{padding:3px 8px;margin-left:4px;}
 #t-territory .av-pos{color:var(--gold);}
 #t-territory .av-neg{color:var(--err2);}
 #t-territory .av-zero{color:var(--txt3);}
@@ -543,7 +544,32 @@ body.desktop-mode .sh-powers-grid > .sh-sec{break-inside:avoid;}
 
 /* Card footer */
 #t-territory .tc-foot{padding:10px 14px;border-top:1px solid var(--bdr);background:var(--bg);display:flex;gap:8px;}
+#t-territory .tc-foot button{flex:1;}
 #t-territory .res-bar{display:flex;align-items:center;justify-content:space-between;padding:10px 16px;background:var(--gold-a5);border-top:1px solid var(--bdr2);font-family:var(--fl);font-size:var(--fs-floor-micro);letter-spacing:.14em;text-transform:uppercase;color:var(--gold);}
+#t-territory .res-bar .btn-sm{color:var(--txt3);border-color:var(--txt3);}
+
+/* Empty board (TBID.1) */
+#t-territory .terr-empty{border:1px dashed var(--bdr2);background:var(--surf);padding:28px 16px;text-align:center;}
+#t-territory .terr-empty-msg{font-family:var(--ft);font-size:0.75rem;color:var(--txt3);font-style:italic;}
+
+/* Resolved, collapsed (TBID.1) */
+#t-territory .trr{border-color:var(--bdr2);}
+#t-territory .trr .res-bar{border-top:none;gap:10px;}
+#t-territory .trr-id{display:flex;flex-direction:column;gap:2px;min-width:0;}
+#t-territory .trr-name{font-family:var(--fl);font-size:0.8125rem;font-weight:700;letter-spacing:.04em;text-transform:none;color:var(--txt);}
+#t-territory .trr-holder{font-family:var(--fl);font-size:var(--fs-floor-micro);letter-spacing:.12em;color:var(--gold);}
+#t-territory .trr-acts{display:flex;align-items:center;gap:8px;flex-shrink:0;}
+#t-territory .trr-tag{font-family:var(--fl);font-size:var(--fs-floor-micro);letter-spacing:.18em;color:var(--txt3);border:1px solid var(--bdr2);padding:3px 8px;}
+
+/* Territory picker, step 1 (TBID.1) */
+#t-territory .pick-grid{display:grid;grid-template-columns:1fr;gap:8px;margin-bottom:4px;}
+#t-territory .pick-tile{display:flex;flex-direction:column;align-items:flex-start;gap:4px;width:100%;text-align:left;text-transform:none;letter-spacing:.02em;padding:12px 14px;background:var(--surf2);border:1px solid var(--bdr);}
+#t-territory .pick-tile:not(:disabled):active{background:var(--gold-a8);border-color:var(--bdr3);}
+#t-territory .pick-tile.pick-taken{opacity:.45;cursor:not-allowed;}
+#t-territory .pick-name{font-family:var(--fl);font-size:0.875rem;font-weight:700;color:var(--txt);}
+#t-territory .pick-amb{display:flex;align-items:center;gap:8px;font-family:var(--fl);font-size:var(--fs-floor-body);color:var(--txt3);}
+#t-territory .pick-amb .amb-mod{font-size:0.875rem;}
+#t-territory .pick-tag{font-family:var(--fl);font-size:var(--fs-floor-micro);letter-spacing:.18em;color:var(--txt3);border:1px solid var(--bdr2);padding:2px 8px;}
 
 /* Modal */
 #t-territory .overlay{position:fixed;inset:0;background:var(--overlay2);display:flex;align-items:center;justify-content:center;z-index:200;padding:16px;}
@@ -555,6 +581,7 @@ body.desktop-mode .sh-powers-grid > .sh-sec{break-inside:avoid;}
 #t-territory .field input{width:100%;background:var(--surf2);border:1px solid var(--bdr);color:var(--txt);font-family:var(--fl);font-size:0.875rem;padding:11px 12px;outline:none;}
 #t-territory .field input:focus{border-color:var(--bdr3);}
 #t-territory .field input::placeholder{color:var(--txt3);}
+#t-territory .field .form-select,#t-territory .field .form-input{width:100%;}
 #t-territory .modal-err{font-family:var(--ft);font-size:var(--fs-floor-body);color:var(--err2);margin-top:6px;}
 #t-territory .modal-btns{display:flex;gap:8px;justify-content:flex-end;margin-top:18px;}
 
