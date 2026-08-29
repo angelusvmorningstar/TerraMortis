@@ -1,0 +1,255 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>prax-2 — Praxis Claim board (design-lock mockup)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700&family=Lato:wght@400;600;700&family=Libre+Baskerville:ital@0;1&display=swap" rel="stylesheet">
+<style>
+/* ── Tokens lifted verbatim from public/css/theme.css (Parchment / default) ── */
+:root{
+  --bg:#F4EFE4;--surf:#EDE7D8;--surf1:#E9E2D1;--surf2:#E5DEC9;--surf3:#DBD3BC;
+  --bdr:rgba(120,90,40,.20);--bdr2:rgba(120,90,40,.38);--bdr3:rgba(120,90,40,.55);
+  --gold:#8B6010;--gold2:#7A5208;--gdim:#A07A20;
+  --gold-a8:rgba(120,90,40,.08);--gold-a15:rgba(120,90,40,.15);
+  --crim:#7A0000;--crim2:#8B1010;--accent:var(--crim);--accent-a8:rgba(122,0,0,.08);--accent-a25:rgba(122,0,0,.25);
+  --txt:#1C1410;--txt2:#4A3A28;--txt3:#6A5238;
+  --fh:'Cinzel',serif;--fl:'Lato',sans-serif;--ft:'Libre Baskerville',serif;
+  --radius-sm:4px;--radius-md:8px;--radius-lg:12px;--radius-pill:999px;
+  --warn-orange:#8b3d00;--warn-orange-bg:rgba(139,61,0,.10);--warn-orange-bdr:rgba(139,61,0,.40);
+  --control-height-sm:36px;--control-height-md:44px;
+}
+*{box-sizing:border-box;}
+body{margin:0;background:var(--bg);color:var(--txt);font-family:var(--ft);font-size:13px;}
+
+/* ── page chrome (admin.html stand-in, not the real shell) ── */
+.wrap{max-width:720px;margin:0 auto;padding:20px 16px 80px;}
+.variant-label{font-family:var(--fl);font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--txt3);margin:40px 0 10px;padding-top:24px;border-top:1px dashed var(--bdr2);}
+.variant-label:first-child{margin-top:0;padding-top:0;border-top:none;}
+.variant-note{font-family:var(--fl);font-size:12px;color:var(--txt3);margin:-4px 0 16px;line-height:1.5;}
+
+.board-frame{background:var(--surf);border:1px solid var(--bdr);border-radius:var(--radius-lg);padding:16px;position:relative;}
+
+/* ── header ── */
+.pb-head{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:14px;}
+.pb-title{font-family:var(--fl);font-size:16px;font-weight:700;color:var(--txt);}
+.pb-chapter{font-family:var(--fl);font-size:11px;color:var(--txt3);margin-left:8px;font-weight:400;}
+.pb-live{display:inline-flex;align-items:center;gap:5px;font-family:var(--fl);font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--txt3);}
+.pb-live .dot{width:6px;height:6px;border-radius:50%;background:var(--gold);box-shadow:0 0 0 3px var(--gold-a15);}
+
+/* ── empty state ── */
+.pb-empty{padding:36px 20px;text-align:center;}
+.pb-empty p{font-family:var(--fl);font-size:12px;color:var(--txt3);margin:0 0 16px;}
+.btn-open{background:var(--accent);color:#fff;border:none;border-radius:var(--radius-md);padding:0 20px;height:var(--control-height-md);font-family:var(--fl);font-size:13px;font-weight:700;letter-spacing:.02em;cursor:pointer;}
+.btn-open:hover{background:var(--crim2);}
+
+/* ── pool strip ── */
+.pool-label{font-family:var(--fl);font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--txt3);margin:0 0 8px;}
+.pool-strip{display:flex;flex-wrap:wrap;gap:8px;padding-bottom:16px;margin-bottom:16px;border-bottom:1px solid var(--bdr);}
+.pool-strip:empty::after{content:'Everyone attending has a support assignment.';font-family:var(--fl);font-size:11.5px;font-style:italic;color:var(--txt3);}
+
+.char-chip{background:var(--surf2);border:1px solid var(--bdr);border-radius:var(--radius-md);padding:8px 14px;min-height:40px;font-family:var(--fl);font-size:0.8125rem;font-weight:600;letter-spacing:.02em;color:var(--txt);cursor:pointer;display:inline-flex;align-items:center;text-align:left;transition:border-color .15s,background .15s;}
+.char-chip:hover{border-color:var(--bdr2);background:var(--surf3);color:var(--accent);}
+
+/* ── claimant cards ── */
+.claimants-label{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;}
+.claimants{display:flex;flex-direction:column;gap:10px;}
+.claim-card{background:var(--surf1);border:1px solid var(--bdr);border-radius:var(--radius-md);padding:12px 14px;}
+.claim-head{display:flex;align-items:baseline;justify-content:space-between;gap:8px;}
+.claim-name{font-family:var(--fl);font-size:14px;font-weight:700;color:var(--txt);}
+.claim-tally{font-family:var(--fl);font-size:18px;font-weight:700;color:var(--gold2);}
+.claim-tally .lbl{font-size:10px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--txt3);margin-left:5px;}
+.claim-badge{font-family:var(--fl);font-size:10.5px;font-weight:600;margin-top:3px;display:inline-block;}
+.claim-badge.neutral{color:var(--txt3);}
+.claim-badge.amber{color:var(--warn-orange);}
+.claim-supporters{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px;}
+.support-chip{background:var(--bg);border:1px solid var(--bdr);border-radius:var(--radius-pill);padding:5px 10px 5px 12px;font-family:var(--fl);font-size:11.5px;font-weight:600;color:var(--txt2);display:inline-flex;align-items:center;gap:6px;}
+.support-chip .cs{color:var(--txt3);font-weight:400;}
+.claim-empty-supporters{font-family:var(--fl);font-size:11px;font-style:italic;color:var(--txt3);margin-top:10px;}
+.withdraw-x{background:none;border:none;color:var(--txt3);font-family:var(--fl);font-size:11px;font-weight:700;cursor:pointer;padding:2px 4px;border-radius:var(--radius-sm);}
+.withdraw-x:hover{color:var(--crim);background:var(--accent-a8);}
+
+/* ── bottom sheet ── */
+.sheet-overlay{position:absolute;inset:0;background:rgba(28,20,16,.42);border-radius:var(--radius-lg);display:none;align-items:flex-end;justify-content:center;z-index:5;}
+.sheet-overlay.open{display:flex;}
+.sheet{background:var(--surf);border-top:1px solid var(--bdr2);border-radius:var(--radius-lg) var(--radius-lg) 0 0;width:100%;max-height:78%;overflow-y:auto;padding:14px 16px 20px;box-shadow:0 -8px 24px rgba(60,30,10,.18);}
+.sheet-handle{width:36px;height:4px;background:var(--bdr3);border-radius:var(--radius-pill);margin:0 auto 12px;}
+.sheet-title{font-family:var(--fl);font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--txt3);margin-bottom:2px;}
+.sheet-sub{font-family:var(--fl);font-size:15px;font-weight:700;color:var(--txt);margin-bottom:14px;}
+.sheet-action{width:100%;text-align:left;background:var(--gold-a8);border:1px solid var(--bdr2);border-radius:var(--radius-md);padding:11px 14px;font-family:var(--fl);font-size:13px;font-weight:700;color:var(--gold2);cursor:pointer;margin-bottom:12px;}
+.sheet-action:hover{background:var(--gold-a15);}
+.sheet-section-lbl{font-family:var(--fl);font-size:10.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--txt3);margin:0 0 8px;}
+.sheet-list{display:flex;flex-direction:column;gap:6px;}
+.sheet-row{display:flex;align-items:center;justify-content:space-between;background:var(--surf1);border:1px solid var(--bdr);border-radius:var(--radius-md);padding:10px 12px;cursor:pointer;}
+.sheet-row:hover{border-color:var(--accent-a25);}
+.sheet-row .n{font-family:var(--fl);font-size:13px;font-weight:600;color:var(--txt);}
+.sheet-row .t{font-family:var(--fl);font-size:11px;color:var(--txt3);}
+.sheet-close{width:100%;text-align:center;background:none;border:1px solid var(--bdr2);border-radius:var(--radius-md);padding:10px;font-family:var(--fl);font-size:12px;font-weight:700;color:var(--txt3);cursor:pointer;margin-top:14px;}
+
+.callout{background:var(--gold-a8);border:1px dashed var(--bdr2);border-radius:var(--radius-md);padding:10px 12px;font-family:var(--fl);font-size:11.5px;color:var(--txt2);line-height:1.5;margin-top:14px;}
+.callout b{color:var(--gold2);}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="variant-label">1 — Empty state</div>
+  <div class="variant-note">No board opened yet for this chapter. Nothing to claim against — the entry point is a single deliberate action, not a default-on tab.</div>
+  <div class="board-frame">
+    <div class="pb-head">
+      <div><span class="pb-title">Praxis Claim</span><span class="pb-chapter">Chapter 14 &middot; 12 Aug session</span></div>
+    </div>
+    <div class="pb-empty">
+      <p>No Praxis board is open for this chapter yet.</p>
+      <button class="btn-open">Open Praxis Claim</button>
+    </div>
+  </div>
+
+  <div class="variant-label">2 — Populated board (primary state)</div>
+  <div class="variant-note">
+    Pool strip up top (unassigned attendees). Each claimant card doubles as its own tally &mdash;
+    assigned supporter chips render inside it, live-computed City-Status total on the right.
+    Tap a pool chip &rarr; bottom sheet (variant 3). Two taps, no confirm modal.
+  </div>
+  <div class="board-frame" id="board2">
+    <div class="pb-head">
+      <div><span class="pb-title">Praxis Claim</span><span class="pb-chapter">Chapter 14 &middot; 12 Aug session</span></div>
+      <span class="pb-live"><span class="dot"></span>Live</span>
+    </div>
+
+    <div class="pool-label">Not yet assigned (tap to support or open a claim)</div>
+    <div class="pool-strip" id="pool2">
+      <button class="char-chip" onclick="openSheet(this,'Wren Halloway')">Wren Halloway</button>
+      <button class="char-chip" onclick="openSheet(this,'Desmond Okafor')">Desmond Okafor</button>
+      <button class="char-chip" onclick="openSheet(this,'Ilse Vantongeren')">Ilse Vantongeren</button>
+    </div>
+
+    <div class="claimants-label"><span class="pool-label" style="margin:0">Claimants</span></div>
+    <div class="claimants">
+      <div class="claim-card">
+        <div class="claim-head">
+          <div>
+            <div class="claim-name">Brandy LaRoux</div>
+            <div class="claim-badge amber">People&rsquo;s Harpy &middot; vacates on win</div>
+          </div>
+          <div class="claim-tally">19<span class="lbl">status</span></div>
+        </div>
+        <div class="claim-supporters">
+          <span class="support-chip">Petra Voss <span class="cs">&times;</span></span>
+          <span class="support-chip">Sarah Kessler <span class="cs">&times;</span></span>
+        </div>
+      </div>
+
+      <div class="claim-card">
+        <div class="claim-head">
+          <div>
+            <div class="claim-name">Mikael Thorne</div>
+            <div class="claim-badge neutral">Primogen &middot; keeps seat</div>
+          </div>
+          <div class="claim-tally">14<span class="lbl">status</span></div>
+        </div>
+        <div class="claim-supporters">
+          <span class="support-chip">Anaïs Duclos <span class="cs">&times;</span></span>
+        </div>
+      </div>
+
+      <div class="claim-card">
+        <div class="claim-head">
+          <div><div class="claim-name">Corvin Adeyemi</div></div>
+          <div class="claim-tally">0<span class="lbl">status</span></div>
+        </div>
+        <div class="claim-empty-supporters">No supporters yet.</div>
+      </div>
+    </div>
+
+    <div class="sheet-overlay" id="sheetOverlay">
+      <div class="sheet">
+        <div class="sheet-handle"></div>
+        <div class="sheet-title" id="sheetKind">Assign support &mdash; Praxis</div>
+        <div class="sheet-sub" id="sheetName">Wren Halloway</div>
+
+        <button class="sheet-action" id="sheetOpenClaim">Open a Praxis claim for Wren Halloway instead</button>
+
+        <div class="sheet-section-lbl">Support a claimant</div>
+        <div class="sheet-list" id="sheetList">
+          <div class="sheet-row" onclick="assign('Brandy LaRoux')"><span class="n">Brandy LaRoux</span><span class="t">19 status</span></div>
+          <div class="sheet-row" onclick="assign('Mikael Thorne')"><span class="n">Mikael Thorne</span><span class="t">14 status</span></div>
+          <div class="sheet-row" onclick="assign('Corvin Adeyemi')"><span class="n">Corvin Adeyemi</span><span class="t">0 status</span></div>
+        </div>
+        <button class="sheet-close" onclick="closeSheet()">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="callout">
+    <b>Open question for lock:</b> the epic doc describes the tap-&rarr;sheet-&rarr;assign flow for
+    SUPPORTING a claimant, but doesn&rsquo;t specify how a claim itself opens. This mockup answers it
+    by folding both actions into the same sheet (&ldquo;Open a Praxis claim for X instead&rdquo; as the
+    first row) rather than inventing a second gesture &mdash; one tap target, one sheet, still two
+    taps total either way. Confirm this is the right call, or say what you&rsquo;d rather see.
+  </div>
+
+  <div class="variant-label">3 — Bottom sheet, standalone (for detail review)</div>
+  <div class="variant-note">Same component as variant 2's overlay, pinned open here so the sheet itself can be reviewed without needing to click through.</div>
+  <div class="board-frame" style="min-height:360px;">
+    <div class="sheet-overlay open" style="position:static;background:none;padding-top:0;">
+      <div class="sheet" style="max-height:none;">
+        <div class="sheet-handle"></div>
+        <div class="sheet-title">Assign support &mdash; Praxis</div>
+        <div class="sheet-sub">Desmond Okafor</div>
+        <button class="sheet-action">Open a Praxis claim for Desmond Okafor instead</button>
+        <div class="sheet-section-lbl">Support a claimant</div>
+        <div class="sheet-list">
+          <div class="sheet-row"><span class="n">Brandy LaRoux</span><span class="t">19 status</span></div>
+          <div class="sheet-row"><span class="n">Mikael Thorne</span><span class="t">14 status</span></div>
+          <div class="sheet-row"><span class="n">Corvin Adeyemi</span><span class="t">0 status</span></div>
+        </div>
+        <button class="sheet-close">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+let activeChip = null, activeName = null;
+function openSheet(chipEl, name){
+  activeChip = chipEl; activeName = name;
+  document.getElementById('sheetName').textContent = name;
+  document.getElementById('sheetOpenClaim').textContent = 'Open a Praxis claim for ' + name + ' instead';
+  document.getElementById('sheetOverlay').classList.add('open');
+}
+function closeSheet(){
+  document.getElementById('sheetOverlay').classList.remove('open');
+  activeChip = null; activeName = null;
+}
+function assign(claimantName){
+  // Demo-only DOM move: real version is a PUT /support call + WS refetch.
+  if (activeChip) activeChip.remove();
+  const cards = document.querySelectorAll('#board2 .claim-card');
+  cards.forEach(card => {
+    if (card.querySelector('.claim-name').textContent === claimantName) {
+      const supportersEl = card.querySelector('.claim-supporters') || card.querySelector('.claim-empty-supporters');
+      const chip = document.createElement('span');
+      chip.className = 'support-chip';
+      chip.innerHTML = activeName + ' <span class="cs">&times;</span>';
+      if (supportersEl.classList.contains('claim-empty-supporters')) {
+        supportersEl.replaceWith(chip);
+        const wrap = document.createElement('div');
+        wrap.className = 'claim-supporters';
+        chip.replaceWith(wrap);
+        wrap.appendChild(chip);
+      } else {
+        supportersEl.appendChild(chip);
+      }
+    }
+  });
+  closeSheet();
+}
+document.getElementById('sheetOverlay').addEventListener('click', e => {
+  if (e.target.id === 'sheetOverlay') closeSheet();
+});
+</script>
+</body>
+</html>
