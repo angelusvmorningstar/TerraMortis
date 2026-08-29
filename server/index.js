@@ -27,6 +27,7 @@ import officeActionsRouter from './routes/office-actions.js';
 import officeMeritDotsRouter from './routes/office-merit-dots.js';
 import officeManoeuvreRankRouter from './routes/office-manoeuvre-rank.js';
 import officeSeatsRouter from './routes/office-seats.js';
+import praxisSessionsRouter from './routes/praxis-sessions.js';
 import {
   grantRouter, specialityGrantRouter, skillBonusRouter, nineAgainRouter, rulesAggregateRouter,
   discAttrRouter, derivedStatModRouter, tierBudgetRouter, statusFloorRouter,
@@ -255,6 +256,11 @@ app.use('/api/office_manoeuvre_rank', requireAuth, noCache(), officeManoeuvreRan
 // oxp.2: office seats, read-only. Open read like its two siblings above; the
 // XP derivation from these seats happens client-side in office-xp.js.
 app.use('/api/office_seats', requireAuth, noCache(), officeSeatsRouter);
+// prax.1: the Praxis night board. Authenticated at the app level like every
+// mount here, then ST-gated on EVERY handler inside the router (there is no
+// open read verb in it at all - see that file's own header). noCache() because
+// a stale board mid-Praxis is worse than no board.
+app.use('/api/praxis_sessions', requireAuth, noCache(), praxisSessionsRouter);
 // cm-2: this mount replaced the old chapters path outright. No deprecated
 // alias is left behind on purpose — cm-2b mounts its own router at that path,
 // and Express first-match-wins would silently route its traffic here instead.
@@ -416,6 +422,39 @@ async function start() {
         "Could not create the game_sessions.chapter_id unique index — the session/Chapter 1:1 " +
         'invariant is NOT enforced on this boot. Two sessions are probably paired with the same ' +
         `chapter. Resolve by hand: ${indexErr.message}`
+      );
+    }
+    // prax.1: partial unique index on praxis_sessions.chapter_id - exactly ONE Praxis board per
+    // Chapter, made a database constraint rather than a convention. Defence in depth alongside the
+    // route-level 409 in POST /api/praxis_sessions, which cannot by itself close the read-then-write
+    // gap between two STs opening the board in the same moment.
+    //
+    // Mirrors the game_sessions block immediately above in every respect that matters, and for the
+    // same reasons: `$type` rather than `$exists: true` (an `$exists` filter would INCLUDE documents
+    // holding an explicit null, and two of those would then collide on the unique key, while
+    // `$ne: null` is not accepted in a partial filter at all), and AWAITED inside its own try/catch
+    // so that a build which rejects over pre-existing duplicate data is caught and logged here
+    // rather than escaping as an unhandled promise rejection that can boot-loop the API on Render.
+    //
+    // Unlike game_sessions, only 'objectId' is listed: this collection is new as of prax.1 and its
+    // sole writer (server/routes/praxis-sessions.js) always stores a real ObjectId, so there is no
+    // issue #497 mixed-type legacy to accommodate. If a string-typed chapter_id ever appears here it
+    // is a bug in a new writer, and it should NOT be quietly admitted to the uniqueness constraint.
+    try {
+      await getDb().collection('praxis_sessions').createIndex(
+        { chapter_id: 1 },
+        {
+          name: 'chapter_id_unique_notnull',
+          unique: true,
+          background: true,
+          partialFilterExpression: { chapter_id: { $type: ['objectId'] } },
+        },
+      );
+    } catch (indexErr) {
+      console.error(
+        'Could not create the praxis_sessions.chapter_id unique index - the one-board-per-Chapter ' +
+        'invariant is NOT enforced on this boot. Two praxis boards are probably paired with the ' +
+        `same chapter. Resolve by hand: ${indexErr.message}`
       );
     }
     await runRulesEngineGate();

@@ -40,6 +40,7 @@ import rollLogRouter from '../../routes/roll-log.js';
 import officeMeritDotsRouter from '../../routes/office-merit-dots.js';
 import officeManoeuvreRankRouter from '../../routes/office-manoeuvre-rank.js';
 import officeSeatsRouter from '../../routes/office-seats.js';
+import praxisSessionsRouter from '../../routes/praxis-sessions.js';
 import contestedRollsRouter from '../../routes/contested-rolls.js';
 import humanityCheckRouter from '../../routes/humanity-check.js';
 import officePurchaseRouter from '../../routes/office-purchase.js';
@@ -148,6 +149,9 @@ export function createTestApp() {
   app.use('/api/office_manoeuvre_rank', mockAuth, noCache(), officeManoeuvreRankRouter);
   // oxp.2: office seats, read-only (open read, no write verb at all)
   app.use('/api/office_seats', mockAuth, noCache(), officeSeatsRouter);
+  // prax.1: the Praxis night board. Mirrors prod's own mount in server/index.js
+  // (auth at the mount, ST gating on every handler inside the router).
+  app.use('/api/praxis_sessions', mockAuth, noCache(), praxisSessionsRouter);
   // oaq.2 review: needed to test contested-rolls.js's request_type guard
   // against status_action documents sharing the same collection.
   app.use('/api/contested_roll_requests', mockAuth, noCache(), contestedRollsRouter);

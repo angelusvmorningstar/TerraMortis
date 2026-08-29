@@ -209,6 +209,43 @@ export function broadcastRollLogged(doc) {
 }
 
 /**
+ * Broadcast a Praxis board change to ST/dev-role connected clients only
+ * (Epic PRAX, prax.1).
+ *
+ * Frame shape: { type: 'praxis_session', session_id }. A plain "this document
+ * changed, refetch" signal, mirroring `broadcastCatalogueUpdate`'s own
+ * minimal-payload contract rather than `broadcastRollLogged`'s whole-document
+ * one. A roll is a high-frequency event whose doc is small and final; a Praxis
+ * board is a single low-frequency document whose displayed tallies are DERIVED
+ * at render time from live character/territory data, so a client that patched
+ * from the frame instead of refetching would still be reading stale weights.
+ * Refetch is the only correct response, so the frame carries only the id.
+ *
+ * The richer resolve-time frame ({ type: 'praxis_resolved', affected_seat_ids,
+ * ... }) is prax.4b's own addition, deliberately not pre-built here.
+ *
+ * Uses `_fanOutRoles`, NOT `_fanOut`, for exactly the reason
+ * `broadcastRollLogged` does. Every route in server/routes/praxis-sessions.js
+ * is `requireRole('st')`, and Praxis claim/support state is permanently
+ * ST-only (Angelus's locked ruling for the whole epic - it is never
+ * player-visible, in any form, at any point). Sending these frames over the
+ * shared WS to every open socket would hand a player a live feed of who is
+ * standing and who is backing them, bypassing that REST gate at the transport
+ * layer. Even though the frame carries no tally data itself, it is the signal
+ * to refetch a document a player cannot read, so it has no business on a
+ * player socket.
+ *
+ * @param {string|ObjectId} sessionId - the affected praxis_sessions doc _id
+ */
+export function broadcastPraxisUpdate(sessionId) {
+  if (!_wss) return;
+  _fanOutRoles(JSON.stringify({
+    type: 'praxis_session',
+    session_id: String(sessionId),
+  }), ['st', 'dev']);
+}
+
+/**
  * ADMR-1: `broadcastBloodlineUpdate` (Epic BL, BL-4 / issue #1008) removed.
  * It was called only from the three `server/routes/bloodlines.js` write
  * handlers ADMR-1 retired (bloodline authoring now lives entirely in TM
