@@ -10325,3 +10325,89 @@ html:not([data-theme="dark"]) .btn-danger {
 .praxis-board .chip-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--bdr3); }
 .praxis-board .chip-dot.on-praxis { background: var(--crim); }
 .praxis-board .chip-dot.on-harpy { background: var(--gold2); }
+
+/* ════════════════════════════════════════════════════════════════════
+   Praxis board, resolving the Harpy tally (Epic PRAX, prax.4a)
+
+   Ported from the locked design mockup at
+   specs/mockups/prax-4a-harpy-resolve/index.html, same posture as the
+   prax.2 and prax.3 blocks above: the mockup's hand-copied :root block
+   is NOT reproduced, every value resolves through theme.css, and every
+   rule stays scoped under .praxis-board - with ONE deliberate exception,
+   the toast, explained at its own rule below.
+
+   Two mockup values had no real token behind them and are resolved here
+   rather than redeclared: the mockup's ad-hoc `--green3-a15` becomes
+   `--green4-a15` (the same near-transparent green at the same alpha,
+   and theme-aware), and its `rgba(0,0,0,.25)` toast shadow becomes
+   `--overlay`, which is what the prax.2 sheet's own shadow already uses.
+
+   Nothing above is modified. The one existing rule this block touches is
+   `.claim-actions`, which prax.2 wrote as a plain margin because it held
+   a single button; it now holds two, and the mockup lays them out in a
+   row. Extended here rather than edited in place, so prax.2's own block
+   stays exactly as that story shipped it.
+   ════════════════════════════════════════════════════════════════════ */
+
+.praxis-board .claim-actions { display: flex; align-items: center; gap: 14px; }
+
+/* ── per-claimant "Declare Winner" ── */
+/* Deliberately heavier than the neutral "Withdraw claim" text action beside
+   it: a withdrawal is reversible by reopening the claim, this one hands a
+   court office over and cannot be undone from this screen at all. */
+.praxis-board .claim-resolve {
+  background: var(--gold-a8); border: 1px solid var(--bdr2); border-radius: var(--radius-sm);
+  padding: 5px 12px; font-family: var(--fl); font-size: 11px; font-weight: 700;
+  letter-spacing: .02em; color: var(--gold2); cursor: pointer;
+}
+.praxis-board .claim-resolve:hover { background: var(--gold-a15); }
+
+/* ── board-level "Dismiss vote" ── */
+/* Sits with the Claimants label rather than on a card, because it abandons the
+   WHOLE tally rather than one claim. The dotted underline is what marks it as
+   an action while keeping it quieter than either button on the cards. */
+.praxis-board .dismiss-vote {
+  background: none; border: none; font-family: var(--fl); font-size: 10.5px;
+  font-weight: 700; letter-spacing: .04em; color: var(--txt3); cursor: pointer;
+  text-decoration: underline; text-decoration-style: dotted; text-underline-offset: 2px;
+}
+.praxis-board .dismiss-vote:hover { color: var(--crim); }
+
+/* ── the resolved-tally summary ── */
+/* Replaces the live pool/claimants section on whichever tally is resolved. The
+   other tally stays fully live and renders through the untouched path above. */
+.praxis-board .resolved-summary {
+  background: var(--surf1); border: 1px solid var(--bdr2); border-radius: var(--radius-md);
+  padding: 18px 16px; text-align: center;
+}
+.praxis-board .resolved-summary.won { border-color: var(--green4-a15); }
+.praxis-board .resolved-summary .icon {
+  font-family: var(--fl); font-size: 10px; font-weight: 700; letter-spacing: .1em;
+  text-transform: uppercase; color: var(--green3); margin-bottom: 8px;
+}
+.praxis-board .resolved-summary.abandoned .icon { color: var(--txt3); }
+.praxis-board .resolved-summary .winner-name { font-family: var(--fl); font-size: 18px; font-weight: 700; color: var(--txt); }
+/* A dismissal has no winner to name, so the same slot carries the absence
+   instead - quieter and italic, so it never reads as somebody's name. */
+.praxis-board .resolved-summary.abandoned .winner-name { color: var(--txt3); font-style: italic; }
+.praxis-board .resolved-summary .winner-tally { font-family: var(--fl); font-size: 12px; color: var(--txt3); margin-top: 4px; }
+
+/* ── the confirmation toast ── */
+/* THE ONE RULE IN THIS FILE'S PRAXIS BLOCKS THAT IS NOT SCOPED UNDER
+   .praxis-board, and it has to be: the element is parented to document.body and
+   fixed to the viewport, because the board underneath it is rebuilt from
+   scratch by the very re-render this toast is confirming.
+   The markup carries the locked class name `toast` as well, but the SELECTOR is
+   `.praxis-toast` - a word as generic as "toast" would otherwise be claimed
+   globally for the next component that wants it, which is the same reason
+   prax.2's block scoped `.sheet` and `.claim-card` rather than owning them.
+   Message-only: there is no action button, because the locked design dropped
+   Undo entirely. */
+.praxis-toast {
+  position: fixed; left: 50%; bottom: 28px; transform: translateX(-50%);
+  background: var(--txt); color: var(--txt-on-dark); border-radius: var(--radius-md);
+  padding: 12px 16px; display: none; align-items: center;
+  box-shadow: 0 8px 24px var(--overlay); max-width: calc(100vw - 32px); z-index: 60;
+}
+.praxis-toast.on { display: flex; }
+.praxis-toast .msg { font-family: var(--fl); font-size: 12.5px; line-height: 1.4; }

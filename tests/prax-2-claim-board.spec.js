@@ -94,6 +94,9 @@ const SEATS = [
   { _id: cid(72), office_category: 'Primogen', seat_label: null, holder_id: MIKAEL, created_at: '2026-01-03' },
 ];
 
+/** The resolve timestamp the fake stamps on every snapshot (prax.4a). */
+const RESOLVED_AT = '2026-08-12T03:00:00.000Z';
+
 function emptyBoard() {
   return {
     _id: BOARD_ID,
@@ -174,6 +177,37 @@ async function mockPraxis(page, state) {
       if (body.claimant_character_id === null) delete state.board[t].support[body.supporter_character_id];
       else state.board[t].support[body.supporter_character_id] = body.claimant_character_id;
       return json(200, { ok: true, tally: t });
+    }
+
+    // POST /api/praxis_sessions/:id/resolve-harpy   (prax.4a)
+    //
+    // Models the two things the real route guarantees and the client depends
+    // on: the snapshot is written ONCE (a second call is a 409, whichever kind
+    // it is), and the seat handover happens in the SAME call, so the seat array
+    // the client re-reads afterwards names the winner. The claim/support
+    // history is deliberately left completely alone, exactly as the route
+    // leaves it.
+    if (method === 'POST' && /\/resolve-harpy$/.test(url)) {
+      if (state.board.resolved.harpy) {
+        return json(409, {
+          error: 'CONFLICT',
+          message: "The People's Harpy vote on this board has already been resolved",
+        });
+      }
+      const winner = body.claimant_character_id;
+      const resolved = winner === null
+        ? { dismissed: true, resolved_at: RESOLVED_AT }
+        : {
+          winner_character_id: winner,
+          final_tally: Object.values(state.board.harpy.support).filter(v => v === winner).length,
+          resolved_at: RESOLVED_AT,
+        };
+      state.board.resolved.harpy = resolved;
+      if (winner !== null) {
+        const seat = state.seats.find(s => s.office_category === 'Socialite' && s.seat_label === "People's Harpy");
+        if (seat) seat.holder_id = winner;
+      }
+      return json(200, { ok: true, dismissed: winner === null, resolved });
     }
 
     // DELETE /api/praxis_sessions/:id/claims/:characterId?tally=praxis
@@ -270,8 +304,23 @@ async function expectChipDots(page, name, praxis, harpy) {
 }
 
 async function setup(page, initialBoard, opts = {}) {
-  const state = { board: initialBoard, calls: [], hiddenUntilPost: !!opts.hiddenUntilPost };
+  const state = {
+    board: initialBoard,
+    calls: [],
+    hiddenUntilPost: !!opts.hiddenUntilPost,
+    // prax.4a: the seat array becomes mutable per-test state. A Harpy resolve
+    // hands the People's Harpy seat over and the client re-reads
+    // /api/office_seats afterwards, so a fixed fixture would keep naming the
+    // OUTGOING holder for the rest of the test. Deep-copied so one test's
+    // handover cannot leak into the next.
+    seats: JSON.parse(JSON.stringify(opts.seats || SEATS)),
+  };
   await loginAsST(page, opts);
+  // Registered AFTER loginAsST so it wins (Playwright resolves routes LIFO):
+  // same payload as before for every pre-prax.4a test, now served from state.
+  await page.route(/\/api\/office_seats$/, route => route.fulfill({
+    status: 200, contentType: 'application/json', body: JSON.stringify(state.seats),
+  }));
   await mockPraxis(page, state);
   return state;
 }
@@ -805,5 +854,249 @@ test.describe('prax.3 - dual-dot pool chips (AC10)', () => {
     await switchTo(page, 'praxis', 'Praxis Claim');
     await expectChipDots(page, 'Corvin Adeyemi', false, true);
     await expectChipDots(page, 'Mikael Thorne', false, true);
+  });
+});
+
+// ═══ prax.4a - resolving the People's Harpy vote ═════════════════════════════
+//
+// Extends this spec again rather than forking, on the same reasoning prax.3
+// gave: every test below drives the SAME component through the SAME stateful
+// fake, and that fake now models the resolve route's own two guarantees - the
+// snapshot is written once, and the seat changes hands in the same call.
+
+const praxisToast = page => page.locator('.praxis-toast');
+const resolvedCard = page => board(page).locator('.resolved-summary');
+const declareBtn = (page, id) => cardFor(page, id).locator('.claim-resolve');
+const dismissBtn = page => board(page).locator('.dismiss-vote');
+
+/** A board whose Harpy tally is already resolved when the tab first loads. */
+function resolvedBoard(harpyResolved, praxis, harpy) {
+  const b = boardWithTallies(praxis, harpy);
+  b.resolved.harpy = harpyResolved;
+  return b;
+}
+
+test.describe('prax.4a - declaring a winner (AC8, AC11, AC12)', () => {
+  test('Declare Winner posts the claimant id and replaces the live section with the result', async ({ page }) => {
+    const state = await setup(page, boardWithTallies(
+      { claims: [BRANDY], support: { [PETRA]: BRANDY } },
+      { claims: [MIKAEL, CORVIN], support: { [WREN]: MIKAEL, [DESMOND]: MIKAEL } },
+    ));
+    await openPraxis(page);
+    await switchTo(page, 'harpy', 'People’s Harpy Vote');
+
+    // Both actions are live while resolved.harpy is still null.
+    await expect(declareBtn(page, MIKAEL)).toHaveText('Declare Winner');
+    await expect(declareBtn(page, CORVIN)).toHaveCount(1);
+    await expect(dismissBtn(page)).toHaveCount(1);
+
+    await declareBtn(page, MIKAEL).click();
+
+    const post = state.calls.find(c => c.method === 'POST' && /\/resolve-harpy$/.test(c.url));
+    expect(post.body).toEqual({ claimant_character_id: MIKAEL });
+
+    // AC11: the frozen result, read off the snapshot rather than recounted.
+    await expect(resolvedCard(page)).toHaveClass(/\bwon\b/);
+    await expect(resolvedCard(page).locator('.icon')).toHaveText('Resolved');
+    await expect(resolvedCard(page).locator('.winner-name')).toHaveText('Mikael Thorne');
+    await expect(resolvedCard(page).locator('.winner-tally'))
+      .toHaveText('People’s Harpy · 2 votes · 12 Aug 2026');
+
+    // AC12: nothing left to assign, and no sheet trigger left to tap.
+    await expect(board(page).locator('.pool-strip')).toHaveCount(0);
+    await expect(cards(page)).toHaveCount(0);
+    await expect(board(page).locator('.claim-resolve')).toHaveCount(0);
+    await expect(dismissBtn(page)).toHaveCount(0);
+    await expect(sheet(page)).toHaveCount(0);
+
+    // The header and the summary row above it are untouched (AC11).
+    await expect(board(page).locator('.pb-title')).toHaveText('People’s Harpy Vote');
+    await expect(board(page).locator('.tally-switch')).toHaveCount(1);
+    await expect(summaryFor(page, 'harpy').locator('.tally-summary-leader')).toContainText('Mikael Thorne');
+  });
+
+  test('a losing claimant can be declared, and their OWN headcount is what freezes', async ({ page }) => {
+    // Nothing on this screen obeys the leader; the ST decides. Corvin sits on
+    // one vote against Mikael's two.
+    await setup(page, boardWithTallies({}, {
+      claims: [MIKAEL, CORVIN],
+      support: { [WREN]: MIKAEL, [DESMOND]: MIKAEL, [PETRA]: CORVIN },
+    }));
+    await openPraxis(page);
+    await switchTo(page, 'harpy', 'People’s Harpy Vote');
+
+    await declareBtn(page, CORVIN).click();
+
+    await expect(resolvedCard(page).locator('.winner-name')).toHaveText('Corvin Adeyemi');
+    await expect(resolvedCard(page).locator('.winner-tally'))
+      .toHaveText('People’s Harpy · 1 vote · 12 Aug 2026');
+  });
+
+  test('a board that is ALREADY resolved on load renders the summary and no actions', async ({ page }) => {
+    // The 409 is the server's backstop; the client's job is never to offer the
+    // action a second time in the first place.
+    await setup(page, resolvedBoard(
+      { winner_character_id: PETRA, final_tally: 3, resolved_at: RESOLVED_AT },
+      { claims: [BRANDY] },
+      { claims: [PETRA, CORVIN] },
+    ));
+    await openPraxis(page);
+    await switchTo(page, 'harpy', 'People’s Harpy Vote');
+
+    await expect(resolvedCard(page).locator('.winner-name')).toHaveText('Petra Voss');
+    await expect(resolvedCard(page).locator('.winner-tally'))
+      .toHaveText('People’s Harpy · 3 votes · 12 Aug 2026');
+    await expect(board(page).locator('.claim-resolve')).toHaveCount(0);
+    await expect(dismissBtn(page)).toHaveCount(0);
+    await expect(cards(page)).toHaveCount(0);
+  });
+});
+
+test.describe('prax.4a - dismissing the vote (AC9, AC11)', () => {
+  test('Dismiss vote sends an explicit null and records no winner', async ({ page }) => {
+    const state = await setup(page, boardWithTallies({}, { claims: [MIKAEL], support: { [WREN]: MIKAEL } }));
+    await openPraxis(page);
+    await switchTo(page, 'harpy', 'People’s Harpy Vote');
+
+    await expect(dismissBtn(page)).toHaveText('Dismiss vote (no winner)');
+    await dismissBtn(page).click();
+
+    const post = state.calls.find(c => c.method === 'POST' && /\/resolve-harpy$/.test(c.url));
+    // The key must be PRESENT and null: an absent key is a 400 server-side, and
+    // the two mean genuinely different things.
+    expect(Object.keys(post.body)).toEqual(['claimant_character_id']);
+    expect(post.body.claimant_character_id).toBeNull();
+
+    await expect(resolvedCard(page)).toHaveClass(/\babandoned\b/);
+    await expect(resolvedCard(page).locator('.icon')).toHaveText('Dismissed');
+    await expect(resolvedCard(page).locator('.winner-name')).toHaveText('No winner declared');
+    await expect(resolvedCard(page).locator('.winner-tally')).toHaveText('People’s Harpy · 12 Aug 2026');
+
+    // The claim history is not wiped server-side, and the summary row above
+    // still reads it: only the LIVE section below is gone.
+    await expect(cards(page)).toHaveCount(0);
+    await expect(summaryFor(page, 'harpy').locator('.tally-summary-leader')).toContainText('Mikael Thorne');
+  });
+});
+
+test.describe('prax.4a - the confirmation toast (AC10)', () => {
+  test('names the winner and the outgoing holder, on two lines', async ({ page }) => {
+    // Brandy holds the People's Harpy seat in the seat fixtures, so she is the
+    // one vacating. The client reads that BEFORE the write, because the
+    // response deliberately carries no seat data at all.
+    await setup(page, boardWithTallies({}, { claims: [MIKAEL], support: { [WREN]: MIKAEL } }));
+    await openPraxis(page);
+    await switchTo(page, 'harpy', 'People’s Harpy Vote');
+
+    await declareBtn(page, MIKAEL).click();
+
+    await expect(praxisToast(page)).toBeVisible();
+    await expect(praxisToast(page)).toContainText('Mikael Thorne is now People’s Harpy.');
+    await expect(praxisToast(page)).toContainText('Brandy LaRoux vacated.');
+    // Message-only: the locked design dropped Undo entirely, so the toast
+    // carries no button of any kind.
+    await expect(praxisToast(page).locator('button')).toHaveCount(0);
+  });
+
+  test('omits the vacated line when the seat had no holder', async ({ page }) => {
+    const vacantSeats = SEATS.map(s => (s.seat_label === "People's Harpy" ? { ...s, holder_id: null } : s));
+    await setup(page, boardWithTallies({}, { claims: [MIKAEL] }), { seats: vacantSeats });
+    await openPraxis(page);
+    await switchTo(page, 'harpy', 'People’s Harpy Vote');
+
+    await declareBtn(page, MIKAEL).click();
+
+    await expect(praxisToast(page)).toContainText('Mikael Thorne is now People’s Harpy.');
+    await expect(praxisToast(page)).not.toContainText('vacated');
+  });
+
+  test('the dismiss toast says no winner was recorded', async ({ page }) => {
+    await setup(page, boardWithTallies({}, { claims: [MIKAEL] }));
+    await openPraxis(page);
+    await switchTo(page, 'harpy', 'People’s Harpy Vote');
+
+    await dismissBtn(page).click();
+
+    await expect(praxisToast(page)).toHaveText('People’s Harpy vote dismissed. No winner recorded.');
+  });
+
+  test('nothing dismisses it early, and it auto-dismisses on its own', async ({ page }) => {
+    await setup(page, boardWithTallies({ claims: [BRANDY] }, { claims: [MIKAEL] }));
+    await openPraxis(page);
+    await switchTo(page, 'harpy', 'People’s Harpy Vote');
+
+    await declareBtn(page, MIKAEL).click();
+    await expect(praxisToast(page)).toBeVisible();
+
+    // A mis-tap on the board underneath must not swallow the one confirmation
+    // the ST gets - not even a tap that rebuilds the whole board's markup.
+    await switchTo(page, 'praxis', 'Praxis Claim');
+    await expect(praxisToast(page)).toBeVisible();
+    await board(page).locator('.char-chip').first().click();
+    await expect(praxisToast(page)).toBeVisible();
+
+    // Then it goes on its own. The timer is 6s; the generous window here is for
+    // the test's own scheduling, not a claim about the duration.
+    await expect(praxisToast(page)).toBeHidden({ timeout: 15000 });
+  });
+});
+
+test.describe('prax.4a - the Praxis tally is untouched (AC8, AC11)', () => {
+  test('neither resolve action ever appears on the Praxis tab', async ({ page }) => {
+    await setup(page, boardWithTallies({ claims: [BRANDY, MIKAEL] }, { claims: [MIKAEL] }));
+    await openPraxis(page);
+
+    // prax.4b owns resolving Praxis. Nothing here may offer it.
+    await expect(board(page).locator('.claim-resolve')).toHaveCount(0);
+    await expect(dismissBtn(page)).toHaveCount(0);
+
+    await switchTo(page, 'harpy', 'People’s Harpy Vote');
+    await expect(board(page).locator('.claim-resolve')).toHaveCount(1);
+    await expect(dismissBtn(page)).toHaveCount(1);
+  });
+
+  test('the Praxis board stays fully live and fully interactive after Harpy resolves', async ({ page }) => {
+    const state = await setup(page, boardWithTallies(
+      { claims: [BRANDY], support: { [PETRA]: BRANDY } },
+      { claims: [MIKAEL], support: { [WREN]: MIKAEL } },
+    ));
+    await openPraxis(page);
+    await switchTo(page, 'harpy', 'People’s Harpy Vote');
+    await declareBtn(page, MIKAEL).click();
+    await expect(resolvedCard(page)).toHaveCount(1);
+
+    await switchTo(page, 'praxis', 'Praxis Claim');
+
+    // Everything prax.2/prax.3 shipped, unchanged.
+    await expect(resolvedCard(page)).toHaveCount(0);
+    await expect(cardFor(page, BRANDY).locator('.claim-tally')).toContainText('7');
+    await expect(cardFor(page, BRANDY).locator('.support-chip')).toContainText('Petra Voss');
+    await expect(poolChips(page)).toHaveCount(4);
+
+    // And still writable: a fresh support assignment lands on the Praxis side.
+    await chipNamed(page, 'Corvin Adeyemi').click();
+    await sheet(page).locator('.sheet-row', { hasText: 'Brandy LaRoux' }).click();
+    await expect(cardFor(page, BRANDY).locator('.claim-tally')).toContainText('9');
+
+    const put = state.calls.find(c => c.method === 'PUT');
+    expect(put.body.tally).toBe('praxis');
+
+    // The Harpy side is still resolved, and switching back proves it.
+    await switchTo(page, 'harpy', 'People’s Harpy Vote');
+    await expect(resolvedCard(page).locator('.winner-name')).toHaveText('Mikael Thorne');
+  });
+
+  test('the outgoing holder loses the stale "vacates on win" badge after the handover', async ({ page }) => {
+    // The seat array is re-read after a resolve, so Brandy stops being labelled
+    // the sitting People's Harpy the moment she stops being it.
+    await setup(page, boardWithTallies({ claims: [BRANDY] }, { claims: [MIKAEL] }));
+    await openPraxis(page);
+    await expect(cardFor(page, BRANDY).locator('.claim-badge.amber')).toHaveCount(1);
+
+    await switchTo(page, 'harpy', 'People’s Harpy Vote');
+    await declareBtn(page, MIKAEL).click();
+    await switchTo(page, 'praxis', 'Praxis Claim');
+
+    await expect(cardFor(page, BRANDY).locator('.claim-badge.amber')).toHaveCount(0);
   });
 });

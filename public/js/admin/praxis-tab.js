@@ -51,6 +51,29 @@
  * ruling is that nothing auto-adds a Harpy claimant as their own first vote.
  * They can still be assigned to themselves through the ordinary support flow,
  * which then counts as one vote like anyone else's.
+ *
+ * ═══ RESOLVING THE HARPY TALLY (prax.4a) ═══
+ *
+ * prax.4a adds the ONE action that makes a result real: "Declare Winner" per
+ * claimant card, and a board-level "Dismiss vote". Both call the single new
+ * route, which performs the seat handover and freezes `resolved.harpy` in one
+ * transaction. Once that field is set the Harpy tab's LIVE section (the pool
+ * strip and the claimant cards) is replaced by a read-only summary, and the two
+ * actions stop rendering - there is nothing left to assign.
+ *
+ * Three things about that, all deliberate:
+ *
+ *   - NO CONFIRM MODAL on either action, and NO UNDO. Locked at design-lock: a
+ *     mistaken resolve is corrected by hand afterwards through the existing
+ *     Court panel, not through a reversal path here. A real undo would have to
+ *     precisely reverse the server's destroyed-XP counter, and a half-correct
+ *     one would be worse than none. The toast is pure confirmation.
+ *   - The OUTGOING holder is read from `_seats` BEFORE the write, because the
+ *     response deliberately carries no seat or character data and by the time
+ *     the toast is composed the seat has already changed hands.
+ *   - Only the HARPY tally is resolvable here. `resolved.praxis` is prax.4b's
+ *     own story; the Praxis tab stays fully live after a Harpy resolve, and
+ *     nothing below reads or writes the Praxis half of the document.
  */
 
 import { apiGet, apiPost, apiPut, apiDelete, apiRaw } from '../data/api.js';
@@ -85,6 +108,15 @@ const TALLY_SUMMARY_LABELS = { praxis: 'Praxis leader', harpy: 'Harpy leader' };
  * office_seats collection exists (see server/schemas/office_seat.schema.js).
  */
 const PEOPLES_HARPY_SEAT_LABEL = "People's Harpy";
+
+/**
+ * How long the resolve/dismiss toast stays up, in milliseconds.
+ *
+ * Nothing else dismisses it: no close button, no click-elsewhere, no Undo
+ * (locked at design-lock). A mis-tap on the board underneath while the toast is
+ * showing must not silently swallow the one confirmation the ST gets.
+ */
+const TOAST_MS = 6000;
 
 /**
  * A chapter's declared phase, duplicated from cycle-views.js's own
@@ -128,6 +160,12 @@ let _busy = false;
 // every initPraxisView call: the tab deliberately does NOT remember the
 // last-viewed tally across a full domain re-entry.
 let _activeTally = 'praxis';
+// The resolve/dismiss toast lives on document.body, NOT inside `_rootEl`. Every
+// render rebuilds that container's innerHTML from scratch, so a toast parented
+// there would be destroyed by the very re-render it exists to confirm - and the
+// re-render is guaranteed, because `write()` always refetches and repaints.
+let _toastEl = null;
+let _toastTimer = null;
 
 // ── Pure helpers (no DOM, no fetch - kept exported for direct coverage) ───────
 
@@ -209,6 +247,33 @@ function claims(tally = _activeTally) {
 /** One tally's support map, keyed supporter id -> claimant id. */
 function support(tally = _activeTally) {
   return _board?.[tally]?.support || {};
+}
+
+/**
+ * One tally's frozen resolve snapshot, or null while it is still live.
+ *
+ * Read for the HARPY tally only in this story - `resolved.praxis` has no writer
+ * until prax.4b, so every call site below names 'harpy' explicitly rather than
+ * defaulting to the active tally. That keeps the Praxis tab provably untouched:
+ * there is no code path here that could hide the live Praxis board.
+ */
+function resolvedFor(tally) {
+  return _board?.resolved?.[tally] || null;
+}
+
+/**
+ * The People's Harpy seat, from the office_seats array already loaded at boot.
+ *
+ * Matched on `seat_label`, never on `court_category` alone: Socialite has TWO
+ * live seats and resolving on the category would return whichever came first.
+ * Used only to name the OUTGOING holder in the toast, which has to be read
+ * BEFORE the write - the resolve response deliberately carries no seat data,
+ * and afterwards the seat names the winner instead.
+ */
+function peoplesHarpySeat() {
+  return (_seats || []).find(seat => seat
+    && seat.office_category === 'Socialite'
+    && String(seat.seat_label || '') === PEOPLES_HARPY_SEAT_LABEL) || null;
 }
 
 function charFor(id) {
@@ -503,6 +568,105 @@ function withdrawClaim(claimantId) {
   });
 }
 
+// ── The resolve toast ────────────────────────────────────────────────────────
+
+/**
+ * Show the one-off confirmation toast, one line per entry.
+ *
+ * Message-only, with no action button: the locked "no Undo" decision means
+ * there is nothing for the ST to press. It auto-dismisses after TOAST_MS and
+ * nothing else dismisses it, deliberately - see that constant's own note.
+ *
+ * Built with createElement/textContent rather than an innerHTML string, unlike
+ * the rest of this module. The board's markup is rebuilt wholesale on every
+ * render so a template there is the readable choice; the toast is a single
+ * long-lived node holding character names, and building it as nodes keeps those
+ * names out of an HTML parse entirely.
+ */
+function showToast(lines) {
+  if (typeof document === 'undefined' || !document.body) return;
+  if (!_toastEl) {
+    _toastEl = document.createElement('div');
+    // The locked class name is kept in the MARKUP; the stylesheet selects on
+    // `.praxis-toast` instead, so a word as generic as "toast" is not claimed
+    // globally. Same compromise prax.2's own CSS block made for `.sheet` and
+    // `.claim-card`, which it kept in the markup and scoped in the selector.
+    _toastEl.className = 'praxis-toast toast';
+    _toastEl.setAttribute('role', 'status');
+    document.body.appendChild(_toastEl);
+  }
+  const msg = document.createElement('span');
+  msg.className = 'msg';
+  lines.filter(Boolean).forEach((line, i) => {
+    if (i > 0) msg.appendChild(document.createElement('br'));
+    msg.appendChild(document.createTextNode(line));
+  });
+  _toastEl.replaceChildren(msg);
+  _toastEl.classList.add('on');
+  clearTimeout(_toastTimer);
+  _toastTimer = setTimeout(() => { if (_toastEl) _toastEl.classList.remove('on'); }, TOAST_MS);
+}
+
+// ── Resolving the Harpy tally (prax.4a) ──────────────────────────────────────
+
+const resolveUrl = () =>
+  `/api/praxis_sessions/${encodeURIComponent(String(_board._id))}/resolve-harpy`;
+
+/**
+ * Refresh the cached seat array after a handover.
+ *
+ * `_seats` is otherwise loaded once per domain entry, so without this the
+ * Praxis tab's "People's Harpy - vacates on win" badge would keep naming the
+ * OUTGOING holder for the rest of the session. A failure here is swallowed on
+ * purpose: the resolve itself has already committed, and a stale badge is not
+ * worth reporting as if the write had failed.
+ */
+async function refreshSeats() {
+  try {
+    const seats = await apiGet('/api/office_seats');
+    if (Array.isArray(seats)) _seats = seats;
+  } catch { /* keep the seats we have */ }
+}
+
+/**
+ * Declare a winner. No confirm modal and no undo, both locked at design-lock.
+ *
+ * The outgoing holder is captured BEFORE the write for the toast's second line,
+ * because the resolve response carries no seat data (the client already holds
+ * every character, so resolving names server-side would duplicate `nameFor`)
+ * and by the time it returns the seat names the winner.
+ */
+function declareWinner(claimantId) {
+  if (!_board) return;
+  const id = String(claimantId || '').toLowerCase();
+  const seat = peoplesHarpySeat();
+  const outgoingId = seat && seat.holder_id ? String(seat.holder_id).toLowerCase() : null;
+  return write(async () => {
+    await apiPost(resolveUrl(), { claimant_character_id: id });
+    await refreshSeats();
+    showToast([
+      `${nameFor(id)} is now ${TALLY_LABELS.harpy}.`,
+      // Omitted when the seat was vacant, and equally when the winner is the
+      // sitting holder re-elected: "X vacated" directly under "X is now
+      // People's Harpy" would be plainly wrong rather than merely redundant.
+      outgoingId && outgoingId !== id ? `${nameFor(outgoingId)} vacated.` : null,
+    ]);
+  });
+}
+
+/**
+ * Dismiss the vote with no winner. Same posture as Declare Winner: no confirm
+ * modal (confirmed at design-lock), and no seat handover happens at all - the
+ * tally is simply closed so it does not sit open forever.
+ */
+function dismissHarpy() {
+  if (!_board) return;
+  return write(async () => {
+    await apiPost(resolveUrl(), { claimant_character_id: null });
+    showToast([`${TALLY_LABELS.harpy} vote dismissed. No winner recorded.`]);
+  });
+}
+
 // ── Rendering ────────────────────────────────────────────────────────────────
 
 function render() {
@@ -599,7 +763,30 @@ function renderEmpty() {
     </div>`;
 }
 
+/**
+ * Are the two resolve actions live right now?
+ *
+ * Harpy tab only, and only while `resolved.harpy` is still null. Both halves
+ * matter: the Praxis tab must never offer them (prax.4b owns that tally), and a
+ * resolved board must never offer them again (the route would 409, and the
+ * summary below has already replaced everything they act on).
+ */
+function canResolveHarpy() {
+  return _activeTally === 'harpy' && !resolvedFor('harpy');
+}
+
 function renderPopulated() {
+  // AC11/AC12. Once the Harpy tally is resolved, its LIVE section is gone
+  // entirely: no pool strip, no claimant cards, and therefore no bottom-sheet
+  // trigger left to tap. The replacement is structural rather than a set of
+  // disabled controls, so there is nothing to reach even by accident.
+  //
+  // The header and the summary row above are untouched, and so is the Praxis
+  // tab: switching back to it renders the full, still-live board exactly as
+  // prax.2/prax.3 shipped it.
+  const resolved = _activeTally === 'harpy' ? resolvedFor('harpy') : null;
+  if (resolved) return `${renderSummary()}${renderResolvedSummary(resolved)}`;
+
   const pool = unassignedPool(_attendees, support(), claims());
   const noSession = !_session
     ? '<p class="pb-note">No game session is linked to this chapter yet, so there is no attendee list to claim from.</p>'
@@ -608,13 +795,63 @@ function renderPopulated() {
   return `${renderSummary()}${noSession}
     <div class="pool-label">Not yet assigned (tap to support or open a claim)</div>
     <div class="pool-strip">${pool.map(renderPoolChip).join('')}</div>
-    <div class="claimants-label"><span class="pool-label pool-label--inline">Claimants</span></div>
+    <div class="claimants-label"><span class="pool-label pool-label--inline">Claimants</span>${
+      canResolveHarpy()
+        ? '<button type="button" class="dismiss-vote" data-praxis-action="dismiss-vote">Dismiss vote (no winner)</button>'
+        : ''
+    }</div>
     <div class="claimants">${
       claims().length
         ? claims().map(renderClaimCard).join('')
         : '<p class="pb-note">No claims open yet. Tap anyone above to open one.</p>'
     }</div>
     ${_sheetFor ? renderSheet() : ''}`;
+}
+
+/**
+ * A resolve date, in the British form the rest of this app writes dates in.
+ * The locale is pinned rather than left to the browser: an ST on a US-locale
+ * machine must not read 8/12/2026 where their colleague reads 12 Aug 2026.
+ */
+function resolvedDate(iso) {
+  const d = new Date(iso || '');
+  if (Number.isNaN(d.getTime())) return '';
+  return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+}
+
+/**
+ * The frozen result, replacing the live section on a resolved Harpy tab.
+ *
+ * Everything shown here comes from the SNAPSHOT, not from a recount: the winner
+ * is named from the stored id and the number is the stored `final_tally`. That
+ * is the whole point of freezing it - a later support edit, or a character
+ * whose City Status changes months afterwards, must not move a historical
+ * result.
+ */
+function renderResolvedSummary(resolved) {
+  const date = resolvedDate(resolved.resolved_at);
+
+  if (resolved.dismissed) {
+    const meta = [TALLY_LABELS.harpy, date].filter(Boolean).join(' · ');
+    return `<div class="resolved-summary abandoned">
+        <div class="icon">Dismissed</div>
+        <div class="winner-name">No winner declared</div>
+        <div class="winner-tally">${esc(meta)}</div>
+      </div>`;
+  }
+
+  const winnerId = String(resolved.winner_character_id || '').toLowerCase();
+  const votes = Number(resolved.final_tally) || 0;
+  const meta = [
+    TALLY_LABELS.harpy,
+    `${votes} ${votes === 1 ? 'vote' : 'votes'}`,
+    date,
+  ].filter(Boolean).join(' · ');
+  return `<div class="resolved-summary won">
+      <div class="icon">Resolved</div>
+      <div class="winner-name">${esc(nameFor(winnerId))}</div>
+      <div class="winner-tally">${esc(meta)}</div>
+    </div>`;
 }
 
 function renderPoolChip(id) {
@@ -672,6 +909,9 @@ function renderClaimCard(claim) {
         ? `<div class="claim-supporters">${supporters.map(sid => renderSupportChip(sid)).join('')}</div>`
         : '<div class="claim-empty-supporters">No supporters yet.</div>'}
       <div class="claim-actions">
+        ${canResolveHarpy()
+          ? `<button type="button" class="claim-resolve" data-praxis-action="declare-winner" data-claimant-id="${esc(id)}">Declare Winner</button>`
+          : ''}
         <button type="button" class="claim-withdraw" data-praxis-action="withdraw" data-claimant-id="${esc(id)}">Withdraw claim</button>
       </div>
     </div>`;
@@ -758,5 +998,10 @@ function _wire() {
     }
     if (action === 'unassign') { unassignSupport(el.dataset.charId); return; }
     if (action === 'withdraw') { withdrawClaim(el.dataset.claimantId); return; }
+    // Both resolve actions go straight through, with no confirm step - locked
+    // at design-lock, and consistent with this tool's own two-taps-no-confirm
+    // ethos everywhere else on this board.
+    if (action === 'declare-winner') { declareWinner(el.dataset.claimantId); return; }
+    if (action === 'dismiss-vote') { dismissHarpy(); return; }
   });
 }

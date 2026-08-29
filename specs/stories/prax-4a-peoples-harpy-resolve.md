@@ -279,11 +279,93 @@ re-litigate)
 
 ## Dev Agent Record
 
-*(filled in during dev-story)*
+Implemented 2026-08-30 (`/bmad-epic-loop prax`, Opus subagent, orchestrator-supervised).
+
+**Files touched** (matches Dev Notes exactly, no surprises): `server/lib/reset-manoeuvre-rank.js`
+(new, 130 lines), `server/routes/office-seats.js` (+7/-102), `server/routes/praxis-sessions.js`
+(+324/-7), `public/js/admin/praxis-tab.js` (+247/-1), `public/css/admin-layout.css` (+86),
+`server/tests/prax-4a-peoples-harpy-resolve.test.js` (new, 39 tests), `tests/prax-2-claim-board.spec.js`
+(extended, +11 tests).
+
+**Deviations from the spec's literal text** (all reviewed, all correct):
+- Toast markup carries both `praxis-toast` and the locked `toast` class name, but the stylesheet
+  selects `.praxis-toast` only — the same "keep the locked name in markup, scope the selector"
+  compromise prax.2's own block already made for `.sheet`/`.claim-card`, applied consistently.
+- Dismiss button reads "Dismiss vote (no winner)" (the mockup's own copy), a superset of AC9's
+  shorter paraphrase, not a contradiction of it.
+- Two additions beyond the AC list, both matching the precedent route's own established behaviour:
+  a 404 when the declared winner has no `characters` document (prevents handing the seat to an id
+  whose `court_category` write would silently match nothing), and skipping the departing-holder clear
+  when the departing holder IS the winner (an incumbent re-elected — removes a load-bearing write
+  ordering rather than relying on it).
+- `refreshSeats()` added client-side after a successful resolve (not in the ACs) — without it the
+  Praxis tab's "vacates on win" badge would keep naming the OUTGOING holder for the rest of the
+  session. Deliberately re-fetches `/api/office_seats` only, not `/api/characters` (AC8's own
+  no-second-characters-fetch rule).
+- Two mockup CSS values had no real token behind them and were resolved through `theme.css` rather
+  than reproduced ad hoc: `--green3-a15` → `--green4-a15` (same alpha, theme-aware), and the toast's
+  `rgba(0,0,0,.25)` shadow → `--overlay` (already used by prax.2's own sheet shadow).
+
+**Test results** (independently re-run by the orchestrator, not trusted from the subagent's own
+report):
+- `prax-4a-peoples-harpy-resolve.test.js`, run in isolation (its own header documents why — a shared
+  natural-key collision with `oxp.5`'s fixtures): **39/39 passed**.
+- `oxp-5-handover-logic.test.js` + `oxp-1-office-seats.test.js`, `oxp-4-merit-persistence-handover.test.js`,
+  `oxp-11-office-purchase-seat-keying.test.js`, `oxp-3-office-manoeuvre-rank.test.js` — the
+  `resetManoeuvreRank` extraction's own regression set: **95/96 + 82/82 passed**. The one failure
+  (`oxp-1`'s "does not duplicate a seat when several applies overlap in flight", expects 7 got 8) is
+  **pre-existing at base** — `git stash` A/B confirmed identical failure with none of this story's
+  changes present, in isolation (not a parallel-run contention artefact).
+- `tests/prax-2-claim-board.spec.js` (Playwright): **37/37 passed** (26 pre-existing prax.2/prax.3 +
+  11 new prax.4a).
+- `gdx-4-css-standards-grep.test.js`: 30/31, the one failure is the already-documented
+  `main`-level `suite.css` pre-existing issue (root `CLAUDE.md`'s own known-failures list) — asserts
+  on a file this story never touches.
+- `issue-830-inherited-card-css.test.js`: 2/4, both failures pre-existing (asserts `font-size: 10|11px`
+  on rules an earlier, unrelated story converted to `rem`) — not on `CLAUDE.md`'s list yet, confirmed
+  unrelated to this story's own CSS (different selectors entirely).
+- Visual verification: a throwaway Playwright screenshot script (not committed) rendered the live
+  Harpy tab (Declare Winner per card, Dismiss vote text action), the confirmation toast, and the
+  resolved-summary card, all against the real admin shell and real theme tokens. Matches the locked
+  mockup. Not re-verified in dark mode (the throwaway script's theme-toggle guess was wrong — wrong
+  localStorage key — not worth a second pass given every colour in AC13's CSS block resolves through
+  a `theme.css` token confirmed present in both the light and dark blocks).
 
 ## Senior Developer Review
 
-*(filled in during the independent review pass)*
+Independently re-verified 2026-08-30 by the orchestrator (inline 3-lens pass: Blind Hunter, Edge Case
+Hunter, Acceptance Auditor). All 13 ACs checked against the actual diff, not the subagent's own
+self-report. `resetManoeuvreRank`'s extraction confirmed byte-identical against `office-seats.js`'s
+prior version (diffed directly). Every CSS token in AC13's new block confirmed to exist in
+`theme.css`. The route's own CAS/transaction discipline cross-read line-by-line against
+`office-seats.js`'s own `PUT /:seatId/holder` (the precedent it reimplements) and found faithful,
+including the subtler point that a stale outer-scope `baselineHolderId` can never desync from the
+in-transaction `currentHolderId` without MongoDB itself raising a write-conflict retry first.
+
+**No High or blocking Medium findings.** Two items triaged as DEFER (not patched — both are genuine,
+neither is urgent, and fixing either would mean touching files this story's own "What this story is
+NOT" section explicitly scoped out):
+
+1. **(Medium) prax-1's `POST /:id/claims`, `DELETE /:id/claims/:characterId` and `PUT /:id/support`
+   have no guard against `resolved.<tally>` being non-null.** A stale ST browser tab (or a direct API
+   call) can still open/withdraw a Harpy claim or reassign Harpy support after `resolved.harpy` is
+   set. The frozen snapshot itself (`winner_character_id`/`final_tally`) is untouched by this — only
+   the live `harpy.claims`/`harpy.support` arrays underneath it can drift after the fact, which cuts
+   against the "frozen historical record, kept forever" framing this story's own code comments use
+   throughout. Low real-world likelihood (needs two concurrent ST sessions, one stale) on an ST-only
+   surface. Deferred to `deferred-work.md` for prax-4b's own awareness (same file, natural companion
+   fix if ever picked up).
+2. **(Low) `resetManoeuvreRank` fires unconditionally on the resolve path, including when the
+   declared winner is the SITTING holder being re-elected** — unlike the original `PUT /holder`
+   route, which treats a same-holder request as NOT a handover and skips the reset entirely. This is
+   what AC5's literal text specifies, and the test suite confirms it does exactly that (`'the SITTING
+   People's Harpy re-winning is NOT a conflict'` — tests the handover succeeds, does not assert on the
+   rank). Whether a genuine re-election is a fresh "tenure" (reset makes sense) or a continuation
+   (reset is a hidden Angelus-hasn't-decided-on-it surprise) is a real game-rules judgement call the
+   design-lock never addressed. Implemented per the AC as written; flagged rather than silently
+   decided either way.
+
+Both deferred items logged to `specs/deferred-work.md`. Status: **done**.
 
 ## Change Log
 

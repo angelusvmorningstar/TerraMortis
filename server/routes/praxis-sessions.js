@@ -20,17 +20,31 @@
  *
  * ═══ WHAT IS AND IS NOT HERE ═══
  *
- * Opening and withdrawing claims, and assigning and unassigning supporters.
- * Nothing renders (prax.2/prax.3 build the boards), and nothing resolves
- * (prax.4a/prax.4b own that). `resolved.praxis` and `resolved.harpy` are minted
- * as null by POST / and are never written again by any handler below.
+ * Opening and withdrawing claims, and assigning and unassigning supporters,
+ * plus (prax.4a) resolving the People's Harpy tally.
+ *
+ * Nothing renders (prax.2/prax.3 build the boards). `resolved.praxis` is still
+ * minted as null by POST / and never written again by any handler below -
+ * prax.4b owns the Praxis/Head of State resolve and its much larger mass-clear.
+ * `resolved.harpy` gained exactly ONE writer in prax.4a: the sixth route at the
+ * bottom of this file.
  */
 
 import { Router } from 'express';
 import { ObjectId } from 'mongodb';
-import { getCollection } from '../db.js';
+import { getCollection, getClient } from '../db.js';
 import { requireRole } from '../middleware/auth.js';
 import { broadcastPraxisUpdate } from '../ws.js';
+// prax.4a: the office-manoeuvre reset, extracted verbatim out of
+// office-seats.js when this route became its second caller (AC1). This route
+// cannot call `PUT /api/office_seats/:seatId/holder` over HTTP - it needs the
+// seat handover AND the `resolved.harpy` snapshot in one transaction, and this
+// codebase achieves cross-collection atomicity by writing inside a single
+// transaction, never by one route invoking another. So the handover steps are
+// reimplemented inline below; this one piece of arithmetic is shared rather
+// than copied, because its stage order is load-bearing and a silent inversion
+// has no visible symptom. See the module's own header.
+import { resetManoeuvreRank } from '../lib/reset-manoeuvre-rank.js';
 // The 24-hex id shape, reused rather than re-declared. Exactly the precedent
 // office-seats.js's own `parseHolderId` set when it needed to validate a
 // CHARACTER id: that module's stated reason for existing is that the pattern
@@ -45,6 +59,29 @@ const col = () => getCollection('praxis_sessions');
 /** The two tallies. A literal whitelist, checked before any value reaches a
  *  computed Mongo field path below. */
 const TALLIES = ['praxis', 'harpy'];
+
+/**
+ * prax.4a: the seat the Harpy tally hands over.
+ *
+ * `office_seats.seat_label`, NOT `court_category`: Socialite has TWO live seats
+ * ('Harpy', appointed, and "People's Harpy", popular) whose holders' character
+ * documents are indistinguishable from each other, which is the whole reason
+ * the office_seats collection exists (see server/schemas/office_seat.schema.js).
+ * Resolving on the category alone would hand over whichever of the two Mongo
+ * returned first.
+ *
+ * A SECOND copy of the same literal, deliberately. public/js/admin/praxis-tab.js
+ * carries its own `PEOPLES_HARPY_SEAT_LABEL` for the claim-card badge, and
+ * nothing currently exports a constant across the client/server boundary in this
+ * codebase; inventing a shared-constants module for one string is not warranted.
+ * The straight apostrophe matches the real seeded data
+ * (server/scripts/seed-office-seats.mjs) and must not be prettified into a
+ * typographic one - the lookup below is an exact match.
+ */
+const PEOPLES_HARPY_SEAT_LABEL = "People's Harpy";
+
+/** The office category both Socialite seats sit under. */
+const SOCIALITE_CATEGORY = 'Socialite';
 
 /**
  * A deliberate business rejection, thrown from a helper and caught by the
@@ -107,12 +144,21 @@ function parseTally(raw) {
  * it looks: a client bug that dropped the field from the body would otherwise
  * read as a deliberate "return this supporter to the pool", silently undoing an
  * assignment the ST had just made, with a cheerful 200.
+ *
+ * prax.4a reuses this function for `POST /:id/resolve-harpy`, where the same
+ * field carries the same shape and the same absent-vs-null discipline but a
+ * different MEANING for null ("dismiss the vote, no winner" rather than
+ * "unassign"). Only that trailing clause is parameterised - the validation
+ * itself stays a single implementation, so the two routes cannot drift into
+ * accepting different id shapes or disagreeing about what an absent key means.
  */
-function parseClaimantId(body) {
+const NULL_MEANS_UNASSIGN = 'null to return the supporter to the unassigned pool';
+
+function parseClaimantId(body, nullMeaning = NULL_MEANS_UNASSIGN) {
   if (!body || typeof body !== 'object' || !('claimant_character_id' in body))
     throw new RouteResponse(400, {
       error: 'VALIDATION_ERROR',
-      message: 'claimant_character_id is required (a 24-character hexadecimal character id, or null to return the supporter to the unassigned pool)',
+      message: `claimant_character_id is required (a 24-character hexadecimal character id, or ${nullMeaning})`,
     });
   if (body.claimant_character_id === null) return null;
   return normaliseId(body.claimant_character_id, 'claimant_character_id');
@@ -441,6 +487,270 @@ router.put('/:id/support', requireRole('st'), handle(async (req, res) => {
     supporter_character_id: supporterId,
     claimant_character_id: claimantId,
   });
+}));
+
+// ─────────────────────────────────────────────────────────────────────────────
+// prax.4a. POST /api/praxis_sessions/:id/resolve-harpy
+// body { claimant_character_id: <24-hex string> | null }
+// ─────────────────────────────────────────────────────────────────────────────
+// Declares a winner of the People's Harpy vote, or dismisses the vote with no
+// winner. ST-only, like every other route in this file.
+//
+// ═══ RUNS EXACTLY ONCE PER BOARD ═══
+//
+// `resolved.harpy` is a frozen historical record, not a mutable field. A second
+// call is a 409 whichever branch it takes, compare-and-swap enforced: the
+// existing value is read as a baseline OUTSIDE the transaction and the write
+// inside it is filtered on that baseline still holding. Reading the baseline out
+// here is load-bearing rather than stylistic, for exactly the reason
+// office-seats.js's own handover route documents at length: `withTransaction`
+// RE-RUNS its callback on any error MongoDB labels transient, so a filter built
+// from an in-callback read would see the winner's freshly committed value on the
+// retry and succeed, and two simultaneous resolves would both report 200.
+//
+// There is deliberately NO reversal path. Angelus's locked ruling at design-lock:
+// a mistaken resolve is corrected by hand through the existing Court panel
+// (`PUT /api/office_seats/:seatId/holder`). A real undo would have to precisely
+// reverse `resetManoeuvreRank`'s destroyed-XP counter, and a half-correct
+// reversal is worse than none.
+//
+// ═══ WHAT THIS ROUTE DOES NOT TOUCH ═══
+//
+//   - `harpy.claims` / `harpy.support`. NOT cleared, NOT mutated. The board keeps
+//     its full claim and support history forever, alongside the frozen snapshot;
+//     prax.4a adds a read-only summary of that data, never a wipe.
+//   - `resolved.praxis`, and every Praxis-side field. The Praxis tally stays
+//     fully live after a Harpy resolve. prax.4b owns that half.
+//   - The OTHER Socialite seat (plain 'Harpy', appointed). Only the seat labelled
+//     "People's Harpy" changes hands here.
+//   - `office_merit_dots`. Permanent merits survive a handover by construction -
+//     a seat's `_id` never changes, so nothing has to be carried across.
+router.post('/:id/resolve-harpy', requireRole('st'), handle(async (req, res) => {
+  const board = await loadBoard(req.params.id);
+  // Same absent-vs-explicit-null discipline as PUT /support: a client bug that
+  // dropped the field would otherwise read as a deliberate dismissal, closing a
+  // live vote with a cheerful 200 and no way back.
+  const claimantId = parseClaimantId(req.body, 'null to dismiss the vote with no winner');
+
+  // ── The CAS baseline, frozen before the transaction opens. ────────────────
+  const baselineResolved = board.resolved?.harpy ?? null;
+  if (baselineResolved !== null)
+    throw new RouteResponse(409, {
+      error: 'CONFLICT',
+      message: "The People's Harpy vote on this board has already been resolved",
+    });
+
+  const dismissed = claimantId === null;
+  const seats = getCollection('office_seats');
+  const characters = getCollection('characters');
+
+  let finalTally = 0;
+  let seatOid = null;
+  let baselineHolderId = null;
+
+  if (!dismissed) {
+    // You cannot declare a winner who was never standing. Checked against the
+    // OPEN claims in the HARPY tally only; a Praxis claim is irrelevant here,
+    // because the two tallies are never coupled.
+    const openClaims = board.harpy?.claims || [];
+    if (!openClaims.some(c => c && c.character_id === claimantId))
+      throw new RouteResponse(400, {
+        error: 'VALIDATION_ERROR',
+        message: 'claimant_character_id has no open harpy claim on this board',
+      });
+
+    // The headcount, computed the same way praxis-tab.js's own `tallyFor` does
+    // for this tally: one supporter, one vote, no City Status weighting and no
+    // baseline vote for the claimant themselves. Taken from the board read
+    // above, so the number frozen into the record is the one the ST was looking
+    // at when they tapped.
+    finalTally = Object.values(board.harpy?.support || {})
+      .filter(assignedTo => String(assignedTo).toLowerCase() === claimantId)
+      .length;
+
+    // The seat, and its own CAS baseline, likewise read outside the
+    // transaction. Resolved by `seat_label`, never by category alone.
+    const baselineSeat = await seats.findOne({
+      office_category: SOCIALITE_CATEGORY,
+      seat_label: PEOPLES_HARPY_SEAT_LABEL,
+    });
+    // A seeding gap, not a normal runtime state: this seat is minted by
+    // server/scripts/seed-office-seats.mjs and every office route already
+    // assumes the seats it is asked to touch exist. Reported as a 500 with a
+    // message that says where to look, rather than a 404 that would read to the
+    // ST as "you asked for the wrong thing".
+    if (!baselineSeat)
+      throw new RouteResponse(500, {
+        error: 'INTERNAL_ERROR',
+        message: "No People's Harpy seat exists in office_seats, so the vote cannot be resolved. It is created by the office-seat seed script.",
+      });
+    seatOid = baselineSeat._id;
+    baselineHolderId = baselineSeat.holder_id == null ? null : String(baselineSeat.holder_id);
+  }
+
+  const client = getClient();
+  const dbSession = client.startSession();
+  // Captured outside the callback and used only after the commit: responding
+  // from inside would answer before the transaction had committed, and a retry
+  // would then try to respond twice.
+  let snapshot = null;
+  try {
+    await dbSession.withTransaction(async () => {
+      const timestamp = new Date().toISOString();
+
+      if (dismissed) {
+        // No seat write, no character write, no manoeuvre reset. The vote is
+        // formally closed so it does not sit "still open" forever, and nothing
+        // else changes.
+        snapshot = { dismissed: true, resolved_at: timestamp };
+      } else {
+        const winnerOid = new ObjectId(claimantId);
+
+        // ── 1. Re-read the seat inside the session. ─────────────────────────
+        // The outer read is not transactional: it cannot be trusted for the
+        // current holder and cannot see a change that lands in between.
+        const seat = await seats.findOne({ _id: seatOid }, { session: dbSession });
+        if (!seat)
+          throw new RouteResponse(500, {
+            error: 'INTERNAL_ERROR',
+            message: "No People's Harpy seat exists in office_seats, so the vote cannot be resolved. It is created by the office-seat seed script.",
+          });
+        const currentHolderId = seat.holder_id == null ? null : String(seat.holder_id);
+
+        // ── 2. The winner's own character document must exist. ──────────────
+        // Named as a CHARACTER 404, not a seat one: the seat was found, so a
+        // message about the seat would send the ST looking in the wrong place.
+        // Without this the seat would be handed to an id whose
+        // `court_category` write silently matched nothing, leaving the two
+        // facts this handover exists to keep in step contradicting each other.
+        const winner = await characters.findOne({ _id: winnerOid }, { session: dbSession });
+        if (!winner)
+          throw new RouteResponse(404, { error: 'NOT_FOUND', message: 'No character with that id' });
+
+        // ── 3. A winner who already holds a DIFFERENT seat is refused. ──────
+        // Never cascaded, for the reason office-seats.js's own handover route
+        // states: `court_category` is a single field, so silently assigning
+        // somebody into a second seat would either overwrite their existing
+        // office while leaving the FIRST seat's holder_id stale, or force this
+        // route to modify a third document the caller never named. The ST
+        // vacates the other seat first, through the Court panel.
+        const conflicting = await seats.findOne(
+          { holder_id: winnerOid, _id: { $ne: seatOid } },
+          { session: dbSession },
+        );
+        if (conflicting) {
+          const which = conflicting.seat_label
+            ? `${conflicting.office_category} (${conflicting.seat_label})`
+            : `${conflicting.office_category} (seat ${String(conflicting._id).slice(-6)})`;
+          throw new RouteResponse(409, {
+            error: 'CONFLICT',
+            message: `That character already holds the ${which} seat. Vacate it first, then declare them here.`,
+            conflicting_seat_id: String(conflicting._id),
+            conflicting_office_category: conflicting.office_category,
+            conflicting_seat_label: conflicting.seat_label ?? null,
+          });
+        }
+
+        // ── 4. Claim the seat FIRST, before any other write. ────────────────
+        // Compare-and-swap on the baseline holder captured outside the
+        // transaction. Claiming the contested record first makes a race loser
+        // fail cleanly, before it has touched anything else at all.
+        //
+        // `holder_id` is written as a real ObjectId, never a string: live
+        // storage is BSON ObjectIds and a string would create the mixed
+        // string/ObjectId foreign key office_seat.schema.js's 24-hex pattern
+        // exists to prevent.
+        const claimed = await seats.updateOne(
+          { _id: seatOid, holder_id: baselineHolderId === null ? null : new ObjectId(baselineHolderId) },
+          { $set: { holder_id: winnerOid } },
+          { session: dbSession },
+        );
+        if (claimed.matchedCount === 0)
+          throw new RouteResponse(409, {
+            error: 'CONFLICT',
+            message: 'This seat was changed by another handover - please retry',
+          });
+
+        // ── 5. Clear the departing holder, if there was one. ────────────────
+        // CAS-filtered on THIS seat's category. A matchedCount of 0 is BENIGN,
+        // not an error: it means their `court_category` had already moved
+        // elsewhere by another route, and clearing it unconditionally would
+        // wipe a legitimate newer assignment.
+        //
+        // Skipped when the departing holder IS the winner (an incumbent
+        // re-elected). Clearing and then immediately re-setting the same
+        // document would reach the same end state, but only because step 6
+        // happens to run second; not writing it at all removes that ordering
+        // dependency entirely.
+        if (currentHolderId !== null && currentHolderId !== claimantId) {
+          await characters.updateOne(
+            { _id: new ObjectId(currentHolderId), court_category: SOCIALITE_CATEGORY },
+            { $set: { court_category: null, court_title: null, updated_at: timestamp } },
+            { session: dbSession },
+          );
+        }
+
+        // ── 6. Set the incoming holder. ─────────────────────────────────────
+        // The title is the SEAT LABEL, not the bare office category. The Court
+        // panel's own PUT defaults an unsupplied title to the category because
+        // an ST is standing there able to type a better one; this route never
+        // collects a title at all, so it supplies the one that actually
+        // describes what was just won rather than leaving the winner of the
+        // People's Harpy vote titled merely "Socialite".
+        //
+        // `court_title` goes on the CHARACTER and only there. `seat_label` is
+        // the SEAT's own permanent distinguisher and is never written here.
+        await characters.updateOne(
+          { _id: winnerOid },
+          {
+            $set: {
+              court_category: SOCIALITE_CATEGORY,
+              court_title: PEOPLES_HARPY_SEAT_LABEL,
+              updated_at: timestamp,
+            },
+          },
+          { session: dbSession },
+        );
+
+        // ── 7. The manoeuvre reset, last. ───────────────────────────────────
+        // office-powers.md's ruling: manoeuvres reset to zero on every handover
+        // and the XP spent on them is destroyed, not refunded. The shared module
+        // is the only place that arithmetic exists.
+        await resetManoeuvreRank(String(seatOid), SOCIALITE_CATEGORY, timestamp, dbSession);
+
+        snapshot = {
+          winner_character_id: claimantId,
+          final_tally: finalTally,
+          resolved_at: timestamp,
+        };
+      }
+
+      // ── The snapshot, in the SAME transaction as everything above. ────────
+      // Filtered on the frozen baseline, so a concurrent resolve loses here
+      // rather than double-writing. `{ 'resolved.harpy': null }` matches a
+      // missing field as well as an explicit null, so a board written before
+      // the field existed is handled by the same filter.
+      const written = await col().updateOne(
+        { _id: board._id, 'resolved.harpy': null },
+        { $set: { 'resolved.harpy': snapshot, updated_at: timestamp } },
+        { session: dbSession },
+      );
+      if (written.matchedCount === 0)
+        throw new RouteResponse(409, {
+          error: 'CONFLICT',
+          message: "The People's Harpy vote on this board has already been resolved",
+        });
+    });
+  } finally {
+    await dbSession.endSession();
+  }
+
+  broadcastPraxisUpdate(board._id);
+  // No seat or character data in the response, deliberately: the client already
+  // holds every character's current data and refetches the board through its
+  // own established write-then-reread path, so resolving names here would be a
+  // second implementation of what `nameFor()` already does client-side.
+  res.json({ ok: true, dismissed, resolved: snapshot });
 }));
 
 export default router;

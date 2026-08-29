@@ -1148,6 +1148,41 @@ defender-resolution fields). The three below were **not** patched and each wants
   `office_actions` is already logged as a caller-supplied, unvalidated, spoofable string — this epic
   should not reproduce that shape.
 
+## Deferred from: independent review of prax-4a-peoples-harpy-resolve (2026-08-30, bmad-epic-loop)
+
+- **`server/routes/praxis-sessions.js`'s `POST /:id/claims`, `DELETE /:id/claims/:characterId` and
+  `PUT /:id/support` have no guard against `resolved.<tally>` being non-null** (Medium). Once
+  prax.4a's `POST /:id/resolve-harpy` sets `resolved.harpy`, the client hides the pool/claimants UI
+  for that tally (structurally, not just disabled controls), but nothing server-side stops a stale ST
+  browser tab, or a direct API call, from still opening a new Harpy claim, withdrawing one, or
+  reassigning Harpy support afterwards. The frozen snapshot itself (`resolved.harpy.winner_character_id`
+  / `final_tally`) is untouched by this either way — only the live `harpy.claims`/`harpy.support`
+  arrays underneath it can silently drift from what was true at resolve time. That cuts against the
+  "frozen historical record, kept forever" framing prax.4a's own code comments use throughout (AC7:
+  "the board keeps its full historical claim/support data forever, alongside the frozen snapshot").
+  Real-world exposure is low — it needs two concurrent ST sessions, one of them stale, on an ST-only
+  tool with no player visibility — but it is real. Not fixed in prax.4a: that story's own "What this
+  story is NOT" section explicitly scoped out touching prax-1's claim/support routes, and the natural
+  fix (gate all three routes on `resolved[tally] === null`, mirroring the CAS discipline
+  `resolve-harpy` itself already uses) touches exactly those routes. Prax.4b's own resolve route for
+  the Praxis tally will want the identical guard for `resolved.praxis`, so this is a natural candidate
+  to fix once, for both tallies, alongside that story rather than as two separate patches.
+- **`resetManoeuvreRank` fires unconditionally on `resolve-harpy`'s resolve path, including when the
+  declared winner is the SITTING People's Harpy being re-elected** (Low - a genuine game-rules
+  question, not a defect). `office-seats.js`'s own `PUT /:seatId/holder` treats a same-holder request
+  as NOT a handover (AC4 there) and explicitly skips the reset, on the reasoning that re-saving an
+  unchanged assignment must never be able to wipe a ladder. Prax.4a's resolve-harpy route has no
+  equivalent same-holder branch — AC5's own literal text lists the manoeuvre reset as an unconditional
+  step of the resolve path, and the shipped code does exactly that (confirmed: the "sitting Harpy
+  re-winning is not a conflict" test asserts the handover succeeds and the office is kept, but does
+  not assert on the manoeuvre rank one way or the other). **NEEDS ANGELUS'S OWN RULING, deliberately
+  not resolved:** is a People's Harpy re-election a fresh tenure (reset is correct - a new term earned
+  by a new vote) or a continuation of the same one (reset is an unwanted surprise)? The design-lock
+  never posed this question because "the sitting holder wins again" was not one of the states it
+  mocked. Whichever way this is ruled, it is a one-line conditional in `resolve-harpy`'s resolve
+  branch (skip the `resetManoeuvreRank` call when `currentHolderId === claimantId`, mirroring the
+  clear-departing-holder skip already there for the same case) - trivial to build once decided.
+
 ## Deferred from: code review of crd-2-player-facing-pending-queue (2026-08-22, external Codex review)
 
 External Codex review (3-pass blinded adversarial protocol) of the Epic CRD player-facing pending
