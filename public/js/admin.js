@@ -32,7 +32,11 @@ import { initSessionLog } from './admin/session-log.js';
 import { initPlayersView } from './admin/players-view.js';
 import { initCityView } from './admin/city-views.js';
 import { initSpheresView } from './admin/spheres-view.js';
-import { initDowntimeView, renderCityOverview } from './admin/downtime-views.js';
+// 2026-08-29 (Angelus, via cross-session relay): Downtime removed entirely
+// from the admin app, moved to TM Story, not just gated. initDowntimeView /
+// renderCityOverview import removed (zero remaining callers in this file);
+// admin/downtime-views.js and admin/downtime-story.js stay on disk, unrouted,
+// kept as reference material per Angelus's own request.
 import { initNpcRegister } from './admin/npc-register.js';
 import { initAttendance } from './admin/attendance.js';
 // rlv.6 (#846): initDiceEngine / dice-engine.js import removed — zero
@@ -42,7 +46,9 @@ import { initAttendance } from './admin/attendance.js';
 // (init functions never called from anywhere) and their localStorage-keyed
 // legacy tracker persistence was deprecated. Files deleted.
 import { initDataPortabilityView } from './admin/data-portability.js';
-import { initOrdealsAdminView } from './admin/ordeals-admin.js';
+// 2026-08-29 (Angelus): Ordeals removed entirely from the admin app, moved
+// to TM Story. initOrdealsAdminView import removed; admin/ordeals-admin.js
+// stays on disk, unrouted, kept as reference material.
 import { initRulesView } from './admin/rules-view.js';
 import { initRulesDataView } from './admin/rules-data-view.js';
 import { initEquipmentCatalogueAdmin } from './admin/equipment-catalogue-admin.js';
@@ -60,7 +66,11 @@ import { initRollFeed, onRollLogged as _onRollLoggedFeed, refetchOnReconnect as 
 // consumer survives it - full retirement, unlike Bloodlines' split).
 import { initStModsPanel, refreshStModsPanelSettings } from './admin/st-mods-panel.js';
 import { initCycleView } from './admin/cycle-views.js';
-import { initDtStory } from './admin/downtime-story.js';
+// initDtStory's static import removed 2026-08-29 alongside the wider Downtime
+// removal; it was already unused here even before that (the real call site,
+// downtime-views.js's own _initDtStoryFromRibbon, uses its own dynamic
+// `import('./downtime-story.js')`, not this one). admin/downtime-story.js
+// stays on disk, unrouted.
 import { initNextSession } from './admin/next-session.js';
 import { renderSheet, toggleExp, toggleDisc } from './editor/sheet.js';
 import {
@@ -339,17 +349,12 @@ function switchDomain(domain) {
   if (domain === 'players') initPlayersView(chars);
   if (domain === 'city') initCityView();
   if (domain === 'spheres') initSpheresView();
-  if (domain === 'downtime') {
-    // DTUX-1: panel visibility is now driven by the phase ribbon inside
-    // initDowntimeView → loadCycleById → showDtuxPhase. No bespoke sub-tab
-    // setup needed here.
-    initDowntimeView(chars);
-  }
+  // Downtime + Ordeals domain dispatch removed 2026-08-29 (Angelus): moved to
+  // TM Story. initDowntimeView/initOrdealsAdminView are no longer imported.
   if (domain === 'cycle') initCycleView(chars);
   if (domain === 'npcs') initNpcRegister(chars);
   if (domain === 'attendance') { initNextSession(); initAttendance(chars); }
   if (domain === 'data') initDataPortabilityView(chars);
-  if (domain === 'ordeals') initOrdealsAdminView(chars);
   if (domain === 'rules') initRulesView(document.getElementById('rules-content'), chars);
   if (domain === 'rde') initRulesDataView(document.getElementById('rde-content'));
   if (domain === 'equipment-catalogue') initEquipmentCatalogueAdmin(document.getElementById('equipment-catalogue-content'), chars);

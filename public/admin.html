@@ -60,9 +60,10 @@
       <button class="sidebar-btn on" data-domain="player">Characters</button>
       <button class="sidebar-btn" data-domain="city">City</button>
       <button class="sidebar-btn" data-domain="spheres">Spheres</button>
-      <button class="sidebar-btn" data-domain="downtime">Downtime</button>
+      <!-- Downtime + Ordeals sidebar buttons removed 2026-08-29 (Angelus), moved
+           to TM Story, not just gated. Same treatment as the NPC Register domain
+           below: hidden from the sidebar, source preserved. -->
       <button class="sidebar-btn" data-domain="cycle">Cycle</button>
-      <button class="sidebar-btn" data-domain="ordeals">Ordeals</button>
       <button class="sidebar-btn" data-domain="attendance">Attendance</button>
       <button class="sidebar-btn" data-domain="data">Data</button>
       <button class="sidebar-btn" data-domain="rules">Rule Data</button>
@@ -112,12 +113,14 @@
       <div id="spheres-content"></div>
     </section>
 
-    <!-- Downtime domain -->
+    <!-- Downtime domain, removed from the sidebar 2026-08-29 (Angelus): moved
+    to TM Story, not just gated. Markup kept commented out (not deleted) as
+    reference, same as the NPC Register domain below.
     <section id="d-downtime" class="domain">
       <div class="domain-header">
         <h2>Downtime</h2>
-        <!-- DTUX-1: sub-tab strip removed; #dt-phase-ribbon below is the
-             single nav surface (clickable tabs with sign-off badges). -->
+        <!- DTUX-1: sub-tab strip removed; #dt-phase-ribbon below is the
+             single nav surface (clickable tabs with sign-off badges). ->
       </div>
       <div id="dt-ctrl-bar">
         <div class="dt-toolbar">
@@ -134,7 +137,7 @@
         </div>
       </div>
       <div id="dt-phase-ribbon" style="display:none"></div>
-      <!-- DTUX-1: #dt-sub-ribbon retired (kept hidden via JS for deferred markup cleanup) -->
+      <!- DTUX-1: #dt-sub-ribbon retired (kept hidden via JS for deferred markup cleanup) ->
       <div id="dt-sub-ribbon" style="display:none"></div>
       <div id="dt-prep-panel" class="dt-prep-panel" style="display:none"></div>
       <div id="dt-processing-panel" class="dt-panel" style="display:none">
@@ -142,9 +145,10 @@
       </div>
       <div id="dt-city-panel" class="dt-panel" style="display:none"></div>
       <div id="dt-story-panel" class="dt-panel" style="display:none"></div>
-      <!-- DTUX-1: DT Ready phase — Push Cycle action area -->
+      <!- DTUX-1: DT Ready phase — Push Cycle action area ->
       <div id="dt-ready-panel" class="dt-panel" style="display:none"></div>
     </section>
+    -->
 
     <!-- Cycle domain (#708) -->
     <section id="d-cycle" class="domain">
@@ -162,11 +166,13 @@
     </section>
     -->
 
-    <!-- Ordeals domain -->
+    <!-- Ordeals domain, removed from the sidebar 2026-08-29 (Angelus): moved
+    to TM Story, not just gated. Markup kept commented out (not deleted).
     <section id="d-ordeals" class="domain">
       <div class="domain-header"><h2>Ordeals</h2></div>
       <div id="ordeals-content"></div>
     </section>
+    -->
 
     <!-- Attendance domain -->
     <section id="d-attendance" class="domain">
