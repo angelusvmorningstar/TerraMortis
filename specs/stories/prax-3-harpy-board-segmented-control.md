@@ -230,11 +230,108 @@ re-litigate)
 
 ## Dev Agent Record
 
-*(filled in during dev-story)*
+Implemented by a delegated Opus subagent (2026-08-29), all 12 ACs in one pass: `praxis-tab.js`'s
+`TALLY`/`TALLY_LABEL` constants converted to live `_activeTally` module state with four label maps
+(`TALLY_LABELS`, `TALLY_UNIT_LABELS`, plus two additions beyond the AC's literal list —
+`TALLY_TITLES` and `TALLY_SUMMARY_LABELS` — needed to match the locked mockup's per-tally board
+titles and summary labels exactly). `tallyFor()` branches cleanly: Praxis unchanged, Harpy a plain
+headcount with no `calcCityStatus()` call and no self-vote baseline. Segmented control, sticky
+summary row, and dual-dot pool chips all added. `tests/prax-2-claim-board.spec.js` extended in
+place (not forked) with 13 new tests across four `describe` blocks. Reported 26/26 Playwright green
+(13 pre-existing prax.2 tests untouched, 13 new), zero server/schema/WS files touched, and six
+flagged deviations, each with reasoning.
 
 ## Senior Developer Review
 
-*(filled in during the independent review pass)*
+**Independently re-verified 2026-08-29** (orchestrator, `/bmad-epic-loop`). Did not trust the
+subagent's "26/26 green" claim at face value — re-ran the extended spec **3 times independently**,
+26/26 clean on every run (this is exactly the check that caught a real flake during prax-2's own
+review; none surfaced here).
+
+**Read `praxis-tab.js` in full and checked every AC against the actual code, not the subagent's
+description of it:**
+
+- **AC1-AC2 (module state):** `_activeTally` resets to `'praxis'` on every `initPraxisView()` call
+  (confirmed: a fresh domain entry never remembers the last-viewed tally — matches the story's own
+  ruling, and has its own test). Every accessor (`claims`, `support`, `tallyFor`, `supportersOf`,
+  `leaderFor`, `hasAssignmentIn`) and every write action (`openClaim`, `assignSupport`,
+  `unassignSupport`, `withdrawClaim`) correctly reads `_activeTally` via a `tally = _activeTally`
+  default parameter — mechanical substitution throughout, no architecture drift.
+- **AC3-AC4 (tally computation):** `tallyFor()`'s Harpy branch is `Object.values(support('harpy'))
+  .filter(...).length` — a genuine headcount, zero `calcCityStatus()` calls on that path, confirmed
+  by reading the function body directly rather than trusting the docstring. `renderBadge()` gated
+  correctly to `_activeTally === 'praxis'` at its one call site in `renderClaimCard`.
+- **AC5-AC6 (segmented control):** `renderTallySwitch()` only called when `_board` exists
+  (`${_board ? renderTallySwitch() : ''}` in `renderHead`) — never in the empty state, confirmed
+  against the locked mockup's own resolved question 1. The click handler's tally-switch branch
+  re-renders with no `write()`/refetch call — confirmed by reading the handler, not assuming it.
+  Tapping the active segment is a no-op via `next === _activeTally` short-circuit, matching AC6
+  exactly (no clear-to-neutral, unlike the Cycle tab's own phase buttons).
+- **AC7-AC9 (summary row):** `renderSummary()` is the first thing `renderPopulated()` emits, so it
+  shows the instant `_board` exists — including before either tally has a claim, which is the
+  state AC9's "No claims yet" text covers (`leaderFor` returns `null` when `claims(tally)` is
+  empty). Manually traced `leaderFor`'s tie-break logic (`beatsOnTally || beatsOnName`) by hand
+  against the test's own Corvin-before-Brandy-in-array-order case and confirmed it produces Brandy
+  (alphabetically first) regardless of claim-array order — the algorithm is order-independent, not
+  accidentally correct for the one case the test happens to check.
+- **AC10 (dual-dot chips):** `hasAssignmentIn(tally, id)` checks both `claims(tally)` and
+  `support(tally)` membership — "ANY assignment", matching the AC's own wording precisely, computed
+  against both tallies unconditionally on every pool-chip render regardless of which is active.
+- **AC11 (empty-state copy):** Button reads a fixed `Open Board`, confirmed. `openBoard()`'s own
+  request body is untouched — only the label changed, as scoped.
+- **AC12 (CSS):** Read the full diff. Every new rule (`.tally-switch`, `.tally-switch-btn`,
+  `.tally-summary` and children, `.chip-dots`/`.chip-dot`) is `var(--token)`-only, scoped under
+  `.praxis-board`, appended after prax-2's own block without modifying a single existing rule.
+
+**An item the story spec itself never wrote an AC for, correctly implemented anyway:** the locked
+mockup's own variant-1 note says the segmented control "replaces the plain Live pill's position —
+Live moves into the summary row instead". No AC captured this explicitly (a gap in how I wrote the
+spec), but the subagent followed the mockup's documented intent correctly — the live dot now renders
+inside the active tally's own summary label (`renderSummaryItem`), not as a standalone header pill.
+Confirmed this matches the mockup exactly via the visual verification below, not just the source.
+
+**Deviations, all reviewed and confirmed correct:**
+
+1. **`TALLY_TITLES`/`TALLY_SUMMARY_LABELS` addition.** Not named in AC1's literal text, but required
+   to match the locked mockup's two different board titles ("Praxis Claim" vs "People's Harpy
+   Vote") — `TALLY_LABELS.harpy` alone would have produced the wrong string ("People's Harpy
+   Claim"). Correct call, a gap in my own AC wording rather than a defect.
+2. **Live pill relocation.** Addressed above — correct, matches the mockup, no AC to deviate from.
+3. **Typographic apostrophe (’) in `TALLY_LABELS`/`TALLY_TITLES`**, matching the locked mockup and
+   prax-2's own already-shipped badge string convention. Correctly kept the STRAIGHT apostrophe in
+   `PEOPLES_HARPY_SEAT_LABEL` (the constant matched against real `office_seats.seat_label` data) —
+   checked this distinction specifically, since conflating display typography with a real-data
+   string match would have silently broken the badge lookup. Confirmed both are still handled
+   correctly and separately.
+4. **Sentence-case DOM text, uppercase via CSS** for the summary labels — matches the established
+   `.pool-label` convention already shipped in prax-2's own CSS. Consistent, not a new pattern.
+5. **`switch-tally` also clears `_sheetFor` and `_status`.** The sheet-clear is defensive (the sheet
+   overlay's own `z-index`/`inset` already makes the switch unreachable while it's open); the
+   status-clear is a real, reasonable UX call — a leftover "Claim withdrawn..." message would
+   otherwise misleadingly read as belonging to the tally just switched into.
+6. **`supportersOf()` gained an optional tally parameter** for signature symmetry with the other
+   tally-aware accessors, even though only the active tally calls it today. Harmless, consistent.
+
+**Visual verification (UI story).** Wrote a throwaway Playwright screenshot script (not committed,
+deleted after use) reusing the extended spec's own `boardWithTallies` fixture: captured the Praxis
+tab (segmented control active-left, summary row with both leaders, dual-dot pool chips, live dot on
+the Praxis side) and the Harpy tab (title changes to "People's Harpy Vote", live dot moves to the
+Harpy side of the summary row, no Primogen/Harpy badges, "VOTES" unit label, pool chips correctly
+showing a lit Praxis dot for Brandy/Petra who are assigned on that side). Both screenshots match the
+locked mockup closely and sit correctly inside the real admin shell with real theme tokens.
+
+**Regression, independently re-confirmed (not just trusting the subagent's own claim):**
+- `server/tests/gdx-4-css-standards-grep.test.js` — re-ran myself: 30 passed / 1 failed, the same
+  pre-existing `suite.css`-only ratchet failure already A/B-confirmed unrelated during prax-2's own
+  review (this story's CSS lives entirely in `admin-layout.css`).
+- `tests/cycle-tab.spec.js` — re-ran myself: 24 passed / 2 failed, the same two pre-existing
+  failures already confirmed stale/unrelated during prax-2's own review (a sidebar-position
+  assertion stale since the Downtime/Ordeals removal, and an unrelated phase-label content
+  assertion).
+
+**Verdict: done.** No unresolved High/Medium findings. All 12 ACs verified against actual code, the
+tie-break algorithm hand-traced rather than trusted from its own test, and the UI visually confirmed
+against the locked mockup rather than inferred from a green DOM-assertion suite alone.
 
 ## Change Log
 

@@ -10275,3 +10275,53 @@ html:not([data-theme="dark"]) .btn-danger {
   border-radius: var(--radius-md); padding: 10px; font-family: var(--fl); font-size: 12px;
   font-weight: 700; color: var(--txt3); cursor: pointer; margin-top: 14px;
 }
+
+/* ════════════════════════════════════════════════════════════════════
+   Praxis board, second tally (Epic PRAX, prax.3)
+
+   Ported 1:1 from the locked design mockup at
+   specs/mockups/prax-3-harpy-segmented/index.html, same posture as the
+   prax.2 block above: the mockup's hand-copied :root block is NOT
+   reproduced, every value resolves through theme.css, and every rule
+   stays scoped under .praxis-board. Nothing above is modified - prax.3
+   layers three new pieces onto prax.2's components and reuses the rest
+   verbatim.
+   ════════════════════════════════════════════════════════════════════ */
+
+/* ── segmented Praxis / People's Harpy control ── */
+.praxis-board .tally-switch {
+  display: inline-flex; border: 1px solid var(--bdr2); border-radius: var(--radius-pill);
+  padding: 3px; gap: 2px; background: var(--surf1);
+}
+.praxis-board .tally-switch-btn {
+  border: none; background: none; font-family: var(--fl); font-size: 12px; font-weight: 700;
+  letter-spacing: .02em; color: var(--txt3); padding: 7px 16px;
+  border-radius: var(--radius-pill); cursor: pointer;
+}
+.praxis-board .tally-switch-btn.active { background: var(--accent); color: var(--txt-on-dark); }
+.praxis-board .tally-switch-btn:not(.active):hover { color: var(--accent); }
+
+/* ── summary row: both contests' leaders, whichever tally is active ── */
+.praxis-board .tally-summary {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 10px;
+  background: var(--gold-a8); border: 1px solid var(--bdr2); border-radius: var(--radius-md);
+  padding: 10px 12px; margin-bottom: 16px;
+}
+.praxis-board .tally-summary-item { display: flex; flex-direction: column; gap: 2px; }
+.praxis-board .tally-summary-item + .tally-summary-item { border-left: 1px solid var(--bdr); padding-left: 10px; }
+.praxis-board .tally-summary-label {
+  font-family: var(--fl); font-size: 9.5px; font-weight: 700; letter-spacing: .08em;
+  text-transform: uppercase; color: var(--txt3);
+}
+/* The live dot sits inside the ACTIVE tally's label, so the row also says
+   which of the two contests the board below is currently working. */
+.praxis-board .tally-summary-label .pb-live { vertical-align: middle; }
+.praxis-board .tally-summary-leader { font-family: var(--fl); font-size: 13px; font-weight: 700; color: var(--txt); }
+.praxis-board .tally-summary-leader .n { color: var(--gold2); font-weight: 700; margin-left: 4px; }
+.praxis-board .tally-summary-empty { font-family: var(--fl); font-size: 12px; font-style: italic; color: var(--txt3); }
+
+/* ── dual-dot pool-chip indicator (crimson = Praxis, gold = Harpy) ── */
+.praxis-board .chip-dots { display: inline-flex; gap: 3px; margin-left: 2px; }
+.praxis-board .chip-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--bdr3); }
+.praxis-board .chip-dot.on-praxis { background: var(--crim); }
+.praxis-board .chip-dot.on-harpy { background: var(--gold2); }

@@ -111,6 +111,21 @@ function boardWith(claimIds, supportMap) {
   return b;
 }
 
+/**
+ * prax.3: a board with BOTH tallies populated independently. The two sides are
+ * deliberately never mirrored in these fixtures - the whole point of the story
+ * is that a character can stand in one, both, or neither.
+ */
+function boardWithTallies(praxis, harpy) {
+  const b = emptyBoard();
+  const asClaims = ids => (ids || []).map(id => ({ character_id: id, opened_at: '2026-08-12T00:00:00.000Z' }));
+  b.praxis.claims = asClaims(praxis?.claims);
+  b.praxis.support = { ...(praxis?.support || {}) };
+  b.harpy.claims = asClaims(harpy?.claims);
+  b.harpy.support = { ...(harpy?.support || {}) };
+  return b;
+}
+
 // ── Stateful praxis_sessions fake ────────────────────────────────────────────
 
 async function mockPraxis(page, state) {
@@ -229,6 +244,30 @@ const poolChips = page => board(page).locator('.pool-strip .char-chip');
 const cards = page => board(page).locator('.claim-card');
 const cardFor = (page, id) => board(page).locator(`.claim-card[data-claimant-id="${id}"]`);
 const sheet = page => board(page).locator('.sheet-overlay.open');
+
+// ── prax.3 locators ──────────────────────────────────────────────────────────
+
+const tallyBtn = (page, tally) => board(page).locator(`.tally-switch-btn[data-tally="${tally}"]`);
+const summaryFor = (page, tally) => board(page).locator(`.tally-summary-item[data-tally="${tally}"]`);
+const chipNamed = (page, name) => board(page).locator('.pool-strip .char-chip', { hasText: name });
+
+/** Switch the board to a tally and wait for the re-render to land. */
+async function switchTo(page, tally, title) {
+  await tallyBtn(page, tally).click();
+  await expect(board(page).locator('.pb-title')).toHaveText(title);
+}
+
+/**
+ * Assert one pool chip's dual dots. The first dot is Praxis (crimson when set),
+ * the second Harpy (gold); an unset dot carries no modifier class at all, which
+ * is what the `^chip-dot$` anchors check.
+ */
+async function expectChipDots(page, name, praxis, harpy) {
+  const dots = chipNamed(page, name).locator('.chip-dot');
+  await expect(dots).toHaveCount(2);
+  await expect(dots.nth(0)).toHaveClass(praxis ? /\bon-praxis\b/ : /^chip-dot$/);
+  await expect(dots.nth(1)).toHaveClass(harpy ? /\bon-harpy\b/ : /^chip-dot$/);
+}
 
 async function setup(page, initialBoard, opts = {}) {
   const state = { board: initialBoard, calls: [], hiddenUntilPost: !!opts.hiddenUntilPost };
@@ -480,5 +519,291 @@ test.describe('prax.2 - WS-driven refetch (AC16)', () => {
 
     await expect(cards(page)).toHaveCount(1);
     expect(state.calls.length).toBe(before);
+  });
+});
+
+// ═══ prax.3 - the second tally ═══════════════════════════════════════════════
+//
+// Extends this spec rather than forking a prax-3 file: every test below boots
+// the SAME component through the SAME mocks the blocks above already set up,
+// and a parallel spec would have to duplicate all of it.
+
+test.describe('prax.3 - segmented control (AC5, AC6, AC11)', () => {
+  test('the empty state offers a tally-agnostic Open Board and no switch', async ({ page }) => {
+    await setup(page, null);
+    await openPraxis(page);
+
+    // One document holds both tallies, so before it exists there is nothing to
+    // switch between and the action cannot honestly name only Praxis.
+    await expect(board(page).locator('.tally-switch')).toHaveCount(0);
+    await expect(board(page).locator('.tally-summary')).toHaveCount(0);
+    await expect(board(page).locator('.btn-open')).toHaveText('Open Board');
+
+    await board(page).locator('.btn-open').click();
+
+    await expect(board(page).locator('.tally-switch')).toHaveCount(1);
+    await expect(board(page).locator('.tally-summary')).toHaveCount(1);
+  });
+
+  test('switching tally re-renders in place with no refetch', async ({ page }) => {
+    const state = await setup(page, boardWithTallies(
+      { claims: [BRANDY], support: { [PETRA]: BRANDY } },
+      { claims: [MIKAEL], support: { [WREN]: MIKAEL, [DESMOND]: MIKAEL } },
+    ));
+    await openPraxis(page);
+
+    await expect(board(page).locator('.pb-title')).toHaveText('Praxis Claim');
+    await expect(tallyBtn(page, 'praxis')).toHaveClass(/\bactive\b/);
+    await expect(tallyBtn(page, 'harpy')).toHaveText('People’s Harpy');
+    await expect(cardFor(page, BRANDY)).toBeVisible();
+
+    const before = state.calls.length;
+    await switchTo(page, 'harpy', 'People’s Harpy Vote');
+
+    // The already-loaded document carries both tallies, so nothing is fetched.
+    expect(state.calls.length).toBe(before);
+    await expect(tallyBtn(page, 'harpy')).toHaveClass(/\bactive\b/);
+    await expect(tallyBtn(page, 'praxis')).not.toHaveClass(/\bactive\b/);
+    // The Harpy tally's OWN claim list, not the Praxis one.
+    await expect(cards(page)).toHaveCount(1);
+    await expect(cardFor(page, MIKAEL)).toBeVisible();
+    await expect(cardFor(page, BRANDY)).toHaveCount(0);
+
+    await switchTo(page, 'praxis', 'Praxis Claim');
+    await expect(cardFor(page, BRANDY)).toBeVisible();
+    expect(state.calls.length).toBe(before);
+  });
+
+  test('tapping the already-active segment is a no-op', async ({ page }) => {
+    const state = await setup(page, boardWithTallies({ claims: [BRANDY] }, { claims: [MIKAEL] }));
+    await openPraxis(page);
+    const before = state.calls.length;
+
+    await tallyBtn(page, 'praxis').click();
+
+    // No clear-to-neutral toggle here, unlike the Cycle tab's phase buttons.
+    await expect(tallyBtn(page, 'praxis')).toHaveClass(/\bactive\b/);
+    await expect(board(page).locator('.pb-title')).toHaveText('Praxis Claim');
+    await expect(cardFor(page, BRANDY)).toBeVisible();
+    expect(state.calls.length).toBe(before);
+  });
+
+  test('a fresh domain entry always lands back on Praxis', async ({ page }) => {
+    await setup(page, boardWithTallies({ claims: [BRANDY] }, { claims: [MIKAEL] }));
+    await openPraxis(page);
+    await switchTo(page, 'harpy', 'People’s Harpy Vote');
+
+    await page.click('.sidebar-btn[data-domain="player"]');
+    await page.click('.sidebar-btn[data-domain="praxis"]');
+
+    await expect(board(page).locator('.pb-title')).toHaveText('Praxis Claim');
+    await expect(tallyBtn(page, 'praxis')).toHaveClass(/\bactive\b/);
+  });
+});
+
+test.describe('prax.3 - the Harpy tally is an unweighted headcount (AC3, AC4)', () => {
+  test('a Harpy card counts supporters, never City Status', async ({ page }) => {
+    await setup(page, boardWithTallies(
+      { claims: [BRANDY], support: { [PETRA]: BRANDY } },
+      // Mikael has three supporters. Their City Status sums to 5+2+1+3 = 11,
+      // which is exactly the number a shared Praxis formula would print here.
+      { claims: [MIKAEL, CORVIN, BRANDY], support: { [PETRA]: MIKAEL, [WREN]: MIKAEL, [DESMOND]: MIKAEL } },
+    ));
+    await openPraxis(page);
+    await switchTo(page, 'harpy', 'People’s Harpy Vote');
+
+    await expect(cardFor(page, MIKAEL).locator('.claim-tally')).toHaveText('3votes');
+    await expect(cardFor(page, MIKAEL).locator('.claim-tally .lbl')).toHaveText('votes');
+    await expect(cardFor(page, MIKAEL).locator('.support-chip')).toHaveCount(3);
+
+    // No self-vote is auto-added: a claimant with nobody assigned to them sits
+    // at zero, not at their own City Status.
+    await expect(cardFor(page, CORVIN).locator('.claim-tally')).toHaveText('0votes');
+    await expect(cardFor(page, BRANDY).locator('.claim-tally')).toHaveText('0votes');
+
+    // Praxis is untouched by any of this - same board, other weighting.
+    await switchTo(page, 'praxis', 'Praxis Claim');
+    await expect(cardFor(page, BRANDY).locator('.claim-tally')).toHaveText('7status');
+  });
+
+  test('the Primogen / People’s Harpy badges are Praxis-only', async ({ page }) => {
+    await setup(page, boardWithTallies(
+      { claims: [BRANDY, MIKAEL] },
+      { claims: [BRANDY, MIKAEL] },
+    ));
+    await openPraxis(page);
+
+    await expect(cardFor(page, BRANDY).locator('.claim-badge.amber')).toHaveCount(1);
+    await expect(cardFor(page, MIKAEL).locator('.claim-badge.neutral')).toHaveCount(1);
+
+    await switchTo(page, 'harpy', 'People’s Harpy Vote');
+
+    // Both badges describe a PRAXIS outcome, so neither belongs on this tab.
+    await expect(board(page).locator('.claim-badge')).toHaveCount(0);
+  });
+
+  test('Harpy claims and support writes carry tally: harpy', async ({ page }) => {
+    const state = await setup(page, boardWithTallies({ claims: [BRANDY] }, {}));
+    await openPraxis(page);
+    await switchTo(page, 'harpy', 'People’s Harpy Vote');
+
+    // Nobody is assigned in Harpy yet, so every attendee is still tappable -
+    // including Brandy, who is already standing in Praxis.
+    await expect(poolChips(page)).toHaveCount(6);
+    await expect(board(page).locator('.pool-strip')).toContainText('Brandy LaRoux');
+
+    await chipNamed(page, 'Corvin Adeyemi').click();
+    await expect(sheet(page).locator('.sheet-title')).toHaveText('Assign support · People’s Harpy');
+    await expect(sheet(page).locator('.sheet-action'))
+      .toHaveText('Open a People’s Harpy claim for Corvin Adeyemi instead');
+    await sheet(page).locator('.sheet-action').click();
+
+    await expect(cardFor(page, CORVIN).locator('.claim-tally')).toHaveText('0votes');
+    const claim = state.calls.find(c => c.method === 'POST' && /\/claims$/.test(c.url));
+    expect(claim.body).toEqual({ tally: 'harpy', character_id: CORVIN });
+
+    // Desmond's City Status is 3, so a weighted tally would read 3 here.
+    await chipNamed(page, 'Desmond Okafor').click();
+    await expect(sheet(page).locator('.sheet-row')).toContainText('0 votes');
+    await sheet(page).locator('.sheet-row', { hasText: 'Corvin Adeyemi' }).click();
+
+    await expect(cardFor(page, CORVIN).locator('.claim-tally')).toHaveText('1votes');
+    const put = state.calls.find(c => c.method === 'PUT');
+    expect(put.body).toEqual({
+      tally: 'harpy',
+      supporter_character_id: DESMOND,
+      claimant_character_id: CORVIN,
+    });
+
+    // The Praxis side never moved.
+    await switchTo(page, 'praxis', 'Praxis Claim');
+    await expect(cards(page)).toHaveCount(1);
+    await expect(cardFor(page, BRANDY)).toBeVisible();
+  });
+
+  test('withdrawing a Harpy claim targets the Harpy tally', async ({ page }) => {
+    const state = await setup(page, boardWithTallies(
+      { claims: [BRANDY], support: { [PETRA]: BRANDY } },
+      { claims: [MIKAEL], support: { [WREN]: MIKAEL } },
+    ));
+    await openPraxis(page);
+    await switchTo(page, 'harpy', 'People’s Harpy Vote');
+
+    await cardFor(page, MIKAEL).locator('.claim-withdraw').click();
+
+    await expect(board(page).locator('.pb-status'))
+      .toHaveText('Claim withdrawn. 1 supporter returned to the pool.');
+    const del = state.calls.find(c => c.method === 'DELETE');
+    expect(del.url).toContain('tally=harpy');
+
+    // Praxis kept its own claim and its own supporter.
+    await switchTo(page, 'praxis', 'Praxis Claim');
+    await expect(cardFor(page, BRANDY).locator('.support-chip')).toContainText('Petra Voss');
+  });
+});
+
+test.describe('prax.3 - the summary row (AC7, AC8, AC9)', () => {
+  test('both leaders show at once, unchanged by which tab is active', async ({ page }) => {
+    await setup(page, boardWithTallies(
+      { claims: [BRANDY, MIKAEL], support: { [PETRA]: BRANDY } },
+      { claims: [MIKAEL, CORVIN], support: { [WREN]: MIKAEL, [DESMOND]: MIKAEL } },
+    ));
+    await openPraxis(page);
+
+    const assertSummary = async () => {
+      // Praxis: Brandy 5 + Petra 2 = 7, ahead of Mikael's 5.
+      await expect(summaryFor(page, 'praxis').locator('.tally-summary-label')).toHaveText('Praxis leader');
+      await expect(summaryFor(page, 'praxis').locator('.tally-summary-leader')).toContainText('Brandy LaRoux');
+      await expect(summaryFor(page, 'praxis').locator('.tally-summary-leader .n')).toHaveText('7');
+      // Harpy: Mikael on 2 votes, ahead of Corvin's 0.
+      await expect(summaryFor(page, 'harpy').locator('.tally-summary-label')).toHaveText('Harpy leader');
+      await expect(summaryFor(page, 'harpy').locator('.tally-summary-leader')).toContainText('Mikael Thorne');
+      await expect(summaryFor(page, 'harpy').locator('.tally-summary-leader .n')).toHaveText('2');
+    };
+
+    await assertSummary();
+    await switchTo(page, 'harpy', 'People’s Harpy Vote');
+    await assertSummary();
+
+    // The live dot marks which contest the board below is working.
+    await expect(summaryFor(page, 'harpy').locator('.pb-live')).toHaveCount(1);
+    await expect(summaryFor(page, 'praxis').locator('.pb-live')).toHaveCount(0);
+    await switchTo(page, 'praxis', 'Praxis Claim');
+    await expect(summaryFor(page, 'praxis').locator('.pb-live')).toHaveCount(1);
+    await expect(summaryFor(page, 'harpy').locator('.pb-live')).toHaveCount(0);
+  });
+
+  test('a tally with no claims reads "No claims yet"', async ({ page }) => {
+    await setup(page, emptyBoard());
+    await openPraxis(page);
+
+    // The row shows the moment a board exists, before either side has a claim.
+    await expect(board(page).locator('.tally-summary')).toHaveCount(1);
+    await expect(summaryFor(page, 'praxis').locator('.tally-summary-empty')).toHaveText('No claims yet');
+    await expect(summaryFor(page, 'harpy').locator('.tally-summary-empty')).toHaveText('No claims yet');
+
+    await chipNamed(page, 'Brandy LaRoux').click();
+    await sheet(page).locator('.sheet-action').click();
+
+    await expect(summaryFor(page, 'praxis').locator('.tally-summary-leader')).toContainText('Brandy LaRoux');
+    await expect(summaryFor(page, 'harpy').locator('.tally-summary-empty')).toHaveText('No claims yet');
+  });
+
+  test('a tie is broken alphabetically, for display only', async ({ page }) => {
+    // Both Harpy claimants sit on zero votes, and Corvin is listed FIRST on the
+    // document, so first-past-the-post ordering would name him.
+    await setup(page, boardWithTallies({}, { claims: [CORVIN, BRANDY] }));
+    await openPraxis(page);
+
+    await expect(summaryFor(page, 'harpy').locator('.tally-summary-leader')).toContainText('Brandy LaRoux');
+    await expect(summaryFor(page, 'harpy').locator('.tally-summary-leader .n')).toHaveText('0');
+  });
+});
+
+test.describe('prax.3 - dual-dot pool chips (AC10)', () => {
+  test('each chip reports its membership in BOTH tallies', async ({ page }) => {
+    await setup(page, boardWithTallies(
+      { claims: [BRANDY], support: { [PETRA]: BRANDY } },
+      { claims: [MIKAEL], support: { [WREN]: MIKAEL } },
+    ));
+    await openPraxis(page);
+
+    // Praxis pool: everyone bar Brandy (claimant) and Petra (supporter).
+    await expect(poolChips(page)).toHaveCount(4);
+    await expectChipDots(page, 'Mikael Thorne', false, true);   // Harpy claimant
+    await expectChipDots(page, 'Wren Halloway', false, true);   // Harpy supporter
+    await expectChipDots(page, 'Corvin Adeyemi', false, false); // neither
+    await expectChipDots(page, 'Desmond Okafor', false, false);
+
+    await switchTo(page, 'harpy', 'People’s Harpy Vote');
+
+    // Harpy pool: everyone bar Mikael (claimant) and Wren (supporter).
+    await expect(poolChips(page)).toHaveCount(4);
+    await expectChipDots(page, 'Brandy LaRoux', true, false);   // Praxis claimant
+    await expectChipDots(page, 'Petra Voss', true, false);      // Praxis supporter
+    await expectChipDots(page, 'Corvin Adeyemi', false, false);
+    await expectChipDots(page, 'Desmond Okafor', false, false);
+  });
+
+  test('a dot lights up as soon as the other tally gains that character', async ({ page }) => {
+    await setup(page, boardWithTallies({ claims: [BRANDY] }, {}));
+    await openPraxis(page);
+    await switchTo(page, 'harpy', 'People’s Harpy Vote');
+
+    await expectChipDots(page, 'Corvin Adeyemi', false, false);
+
+    // Open a Harpy claim for Mikael, then check Corvin supporting him.
+    await chipNamed(page, 'Mikael Thorne').click();
+    await sheet(page).locator('.sheet-action').click();
+    await chipNamed(page, 'Corvin Adeyemi').click();
+    await sheet(page).locator('.sheet-row', { hasText: 'Mikael Thorne' }).click();
+
+    // Corvin is assigned in Harpy now, so he leaves the Harpy pool entirely...
+    await expect(board(page).locator('.pool-strip')).not.toContainText('Corvin Adeyemi');
+    // ...and shows a lit gold dot back on the Praxis tab, where he is still
+    // unassigned and therefore still in the pool.
+    await switchTo(page, 'praxis', 'Praxis Claim');
+    await expectChipDots(page, 'Corvin Adeyemi', false, true);
+    await expectChipDots(page, 'Mikael Thorne', false, true);
   });
 });

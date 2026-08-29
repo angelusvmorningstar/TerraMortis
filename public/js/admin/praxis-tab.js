@@ -29,14 +29,28 @@
  * module-local store, so an unprimed store silently costs claimants their
  * regency bonus rather than failing loudly.
  *
- * ═══ REUSED BY prax.3 ═══
+ * ═══ DUAL TALLY (prax.3) ═══
  *
- * prax.3 adds the People's Harpy tally by reusing this component with the other
- * weighting. The tally literal lives in ONE constant at the top of this file
- * rather than inlined at each call site, so that story parameterises it instead
- * of hunting for string literals. Nothing here refuses a character who is
- * standing in both tallies at once - that is a supported state, not an
- * oversight (see prax.1's own POST /claims comment).
+ * prax.3 delivered the parameterisation this file's constant-at-the-top design
+ * was built for: the tally literal became `_activeTally` module state, switched
+ * by the segmented control in the header, and every accessor and write action
+ * below reads it rather than a fixed string. There is deliberately no second
+ * board module - one component serves both tallies.
+ *
+ * The two tallies are NEVER coupled. A character may hold an open claim, or a
+ * support assignment, in both at once - that is a supported state, not an
+ * oversight (see prax.1's own POST /claims comment). The only cross-tally read
+ * anywhere is cosmetic: the summary row's two leaders and the pool chips' two
+ * dots, both computed against `_board.praxis` AND `_board.harpy` on every
+ * render regardless of which tally is active.
+ *
+ * The two weightings are genuinely different, not a shared formula with a
+ * parameter. Praxis is a City Status sum (claimant's own, plus every
+ * supporter's). Harpy is a plain unweighted headcount of supporters assigned to
+ * the claimant, with NO baseline for the claimant themselves: the epic's locked
+ * ruling is that nothing auto-adds a Harpy claimant as their own first vote.
+ * They can still be assigned to themselves through the ordinary support flow,
+ * which then counts as one vote like anyone else's.
  */
 
 import { apiGet, apiPost, apiPut, apiDelete, apiRaw } from '../data/api.js';
@@ -44,10 +58,24 @@ import { esc, displayName } from '../data/helpers.js';
 import { calcCityStatus, setStatusTerritories } from '../data/accessors.js';
 import { resolveHeldSeat } from '../data/office-seat-resolve.js';
 
-/** The tally this board writes. prax.3's own parameter hook - see the header. */
-const TALLY = 'praxis';
-/** How the tally is named in UI copy. */
-const TALLY_LABEL = 'Praxis';
+/** The two tallies this one board carries, in the order the switch renders them. */
+const TALLIES = ['praxis', 'harpy'];
+
+/** How each tally is named in UI copy (the switch, the sheet). */
+const TALLY_LABELS = { praxis: 'Praxis', harpy: 'People’s Harpy' };
+
+/**
+ * The unit a tally is counted in, for the small suffix on a claim card's
+ * number: "19 STATUS" for the weighted Praxis sum, "3 VOTES" for the
+ * unweighted Harpy headcount.
+ */
+const TALLY_UNIT_LABELS = { praxis: 'status', harpy: 'votes' };
+
+/** The board title for each tally, per the locked mockup. */
+const TALLY_TITLES = { praxis: 'Praxis Claim', harpy: 'People’s Harpy Vote' };
+
+/** The short label each tally carries in the summary row. */
+const TALLY_SUMMARY_LABELS = { praxis: 'Praxis leader', harpy: 'Harpy leader' };
 
 /**
  * The seat label that makes a claimant's win vacate their current office.
@@ -96,6 +124,10 @@ let _sheetFor = null;     // character id the bottom sheet is open for, or null
 let _status = '';         // transient status line under the header
 let _loadError = '';
 let _busy = false;
+// Which tally the board is currently being worked against. Reset to 'praxis' on
+// every initPraxisView call: the tab deliberately does NOT remember the
+// last-viewed tally across a full domain re-entry.
+let _activeTally = 'praxis';
 
 // ── Pure helpers (no DOM, no fetch - kept exported for direct coverage) ───────
 
@@ -165,12 +197,18 @@ export function unassignedPool(attendeeIds, support, claims) {
 
 // ── Board accessors ──────────────────────────────────────────────────────────
 
-function claims() {
-  return (_board?.[TALLY]?.claims || []).filter(Boolean);
+/**
+ * One tally's open claims. The tally argument defaults to the active one, so
+ * every existing call site reads the tally on screen; the summary row and the
+ * pool chips' dots are the only callers that pass the other one explicitly.
+ */
+function claims(tally = _activeTally) {
+  return (_board?.[tally]?.claims || []).filter(Boolean);
 }
 
-function support() {
-  return _board?.[TALLY]?.support || {};
+/** One tally's support map, keyed supporter id -> claimant id. */
+function support(tally = _activeTally) {
+  return _board?.[tally]?.support || {};
 }
 
 function charFor(id) {
@@ -189,25 +227,76 @@ function statusFor(id) {
 }
 
 /**
- * A claimant's live tally: their own City Status plus that of every character
- * currently assigned to support them. Derived here every render, never stored.
+ * A claimant's live tally in one tally, derived every render and never stored.
+ *
+ * The two weightings are deliberately NOT a shared formula:
+ *
+ * - Praxis: the claimant's own City Status plus that of every character
+ *   currently assigned to support them.
+ * - Harpy: a plain, unweighted headcount of the supporters assigned to them.
+ *   No `calcCityStatus()` call anywhere on this path (the epic's locked ruling
+ *   is "1 supporter = 1 vote"), and no baseline for the claimant themselves -
+ *   nothing auto-adds a Harpy claimant as their own first vote. A claimant who
+ *   IS assigned to themselves through the ordinary support flow is counted by
+ *   the same loop as anybody else, which is why that case needs no special
+ *   casing here.
  */
-function tallyFor(claimantId) {
+function tallyFor(claimantId, tally = _activeTally) {
   const key = String(claimantId).toLowerCase();
+
+  if (tally === 'harpy') {
+    return Object.values(support('harpy'))
+      .filter(assignedTo => String(assignedTo).toLowerCase() === key)
+      .length;
+  }
+
   let total = statusFor(key);
-  for (const [supporterId, assignedTo] of Object.entries(support())) {
+  for (const [supporterId, assignedTo] of Object.entries(support(tally))) {
     if (String(assignedTo).toLowerCase() === key) total += statusFor(supporterId);
   }
   return total;
 }
 
 /** Everyone currently supporting this claimant, in a stable name order. */
-function supportersOf(claimantId) {
+function supportersOf(claimantId, tally = _activeTally) {
   const key = String(claimantId).toLowerCase();
-  return Object.entries(support())
+  return Object.entries(support(tally))
     .filter(([, assignedTo]) => String(assignedTo).toLowerCase() === key)
     .map(([supporterId]) => String(supporterId).toLowerCase())
     .sort((a, b) => nameFor(a).localeCompare(nameFor(b)));
+}
+
+/**
+ * The leading claimant in one tally, or null when that tally has no claims.
+ *
+ * Cosmetic only: this decides nothing. prax.4a/prax.4b's own resolve routes are
+ * the only place a result becomes real, so the tie-break below is for DISPLAY
+ * determinism and carries no implication about how a real tie would resolve -
+ * highest tally wins, and an exact tie falls to the alphabetically first name.
+ */
+function leaderFor(tally) {
+  let best = null;
+  for (const claim of claims(tally)) {
+    const id = String(claim.character_id || '').toLowerCase();
+    if (!id) continue;
+    const value = tallyFor(id, tally);
+    const beatsOnTally = !best || value > best.value;
+    const beatsOnName = best && value === best.value
+      && nameFor(id).localeCompare(nameFor(best.id)) < 0;
+    if (beatsOnTally || beatsOnName) best = { id, value };
+  }
+  return best;
+}
+
+/**
+ * Does this attendee have ANY assignment in the given tally - standing as a
+ * claimant, or assigned as somebody's supporter? Drives the pool chips' dual
+ * dots, which are read across BOTH tallies whichever one is active.
+ */
+function hasAssignmentIn(tally, characterId) {
+  const key = String(characterId || '').toLowerCase();
+  if (claims(tally).some(c => String(c.character_id || '').toLowerCase() === key)) return true;
+  return Object.keys(support(tally)).some(k => String(k).toLowerCase() === key);
 }
 
 // ── Entry point ──────────────────────────────────────────────────────────────
@@ -232,6 +321,9 @@ export async function initPraxisView(chars) {
   _initialised = true;
   _sheetFor = null;
   _status = '';
+  // A fresh domain entry always lands on Praxis, never on the tally that
+  // happened to be open last time.
+  _activeTally = 'praxis';
   _wire();
 
   _rootEl.innerHTML = '<p class="placeholder">Loading…</p>';
@@ -365,7 +457,7 @@ function openClaim(characterId) {
   _sheetFor = null;
   return write(() => apiPost(
     `/api/praxis_sessions/${encodeURIComponent(String(_board._id))}/claims`,
-    { tally: TALLY, character_id: characterId },
+    { tally: _activeTally, character_id: characterId },
   ));
 }
 
@@ -377,7 +469,7 @@ function assignSupport(supporterId, claimantId) {
     // `claimant_character_id` is always present, never omitted - prax.1 treats
     // an absent key as a 400 and an explicit null as "return to the pool", and
     // the two must not be confusable.
-    { tally: TALLY, supporter_character_id: supporterId, claimant_character_id: claimantId },
+    { tally: _activeTally, supporter_character_id: supporterId, claimant_character_id: claimantId },
   ));
 }
 
@@ -386,7 +478,7 @@ function unassignSupport(supporterId) {
   return write(async () => {
     await apiPut(
       `/api/praxis_sessions/${encodeURIComponent(String(_board._id))}/support`,
-      { tally: TALLY, supporter_character_id: supporterId, claimant_character_id: null },
+      { tally: _activeTally, supporter_character_id: supporterId, claimant_character_id: null },
     );
     _status = `${nameFor(supporterId)} returned to the pool.`;
   });
@@ -404,7 +496,7 @@ function withdrawClaim(claimantId) {
   return write(async () => {
     const res = await apiDelete(
       `/api/praxis_sessions/${encodeURIComponent(String(_board._id))}`
-      + `/claims/${encodeURIComponent(claimantId)}?tally=${encodeURIComponent(TALLY)}`,
+      + `/claims/${encodeURIComponent(claimantId)}?tally=${encodeURIComponent(_activeTally)}`,
     );
     const n = Number(res?.supporters_released) || 0;
     _status = `Claim withdrawn. ${n} supporter${n === 1 ? '' : 's'} returned to the pool.`;
@@ -440,19 +532,70 @@ function chapterCaption() {
   return parts.join(' · ');
 }
 
+/**
+ * The header. Once a board exists the segmented control takes the slot the
+ * standalone "Live" pill used to hold; the live dot itself moves into the
+ * active tally's own summary-row label, where it says which of the two
+ * contests the board below is currently working. That is the locked mockup's
+ * arrangement, and it keeps the header to one control rather than two.
+ */
 function renderHead() {
-  const live = _board ? '<span class="pb-live"><span class="dot"></span>Live</span>' : '';
   const status = _status ? `<div class="pb-status">${esc(_status)}</div>` : '';
   return `<div class="pb-head">
-      <div><span class="pb-title">${esc(TALLY_LABEL)} Claim</span><span class="pb-chapter">${esc(chapterCaption())}</span></div>
-      ${live}
+      <div><span class="pb-title">${esc(TALLY_TITLES[_activeTally])}</span><span class="pb-chapter">${esc(chapterCaption())}</span></div>
+      ${_board ? renderTallySwitch() : ''}
     </div>${status}`;
 }
 
+/**
+ * The Praxis / People's Harpy segmented control. Rendered only once a board
+ * exists: `praxis_sessions` is ONE document holding both tallies, so before it
+ * is opened there is genuinely nothing to switch between.
+ */
+function renderTallySwitch() {
+  const buttons = TALLIES.map((t) => {
+    const active = t === _activeTally;
+    return `<button type="button" class="tally-switch-btn${active ? ' active' : ''}"`
+      + ` data-praxis-action="switch-tally" data-tally="${esc(t)}"`
+      + ` aria-pressed="${active ? 'true' : 'false'}">${esc(TALLY_LABELS[t])}</button>`;
+  }).join('');
+  return `<div class="tally-switch" role="group" aria-label="Which tally to work">${buttons}</div>`;
+}
+
+/**
+ * Both contests' current leaders, side by side, regardless of which tally is
+ * active below. Each half is computed against its OWN tally's claim list, so
+ * the two halves are genuinely independent readings rather than two views of
+ * the claimant list on screen.
+ */
+function renderSummary() {
+  return `<div class="tally-summary">${TALLIES.map(renderSummaryItem).join('')}</div>`;
+}
+
+function renderSummaryItem(tally) {
+  const live = tally === _activeTally
+    ? '<span class="pb-live"><span class="dot"></span></span> '
+    : '';
+  const leader = leaderFor(tally);
+  const body = leader
+    ? `<span class="tally-summary-leader">${esc(nameFor(leader.id))}<span class="n">${esc(leader.value)}</span></span>`
+    : '<span class="tally-summary-empty">No claims yet</span>';
+  return `<div class="tally-summary-item" data-tally="${esc(tally)}">
+      <span class="tally-summary-label">${live}${esc(TALLY_SUMMARY_LABELS[tally])}</span>
+      ${body}
+    </div>`;
+}
+
+/**
+ * The empty state. Its one action opens the whole board - both tallies at once,
+ * since they share a single document - so the button is deliberately
+ * tally-agnostic rather than naming Praxis (prax.3's own copy correction to the
+ * "Open Praxis Claim" prax.2 shipped).
+ */
 function renderEmpty() {
   return `<div class="pb-empty">
-      <p>No ${esc(TALLY_LABEL)} board is open for this chapter yet.</p>
-      <button type="button" class="btn-open" data-praxis-action="open-board">Open ${esc(TALLY_LABEL)} Claim</button>
+      <p>No ${esc(TALLY_LABELS[_activeTally])} board is open for this chapter yet.</p>
+      <button type="button" class="btn-open" data-praxis-action="open-board">Open Board</button>
     </div>`;
 }
 
@@ -462,7 +605,7 @@ function renderPopulated() {
     ? '<p class="pb-note">No game session is linked to this chapter yet, so there is no attendee list to claim from.</p>'
     : '';
 
-  return `${noSession}
+  return `${renderSummary()}${noSession}
     <div class="pool-label">Not yet assigned (tap to support or open a claim)</div>
     <div class="pool-strip">${pool.map(renderPoolChip).join('')}</div>
     <div class="claimants-label"><span class="pool-label pool-label--inline">Claimants</span></div>
@@ -475,13 +618,31 @@ function renderPopulated() {
 }
 
 function renderPoolChip(id) {
-  return `<button type="button" class="char-chip" data-praxis-action="pool-chip" data-char-id="${esc(id)}">${esc(nameFor(id))}</button>`;
+  return `<button type="button" class="char-chip" data-praxis-action="pool-chip" data-char-id="${esc(id)}">${esc(nameFor(id))}${renderChipDots(id)}</button>`;
+}
+
+/**
+ * The two dots on a pool chip: crimson when this attendee has an assignment in
+ * Praxis, gold when they have one in Harpy, dim otherwise. Read across BOTH
+ * tallies every render, whichever one is active - the pool strip itself stays
+ * scoped to the active tally, so without these an ST working Harpy has no way
+ * to see that a chip is already spoken for on the Praxis side.
+ */
+function renderChipDots(id) {
+  const praxis = hasAssignmentIn('praxis', id) ? ' on-praxis' : '';
+  const harpy = hasAssignmentIn('harpy', id) ? ' on-harpy' : '';
+  return `<span class="chip-dots" aria-hidden="true"><span class="chip-dot${praxis}"></span><span class="chip-dot${harpy}"></span></span>`;
 }
 
 /**
  * The claimant's secondary badge, checked live against office data rather than
  * read off the board document. `resolveHeldSeat` is the shared, confirmed-only
  * holder resolution (oxp.7) - no second office lookup is hand-rolled here.
+ *
+ * PRAXIS ONLY, by its call site below. Both badges describe what happens if the
+ * character wins PRAXIS: "keeps seat" and "vacates on win" are meaningless on
+ * the Harpy tally, and showing them on a Harpy card would read as a claim about
+ * that contest instead.
  */
 function renderBadge(claimantId) {
   const c = charFor(claimantId);
@@ -503,9 +664,9 @@ function renderClaimCard(claim) {
       <div class="claim-head">
         <div>
           <div class="claim-name">${esc(nameFor(id))}</div>
-          ${renderBadge(id)}
+          ${_activeTally === 'praxis' ? renderBadge(id) : ''}
         </div>
-        <div class="claim-tally">${esc(tallyFor(id))}<span class="lbl">status</span></div>
+        <div class="claim-tally">${esc(tallyFor(id))}<span class="lbl">${esc(TALLY_UNIT_LABELS[_activeTally])}</span></div>
       </div>
       ${supporters.length
         ? `<div class="claim-supporters">${supporters.map(sid => renderSupportChip(sid)).join('')}</div>`
@@ -532,16 +693,16 @@ function renderSheet() {
   const rows = claims()
     .map(c => String(c.character_id).toLowerCase())
     .map(cid => `<button type="button" class="sheet-row" data-praxis-action="assign" data-claimant-id="${esc(cid)}">
-        <span class="n">${esc(nameFor(cid))}</span><span class="t">${esc(tallyFor(cid))} status</span>
+        <span class="n">${esc(nameFor(cid))}</span><span class="t">${esc(tallyFor(cid))} ${esc(TALLY_UNIT_LABELS[_activeTally])}</span>
       </button>`)
     .join('');
 
   return `<div class="sheet-overlay open" data-praxis-action="sheet-backdrop">
       <div class="sheet">
         <div class="sheet-handle"></div>
-        <div class="sheet-title">Assign support &middot; ${esc(TALLY_LABEL)}</div>
+        <div class="sheet-title">Assign support &middot; ${esc(TALLY_LABELS[_activeTally])}</div>
         <div class="sheet-sub">${esc(name)}</div>
-        <button type="button" class="sheet-action" data-praxis-action="open-claim" data-char-id="${esc(id)}">Open a ${esc(TALLY_LABEL)} claim for ${esc(name)} instead</button>
+        <button type="button" class="sheet-action" data-praxis-action="open-claim" data-char-id="${esc(id)}">Open a ${esc(TALLY_LABELS[_activeTally])} claim for ${esc(name)} instead</button>
         <div class="sheet-section-lbl">Support a claimant</div>
         <div class="sheet-list">${rows || '<p class="sheet-empty">No claims are open yet.</p>'}</div>
         <button type="button" class="sheet-close" data-praxis-action="close-sheet">Cancel</button>
@@ -574,6 +735,19 @@ function _wire() {
       return;
     }
     if (action === 'close-sheet') { _sheetFor = null; render(); return; }
+    // Switching tally re-renders in place from the already-loaded document,
+    // which carries BOTH tallies - there is nothing new to fetch. Tapping the
+    // already-active segment is a no-op: unlike the Cycle tab's phase buttons
+    // there is no "neutral" state to toggle back to.
+    if (action === 'switch-tally') {
+      const next = el.dataset.tally;
+      if (!TALLIES.includes(next) || next === _activeTally) return;
+      _activeTally = next;
+      _sheetFor = null;
+      _status = '';
+      render();
+      return;
+    }
     if (action === 'open-board') { openBoard(); return; }
     if (action === 'pool-chip') { _sheetFor = el.dataset.charId; render(); return; }
     if (action === 'open-claim') { openClaim(el.dataset.charId); return; }
