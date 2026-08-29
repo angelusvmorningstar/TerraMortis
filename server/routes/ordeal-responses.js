@@ -99,7 +99,10 @@ router.post('/', requireOrdealNotRetiredForPlayers, validate(ordealResponseSchem
 });
 
 // PUT /api/ordeal-responses/:id — update
-router.put('/:id', async (req, res) => {
+// 2026-08-29: requireOrdealNotRetiredForPlayers was wired onto POST only when the
+// retirement flag shipped (2026-08-25) — an oversight. A player could still edit or
+// submit an EXISTING draft (11 non-approved live today) via this route, unblocked.
+router.put('/:id', requireOrdealNotRetiredForPlayers, async (req, res) => {
   const oid = parseId(req.params.id);
   if (!oid) return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'Invalid ID format' });
 

@@ -18,6 +18,8 @@ import trackerRouter from '../../routes/tracker.js';
 import rankingBallotsRouter from '../../routes/ranking_ballots.js';
 import ordealSubmissionsRouter from '../../routes/ordeal-submissions.js';
 import ordealResponsesRouter from '../../routes/ordeal-responses.js';
+import questionnaireRouter from '../../routes/questionnaire.js';
+import historyRouter from '../../routes/history.js';
 import rulesRouter from '../../routes/rules.js';
 import {
   grantRouter, specialityGrantRouter, skillBonusRouter, nineAgainRouter, rulesAggregateRouter,
@@ -104,6 +106,11 @@ export function createTestApp() {
   app.use('/api/tracker_state', mockAuth, requireRole('st'), noCache(), trackerRouter);
   app.use('/api/ordeal_submissions', mockAuth, noCache(), ordealSubmissionsRouter);
   app.use('/api/ordeal-responses', mockAuth, noCache(), ordealResponsesRouter);
+  // 2026-08-29: mounted for the first time — these two had never been wired into
+  // the test app, so their retirement gate (like everything else in them) had
+  // zero HTTP-level test coverage. Mirrors prod's own mount in server/index.js.
+  app.use('/api/questionnaire', mockAuth, noCache(), questionnaireRouter);
+  app.use('/api/history', mockAuth, noCache(), historyRouter);
   // RETIRED, Story 31-5 (TM Wiki) - the route moved to TM Wiki along with its data.
   // See the matching note in server/index.js.
   // Rules engine — must mount before /api/rules (purchasable_powers)

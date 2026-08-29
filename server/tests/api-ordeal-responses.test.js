@@ -125,18 +125,19 @@ describe('POST /api/ordeal-responses — create (issue #525)', () => {
   });
 });
 
-describe('PUT /api/ordeal-responses/:id — not found', () => {
-  it('404 for a non-existent ID', async () => {
-    const res = await request(app)
-      .put('/api/ordeal-responses/000000000000000000000001')
-      .set('X-Test-User', playerUser([]))
-      .send({ responses: { q1: 'nope' } });
-    expect(res.status).toBe(404);
-  });
-});
-
-describe('PUT /api/ordeal-responses/:id — ownership', () => {
-  it('403 when a player edits another player\'s response', async () => {
+// 2026-08-29: requireOrdealNotRetiredForPlayers now runs on PUT too (it previously
+// guarded POST only — a real gap, since a player's own EXISTING draft/submitted
+// response was still editable: 11 non-approved ordeal_responses were live and
+// reachable this way when the gap was found). This block replaces the old
+// 'PUT ... — ownership' and 'player cannot set marking data' tests, which exercised
+// player-role logic inside the handler (the ownership check, the marking-write
+// block) that is now unreachable by construction — every player PUT 403s here
+// before the handler runs, regardless of whose response it is or what fields are
+// sent. That handler logic is left in place as defence in depth, not deleted, but
+// has no live HTTP-reachable path to exercise any more. Mirrors the identical
+// treatment the POST describe block above already got on 2026-08-25.
+describe('PUT /api/ordeal-responses/:id — Ordeals retired', () => {
+  it('403s a player update — Ordeals retired, file on the sibling site', async () => {
     const created = await request(app)
       .post('/api/ordeal-responses')
       .set('X-Test-User', stUser({ player_id: PLAYER_ID }))
@@ -145,14 +146,25 @@ describe('PUT /api/ordeal-responses/:id — ownership', () => {
 
     const res = await request(app)
       .put(`/api/ordeal-responses/${created.body._id}`)
-      .set('X-Test-User', playerUser([], { player_id: 'p-other-999' }))
-      .send({ responses: { q1: 'hijack' }, status: 'submitted' });
+      .set('X-Test-User', playerUser([]))
+      .send({ responses: { q1: 'still blocked' }, status: 'submitted' });
     expect(res.status).toBe(403);
+    expect(res.body.error).toBe('ORDEAL_RETIRED');
+  });
+});
+
+describe('PUT /api/ordeal-responses/:id — not found', () => {
+  it('404 for a non-existent ID', async () => {
+    const res = await request(app)
+      .put('/api/ordeal-responses/000000000000000000000001')
+      .set('X-Test-User', stUser())
+      .send({ responses: { q1: 'nope' } });
+    expect(res.status).toBe(404);
   });
 });
 
 describe('Ordeal response flow — submit + read back (issue #525)', () => {
-  it('POST draft → PUT submit → GET round-trips', async () => {
+  it('POST draft → PUT submit (ST, on the player\'s behalf) → GET round-trips', async () => {
     const created = await request(app)
       .post('/api/ordeal-responses')
       .set('X-Test-User', stUser({ player_id: PLAYER_ID }))
@@ -161,7 +173,7 @@ describe('Ordeal response flow — submit + read back (issue #525)', () => {
 
     const submitted = await request(app)
       .put(`/api/ordeal-responses/${created.body._id}`)
-      .set('X-Test-User', playerUser([]))
+      .set('X-Test-User', stUser({ player_id: PLAYER_ID }))
       .send({ responses: { q1: 'final' }, status: 'submitted' });
     expect(submitted.status).toBe(200);
     expect(submitted.body.status).toBe('submitted');
@@ -221,7 +233,7 @@ describe('GET /api/ordeal-responses/all — ST listing (issue #527)', () => {
 
     await request(app)
       .put(`/api/ordeal-responses/${created.body._id}`)
-      .set('X-Test-User', playerUser([]))
+      .set('X-Test-User', stUser({ player_id: PLAYER_ID }))
       .send({ responses: { q1: 'final' }, status: 'submitted' });
 
     const res = await request(app)
@@ -289,18 +301,10 @@ describe('PUT /api/ordeal-responses/:id — ST marking (issue #527)', () => {
     expect(res.body.status).toBe('approved');
   });
 
-  it('player cannot set marking data — field is silently ignored', async () => {
-    const created = await request(app)
-      .post('/api/ordeal-responses')
-      .set('X-Test-User', stUser({ player_id: PLAYER_ID }))
-      .send({ type: 'rules', responses: {} });
-    expect(created.status).toBe(201);
-
-    const res = await request(app)
-      .put(`/api/ordeal-responses/${created.body._id}`)
-      .set('X-Test-User', playerUser([]))
-      .send({ marking: { status: 'complete' } });
-    expect(res.status).toBe(200);
-    expect(res.body.marking).toBeUndefined();
-  });
+  // 2026-08-29: removed 'player cannot set marking data — field is silently
+  // ignored'. That test exercised the handler's own player-vs-marking-field
+  // logic directly, which is now unreachable — requireOrdealNotRetiredForPlayers
+  // 403s every player PUT before the handler runs (see the 'Ordeals retired'
+  // describe block above, which covers this same request shape). The ignore
+  // logic itself is untouched, just no longer HTTP-reachable by a player.
 });
