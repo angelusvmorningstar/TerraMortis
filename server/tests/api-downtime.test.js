@@ -211,38 +211,24 @@ describe('POST /api/downtime_submissions', () => {
 // ══════════════════════════════════════
 
 describe('PUT /api/downtime_submissions/:id', () => {
-  it('player can update their own submission', async () => {
+  // 2026-08-29 (D6 follow-up): requireFormNotRetiredForPlayers now runs on PUT too
+  // (it previously guarded POST only — a real gap, since a player's own EXISTING
+  // submission was still editable). This single test replaces three pre-retirement
+  // ones ('player can update their own submission', 'player cannot update another
+  // player's submission', 'player cannot set st_review fields') that exercised
+  // player-role logic inside the handler which is now unreachable by construction:
+  // every player request 403s here before the handler — including the ownership
+  // check and the st_review-stripping branch — regardless of whose submission it is
+  // or what fields are sent. That handler logic is left in place as defence in depth,
+  // not deleted, but it has no live HTTP-reachable path to exercise any more.
+  it('player cannot update a submission — form retired', async () => {
     const sub = await insertSub(testChars[0].id);
     const res = await request(app)
       .put(`/api/downtime_submissions/${sub._id}`)
       .set('X-Test-User', playerUser([testChars[0].id]))
       .send({ responses: { travel: 'Updated travel' }, status: 'submitted' });
-    expect(res.status).toBe(200);
-    expect(res.body.responses.travel).toBe('Updated travel');
-    expect(res.body.status).toBe('submitted');
-  });
-
-  it('player cannot update another player\'s submission', async () => {
-    const sub = await insertSub(testChars[1].id); // char 1
-    const res = await request(app)
-      .put(`/api/downtime_submissions/${sub._id}`)
-      .set('X-Test-User', playerUser([testChars[0].id])) // owns char 0
-      .send({ responses: { travel: 'Hacked' } });
     expect(res.status).toBe(403);
-    expect(res.body.error).toBe('FORBIDDEN');
-  });
-
-  it('player cannot set st_review fields', async () => {
-    const sub = await insertSub(testChars[0].id);
-    const res = await request(app)
-      .put(`/api/downtime_submissions/${sub._id}`)
-      .set('X-Test-User', playerUser([testChars[0].id]))
-      .send({ st_review: { outcome_text: 'Injected' } });
-    expect(res.status).toBe(200);
-    // Verify st_review was not set
-    const col = getCollection('downtime_submissions');
-    const doc = await col.findOne({ _id: sub._id });
-    expect(doc.st_review).toBeUndefined();
+    expect(res.body.error).toBe('FORM_RETIRED');
   });
 
   it('ST can update any submission including st_review', async () => {
@@ -301,8 +287,18 @@ describe('PUT /api/downtime_submissions/:id', () => {
     expect(res.status).toBe(400);
   });
 
-  // dt-form.17 (ADR-003 §Q11): cycle-close gate
-  it('returns 423 CYCLE_CLOSED when the submission’s cycle is closed', async () => {
+  // dt-form.17 (ADR-003 §Q11): cycle-close gate. requireOpenCycle's own phase
+  // matrix keeps its dedicated pure-function coverage in cm1-cycle-phase.test.js
+  // (openCycleVerdict), unaffected by this change. What changes HERE is only
+  // the actor: a PLAYER can no longer reach requireOpenCycle via this route at
+  // all (requireFormNotRetiredForPlayers 403s every player request first), so
+  // this test switches to stUser to isolate the CYCLE gate specifically rather
+  // than being confounded with the retirement gate. This fixture has no `phase`
+  // field, so it exercises openCycleVerdict's LEGACY lane — status==='closed' —
+  // which has no role branch at all and locks ST too (ADR-003's own wording:
+  // "players and ST alike cannot mutate a submission whose cycle is closed"),
+  // unlike the phase-aware lane a few lines below where ST always passes.
+  it('returns 423 CYCLE_CLOSED even for ST when the submission’s LEGACY cycle is closed', async () => {
     const cycleCol = getCollection('chapters');
     const cycleRes = await cycleCol.insertOne({
       game_number: 9001,
@@ -314,11 +310,10 @@ describe('PUT /api/downtime_submissions/:id', () => {
       const sub = await insertSub(testChars[0].id, { chapter_id: cycleRes.insertedId });
       const res = await request(app)
         .put(`/api/downtime_submissions/${sub._id}`)
-        .set('X-Test-User', playerUser([testChars[0].id]))
-        .send({ responses: { travel: 'Trying to edit a closed cycle' } });
+        .set('X-Test-User', stUser())
+        .send({ responses: { travel: 'ST edit on a closed legacy cycle' } });
       expect(res.status).toBe(423);
       expect(res.body.error).toBe('CYCLE_CLOSED');
-      expect(res.body.message).toMatch(/locked/i);
     } finally {
       await cycleCol.deleteOne({ _id: cycleRes.insertedId });
     }
@@ -336,7 +331,7 @@ describe('PUT /api/downtime_submissions/:id', () => {
       const sub = await insertSub(testChars[0].id, { chapter_id: cycleRes.insertedId });
       const res = await request(app)
         .put(`/api/downtime_submissions/${sub._id}`)
-        .set('X-Test-User', playerUser([testChars[0].id]))
+        .set('X-Test-User', stUser())
         .send({ responses: { travel: 'Edit on active cycle' } });
       expect(res.status).toBe(200);
       expect(res.body.responses.travel).toBe('Edit on active cycle');

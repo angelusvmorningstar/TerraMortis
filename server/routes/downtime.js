@@ -322,7 +322,13 @@ submissionsRouter.get('/', async (req, res) => {
 
 // PUT /api/downtime_submissions/:id — ST can update any, player can update own (before deadline)
 // dt-form.17: cycle-close gate (ADR-003 §Q11) returns 423 before the handler runs.
-submissionsRouter.put('/:id', rejectLegacyChapterFk, requireOpenCycle, async (req, res) => {
+// D6 (2026-08-29): requireFormNotRetiredForPlayers was wired onto POST only when the
+// retirement flag shipped (2026-08-25) — an oversight, not a deliberate asymmetry. A
+// player could still write to an EXISTING submission via this route whenever its own
+// cycle's phase is 'downtime' (requireOpenCycle has no knowledge of FORM_RETIRED at
+// all), which is exactly the "still filing on this form" confusion the retirement
+// exists to prevent. STs are unaffected, same exemption as POST.
+submissionsRouter.put('/:id', requireFormNotRetiredForPlayers, rejectLegacyChapterFk, requireOpenCycle, async (req, res) => {
   const oid = parseId(req.params.id);
   if (!oid) return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'Invalid submission ID format' });
 
