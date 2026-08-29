@@ -239,11 +239,119 @@ claim.
 
 ## Dev Agent Record
 
-*(filled in during dev-story)*
+Implemented by a delegated Opus subagent (2026-08-29), all 17 ACs in one pass: admin shell wiring
+(`public/admin.html`, `public/js/admin.js`), the new `praxis_session` client-side WS message type
+(`public/js/data/ws.js`, confirmed genuinely absent before this story), the whole board module
+(`public/js/admin/praxis-tab.js`, new), the CSS block ported from the locked mockup
+(`public/css/admin-layout.css`), and a new Playwright spec (`tests/prax-2-claim-board.spec.js`,
+13 tests). Reported 6 files touched (4 modified, 2 new), a stash A/B showing zero regression on the
+admin-shell specs, and six deviations from the literal AC text, each with its own AC number and
+reasoning (see below — every one independently confirmed correct during review).
 
 ## Senior Developer Review
 
-*(filled in during the independent review pass)*
+**Independently re-verified 2026-08-29** (orchestrator, `/bmad-epic-loop`). Did not trust the
+subagent's own "13/13 green" claim — re-ran it myself, which is exactly where this review earned
+its keep.
+
+**A genuine flake found on independent re-run, root-caused and fixed.** The subagent's own final
+run reported 13/13, but my first two independent re-runs each failed one test (a different test
+each time), both on a name resolving to a raw id instead of a display name. Root cause: `admin.js`'s
+`boot()` sets `app.style.display = 'flex'` and calls `init()` **without awaiting it**
+(`admin.js:222-230`) — `init()` is what sets the module-level `chars` array from
+`chars = await apiGet('/api/characters')`. The admin shell becomes clickable before that resolves,
+and `initPraxisView(chars)` is handed that same array (matching `initCycleView(chars)`'s own
+established convention) — so a click fired early enough gets an empty roster and every name falls
+back to its raw id. This is a **pre-existing systemic race in `admin.js`'s boot sequence**, not
+something this story introduced — `initCycleView` has the identical exposure today, unrelated to
+this story. Fixing the race itself (awaiting `init()` before showing the shell) would be a
+cross-cutting change touching every existing admin domain, out of scope for a UI story scoped to
+one new domain. Patched the SYMPTOM in the test's own `openPraxis()` helper instead: wait for
+`#d-player .char-card` (only rendered once `chars` is genuinely populated) before clicking the
+Praxis sidebar button, mirroring the same real-world signal a human would implicitly wait for
+(seeing the Characters grid populate) before switching tabs. Prove-discriminated: 2 of 2 runs
+failed before the fix, 3 of 3 clean after. Logged here rather than silently patched, in case a
+future story wants to actually close the root-cause race in `admin.js` itself.
+
+**Visual verification (UI story — a green DOM-assertion suite alone does not prove this is done).**
+Wrote a throwaway Playwright script (not committed, deleted after use) reusing the shipped spec's
+own mock shape to render the real built app and screenshot it: the populated board (3 claimant
+cards with live tallies — Brandy 7 = 4 city + 1 Socialite title + 2 from Petra Voss's own city
+status; Mikael 5 = 3 city + 2 Primogen title; Corvin 2, no title, no supporters — and both badges,
+"People's Harpy · vacates on win" and "Primogen · keeps seat", rendering correctly) and the bottom
+sheet open over it. Both match the locked mockup closely and sit correctly inside the real admin
+shell/sidebar, using the real theme tokens (confirmed the board visually re-themes rather than
+carrying any hardcoded colour).
+
+**AC-by-AC:**
+
+- **AC1-AC4 (shell + WS wiring):** read the actual diffs to `admin.html`/`admin.js`/`ws.js` line by
+  line. All four match precisely — new sidebar button and `#d-praxis` section mirror `#d-city`'s own
+  shape exactly; the `praxis_session` message-type branch in `ws.js` mirrors the catalogue/settings/
+  bloodline "refetch on signal, no echo suppression" pattern, not the tracker's dedupe pattern, with
+  the reasoning recorded inline — correct call, confirmed this frame type genuinely did not exist
+  before this story.
+- **AC5-AC16 (the board module):** read `praxis-tab.js` in full. Chapter resolution
+  (`resolveChapter`/`declaresPhase`/`isClosedChapter`) duplicates `cycle-views.js`'s own selection
+  logic rather than importing it, matching this repo's established per-view-module convention.
+  `attendeeIdsFromSession` is a deliberate mirror of `server/routes/praxis-sessions.js`'s own
+  `attendeePool()` (attended === true, lower-case, 24-hex filter) — checked both functions
+  side-by-side, they agree. `calcCityStatus`/`setStatusTerritories` used correctly, primed before
+  any tally read. The tally computation (`tallyFor`) sums the claimant's own City Status plus every
+  currently-assigned supporter's, live, every render — never reads a stored score. Every write
+  action (`openClaim`, `assignSupport`, `unassignSupport`, `withdrawClaim`) refetches the board from
+  the server and re-renders from that, never a local DOM patch — confirmed this is followed
+  consistently, not just claimed. The bottom sheet correctly implements the ONE locked answer to the
+  epic doc's open question (open-claim action as the sheet's first row, above the claimant list).
+  `_wired`/delegated-listener pattern is sound: one listener on `#praxis-content`, survives every
+  `innerHTML` rebuild.
+- **AC17 (CSS):** every rule scoped under `.praxis-board`, ported 1:1 from the locked mockup, zero
+  bare hex/rgba/inline style. Spot-checked the two token substitutions the subagent made for values
+  the mockup's own portable `:root` hand-copy didn't have real names for (`var(--txt-on-dark)` for
+  the mockup's `#fff`, `var(--overlay)` for the scrim/shadow) — both are real, already-used tokens
+  in `theme.css`, not invented.
+
+**Deviations, all reviewed and confirmed correct:**
+
+1. **AC9 pool membership.** The story's own AC9 text read literally would leave standing claimants
+   in the pool strip too. The locked mockup shows the pool and the claimant list as strictly
+   disjoint (checked the mockup's own variant 2 directly — 3 pool chips, 3 separate claimant cards,
+   zero overlap). The subagent excluded both supporters and claimants from the pool and followed the
+   locked design over the AC's own imprecise wording — the right call. This is a gap in how I wrote
+   AC9, not a defect in the implementation.
+2. **AC2 signature.** `initPraxisView(chars)` takes the roster as a parameter rather than the AC's
+   literal `initPraxisView()` — matches `initCycleView(chars)`/`initRollFeed(el, chars)`'s own
+   existing convention in the same dispatch chain, and is exactly what AC8's "do not add a second
+   characters endpoint" already implied. Correct.
+3. **AC12-15 "re-render from response".** prax-1's write routes return small acks, never the whole
+   board (confirmed by re-reading `praxis-sessions.js` directly) — every write is followed by a
+   fresh chapter-scoped GET instead, which is what AC12 explicitly allows and what "never a local
+   DOM patch" (this story's own locked ruling) actually requires. Correct; the ACs' wording was
+   imprecise, not the implementation.
+4. **AC17 CSS scope + two token substitutions.** Reasonable and already checked above.
+5. **Supporter chip close control.** A real `<button class="withdraw-x">` with a hover state and an
+   `aria-label`, not the mockup demo's non-interactive `<span>`. An improvement on the mockup, not a
+   deviation from its visual design.
+6. **No vitest suite for the pure helpers.** `praxis-tab.js` imports `accessors.js`, which this
+   codebase documents as unsafe under Node/no-jsdom. The five pure helpers are exported and
+   DOM-free, so a future story could still get them under vitest coverage by extracting them to a
+   standalone module with no `accessors.js` import — flagged, not required by this story's own
+   Testing standards section, which named Playwright as the real coverage.
+
+**One unrelated pre-existing failure surfaced during independent verification, not caused by this
+story:** `server/tests/gdx-4-css-standards-grep.test.js`'s "leaves the compliant var() fallbacks in
+place" assertion (checks `public/css/suite.css` only, which this story never touches) — confirmed
+via `git stash` A/B, fails identically at base. Not in `CLAUDE.md`'s known-failures list; worth its
+own entry there at some point, not blocking this story.
+
+**Also confirmed via `git stash` A/B:** `tests/cycle-tab.spec.js`'s "Cycle button is positioned
+between Downtime and Ordeals in sidebar" and "shows human-readable phase labels" both fail
+identically at base — stale from the 2026-08-29 Downtime/Ordeals sidebar removal and an unrelated
+content assertion, respectively. Zero regression from this story's new sidebar button.
+
+**Verdict: done.** No unresolved High/Medium findings. One real Medium-severity flake found and
+fixed (with prove-discrimination) during independent verification — the subagent's own "13/13
+green" report was not accurate on every run, confirming exactly why this review step exists.
 
 ## Change Log
 

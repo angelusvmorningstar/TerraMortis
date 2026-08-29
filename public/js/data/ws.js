@@ -37,6 +37,11 @@ let _onBloodlineUpdate = null;
 // doc (no separate refetch — a high-frequency event during a live session,
 // unlike the refetch-on-signal shape catalogue/settings/bloodline use).
 let _onRollLogged = null;
+// prax.2 (Epic PRAX): callback for praxis_session frames. Called with the
+// board's own session_id for any praxis_sessions write broadcast by
+// server/ws.js's broadcastPraxisUpdate. Consumers (the admin Praxis board)
+// refetch on receipt.
+let _onPraxisUpdate = null;
 // gdx.8 review fix (Codex + Edge Case Hunter, independently): callback
 // fired on EVERY successful (re)connect, including the first one — a
 // dropped connection has no live "catch-up" otherwise; roll_log frames
@@ -76,6 +81,7 @@ export function markLocalWrite(charId, fields) {
  * @param {function} [opts.onSettingsUpdate] — called with no args for remote app_settings PATCH events (gdx.5 / #986)
  * @param {function} [opts.onBloodlineUpdate] — called with (bloodlineId, op) for remote bloodlines events (BL-4 / issue #1008)
  * @param {function} [opts.onRollLogged] — called with the roll doc for remote roll_log writes (gdx.8 / #989)
+ * @param {function} [opts.onPraxisUpdate] - called with (sessionId) for remote praxis_sessions writes (prax.2)
  * @param {function} [opts.onReconnect] — called with no args on every successful (re)connect (gdx.8 review fix)
  */
 export function initWS(opts = {}) {
@@ -85,6 +91,7 @@ export function initWS(opts = {}) {
   _onSettingsUpdate = opts.onSettingsUpdate || null;
   _onBloodlineUpdate = opts.onBloodlineUpdate || null;
   _onRollLogged = opts.onRollLogged || null;
+  _onPraxisUpdate = opts.onPraxisUpdate || null;
   _onReconnect = opts.onReconnect || null;
   _token = localStorage.getItem('tm_auth_token');
   _closed = false;
@@ -132,6 +139,7 @@ function _connect() {
       else if (msg.type === 'settings') _handleSettingsMsg();
       else if (msg.type === 'bloodline') _handleBloodlineMsg(msg);
       else if (msg.type === 'roll_log') _handleRollLoggedMsg(msg);
+      else if (msg.type === 'praxis_session') _handlePraxisMsg(msg);
     } catch { /* ignore non-JSON */ }
   };
 
@@ -256,4 +264,20 @@ function _handleBloodlineMsg(msg) {
 function _handleRollLoggedMsg(msg) {
   const { type, ...doc } = msg;
   if (_onRollLogged) _onRollLogged(doc);
+}
+
+/** prax.2 (Epic PRAX): handle praxis_session frames. The frame carries only the
+ *  board's own `session_id` (see server/ws.js's broadcastPraxisUpdate), so the
+ *  consumer's job on receipt is "refetch that board", exactly the
+ *  refetch-on-signal contract the catalogue / settings / bloodline frames use.
+ *
+ *  Deliberately NOT _handleTrackerMsg's local-write dedupe. That pattern exists
+ *  for high-frequency per-field tracker state where an echo would double-render
+ *  a sheet mid-session; a Praxis write is an infrequent ST-only board mutation,
+ *  the refetch is one small document, and the tab that fired the write is the
+ *  one most likely to be showing a stale tally, so refetching on our own echo
+ *  is a feature rather than waste. */
+function _handlePraxisMsg(msg) {
+  const { session_id } = msg;
+  _onPraxisUpdate?.(session_id);
 }

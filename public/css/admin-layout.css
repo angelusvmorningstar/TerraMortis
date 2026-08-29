@@ -10148,3 +10148,130 @@ html:not([data-theme="dark"]) .btn-danger {
 .engine-feed-label { color: var(--txt2); }
 .engine-feed-successes { font-weight: 700; color: var(--accent); }
 .engine-feed-meta { color: var(--txt3); font-size: 12px; margin-left: auto; }
+
+/* ════════════════════════════════════════════════════════════════════
+   Praxis Claim board (Epic PRAX, prax.2)
+
+   Ported 1:1 from the locked design mockup at
+   specs/mockups/prax-2-claim-board/index.html. That file carried a
+   hand-copy of theme.css's :root block so it could be opened standalone;
+   NOTHING is redeclared here - every colour, font and radius below
+   resolves through the real theme.css custom properties, so the board
+   flips with the theme like the rest of the app.
+
+   Every rule is scoped under .praxis-board on purpose. The mockup's class
+   names (.claim-card, .sheet, .sheet-row) are generic enough that an
+   unscoped copy would be a landmine for the next component that wants one
+   of those words; scoping keeps the locked names in the markup without
+   claiming them globally.
+
+   .char-chip is REUSED VERBATIM from components.css and is deliberately
+   absent below - not overridden, not re-specified.
+   ════════════════════════════════════════════════════════════════════ */
+
+.praxis-board {
+  background: var(--surf);
+  border: 1px solid var(--bdr);
+  border-radius: var(--radius-lg);
+  padding: 16px;
+  position: relative;
+  max-width: 720px;
+}
+
+/* ── header ── */
+.praxis-board .pb-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin-bottom: 14px; }
+.praxis-board .pb-title { font-family: var(--fl); font-size: 16px; font-weight: 700; color: var(--txt); }
+.praxis-board .pb-chapter { font-family: var(--fl); font-size: 11px; color: var(--txt3); margin-left: 8px; font-weight: 400; }
+.praxis-board .pb-live { display: inline-flex; align-items: center; gap: 5px; font-family: var(--fl); font-size: 10px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--txt3); white-space: nowrap; }
+.praxis-board .pb-live .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--gold); box-shadow: 0 0 0 3px var(--gold-a15); }
+
+/* Transient result line (supporters released on a withdrawal, save failures). */
+.praxis-board .pb-status {
+  font-family: var(--fl); font-size: 11.5px; font-weight: 600; color: var(--gold2);
+  background: var(--gold-a8); border: 1px solid var(--bdr2); border-radius: var(--radius-md);
+  padding: 8px 12px; margin-bottom: 14px;
+}
+.praxis-board .pb-note { font-family: var(--fl); font-size: 11.5px; font-style: italic; color: var(--txt3); margin: 0 0 12px; line-height: 1.5; }
+
+/* ── empty state ── */
+.praxis-board .pb-empty { padding: 36px 20px; text-align: center; }
+.praxis-board .pb-empty p { font-family: var(--fl); font-size: 12px; color: var(--txt3); margin: 0 0 16px; }
+.praxis-board .btn-open {
+  background: var(--accent); color: var(--txt-on-dark); border: none; border-radius: var(--radius-md);
+  padding: 0 20px; height: var(--control-height-md); font-family: var(--fl); font-size: 13px;
+  font-weight: 700; letter-spacing: .02em; cursor: pointer;
+}
+.praxis-board .btn-open:hover { background: var(--crim2); }
+
+/* ── pool strip ── */
+.praxis-board .pool-label { font-family: var(--fl); font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--txt3); margin: 0 0 8px; }
+.praxis-board .pool-label--inline { margin: 0; }
+.praxis-board .pool-strip { display: flex; flex-wrap: wrap; gap: 8px; padding-bottom: 16px; margin-bottom: 16px; border-bottom: 1px solid var(--bdr); }
+.praxis-board .pool-strip:empty::after { content: 'Everyone attending has a support assignment.'; font-family: var(--fl); font-size: 11.5px; font-style: italic; color: var(--txt3); }
+
+/* ── claimant cards ── */
+.praxis-board .claimants-label { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+.praxis-board .claimants { display: flex; flex-direction: column; gap: 10px; }
+.praxis-board .claim-card { background: var(--surf1); border: 1px solid var(--bdr); border-radius: var(--radius-md); padding: 12px 14px; }
+.praxis-board .claim-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.praxis-board .claim-name { font-family: var(--fl); font-size: 14px; font-weight: 700; color: var(--txt); }
+.praxis-board .claim-tally { font-family: var(--fl); font-size: 18px; font-weight: 700; color: var(--gold2); white-space: nowrap; }
+.praxis-board .claim-tally .lbl { font-size: 10px; font-weight: 600; letter-spacing: .05em; text-transform: uppercase; color: var(--txt3); margin-left: 5px; }
+.praxis-board .claim-badge { font-family: var(--fl); font-size: 10.5px; font-weight: 600; margin-top: 3px; display: inline-block; }
+.praxis-board .claim-badge.neutral { color: var(--txt3); }
+.praxis-board .claim-badge.amber { color: var(--warn-orange); }
+.praxis-board .claim-supporters { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+.praxis-board .claim-empty-supporters { font-family: var(--fl); font-size: 11px; font-style: italic; color: var(--txt3); margin-top: 10px; }
+.praxis-board .support-chip {
+  background: var(--bg); border: 1px solid var(--bdr); border-radius: var(--radius-pill);
+  padding: 5px 10px 5px 12px; font-family: var(--fl); font-size: 11.5px; font-weight: 600;
+  color: var(--txt2); display: inline-flex; align-items: center; gap: 6px;
+}
+.praxis-board .withdraw-x {
+  background: none; border: none; color: var(--txt3); font-family: var(--fl); font-size: 11px;
+  font-weight: 700; cursor: pointer; padding: 2px 4px; border-radius: var(--radius-sm); line-height: 1;
+}
+.praxis-board .withdraw-x:hover { color: var(--crim); background: var(--accent-a8); }
+.praxis-board .claim-actions { margin-top: 10px; }
+.praxis-board .claim-withdraw {
+  background: none; border: none; padding: 2px 0; font-family: var(--fl); font-size: 11px;
+  font-weight: 700; letter-spacing: .04em; color: var(--txt3); cursor: pointer;
+}
+.praxis-board .claim-withdraw:hover { color: var(--crim); }
+
+/* ── bottom sheet ── */
+.praxis-board .sheet-overlay {
+  position: absolute; inset: 0; background: var(--overlay); border-radius: var(--radius-lg);
+  display: none; align-items: flex-end; justify-content: center; z-index: 5;
+}
+.praxis-board .sheet-overlay.open { display: flex; }
+.praxis-board .sheet {
+  background: var(--surf); border-top: 1px solid var(--bdr2);
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0; width: 100%; max-height: 78%;
+  overflow-y: auto; padding: 14px 16px 20px; box-shadow: 0 -8px 24px var(--overlay);
+}
+.praxis-board .sheet-handle { width: 36px; height: 4px; background: var(--bdr3); border-radius: var(--radius-pill); margin: 0 auto 12px; }
+.praxis-board .sheet-title { font-family: var(--fl); font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--txt3); margin-bottom: 2px; }
+.praxis-board .sheet-sub { font-family: var(--fl); font-size: 15px; font-weight: 700; color: var(--txt); margin-bottom: 14px; }
+.praxis-board .sheet-action {
+  width: 100%; text-align: left; background: var(--gold-a8); border: 1px solid var(--bdr2);
+  border-radius: var(--radius-md); padding: 11px 14px; font-family: var(--fl); font-size: 13px;
+  font-weight: 700; color: var(--gold2); cursor: pointer; margin-bottom: 12px;
+}
+.praxis-board .sheet-action:hover { background: var(--gold-a15); }
+.praxis-board .sheet-section-lbl { font-family: var(--fl); font-size: 10.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--txt3); margin: 0 0 8px; }
+.praxis-board .sheet-list { display: flex; flex-direction: column; gap: 6px; }
+.praxis-board .sheet-row {
+  width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  background: var(--surf1); border: 1px solid var(--bdr); border-radius: var(--radius-md);
+  padding: 10px 12px; cursor: pointer; text-align: left;
+}
+.praxis-board .sheet-row:hover { border-color: var(--accent-a25); }
+.praxis-board .sheet-row .n { font-family: var(--fl); font-size: 13px; font-weight: 600; color: var(--txt); }
+.praxis-board .sheet-row .t { font-family: var(--fl); font-size: 11px; color: var(--txt3); white-space: nowrap; }
+.praxis-board .sheet-empty { font-family: var(--fl); font-size: 11px; font-style: italic; color: var(--txt3); margin: 0; }
+.praxis-board .sheet-close {
+  width: 100%; text-align: center; background: none; border: 1px solid var(--bdr2);
+  border-radius: var(--radius-md); padding: 10px; font-family: var(--fl); font-size: 12px;
+  font-weight: 700; color: var(--txt3); cursor: pointer; margin-top: 14px;
+}
