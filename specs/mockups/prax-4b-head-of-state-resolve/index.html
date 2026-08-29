@@ -1,0 +1,329 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>prax-4b — Head of State resolve (design-lock mockup)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700&family=Lato:wght@400;600;700&family=Libre+Baskerville:ital@0;1&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#F4EFE4;--surf:#EDE7D8;--surf1:#E9E2D1;--surf2:#E5DEC9;--surf3:#DBD3BC;
+  --bdr:rgba(120,90,40,.20);--bdr2:rgba(120,90,40,.38);--bdr3:rgba(120,90,40,.55);
+  --gold:#8B6010;--gold2:#7A5208;--gdim:#A07A20;
+  --gold-a8:rgba(120,90,40,.08);--gold-a15:rgba(120,90,40,.15);
+  --crim:#7A0000;--crim2:#8B1010;--accent:var(--crim);--accent-a8:rgba(122,0,0,.08);--accent-a15:rgba(122,0,0,.15);--accent-a25:rgba(122,0,0,.25);
+  --txt:#1C1410;--txt2:#4A3A28;--txt3:#6A5238;--txt-on-dark:#F4EFE4;
+  --fh:'Cinzel',serif;--fl:'Lato',sans-serif;--ft:'Libre Baskerville',serif;
+  --radius-sm:4px;--radius-md:8px;--radius-lg:12px;--radius-pill:999px;
+  --warn-orange:#8b3d00;--warn-a8:rgba(139,61,0,.08);--warn-a25:rgba(139,61,0,.25);
+  --green3:#1A5A30;--green3-a15:rgba(26,90,48,.15);
+  --overlay:rgba(0,0,0,.55);
+  --control-height-sm:36px;--control-height-md:44px;
+}
+*{box-sizing:border-box;}
+body{margin:0;background:var(--bg);color:var(--txt);font-family:var(--ft);font-size:13px;min-height:100vh;position:relative;}
+
+.wrap{max-width:760px;margin:0 auto;padding:20px 16px 140px;}
+.variant-label{font-family:var(--fl);font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--txt3);margin:40px 0 10px;padding-top:24px;border-top:1px dashed var(--bdr2);}
+.variant-label:first-child{margin-top:0;padding-top:0;border-top:none;}
+.variant-note{font-family:var(--fl);font-size:12px;color:var(--txt3);margin:-4px 0 16px;line-height:1.5;}
+
+/* Reused verbatim from the live praxis-board CSS (prax-2/3/4a). */
+.praxis-board{background:var(--surf);border:1px solid var(--bdr);border-radius:var(--radius-lg);padding:16px;position:relative;max-width:720px;}
+.pb-head{display:flex;align-items:baseline;justify-content:space-between;gap:8px;margin-bottom:14px;}
+.pb-title{font-family:var(--fl);font-size:16px;font-weight:700;color:var(--txt);}
+.pb-chapter{font-family:var(--fl);font-size:11px;color:var(--txt3);margin-left:8px;font-weight:400;}
+.tally-switch{display:inline-flex;border:1px solid var(--bdr2);border-radius:var(--radius-pill);padding:3px;gap:2px;background:var(--surf1);}
+.tally-switch-btn{border:none;background:none;font-family:var(--fl);font-size:12px;font-weight:700;letter-spacing:.02em;color:var(--txt3);padding:7px 16px;border-radius:var(--radius-pill);cursor:pointer;}
+.tally-switch-btn.active{background:var(--accent);color:var(--txt-on-dark);}
+.tally-summary{display:grid;grid-template-columns:1fr 1fr;gap:10px;background:var(--gold-a8);border:1px solid var(--bdr2);border-radius:var(--radius-md);padding:10px 12px;margin-bottom:16px;}
+.tally-summary-item{display:flex;flex-direction:column;gap:2px;}
+.tally-summary-item + .tally-summary-item{border-left:1px solid var(--bdr);padding-left:10px;}
+.tally-summary-label{font-family:var(--fl);font-size:9.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--txt3);}
+.tally-summary-leader{font-family:var(--fl);font-size:13px;font-weight:700;color:var(--txt);}
+.tally-summary-leader .n{color:var(--gold2);font-weight:700;margin-left:4px;}
+.pool-label{font-family:var(--fl);font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--txt3);margin:0 0 8px;}
+.pool-strip{display:flex;flex-wrap:wrap;gap:8px;padding-bottom:16px;margin-bottom:16px;border-bottom:1px solid var(--bdr);}
+.char-chip{background:var(--surf2);border:1px solid var(--bdr);border-radius:var(--radius-md);padding:8px 14px;min-height:40px;font-family:var(--fl);font-size:.8125rem;font-weight:600;color:var(--txt);display:inline-flex;align-items:center;}
+.claimants-label{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;}
+.claimants{display:flex;flex-direction:column;gap:10px;}
+.claim-card{background:var(--surf1);border:1px solid var(--bdr);border-radius:var(--radius-md);padding:12px 14px;}
+.claim-head{display:flex;align-items:baseline;justify-content:space-between;gap:8px;}
+.claim-name{font-family:var(--fl);font-size:14px;font-weight:700;color:var(--txt);}
+.claim-tally{font-family:var(--fl);font-size:18px;font-weight:700;color:var(--gold2);white-space:nowrap;}
+.claim-tally .lbl{font-size:10px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--txt3);margin-left:5px;}
+.claim-supporters{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px;}
+.support-chip{background:var(--bg);border:1px solid var(--bdr);border-radius:var(--radius-pill);padding:5px 10px 5px 12px;font-family:var(--fl);font-size:11.5px;font-weight:600;color:var(--txt2);display:inline-flex;align-items:center;gap:6px;}
+.claim-actions{margin-top:10px;display:flex;align-items:center;gap:14px;}
+.claim-withdraw{background:none;border:none;padding:2px 0;font-family:var(--fl);font-size:11px;font-weight:700;letter-spacing:.04em;color:var(--txt3);cursor:pointer;}
+.claim-resolve{background:var(--gold-a8);border:1px solid var(--bdr2);border-radius:var(--radius-sm);padding:5px 12px;font-family:var(--fl);font-size:11px;font-weight:700;letter-spacing:.02em;color:var(--gold2);cursor:pointer;}
+.claim-resolve:hover{background:var(--gold-a15);}
+.dismiss-vote{background:none;border:none;font-family:var(--fl);font-size:10.5px;font-weight:700;letter-spacing:.04em;color:var(--txt3);cursor:pointer;text-decoration:underline;text-decoration-style:dotted;text-underline-offset:2px;}
+.dismiss-vote:hover{color:var(--crim);}
+.resolved-summary{background:var(--surf1);border:1px solid var(--bdr2);border-radius:var(--radius-md);padding:18px 16px;text-align:center;}
+.resolved-summary.won{border-color:var(--green3-a15);}
+.resolved-summary .icon{font-family:var(--fl);font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--green3);margin-bottom:8px;}
+.resolved-summary .winner-name{font-family:var(--fl);font-size:18px;font-weight:700;color:var(--txt);}
+.resolved-summary .winner-tally{font-family:var(--fl);font-size:12px;color:var(--txt3);margin-top:4px;}
+.resolved-summary .resolved-note{font-family:var(--fl);font-size:11px;color:var(--txt3);margin-top:10px;font-style:italic;}
+
+/* ── NEW for prax-4b ── */
+
+/* This action carries far more weight than Harpy's own gold "Declare Winner" —
+   Praxis mass-clears three offices, not one. Crimson rather than gold, matching
+   the board's own accent colour, so the two "Declare Winner" buttons read as
+   visually distinct in severity even though they share a name. */
+.claim-resolve.praxis{background:var(--accent-a8);border-color:var(--accent-a25);color:var(--accent);}
+.claim-resolve.praxis:hover{background:var(--accent-a15);}
+
+/* The confirm modal. Reuses this app's own established overlay/box shape
+   (ec-modal-overlay / ec-modal-box in admin-layout.css), not a new pattern —
+   themed to the Praxis board's crimson rather than that dialog's neutral one,
+   since this is the highest-stakes confirm screen in the whole board. */
+.confirm-modal-overlay{position:fixed;inset:0;background:var(--overlay);z-index:2000;display:flex;align-items:center;justify-content:center;padding:20px;}
+.confirm-modal-box{max-width:480px;width:100%;background:var(--surf);border:1px solid var(--bdr2);border-radius:var(--radius-lg);padding:20px 22px;box-shadow:0 12px 40px rgba(0,0,0,.35);max-height:calc(100vh - 40px);overflow-y:auto;}
+.confirm-modal-box .panel-label{font-family:var(--fl);font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--accent);padding-bottom:10px;margin-bottom:4px;border-bottom:1px solid var(--bdr);}
+.confirm-headline{font-family:var(--fl);font-size:16px;font-weight:700;color:var(--txt);margin:14px 0 4px;}
+.confirm-headline .winner{color:var(--accent);}
+.confirm-sub{font-family:var(--fl);font-size:12px;color:var(--txt3);margin-bottom:16px;}
+.confirm-section-label{font-family:var(--fl);font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--txt3);margin:16px 0 8px;}
+.confirm-vacate-list{display:flex;flex-direction:column;gap:6px;}
+.confirm-vacate-row{display:flex;align-items:baseline;justify-content:space-between;background:var(--accent-a8);border:1px solid var(--accent-a25);border-radius:var(--radius-sm);padding:8px 12px;}
+.confirm-vacate-row .name{font-family:var(--fl);font-size:13px;font-weight:600;color:var(--txt);}
+.confirm-vacate-row .office{font-family:var(--fl);font-size:11px;color:var(--txt3);}
+.confirm-vacate-empty{font-family:var(--fl);font-size:12px;color:var(--txt3);font-style:italic;padding:6px 0;}
+.confirm-note-row{display:flex;align-items:center;gap:8px;background:var(--gold-a8);border:1px solid var(--bdr2);border-radius:var(--radius-sm);padding:8px 12px;margin-top:8px;font-family:var(--fl);font-size:12px;color:var(--txt2);}
+.confirm-note-row .dot{width:6px;height:6px;border-radius:50%;background:var(--gold2);flex-shrink:0;}
+.confirm-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:20px;padding-top:16px;border-top:1px solid var(--bdr);}
+.confirm-cancel{background:none;border:1px solid var(--bdr2);border-radius:var(--radius-sm);padding:9px 16px;font-family:var(--fl);font-size:12px;font-weight:700;letter-spacing:.02em;color:var(--txt2);cursor:pointer;}
+.confirm-go{background:var(--accent);border:1px solid var(--accent);border-radius:var(--radius-sm);padding:9px 18px;font-family:var(--fl);font-size:12px;font-weight:700;letter-spacing:.02em;color:var(--txt-on-dark);cursor:pointer;}
+.confirm-go:hover{background:var(--crim2);}
+
+/* The stale-confirm-list state — execute-time re-verify found the board moved
+   since this modal opened. No silent partial-clear; the ST reviews the fresh
+   list instead. */
+.confirm-stale{background:var(--warn-a8);border:1px solid var(--warn-a25);border-radius:var(--radius-sm);padding:10px 12px;margin-top:14px;font-family:var(--fl);font-size:12px;color:var(--warn-orange);line-height:1.5;}
+
+/* A plain, message-only confirmation toast after a successful resolve —
+   matching prax-4a's OWN locked pattern exactly (no Undo button; see open
+   question 4 below for whether this story wants one at all). */
+.praxis-toast{position:fixed;left:50%;bottom:28px;transform:translateX(-50%);
+  background:var(--txt);color:var(--txt-on-dark);border-radius:var(--radius-md);
+  padding:12px 16px;display:flex;align-items:center;
+  box-shadow:0 8px 24px var(--overlay);max-width:calc(100vw - 32px);}
+.praxis-toast .msg{font-family:var(--fl);font-size:12.5px;line-height:1.4;}
+
+.callout{background:var(--gold-a8);border:1px dashed var(--bdr2);border-radius:var(--radius-md);padding:10px 12px;font-family:var(--fl);font-size:11.5px;color:var(--txt2);line-height:1.5;margin-top:14px;}
+.callout b{color:var(--gold2);}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="variant-label">1 — Live Praxis board with the new "Declare Winner" action</div>
+  <div class="variant-note">
+    Same placement as prax-4a's Harpy action, but crimson rather than gold — this one mass-clears
+    three offices, not one, and the colour should read as heavier before anyone reads a word. Tapping
+    it does NOT resolve immediately (unlike Harpy) — it opens the confirm modal below.
+  </div>
+  <div class="praxis-board">
+    <div class="pb-head">
+      <div><span class="pb-title">Praxis Claim</span><span class="pb-chapter">Chapter 14 &middot; 12 Aug session</span></div>
+      <div class="tally-switch">
+        <button class="tally-switch-btn active">Praxis</button>
+        <button class="tally-switch-btn">People&rsquo;s Harpy</button>
+      </div>
+    </div>
+    <div class="tally-summary">
+      <div class="tally-summary-item"><span class="tally-summary-label">Praxis leader</span><span class="tally-summary-leader">Brandy LaRoux<span class="n">9</span></span></div>
+      <div class="tally-summary-item"><span class="tally-summary-label">Harpy leader</span><span class="tally-summary-leader">Petra Voss<span class="n">3</span></span></div>
+    </div>
+    <div class="pool-label">Not yet assigned (tap to support or open a claim)</div>
+    <div class="pool-strip">
+      <button class="char-chip">Corvin Adeyemi</button>
+      <button class="char-chip">Desmond Okafor</button>
+    </div>
+    <div class="claimants-label"><span class="pool-label" style="margin:0">Claimants</span><button class="dismiss-vote">Dismiss vote (no winner)</button></div>
+    <div class="claimants">
+      <div class="claim-card">
+        <div class="claim-head">
+          <div class="claim-name">Brandy LaRoux</div>
+          <div class="claim-tally">9<span class="lbl">status</span></div>
+        </div>
+        <div class="claim-supporters">
+          <span class="support-chip">Wren Halloway</span>
+          <span class="support-chip">Sarah Kessler</span>
+        </div>
+        <div class="claim-actions">
+          <button class="claim-resolve praxis">Declare Winner</button>
+          <button class="claim-withdraw">Withdraw claim</button>
+        </div>
+      </div>
+      <div class="claim-card">
+        <div class="claim-head">
+          <div class="claim-name">Mikael Thorne</div>
+          <div class="claim-tally">5<span class="lbl">status</span></div>
+        </div>
+        <div class="claim-supporters"><span class="support-chip">Corvin Adeyemi</span></div>
+        <div class="claim-actions">
+          <button class="claim-resolve praxis">Declare Winner</button>
+          <button class="claim-withdraw">Withdraw claim</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="variant-label">2 — The confirm modal (the heart of this story)</div>
+  <div class="variant-note">
+    Brandy currently holds the People&rsquo;s Harpy seat, which the mass-clear auto-vacates as part of
+    winning Praxis. The Enforcer and City Harpy seats are held by two OTHER people who lose their
+    office in the same transaction, named individually &mdash; never folded into a count, never mixed
+    in with Brandy&rsquo;s own name. Administrator is vacant, so it is simply absent from the list
+    rather than shown as "nobody".
+  </div>
+  <div class="praxis-board" style="opacity:.4;pointer-events:none;">
+    <div class="pb-head"><div><span class="pb-title">Praxis Claim</span></div></div>
+  </div>
+  <div class="confirm-modal-overlay" style="position:static;padding:0;background:none;">
+    <div class="confirm-modal-box">
+      <div class="panel-label">Confirm Praxis Resolution</div>
+      <div class="confirm-headline"><span class="winner">Brandy LaRoux</span> will become Head of State</div>
+      <div class="confirm-sub">This cannot be undone from this screen. Review carefully before confirming.</div>
+
+      <div class="confirm-section-label">Offices vacated by this resolution</div>
+      <div class="confirm-vacate-list">
+        <div class="confirm-vacate-row"><span class="name">Corvin Adeyemi</span><span class="office">Enforcer</span></div>
+        <div class="confirm-vacate-row"><span class="name">Desmond Okafor</span><span class="office">City Harpy</span></div>
+      </div>
+
+      <div class="confirm-note-row"><span class="dot"></span>Keeps her own Primogen seat &mdash; her title changes to Head of State, the seat itself is untouched.</div>
+      <div class="confirm-note-row"><span class="dot"></span>Her own People&rsquo;s Harpy seat is vacated as part of this resolution.</div>
+
+      <div class="confirm-actions">
+        <button class="confirm-cancel">Cancel</button>
+        <button class="confirm-go">Confirm Resolve</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="variant-label">2a — The confirm modal, the winner holds one of the three seats themselves</div>
+  <div class="variant-note">
+    Mikael currently holds Enforcer. prax-0's own exclusivity rule means Head of State can't also hold
+    Enforcer, so his own seat is vacated by the SAME mass-clear as everyone else's &mdash; locked
+    decision: he appears in the vacate list exactly like Corvin or Desmond would, no separate note. The
+    list is honest about who loses what, including the winner, rather than hiding it in a softer note.
+  </div>
+  <div class="confirm-modal-overlay" style="position:static;padding:0;background:none;">
+    <div class="confirm-modal-box">
+      <div class="panel-label">Confirm Praxis Resolution</div>
+      <div class="confirm-headline"><span class="winner">Mikael Thorne</span> will become Head of State</div>
+      <div class="confirm-sub">This cannot be undone from this screen. Review carefully before confirming.</div>
+      <div class="confirm-section-label">Offices vacated by this resolution</div>
+      <div class="confirm-vacate-list">
+        <div class="confirm-vacate-row"><span class="name">Mikael Thorne</span><span class="office">Enforcer &middot; his own</span></div>
+        <div class="confirm-vacate-row"><span class="name">Desmond Okafor</span><span class="office">City Harpy</span></div>
+      </div>
+      <div class="confirm-actions">
+        <button class="confirm-cancel">Cancel</button>
+        <button class="confirm-go">Confirm Resolve</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="variant-label">2b — The confirm modal, nobody to vacate</div>
+  <div class="variant-note">All three offices (Enforcer, Administrator, City Harpy) happen to be vacant already &mdash; a real, if uncommon, state. The list is not simply empty; it says so.</div>
+  <div class="confirm-modal-overlay" style="position:static;padding:0;background:none;">
+    <div class="confirm-modal-box">
+      <div class="panel-label">Confirm Praxis Resolution</div>
+      <div class="confirm-headline"><span class="winner">Mikael Thorne</span> will become Head of State</div>
+      <div class="confirm-sub">This cannot be undone from this screen. Review carefully before confirming.</div>
+      <div class="confirm-section-label">Offices vacated by this resolution</div>
+      <div class="confirm-vacate-empty">Nobody &mdash; Enforcer, Administrator and City Harpy are all currently vacant.</div>
+      <div class="confirm-actions">
+        <button class="confirm-cancel">Cancel</button>
+        <button class="confirm-go">Confirm Resolve</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="variant-label">2c — Stale confirm list (the board moved since the modal opened)</div>
+  <div class="variant-note">
+    Winston's own CAS design: the confirm list the ST is looking at IS the execute-time baseline. If
+    someone else's office changed between opening this modal and tapping Confirm Resolve, the write
+    aborts rather than silently clearing whatever now matches &mdash; this is what that looks like.
+  </div>
+  <div class="confirm-modal-overlay" style="position:static;padding:0;background:none;">
+    <div class="confirm-modal-box">
+      <div class="panel-label">Confirm Praxis Resolution</div>
+      <div class="confirm-headline"><span class="winner">Brandy LaRoux</span> will become Head of State</div>
+      <div class="confirm-stale">This board changed since you opened this confirmation. Review the updated list below before confirming.</div>
+      <div class="confirm-section-label">Offices vacated by this resolution (updated)</div>
+      <div class="confirm-vacate-list">
+        <div class="confirm-vacate-row"><span class="name">Corvin Adeyemi</span><span class="office">Enforcer</span></div>
+      </div>
+      <div class="confirm-actions">
+        <button class="confirm-cancel">Cancel</button>
+        <button class="confirm-go">Confirm Resolve</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="variant-label">3 — Just after Confirm Resolve</div>
+  <div class="variant-note">
+    Message-only toast, no Undo button &mdash; matching prax-4a's own already-locked pattern exactly
+    (see open question 4: whether this story wants a toast at all, given the epic doc says "no
+    undo-toast FOLLOW-UP", which could mean no toast at all rather than merely no undo button).
+  </div>
+  <div class="praxis-board">
+    <div class="resolved-summary won">
+      <div class="icon">Resolved</div>
+      <div class="winner-name">Brandy LaRoux</div>
+      <div class="winner-tally">Head of State &middot; 9 status</div>
+    </div>
+  </div>
+  <div class="praxis-toast"><span class="msg">Brandy LaRoux is now Head of State.<br>Corvin Adeyemi and Desmond Okafor vacated.</span></div>
+
+  <div class="variant-label">4 — Resolved state, Praxis tab (after the toast)</div>
+  <div class="variant-note">
+    Mirrors prax-4a's own Harpy resolved-summary exactly, on the Praxis tab instead. The Harpy tab
+    stays whatever it already was &mdash; if it was resolved by prax-4a, it stays resolved; if it was
+    still live, it stays live. The two tallies remain fully independent even now.
+  </div>
+  <div class="praxis-board">
+    <div class="pb-head">
+      <div><span class="pb-title">Praxis Claim</span><span class="pb-chapter">Chapter 14 &middot; 12 Aug session</span></div>
+      <div class="tally-switch">
+        <button class="tally-switch-btn active">Praxis</button>
+        <button class="tally-switch-btn">People&rsquo;s Harpy</button>
+      </div>
+    </div>
+    <div class="tally-summary">
+      <div class="tally-summary-item"><span class="tally-summary-label">Praxis leader</span><span class="tally-summary-leader">Brandy LaRoux<span class="n">9</span></span></div>
+      <div class="tally-summary-item"><span class="tally-summary-label">Harpy leader</span><span class="tally-summary-leader">Petra Voss<span class="n">3</span></span></div>
+    </div>
+    <div class="resolved-summary won">
+      <div class="icon">Resolved</div>
+      <div class="winner-name">Brandy LaRoux</div>
+      <div class="winner-tally">Head of State &middot; 9 status &middot; 12 Aug 2026</div>
+    </div>
+  </div>
+
+  <div class="callout">
+    <b>Locked 2026-08-30 (confirmed by Angelus):</b>
+    <br>1. Praxis DOES get a Dismiss vote action, mirroring Harpy's own (variant 1, above). No confirm
+    modal for dismiss &mdash; same low-stakes posture as Harpy's.
+    <br>2. If the winner themselves currently holds Enforcer, Administrator or City Harpy, their own
+    seat is vacated by the same mass-clear and they appear in the confirm list like anyone else
+    (variant 2a) &mdash; not a separate note, not refused.
+    <br>3. "Declare Winner" wording kept as-is (not important, will react to it once built &mdash;
+    same call as prax-4a's own item 1).
+    <br>4. The post-resolve toast is KEPT (message-only, no Undo button) &mdash; matches prax-4a's own
+    already-locked shape exactly (variant 3).
+    <br>5. A stale confirm list refreshes in place and allows an immediate retry (variant 2c) &mdash;
+    no hard stop back to the live board.
+  </div>
+
+</div>
+</body>
+</html>
