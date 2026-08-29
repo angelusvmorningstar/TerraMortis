@@ -1527,3 +1527,32 @@ two below were judged real but out of proportion to fix in this pass, or not thi
   would need) would make the second click a silent no-op instead. Not done here: the patch round was
   scoped to correctness findings and this touches a client render path with its own generation-guard
   invariants, so it wants its own story rather than a drive-by edit inside a review round.
+
+## Deferred from: independent review of prax-1-schema-scaffold (2026-08-29, bmad-epic-loop)
+
+- **`PUT /api/praxis_sessions/:id/support`'s claimant-still-open check is not atomically race-closed**
+  (Low - `server/routes/praxis-sessions.js`, the support-assignment route). AC5's own duplicate-claim
+  guard and AC6's own withdraw route both close their equivalent race with an atomic filter inside the
+  write itself; this one instead reads the board snapshot at the top of the request and checks the
+  claimant is still open against THAT read, not a filter re-checked at write time. A support
+  assignment made in the same instant as a concurrent withdrawal of that same claimant could
+  theoretically land after the claim is already gone. Real-world exposure is negligible - this is a
+  single-ST, sequential-tap admin tool with no UI that could even attempt two concurrent writes today
+  - and any resulting orphaned support entry self-heals the next time that claimant is withdrawn
+  again (AC6's own cascade filters on current support values every time it runs, not just once).
+  Not fixed: not required by any AC as written, and prax-1 was independently re-verified and marked
+  done on the strength of every AC it DID promise. Flagged here so prax-4a/prax-4b (both resolve
+  paths, both reading claim/support state as a resolve-time source of truth) know the theoretical gap
+  exists if either ever needs a stronger guarantee than "correct barring a same-instant race."
+
+## Deferred from: independent review of prax-2/prax-3 (2026-08-29, bmad-epic-loop)
+
+- **`server/tests/gdx-4-css-standards-grep.test.js`'s "leaves the compliant var() fallbacks in place"
+  assertion fails at base, on `main`, with no PRAX changes present** (Low - pre-existing, confirmed via
+  `git stash` A/B during both prax-2's and prax-3's own independent reviews, run again independently
+  each time with the same result). The assertion checks `public/css/suite.css` only, a file no PRAX
+  story touches (all PRAX CSS lives in `admin-layout.css`), so it is unrelated to this epic's own
+  work - but it is also not in root `CLAUDE.md`'s own "Known pre-existing failures" list, so anyone
+  who hits it cold will spend time re-diagnosing something already known. Not fixed here (out of
+  scope for a UI-board epic to go patch an unrelated CSS-standards test), but worth its own line in
+  `CLAUDE.md`'s known-failures list the next time that file gets a maintenance pass.
