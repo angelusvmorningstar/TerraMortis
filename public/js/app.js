@@ -13,8 +13,12 @@
 import editorState from './data/state.js';
 import { ICONS } from './data/icons.js';
 import { isFeedingOpen } from './downtime/db.js';
-import { FORM_RETIRED, RETIRED_TILE_REASON } from './downtime/form-retirement.js';
-import { ORDEALS_RETIRED, RETIRED_TILE_REASON as ORDEALS_RETIRED_REASON } from './ordeals/ordeal-retirement.js';
+// 2026-08-29 (Angelus): FORM_RETIRED/ORDEALS_RETIRED imports removed, since
+// the Downtime and Ordeals nav tiles/tabs are fully gone now, not dimmed, so
+// nothing in this file reads the retirement flags any more.
+// downtime/form-retirement.js and ordeals/ordeal-retirement.js stay on disk
+// unrouted (server/routes/downtime.js, questionnaire.js, history.js and
+// ordeal-responses.js's own POST guards still import them directly).
 import { CLAN_ICON_KEY, covIcon, displayName, dropdownName, sortName, redactPlayer, discordAvatarUrl, esc, singleScrollEnabled } from './data/helpers.js';
 import { renderList, filterList, setListLimit } from './editor/list.js';
 import { renderSheet as editorRenderSheet, toggleExp as editorToggleExp, toggleDisc as editorToggleDisc } from './editor/sheet.js';
@@ -85,9 +89,12 @@ import { initCombatTab } from './game/combat-tab.js';
 // overlay, so openRulesOverlay/closeRulesOverlay stay (exposed on window below).
 import { openRulesOverlay, closeRulesOverlay } from './game/rules.js';
 // Player portal tabs — migrated to More grid (nav-2-3 + nav-2-4)
-import { initDowntimeTab, renderPastOutcomes } from './tabs/downtime-tab.js';
+// 2026-08-29 (Angelus): initDowntimeTab / initOrdeals imports removed
+// alongside the wider Downtime + Ordeals removal, moved to TM Story, not
+// just gated. renderPastOutcomes stays: it is the Info tab's read-only
+// historical-outcomes display, a different surface from the filing form.
+import { renderPastOutcomes } from './tabs/downtime-tab.js';
 import { renderStatusTab } from './tabs/status-tab.js';
-import { initOrdeals } from './tabs/ordeals-view.js';
 import { renderRegencyTab } from './tabs/regency-tab.js';
 import { renderOfficeTab } from './tabs/office-tab.js';
 import { initArchiveTab } from './tabs/archive-tab.js';
@@ -412,8 +419,9 @@ const NAV_ITEMS = [
   { id: 'status',    label: 'Status',    icon: '<svg viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>', goTab: 'status' },
   { id: 'misc',      label: 'Info',      icon: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>', goTab: 'info' },
   { id: 'feeding',   label: 'Feeding',   icon: '<svg viewBox="0 0 24 24"><path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"/></svg>', goTab: 'feeding' },
-  { id: 'downtime',  label: 'Downtime',  icon: '<svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><path d="M9 16l2 2 4-4"/></svg>', goTab: 'downtime', seasonal: true },
-  { id: 'ordeals',   label: 'XP',        icon: '<svg viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>', goTab: 'ordeals' },
+  // 'downtime' and 'ordeals' bottom-nav entries removed 2026-08-29 (Angelus):
+  // both features moved to TM Story, not just gated. tabs/downtime-tab.js and
+  // tabs/ordeals-view.js stay on disk, unrouted.
   // ST only
   { id: 'territory', label: 'Territory', icon: '<svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18"/></svg>', goTab: 'territory', stOnly: true },
   { id: 'office-approvals', label: 'Approvals', icon: '<svg viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>', goTab: 'office-approvals', stOnly: true },
@@ -468,19 +476,20 @@ function renderBottomNav() {
     if (item.coordinatorOnly && !isCoord) continue;
     if (item.condition && !_moreGridCondition(item)) continue;
     if (item.seasonal) {
-      // Seasonal items hidden by default, shown by _updateSeasonalNav after lifecycle loads
+      // Seasonal items hidden by default, shown by a per-item lifecycle hook.
+      // 2026-08-29: no NAV_ITEMS entry currently sets `seasonal` (Downtime's
+      // own use of it was removed with the rest of that entry); this stays
+      // as general nav-rendering plumbing for whatever next uses it.
       h += `<button class="nbtn nbtn-seasonal" id="n-${item.id}" onclick="goTab('${item.goTab}')" style="display:none">${item.icon}<span>${item.label}</span></button>`;
       continue;
     }
     const dis = item.disabled ? ' nbtn-disabled' : '';
     const admin = (item.stOnly || item.coordinatorOnly) ? ' nbtn-admin-tier' : '';
-    // Ordeals moved to TM Story — dimmed but still clickable for players, same
-    // treatment as the seasonal Downtime button gets via _updateSeasonalNav.
-    const isRetired = !isST && item.id === 'ordeals' && ORDEALS_RETIRED;
-    const retired = isRetired ? ' nbtn-retired' : '';
-    const titleAttr = isRetired ? ` title="${esc(ORDEALS_RETIRED_REASON)}"` : '';
+    // 2026-08-29: the Ordeals dimmed-tile treatment (and the seasonal Downtime
+    // button's own equivalent via _updateSeasonalNav) is removed: both items
+    // are gone from NAV_ITEMS entirely now, not just dimmed.
     const click = item.disabled ? '' : ` onclick="goTab('${item.goTab}')"`;
-    h += `<button class="nbtn${dis}${admin}${retired}" id="n-${item.id}"${click}${titleAttr}>${item.icon}<span>${item.label}</span></button>`;
+    h += `<button class="nbtn${dis}${admin}" id="n-${item.id}"${click}>${item.icon}<span>${item.label}</span></button>`;
   }
   el.innerHTML = h;
 
@@ -609,20 +618,22 @@ function goTab(t, ctx) {
     const miscEl = document.getElementById('misc-past-outcomes');
     const char = _activeMoreChar();
     if (miscEl && char && !miscEl.innerHTML.trim()) renderPastOutcomes(miscEl, char);
-  }
-  if (t === 'downtime') {
-    const el = document.getElementById('t-downtime');
-    const char = _activeMoreChar();
-    if (el && char) initDowntimeTab(el, char, suiteState.territories || []);
+    // 2026-08-29: this is now the ONLY surface a published downtime outcome is
+    // visible on (the Downtime tab itself is gone). _markSubViewed used to fire
+    // from that tab's own dispatch; moved here so the #more-badge "unread
+    // narrative" indicator can still be cleared by a player actually reading it,
+    // rather than being permanently stuck on.
     _markSubViewed();
   }
+  // 'downtime' and 'ordeals' tab-body dispatch removed 2026-08-29 (Angelus):
+  // both features moved to TM Story, not just gated. initDowntimeTab/
+  // initOrdeals are no longer imported; tabs/downtime-tab.js and
+  // tabs/ordeals-view.js stay on disk, unrouted. renderPastOutcomes (Info
+  // tab, below) is UNCHANGED: it is a read-only historical summary on a
+  // different tab, not the filing form, and downtime_submissions stays
+  // mounted for exactly this kind of shared read.
   if (t === 'status') {
     // Status tab is also the primary nav #3 — handled above; this covers More grid access
-  }
-  if (t === 'ordeals') {
-    const el = document.getElementById('t-ordeals');
-    const char = _activeMoreChar();
-    if (el && char) initOrdeals(char, suiteState.chars, el);
   }
   // crd.2 — pending contested-roll queue, and the destination it routes into.
   // The queue is handed the viewer's own characters so each row can name WHICH
@@ -1915,16 +1926,6 @@ async function boot() {
   document.getElementById('login-btn').addEventListener('click', login);
 }
 
-/** Navigate to editor tab in downtime view, highlighting the DT nav button. */
-function playerGoDowntime() {
-  document.querySelectorAll('.tab').forEach(el => el.classList.remove('active'));
-  document.querySelectorAll('.nbtn').forEach(el => el.classList.remove('on'));
-  const tabEl = document.getElementById('t-editor');
-  if (tabEl) tabEl.classList.add('active');
-  document.getElementById('n-dt')?.classList.add('on');
-  setSheetView('dt');
-}
-
 /** Apply nav and UI visibility for the current effective role. Idempotent — safe to call multiple times. */
 function applyRoleRestrictions() {
   const role = effectiveRole();
@@ -1982,8 +1983,7 @@ const _svg = {
   whosWho:  '<svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>',
   dtReport: '<svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>',
   feeding:  '<svg viewBox="0 0 24 24"><path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"/></svg>',
-  dtSubmit: '<svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><path d="M9 16l2 2 4-4"/></svg>',
-  ordeals:  '<svg viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>',
+  // dtSubmit / ordeals icons removed 2026-08-29 alongside their nav tiles.
   tracker:  '<svg viewBox="0 0 24 24"><line x1="4" y1="6" x2="20" y2="6"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="18" x2="20" y2="18"/><circle cx="8" cy="6" r="2" fill="currentColor"/><circle cx="16" cy="12" r="2" fill="currentColor"/><circle cx="10" cy="18" r="2" fill="currentColor"/></svg>',
   signin:   '<svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/><polyline points="16 11 18 13 22 9"/></svg>',
   emergency:'<svg viewBox="0 0 24 24"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.89 12 19.79 19.79 0 0 1 1.84 3.4 2 2 0 0 1 3.81 1h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.96a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg>',
@@ -2003,16 +2003,8 @@ const MORE_APPS = [
   { id: 'territory',    label: 'Territory',   icon: '<svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18"/></svg>', section: 'st', stOnly: true },
   { id: 'office-approvals', label: 'Approval Queue', icon: '<svg viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>', section: 'st', stOnly: true },
   // ── Player section (player role only) ──
-  { id: 'downtime',      label: 'Downtime',    icon: _svg.dtSubmit, section: 'player',
-    retired: () => FORM_RETIRED, retiredReason: RETIRED_TILE_REASON,
-    badge: () => {
-      const sub = _lifecycleCache?.mySubmission;
-      if (!sub?.published_outcome) return false;
-      return String(sub._id) !== localStorage.getItem('tm-last-viewed-sub');
-    }
-  },
-  { id: 'ordeals',      label: 'Ordeals',     icon: _svg.ordeals,  section: 'player',
-    retired: () => ORDEALS_RETIRED, retiredReason: ORDEALS_RETIRED_REASON },
+  // 'downtime' and 'ordeals' More-grid tiles removed 2026-08-29 (Angelus):
+  // both features moved to TM Story entirely, not just gated/dimmed.
   // crd.2 — the defender's own pending contested-roll queue. Deliberately a
   // More-grid tile and NOT a bottom-nav item: it is something a player checks
   // on their own terms, which is the whole point of replacing the modal that
@@ -2152,7 +2144,7 @@ function renderSettingsTab() {
   // Reading font size
   h += '<div class="settings-section">';
   h += '<div class="settings-section-label">Reading Font Size</div>';
-  h += '<div class="settings-section-hint">Applies to Downtime, Story, Ordeals and other reading panes.</div>';
+  h += '<div class="settings-section-hint">Applies to Story, Archive and other reading panes.</div>';
   h += '<div class="settings-toggle-row">';
   for (const fs of FONT_SIZES) {
     h += `<button class="settings-toggle-btn${currentFontSize === fs.value ? ' on' : ''}" data-fontsize="${fs.value}">${fs.label}</button>`;
@@ -2282,8 +2274,10 @@ function renderMoreGrid() {
     const hasBadge = typeof app.badge === 'function' && app.badge();
     const badgeDot = hasBadge ? '<span class="nav-badge visible"></span>' : '';
     const admin = (app.stOnly || app.coordinatorOnly) ? ' more-app-admin-tier' : '';
-    // Retired features (Downtime, Ordeals — moved to TM Story) stay visible but
-    // dimmed for players; STs bypass this, same as the tab body they lead to.
+    // Generic "retired but still visible, dimmed" support for a MORE_APPS
+    // entry; kept as reusable plumbing. 2026-08-29: no current entry sets
+    // `retired` (Downtime and Ordeals, its only past users, were removed
+    // outright rather than dimmed).
     const isRetired = !isST && typeof app.retired === 'function' && app.retired();
     const retired = isRetired ? ' more-app-retired' : '';
     const titleAttr = isRetired ? ` title="${esc(app.retiredReason || '')}"` : '';
@@ -2683,7 +2677,7 @@ async function renderLifecycleCards() {
   const el = document.getElementById('lifecycle-cards');
   if (!el) return;
 
-  const { nextSession, activeCycle, feedingCycle, mySubmission } = await _loadLifecycleData();
+  const { nextSession, feedingCycle, mySubmission } = await _loadLifecycleData();
   const today = new Date().toISOString().slice(0, 10);
 
   let h = '';
@@ -2705,57 +2699,14 @@ async function renderLifecycleCards() {
     </button>`;
   }
 
-  // DT deadline card: active cycle with deadline within 7 days
-  if (activeCycle?.deadline_at) {
-    const deadline = new Date(activeCycle.deadline_at);
-    const daysLeft = Math.ceil((deadline - new Date()) / 86400000);
-    if (daysLeft > 0 && daysLeft <= 7) {
-      const urgency = daysLeft <= 3 ? ' lifecycle-card-urgent' : '';
-      const deadlineStr = deadline.toLocaleDateString('en-AU', { weekday: 'short', day: 'numeric', month: 'short' });
-      h += `<button class="lifecycle-card${urgency}" onclick="goTab('downtime')">
-        <span class="lifecycle-card-icon"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></span>
-        <span class="lifecycle-card-text">
-          <span class="lifecycle-card-title">Downtime due ${deadlineStr}</span>
-          <span class="lifecycle-card-sub">${daysLeft} day${daysLeft !== 1 ? 's' : ''} remaining</span>
-        </span>
-        <span class="lifecycle-card-arr">›</span>
-      </button>`;
-    }
-  }
+  // 2026-08-29 (Angelus): the "Downtime due" deadline card and
+  // _updateSeasonalNav (which managed the now-removed #n-downtime seasonal
+  // nav button) are both removed, since Downtime moved to TM Story entirely, so a
+  // deadline reminder pointing at a filing tab that no longer exists here
+  // would be a dead link.
 
   el.innerHTML = h;
   el.style.display = h ? '' : 'none';
-
-  // Show/hide seasonal nav items based on active cycle
-  _updateSeasonalNav(activeCycle);
-}
-
-function _updateSeasonalNav(activeCycle) {
-  const btn = document.getElementById('n-downtime');
-  if (!btn) return;
-  // STs always see the downtime button — they need access during prep,
-  // processing, and for reviewing past cycles. STs in player-view follow
-  // the regular seasonal logic (what a real player would see).
-  const isST = effectiveRole() === 'st' || effectiveRole() === 'dev';
-  if (isST) {
-    btn.style.display = '';
-    btn.classList.remove('nbtn-retired');
-    btn.removeAttribute('title');
-    return;
-  }
-  // Retired overrides the normal seasonal show/hide — visible but dimmed
-  // regardless of cycle state, rather than sometimes-hidden-sometimes-shown
-  // depending on season, which would be a confusing way to say "this form
-  // is gone". Still clickable: the tab itself shows the same notice, for
-  // the other entry points (the "Downtime due" lifecycle card) that bypass
-  // this button entirely.
-  if (FORM_RETIRED) {
-    btn.style.display = '';
-    btn.classList.add('nbtn-retired');
-    btn.title = RETIRED_TILE_REASON;
-    return;
-  }
-  btn.style.display = activeCycle ? '' : 'none';
 }
 
 /** Show logged-in user in header (desktop mode only — mobile uses Settings tab). */
@@ -2824,7 +2775,6 @@ function _enterSTView() {
 window.goTab  = goTab;
 window._getRole = getRole;
 window.logout = logout;
-window.playerGoDowntime  = playerGoDowntime;
 window.openRulesOverlay  = openRulesOverlay;
 window.closeRulesOverlay = closeRulesOverlay;
 window.toggleViewMode    = toggleViewMode;

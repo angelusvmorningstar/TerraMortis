@@ -21,8 +21,6 @@ import playersRouter from './routes/players.js';
 import questionnaireRouter from './routes/questionnaire.js';
 import historyRouter from './routes/history.js';
 import ordealResponsesRouter from './routes/ordeal-responses.js';
-import ordealSubmissionsRouter from './routes/ordeal-submissions.js';
-import ordealRubricsRouter from './routes/ordeal-rubrics.js';
 import attendanceRouter from './routes/attendance.js';
 import rulesRouter from './routes/rules.js';
 import officeActionsRouter from './routes/office-actions.js';
@@ -126,8 +124,24 @@ app.use('/api/players', requireAuth, noCache(), playersRouter);
 app.use('/api/questionnaire', requireAuth, noCache(), questionnaireRouter);
 app.use('/api/history', requireAuth, noCache(), historyRouter);
 app.use('/api/ordeal-responses', requireAuth, noCache(), ordealResponsesRouter);
-app.use('/api/ordeal_submissions', requireAuth, noCache(), ordealSubmissionsRouter);
-app.use('/api/ordeal_rubrics', requireAuth, noCache(), ordealRubricsRouter);
+// 2026-08-29: Downtime + Ordeals removed entirely from the running app
+// (Angelus, via cross-session relay, confirmed directly). Not just gated:
+// the ST admin marking UI, the player Ordeals tab, and the Downtime nav
+// tile/tab are all unwired now (see admin.js, admin.html, app.js). The
+// admin marking UI (ordeals-admin.js) was the ONLY consumer of these two
+// routes, so unmounting them is safe; see this commit's own audit for the
+// full per-collection reasoning. `/api/questionnaire`, `/api/history` and
+// `/api/ordeal-responses` above stay mounted deliberately: their GET reads
+// are shared with other live, unrelated features (Archive tab, Personal
+// Story) and their writes were already 403'd for players by the retirement
+// gate fix. `ordeal_submissions`/`ordeal_rubrics` had no such sharing,
+// confirmed by grep before removing, same discipline as the
+// archive_documents retirement above. Route files themselves are left on
+// disk (server/routes/ordeal-submissions.js, ordeal-rubrics.js), unrouted,
+// at Angelus's request, kept as reference for anything TM Story's own
+// build may have missed, not deleted.
+// app.use('/api/ordeal_submissions', requireAuth, noCache(), ordealSubmissionsRouter);
+// app.use('/api/ordeal_rubrics', requireAuth, noCache(), ordealRubricsRouter);
 app.use('/api/attendance', requireAuth, noCache(), attendanceRouter);
 app.use('/api/cyoa', requireAuth, noCache(), cyoaRouter);
 // RETIRED, Story 31-5 (TM Wiki). `archive_documents` (60 narrative documents:
