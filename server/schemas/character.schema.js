@@ -109,6 +109,19 @@ export const characterSchema = {
     mask:        { type: ['string', 'null'] },
     dirge:       { type: ['string', 'null'] },
     court_title:    { type: ['string', 'null'] },
+    // The HEADLINE office only, and deliberately a single field. The per-seat
+    // truth lives in `office_seats.holder_id`; this pair is what the app
+    // displays and gates on. `server/lib/court-category.js`'s
+    // `deriveCourtCategory` computes both, in seniority order (Head of State >
+    // Primogen > Administrator > Socialite > Enforcer), and
+    // `PUT /api/office_seats/:seatId/holder` is the one route that writes them.
+    //
+    // prax.0: one character may now legitimately hold TWO seats at once, Head
+    // of State plus Primogen (a Praxis winner keeps a Primogen seat they
+    // already held). For that character this field reads "Head of State" while
+    // a Primogen seat's `holder_id` is still theirs, permanently and by design.
+    // That disagreement is correct, not drift; do not "repair" it, and do not
+    // add a uniqueness assumption that a holder has at most one seat.
     court_category: { type: ['string', 'null'], enum: ['Head of State', 'Primogen', 'Administrator', 'Socialite', 'Enforcer', '', null] },
     home_territory: { type: ['string', 'null'] },
     dt_story_calibration: { type: ['string', 'null'] },

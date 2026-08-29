@@ -1875,7 +1875,14 @@ export async function patchOfficeMerits(c) {
     ]);
     if (gen !== _officeMeritsGen) return;
 
-    const seat = resolveHeldSeat(c, seats);
+    // prax.0: the category is now passed EXPLICITLY, though it is also
+    // `resolveHeldSeat`'s own default, so this call is unchanged in behaviour.
+    // Stating it makes the deliberate scope boundary legible at the call site:
+    // the sheet renders exactly ONE Office Merits section, for the holder's
+    // HEADLINE office, even for a character who holds two seats. Their second
+    // office's merit suite is already browsable in office-tab.js's category
+    // picker; a second sheet section is a future story, not an oversight here.
+    const seat = resolveHeldSeat(c, seats, c.court_category);
     if (!seat) return; // AC3: no confirmed seat — never guess, never disclose.
 
     const dots = (dotsBySeat && dotsBySeat[String(seat._id)]) || {};

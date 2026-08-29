@@ -430,6 +430,12 @@ export function regentAmienceBonus(c) {
 // city-status-calc.js — the server's own budget check was silently using a
 // different, incomplete formula. This wrapper preserves the exact
 // single-argument signature every existing call site already uses.
-export function calcCityStatus(c) {
-  return calcEffectiveCityStatus(c, getRegentTerritoryFor(c)?.ambience);
+//
+// prax.0: `heldOfficeCategories` is an optional pass-through to
+// `calcEffectiveCityStatus`, for the one caller that knows every office the
+// character actually holds (office-tab.js's Head of State budget preview, which
+// already has the seat list in hand). Every other call site keeps passing one
+// argument and is completely unaffected.
+export function calcCityStatus(c, heldOfficeCategories) {
+  return calcEffectiveCityStatus(c, getRegentTerritoryFor(c)?.ambience, heldOfficeCategories);
 }

@@ -28,6 +28,11 @@ import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
 import request from 'supertest';
 import { ObjectId } from 'mongodb';
 import { createTestApp, stUser, playerUser } from './helpers/test-app.js';
+// prax.0 extends this suite rather than opening a new file: it already owns
+// this route's fixtures and its seat-id range (51+), and the dual-hold cases
+// below are the SAME route's behaviour under a second concurrent seat.
+import { mayHoldBothOffices, COMPATIBLE_OFFICE_PAIRS, OFFICE_CATEGORY_ENUM } from '../schemas/office_seat.schema.js';
+import { deriveCourtCategory, COURT_CATEGORY_PRECEDENCE } from '../lib/court-category.js';
 import { setupDb, teardownDb, isDbAvailable } from './helpers/db-setup.js';
 import { getCollection } from '../db.js';
 import fs from 'node:fs';
@@ -52,9 +57,11 @@ const SEAT_PRIMOGEN_B  = seatId(53);
 const SEAT_SOCIALITE_A = seatId(54);
 const SEAT_SOCIALITE_B = seatId(55);
 const SEAT_ADMIN       = seatId(56);
+// prax.0: the one office that may be held alongside another (Primogen).
+const SEAT_HOS         = seatId(57);
 const SEAT_IDS = [
   SEAT_ENFORCER, SEAT_PRIMOGEN_A, SEAT_PRIMOGEN_B,
-  SEAT_SOCIALITE_A, SEAT_SOCIALITE_B, SEAT_ADMIN,
+  SEAT_SOCIALITE_A, SEAT_SOCIALITE_B, SEAT_ADMIN, SEAT_HOS,
 ];
 // The same seats as the 24-hex STRING keys `office_merit_dots` and
 // `office_manoeuvre_ranks` use for their own `_id` (oxp.11's keying).
@@ -66,6 +73,7 @@ const P_B   = String(SEAT_PRIMOGEN_B);
 const S_A   = String(SEAT_SOCIALITE_A);
 const S_B   = String(SEAT_SOCIALITE_B);
 const ADMIN = String(SEAT_ADMIN);
+const HOS   = String(SEAT_HOS);
 
 // A well-formed 24-hex id that is neither a seat nor a character in this suite.
 const UNKNOWN_ID = '0f110000000000000000ffff';
@@ -86,6 +94,7 @@ const SEAT_FIXTURES = [
   { _id: SEAT_SOCIALITE_A, office_category: 'Socialite',     holder_id: null, created_at: '2026-02-21', seat_label: 'Harpy',          notes: null },
   { _id: SEAT_SOCIALITE_B, office_category: 'Socialite',     holder_id: null, created_at: '2026-07-18', seat_label: "People's Harpy", notes: null },
   { _id: SEAT_ADMIN,       office_category: 'Administrator', holder_id: null, created_at: '2026-06-20', seat_label: null,             notes: null },
+  { _id: SEAT_HOS,         office_category: 'Head of State', holder_id: null, created_at: '2026-02-21', seat_label: null,             notes: null },
 ];
 
 // Name prefix so this suite only ever removes its own character fixtures,
@@ -893,5 +902,277 @@ describe('oxp.5 AC9: the court panel is seat-backed and writes only the handover
     // renderCourt itself must not be async, or renderCity would have to be.
     expect(src).toMatch(/\nfunction renderCourt\(\)/);
     expect(src).not.toMatch(/async function renderCourt/);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// prax.0: multi-seat correctness.
+//
+// Praxis (Epic PRAX) breaks this route's founding assumption by GAME RULE, not
+// by accident: a Praxis winner who already holds Primogen KEEPS that seat, and
+// only their headline flips to Head of State. Until prax.0 the route hard-409ed
+// exactly that case. What follows pins the carved-out exception, the pairings
+// that must still be refused, and the derived headline that keeps
+// `court_category`/`court_title` honest once a character sits in two seats.
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('prax.0 AC1: the exclusivity matrix', () => {
+  it('permits exactly one pairing, Head of State plus Primogen, in either order', () => {
+    expect(COMPATIBLE_OFFICE_PAIRS).toHaveLength(1);
+    expect(mayHoldBothOffices('Head of State', 'Primogen')).toBe(true);
+    expect(mayHoldBothOffices('Primogen', 'Head of State')).toBe(true);
+  });
+
+  it('treats every other pairing as mutually exclusive', () => {
+    const compatible = [];
+    for (const a of OFFICE_CATEGORY_ENUM) {
+      for (const b of OFFICE_CATEGORY_ENUM) {
+        if (mayHoldBothOffices(a, b)) compatible.push([a, b].sort().join(' + '));
+      }
+    }
+    // Both orderings of the one pairing collapse to a single sorted label.
+    expect([...new Set(compatible)]).toEqual(['Head of State + Primogen']);
+  });
+
+  it('a category is never compatible with ITSELF (two Primogen seats for one person)', () => {
+    for (const cat of OFFICE_CATEGORY_ENUM) expect(mayHoldBothOffices(cat, cat), cat).toBe(false);
+  });
+
+  it('is defensive about null, undefined and unknown categories', () => {
+    expect(mayHoldBothOffices(null, 'Primogen')).toBe(false);
+    expect(mayHoldBothOffices('Head of State', undefined)).toBe(false);
+    expect(mayHoldBothOffices('Head of State', 'Not An Office')).toBe(false);
+    expect(mayHoldBothOffices(undefined, undefined)).toBe(false);
+  });
+});
+
+describe('prax.0 AC3: deriveCourtCategory (pure)', () => {
+  const seat = office_category => ({ office_category });
+
+  it('reuses OFFICE_CATEGORY_ENUM as its precedence order rather than restating it', () => {
+    // A second literal array could silently drift from the enum, and the two
+    // disagreeing would surface as a wrong headline rather than an error.
+    expect(COURT_CATEGORY_PRECEDENCE).toBe(OFFICE_CATEGORY_ENUM);
+    expect(COURT_CATEGORY_PRECEDENCE).toEqual([
+      'Head of State', 'Primogen', 'Administrator', 'Socialite', 'Enforcer',
+    ]);
+  });
+
+  it('holding zero seats derives a null category AND a null title', () => {
+    expect(deriveCourtCategory([])).toEqual({ court_category: null, court_title: null });
+    expect(deriveCourtCategory(null)).toEqual({ court_category: null, court_title: null });
+    expect(deriveCourtCategory(undefined)).toEqual({ court_category: null, court_title: null });
+  });
+
+  it('a single seat derives that seat, exactly as the old one-seat logic did', () => {
+    for (const cat of OFFICE_CATEGORY_ENUM) {
+      expect(deriveCourtCategory([seat(cat)]), cat).toEqual({ court_category: cat, court_title: cat });
+    }
+  });
+
+  it('picks the most senior seat, whatever order the seats arrive in', () => {
+    expect(deriveCourtCategory([seat('Primogen'), seat('Head of State')]).court_category).toBe('Head of State');
+    expect(deriveCourtCategory([seat('Head of State'), seat('Primogen')]).court_category).toBe('Head of State');
+    expect(deriveCourtCategory([seat('Enforcer'), seat('Administrator')]).court_category).toBe('Administrator');
+    expect(deriveCourtCategory([seat('Socialite'), seat('Enforcer')]).court_category).toBe('Socialite');
+  });
+
+  it('the title supplied for a seat is used ONLY when that seat is the winner', () => {
+    const held = [seat('Head of State'), seat('Primogen')];
+    // The junior seat is the one being written: its title must not become the
+    // headline, or court_category and court_title would describe two different
+    // seats.
+    expect(deriveCourtCategory(held, {
+      seatCategory: 'Primogen', seatTitle: 'Primogen',
+      currentCategory: 'Head of State', currentTitle: 'Prince',
+    })).toEqual({ court_category: 'Head of State', court_title: 'Prince' });
+
+    // The senior seat is the one being written: its title IS the headline.
+    expect(deriveCourtCategory(held, {
+      seatCategory: 'Head of State', seatTitle: 'Prince',
+      currentCategory: 'Primogen', currentTitle: 'Primogen',
+    })).toEqual({ court_category: 'Head of State', court_title: 'Prince' });
+  });
+
+  it('falls back to the winning category name when no title describes it', () => {
+    // Their stored title belonged to the seat they just left, so carrying it
+    // over would title a Primogen "Sheriff".
+    expect(deriveCourtCategory([seat('Primogen')], {
+      currentCategory: 'Enforcer', currentTitle: 'Sheriff',
+    })).toEqual({ court_category: 'Primogen', court_title: 'Primogen' });
+  });
+
+  it('keeps the existing title when the headline has not actually moved', () => {
+    expect(deriveCourtCategory([seat('Head of State'), seat('Primogen')], {
+      currentCategory: 'Head of State', currentTitle: 'Prince',
+    })).toEqual({ court_category: 'Head of State', court_title: 'Prince' });
+  });
+
+  it('ignores seats with no office_category rather than throwing', () => {
+    expect(deriveCourtCategory([{}, seat('Enforcer'), null])).toEqual({
+      court_category: 'Enforcer', court_title: 'Enforcer',
+    });
+  });
+});
+
+describe.skipIf(!dbAvailable)('prax.0 AC2: the conflict check reads the matrix, not "any second seat"', () => {
+  it('a sitting Primogen may be granted Head of State, and KEEPS the Primogen seat', async () => {
+    const winner = await createChar('Praxis Winner');
+    await handover(P_A, { holder_id: winner, court_title: 'Primogen' }).expect(200);
+
+    const res = await handover(HOS, { holder_id: winner, court_title: 'Prince' });
+    expect(res.status).toBe(200);
+    expect(res.body.handover).toBe(true);
+
+    // The Primogen seat is untouched: the winner mechanically still holds it.
+    expect(String((await seatDoc(SEAT_PRIMOGEN_A)).holder_id)).toBe(winner);
+    expect(String((await seatDoc(SEAT_HOS)).holder_id)).toBe(winner);
+
+    // The headline flips to the senior office.
+    const after = await charDoc(winner);
+    expect(after.court_category).toBe('Head of State');
+    expect(after.court_title).toBe('Prince');
+  });
+
+  it('a sitting Head of State may additionally be granted Primogen WITHOUT losing their senior title', async () => {
+    const prince = await createChar('Prince Then Primogen');
+    await handover(HOS, { holder_id: prince, court_title: 'Prince' }).expect(200);
+
+    // The junior seat's own title is supplied, and must not clobber the senior
+    // headline: court_category and court_title must describe the SAME seat.
+    const res = await handover(P_A, { holder_id: prince, court_title: 'Primogen' });
+    expect(res.status).toBe(200);
+
+    const after = await charDoc(prince);
+    expect(after.court_category).toBe('Head of State');
+    expect(after.court_title).toBe('Prince');
+    expect(String((await seatDoc(SEAT_PRIMOGEN_A)).holder_id)).toBe(prince);
+  });
+
+  it('every OTHER second seat still 409s, unchanged from the pre-prax.0 behaviour', async () => {
+    const cases = [
+      { hold: P_A, holdName: 'Primogen',      into: ENF,   intoName: 'Enforcer' },
+      { hold: P_A, holdName: 'Primogen',      into: ADMIN, intoName: 'Administrator' },
+      { hold: P_A, holdName: 'Primogen',      into: S_A,   intoName: 'Socialite' },
+      { hold: P_A, holdName: 'Primogen',      into: P_B,   intoName: 'a second Primogen' },
+      { hold: HOS, holdName: 'Head of State', into: ENF,   intoName: 'Enforcer' },
+      { hold: HOS, holdName: 'Head of State', into: ADMIN, intoName: 'Administrator' },
+      { hold: HOS, holdName: 'Head of State', into: S_A,   intoName: 'Socialite' },
+    ];
+    for (const [i, c] of cases.entries()) {
+      const label = `${c.holdName} into ${c.intoName}`;
+      const holder = await createChar(`Matrix ${i}`);
+      await handover(c.hold, { holder_id: holder }).expect(200);
+
+      const res = await handover(c.into, { holder_id: holder });
+      expect(res.status, label).toBe(409);
+      expect(res.body.error, label).toBe('CONFLICT');
+      // The seat they were being assigned into is untouched.
+      const intoSeat = await getCollection('office_seats').findOne({ _id: new ObjectId(c.into) });
+      expect(intoSeat.holder_id, label).toBeNull();
+
+      // Reset for the next case: this loop shares one set of fixtures.
+      await handover(c.hold, { holder_id: null }).expect(200);
+    }
+  });
+});
+
+describe.skipIf(!dbAvailable)('prax.0 AC4: the headline is derived, never assumed to be one seat', () => {
+  /** Put `who` in both compatible seats, headline "Prince". */
+  async function seatDualHolder(who) {
+    await handover(P_A, { holder_id: who, court_title: 'Primogen' }).expect(200);
+    await handover(HOS, { holder_id: who, court_title: 'Prince' }).expect(200);
+    const c = await charDoc(who);
+    expect(c.court_category).toBe('Head of State');
+    expect(c.court_title).toBe('Prince');
+  }
+
+  it('AC6: vacating the SENIOR seat leaves the junior office behind, not a null headline', async () => {
+    const dual = await createChar('Deposed');
+    await seatDualHolder(dual);
+
+    const res = await handover(HOS, { holder_id: null });
+    expect(res.status).toBe(200);
+    expect(res.body.departing_holder_cleared).toBe(true);
+
+    const after = await charDoc(dual);
+    // The whole point: an unconditional clear would have left them with no
+    // office at all while they demonstrably still hold the Primogen seat.
+    expect(after.court_category).toBe('Primogen');
+    expect(after.court_title).toBe('Primogen');
+    expect(String((await seatDoc(SEAT_PRIMOGEN_A)).holder_id)).toBe(dual);
+  });
+
+  it('vacating the JUNIOR seat leaves the senior headline completely alone', async () => {
+    const dual = await createChar('Steps Down From Primogen');
+    await seatDualHolder(dual);
+
+    const res = await handover(P_A, { holder_id: null });
+    expect(res.status).toBe(200);
+    // Their headline never named the Primogen seat, so nothing about it moved.
+    expect(res.body.departing_holder_cleared).toBe(false);
+
+    const after = await charDoc(dual);
+    expect(after.court_category).toBe('Head of State');
+    expect(after.court_title).toBe('Prince');
+    expect((await seatDoc(SEAT_PRIMOGEN_A)).holder_id).toBeNull();
+  });
+
+  it('replacing them in the junior seat also leaves their senior headline alone', async () => {
+    const dual = await createChar('Replaced As Primogen');
+    const successor = await createChar('New Primogen');
+    await seatDualHolder(dual);
+
+    await handover(P_A, { holder_id: successor }).expect(200);
+
+    const after = await charDoc(dual);
+    expect(after.court_category).toBe('Head of State');
+    expect(after.court_title).toBe('Prince');
+    expect((await charDoc(successor)).court_category).toBe('Primogen');
+  });
+
+  it('a same-holder re-save of the JUNIOR seat does not drag the headline down', async () => {
+    const dual = await createChar('Re-saved Junior');
+    await seatDualHolder(dual);
+
+    // The court panel re-sends every row an ST edited, so this request really
+    // does arrive. Repairing to "this seat's category" would demote them.
+    const res = await handover(P_A, { holder_id: dual, court_title: 'Primogen' });
+    expect(res.status).toBe(200);
+    expect(res.body.handover).toBe(false);
+    expect(res.body.category_repaired).toBe(false);
+    expect(res.body.title_updated).toBe(false);
+
+    const after = await charDoc(dual);
+    expect(after.court_category).toBe('Head of State');
+    expect(after.court_title).toBe('Prince');
+  });
+
+  it('a same-holder re-save of the SENIOR seat still repairs and retitles normally', async () => {
+    const dual = await createChar('Re-saved Senior');
+    await seatDualHolder(dual);
+
+    const res = await handover(HOS, { holder_id: dual, court_title: 'Praetor' });
+    expect(res.status).toBe(200);
+    expect(res.body.handover).toBe(false);
+    expect(res.body.title_updated).toBe(true);
+    const after = await charDoc(dual);
+    expect(after.court_title).toBe('Praetor');
+    expect(after.court_category).toBe('Head of State');
+  });
+
+  it('a same-holder repair on a single-seat holder is the old behaviour, unchanged', async () => {
+    // AC5's guarantee stated positively: with one seat, the derivation must be
+    // indistinguishable from the one-seat logic it replaced.
+    const solo = await createChar('Drifted');
+    await handover(ENF, { holder_id: solo, court_title: 'Sheriff' }).expect(200);
+    // Their category drifts stale by another route; the seat is authoritative.
+    await getCollection('characters').updateOne(
+      { _id: new ObjectId(solo) }, { $set: { court_category: 'Socialite' } });
+
+    const res = await handover(ENF, { holder_id: solo });
+    expect(res.status).toBe(200);
+    expect(res.body.category_repaired).toBe(true);
+    expect((await charDoc(solo)).court_category).toBe('Enforcer');
   });
 });

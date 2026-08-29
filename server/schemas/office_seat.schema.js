@@ -55,6 +55,46 @@ export const OFFICE_CATEGORY_ENUM = [
   'Enforcer',
 ];
 
+// ── prax.0: which offices one character may hold AT THE SAME TIME. ─────────
+//
+// Until prax.0 the rule was implicit and absolute: `office-seats.js`'s handover
+// route refused ANY second seat, because `characters.court_category` is a
+// single field and could only ever display one office. Praxis (Epic PRAX)
+// breaks that assumption by game rule, not by accident: a Praxis winner who
+// already holds Primogen KEEPS the Primogen seat, and only their HEADLINE flips
+// to Head of State. So the rule stops being "at most one seat" and becomes a
+// matrix with exactly one carved-out exception.
+//
+// EXACTLY ONE pairing is compatible. Every other pairing, INCLUDING a category
+// with itself (two Primogen seats for one person, which is meaningless), stays
+// mutually exclusive, unchanged from the pre-prax.0 behaviour. Widening this
+// list is a game-rules decision, not a tidy-up: see
+// `specs/stories/prax-0-court-office-identity-fix.md`.
+//
+// A holder's HEADLINE (`court_category`/`court_title`) when they hold two seats
+// is derived by `server/lib/court-category.js`'s `deriveCourtCategory`, in the
+// precedence order `OFFICE_CATEGORY_ENUM` above already lists.
+export const COMPATIBLE_OFFICE_PAIRS = Object.freeze([
+  Object.freeze(['Head of State', 'Primogen']),
+]);
+
+/**
+ * prax.0 AC1: may one character hold both of these offices at once?
+ *
+ * Order-insensitive. Two seats of the SAME category are never compatible, so
+ * `mayHoldBothOffices('Primogen', 'Primogen')` is false: a second Primogen seat
+ * adds nothing a character could display or use, and allowing it would make the
+ * derived headline ambiguous for no gain.
+ *
+ * @param {string|null|undefined} a
+ * @param {string|null|undefined} b
+ * @returns {boolean}
+ */
+export function mayHoldBothOffices(a, b) {
+  if (!a || !b || a === b) return false;
+  return COMPATIBLE_OFFICE_PAIRS.some(([x, y]) => (x === a && y === b) || (x === b && y === a));
+}
+
 // Nullable reference to `characters._id`. Canonical STORAGE is a real
 // ObjectId; the validator sees the JSON-serialised form, so the 24-hex
 // pattern is the guard that keeps this from silently degrading into the

@@ -28,10 +28,35 @@ export function regentAmbienceBonusFor(ambience) {
 }
 
 /**
+ * prax.0: `heldOfficeCategories` is optional and strictly additive. A character
+ * may now hold two seats at once (Head of State plus Primogen), and
+ * `court_category` carries only the HEADLINE of the two, so the title bonus
+ * read off that single field under-reports a dual holder's real Status Action
+ * budget. A caller that knows every office the character actually holds passes
+ * the list and gets the SUM; a caller that does not passes nothing and gets
+ * precisely the answer it got before.
+ *
+ * Known, deliberate gap (prax.0's stated scope boundary): only the two call
+ * sites that gate the real Status Action budget pass the list, that is
+ * `office-tab.js`'s Head of State budget preview and
+ * `server/routes/office-actions.js`'s authoritative check. Display-only
+ * surfaces (`status-tab.js`, `suite/status.js`, `suite/sheet.js`,
+ * `csv-format.js`, `export-character.js`, `contested-rolls.js`) still call the
+ * two-argument form and still show the single-office answer. Nothing is visibly
+ * wrong today because no character holds two seats yet; closing that gap is
+ * follow-up work, recorded rather than left to be rediscovered.
+ *
  * @param {object} c - character-like object with status.city and court_category
  * @param {string|null|undefined} regentAmbience - ambience of the territory c regents, if any
+ * @param {string[]} [heldOfficeCategories] - every office category this
+ *   character currently holds a seat in. Deduplicated before summing. Omitted
+ *   or empty falls back to `c.court_category` alone.
  */
-export function calcEffectiveCityStatus(c, regentAmbience) {
-  const raw = (c?.status?.city || 0) + titleStatusBonusFor(c?.court_category) + regentAmbienceBonusFor(regentAmbience);
+export function calcEffectiveCityStatus(c, regentAmbience, heldOfficeCategories) {
+  const categories = Array.isArray(heldOfficeCategories) && heldOfficeCategories.length
+    ? [...new Set(heldOfficeCategories)]
+    : [c?.court_category];
+  const titleBonus = categories.reduce((sum, cat) => sum + titleStatusBonusFor(cat), 0);
+  const raw = (c?.status?.city || 0) + titleBonus + regentAmbienceBonusFor(regentAmbience);
   return Math.min(raw, 10);
 }

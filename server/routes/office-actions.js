@@ -318,7 +318,19 @@ router.put('/:id/accept', requireRole('st'), async (req, res) => {
       if (PAID_TYPES.has(pending.action_type)) {
         const territories = await getCollection('territories').find({}, { session: dbSession }).toArray();
         const regentAmbience = findRegentTerritory(territories, actor)?.ambience;
-        const budget = calcEffectiveCityStatus(actor, regentAmbience);
+        // prax.0: the authoritative budget sums the title bonus of EVERY office
+        // the actor actually holds, not just the headline `court_category`. A
+        // Praxis winner who kept their Primogen seat holds two, and reading one
+        // field would under-report their real allowance. Read inside the same
+        // session as every other read here, so a handover committing mid-accept
+        // cannot be half-seen. An actor with no seat document at all yields an
+        // empty list, and `calcEffectiveCityStatus` then falls back to
+        // `court_category` exactly as before.
+        const heldSeats = await getCollection('office_seats')
+          .find({ holder_id: actorObjectId }, { session: dbSession })
+          .toArray();
+        const heldCategories = heldSeats.map(s => s.office_category).filter(Boolean);
+        const budget = calcEffectiveCityStatus(actor, regentAmbience, heldCategories);
 
         const budgetKey = `${pending.game_session_id}:${pending.actor_id}`;
         const budgetCol = getCollection('office_action_budgets');
