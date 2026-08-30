@@ -257,5 +257,12 @@ export function expRow(id, lbl, val, bodyHtml) {
 // the unprefixed window globals, which clobbered the suite versions formerly
 // assigned here — silently no-opping suite chevrons. Namespacing removes the
 // collision: each renderer's onclick targets its own function.
-window.suiteToggleExp = toggleExp;
-window.suiteToggleDisc = toggleDisc;
+// rcv.3a: guarded with the same `typeof window !== 'undefined'` check
+// shared/rules-text.js:106 already uses, for the same reason. This module is
+// now imported by suite/roll-v2.js (for fmtCostLine), which several vitest
+// suites import under Node — an unguarded module-scope window write threw
+// ReferenceError there. Browser behaviour is unchanged.
+if (typeof window !== 'undefined') {
+  window.suiteToggleExp = toggleExp;
+  window.suiteToggleDisc = toggleDisc;
+}

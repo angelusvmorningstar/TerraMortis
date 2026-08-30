@@ -1615,3 +1615,77 @@ two below were judged real but out of proportion to fix in this pass, or not thi
   already ordinary player-visible character-sheet fields and only the tally/vote *process* itself is
   meant to stay ST-only) is a genuine scope/architecture call that deserves its own decision, not a
   drive-by patch inside this story's own review pass.
+
+## Deferred from: rcv-2-three-independent-accordions code review (2026-08-30)
+
+Independent review found `.gcp-choice-wide` (`public/css/suite.css`) and `choiceBtn()`'s own `wide`
+parameter (`public/js/game/char-pools.js`) are now fully dead code - the only live caller that ever
+passed `wide: true` was the old "+ Custom Pool" grid tile, which rcv.2 relocated out of the tile grid
+entirely into its own standalone `.gcp-freebuild-btn`. Confirmed via grep: no remaining `choiceBtn(...,
+true)` call anywhere in the file.
+
+**Not removed as part of rcv.2** - the story's own AC9 named a specific, deliberately scoped list of
+CSS to retire (`.gcp-section-hd`, `.gcp-collapse-btn`, `.gcp-pools-wrap`, `.gcp-all-collapsed`), and
+`.gcp-choice-wide` wasn't on it; expanding the deletion mid-implementation would also require editing
+`tests/rlv-4-custom-pool-builder.spec.js`'s own CSS-presence smoke test (`suite.css contains the
+scoped-panel and choice-tile classes`, which asserts `.gcp-choice-wide` is present), a second test file
+beyond the two rcv.2 already had to touch for its own DOM restructure - judged real scope creep, not
+this story's job. Revisit whenever `rlv-4-custom-pool-builder.spec.js` itself is next touched, or as a
+small standalone dead-code cleanup story.
+
+## Deferred from: rcv-3a-rules-explanation-disciplines-rites code review (2026-08-30)
+
+Three internal review layers (Blind Hunter/Edge Case Hunter/Acceptance Auditor, run after two failed
+external Codex attempts on a corrupted models cache) converged on two real bugs, both patched (see the
+story's own Senior Developer Review). A handful of smaller findings were judged real-but-narrow enough
+not to block the story - deferred rather than patched:
+
+- **A power whose cost data is a truthy legacy `cost` string but resolves to an empty formatted line
+  (e.g. structured `vitae_cost:0, willpower_cost:0` alongside a non-empty legacy `cost`) opens the
+  Rules-explanation box onto a completely empty body.** `roll-v2.js`'s `updRulesSummary()` gate treats
+  a truthy `pi.cost` as reason enough to show the box, but `fmtCostLine()`'s own "confirmed free"
+  branch can still yield `''` for that same `pi`, and if `action`/`duration`/`effect`/`rules_text` are
+  also all absent, `metaHtml + descHtml + expanderHtml` is `''` too - an empty disclosure. Real
+  reachability is low (requires a rule doc carrying both a legacy `cost` string AND confirmed-zero
+  structured costs AND no action/duration/description/rules_text simultaneously) and unverified against
+  live data. Fixing it properly means restructuring the gate to check what will actually render, not
+  just whether any one field is present - a real but non-trivial change this story's own patches didn't
+  reach for. Revisit if a live report of an empty "Rules explanation" box ever surfaces.
+- **Whitespace-only `action`/`duration`/`effect`/`cost` strings survive `getPool()`'s `|| null`
+  normalisation** (only falsy values - `''`, `null`, `undefined` - are caught) **and render a blank
+  chip/line with its bullet separator still present.** Cosmetic only; requires a hand-edited rule doc
+  with a whitespace-only field, which nothing in the admin tooling currently produces.
+- **The new box is horizontally misaligned with the `.rv2-breakdown` disclosure directly below it** -
+  `.rules-summary` carries no side padding of its own while `.rv2-breakdown` has `padding:4px 16px
+  8px`, insetting the two stacked disclosures' content by 16px per side differently. Purely visual.
+- **A long unparsed legacy `cost` string** (e.g. `"3-9 V & 1 WP"`, `"Free / 1 V"`) **can compress the
+  "Rules explanation" label and clip on a narrow phone viewport** - `.power-cost` is `white-space:
+  nowrap` inside a `justify-content:space-between` flex header with only the label able to shrink.
+  Not measured at a real viewport; flagged from static CSS reading only.
+
+## Deferred from: rcv-4-surface-mod-chips implementation (2026-08-30)
+
+Real, pre-existing defect found while relocating the persistent mod-chip UI, not introduced by that
+story and out of its own scope to fix (it explicitly forbids adding new CSS):
+
+- **A persistent mod chip's own "x" delete affordance is not actually pointer-reachable by a real
+  click, anywhere it has ever rendered.** `gdx-3`'s own 44px touch-target overlay
+  (`public/css/suite.css`, `.effpool-spec::after`, `:3190,3239-3248` - absolute, centred,
+  `min-width`/`min-height: var(--tap-min)`, deliberately NOT `pointer-events: none`) covers the whole
+  chip including its own "x" child, so a real click aimed at the x's centre hits the parent chip's own
+  toggle handler (`togPowerChip`) instead of the delete handler (`removePowerChip`). Verified via
+  `document.elementFromPoint` at the x's exact centre in both the chip's old container (`#effline`,
+  pre-rcv.4) and its new one (`#rv2-power-chips`, post-rcv.4) - identical result in both, confirming
+  this is container-independent and predates rcv.4 entirely (most likely present since gdx-3's own
+  touch-target work landed, or since rlv.7 first added the delete affordance on top of it, whichever
+  came later - not investigated further here). Real-world impact is likely narrow (a touch tap and a
+  mouse click both resolve through the same DOM hit-test, so a player probably experiences this as
+  "sometimes toggles instead of deleting" rather than "delete never works" depending on exact tap
+  position within the 44px zone) but it is a genuine, reproducible UI defect, not a test artifact -
+  `tests/rlv-7-persistent-mod-chips.spec.js`'s own delete test now dispatches the click event directly
+  rather than relying on Playwright's real pointer geometry, to keep asserting the DELETE HANDLER's own
+  correctness without being blocked by this separate, pre-existing hit-testing issue. Fix needs a CSS
+  change (either `pointer-events: none` on the "x" specifically within the overlay's own stacking
+  context, or a z-index/positioning adjustment so the delete child sits above the touch-target overlay)
+  - a small, real, standalone fix, not urgent enough to justify a dedicated story on its own but worth
+  picking up alongside the next real touch-target-adjacent piece of work.

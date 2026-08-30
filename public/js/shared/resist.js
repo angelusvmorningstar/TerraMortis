@@ -81,6 +81,12 @@ export function lashOutPool(char, attr, kindred) {
       resistance: 'v ' + attr + ' + BP',
       willpower_cost: kindred ? 1 : 0,
       noWP: false,
+      // rcv.3c: ported from the recovered mockup (app.js:1243-1247), edited —
+      // the mockup's own first paragraph was dynamic per-aspect flavour text
+      // with no live equivalent; replaced with a general line naming the
+      // three real fixed aspect chips this app actually offers.
+      effect: 'Lash out with an aspect of the Beast: Monstrous (Strength), Seductive (Presence), or Competitive (Intelligence), to force compliance or provoke fear.\n\nCosts 1 Willpower against Kindred; free against a mortal. If the target fights back, they roll their own Power Attribute + Blood Potency; more successes flips who gains the Condition.',
+      action: 'Instant action',
     },
   };
 }
@@ -104,6 +110,11 @@ export function bloodBondPool(char, vitae, attempts) {
       total, attr: 'Blood Potency', attrV: bp, skill: null, skillV: 0,
       discName: null, discV: 0, resistance: null,
       noWP: true, willpower_cost: 1,
+      // rcv.3c: ported from the mockup (app.js:1269-1275), edited — "tracked
+      // below" replaced since the live panel is a manual chip picker ABOVE
+      // the Load Pool button, not an automatic running tracker.
+      effect: 'Any time a point or more of Vitae is imbibed, it creates or reinforces a blood bond. Spend 1 Willpower and roll Blood Potency minus the Vitae ingested (the Willpower does not add dice). Success: that drink does not add to the bond; Vitae addiction still applies normally. Mortals have no such defence.\n\nFurther attempts to resist a bond from the same vampire, across repeated feedings, take a cumulative −1 die penalty each time: enter how many prior attempts above.',
+      action: 'Instant · reactive',
     },
   };
 }

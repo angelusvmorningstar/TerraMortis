@@ -26,7 +26,15 @@ import state from './data.js';
 
 import { d10, mkDie, mkChain, rollPool, cntSuc } from '../shared/dice.js';
 import { skSpecs, skNineAgain } from '../data/accessors.js';
-import { hasAoE } from '../data/helpers.js';
+import { hasAoE, esc } from '../data/helpers.js';
+// rcv.3a: the already-shipped, XSS-safe rules_text renderer (#994) — the same
+// component the character Sheet tab's Powers/Devotions/Rites/Pacts drawers
+// already use. Reused, not reimplemented.
+import { renderRulesExpander } from '../shared/rules-text.js';
+// rcv.3a: the single source of truth for a power's cost line (gdx.6, #987) —
+// structured vitae_cost/willpower_cost first, cost_note next, legacy free-text
+// `cost` last. See updRulesSummary() for why the "Cost: " prefix is stripped.
+import { fmtCostLine } from './sheet-helpers.js';
 import { getCatalogueEntry } from '../data/equipment-catalogue-cache.js';
 import { isCombatGearWeaponShaped, isEquipmentOnMe, isStakeWeapon } from '../data/equipment-derivation.js';
 import { apiPost } from '../data/api.js';
@@ -212,7 +220,82 @@ export function resetRollPool() {
   state.specBonuses = {};
   state.activeEquipBonus = null;
   state.activeWeaponId = null;
+  // rcv.3a: POOL_INFO is what the rules box reads, so clearing it must clear
+  // the box too - otherwise the PREVIOUS character's power rules stay painted
+  // under the NEW character, the same staleness class this function already
+  // exists to fix for POOL_NAME/powerChips/MOD.
+  updRulesSummary(null);
   updPool();
+}
+
+// ── RULES-EXPLANATION BOX (rcv.3a) ──
+
+/**
+ * Rules-explanation box for the currently-loaded pool. Static container in
+ * index.html, painted here — once per loadPool() call, and once per
+ * resetRollPool() call (character switch with no immediate loadPool()
+ * following, so a stale power's rules don't stay painted under the new
+ * character) — NOT from inside updPool(), which repaints far more often
+ * (every mod/chip toggle) and would otherwise collapse this box's own open
+ * state on every unrelated interaction.
+ *
+ * Cost line (AC5): built via fmtCostLine() from suite/sheet-helpers.js rather
+ * than a bare `pi.cost`. That function is this app's own existing single source
+ * of truth for a power's cost (gdx.6, #987) and already encodes exactly the
+ * precedence AC5 asks about — structured `vitae_cost`/`willpower_cost` first,
+ * `cost_note` next, the legacy free-text `cost` string last — so a power whose
+ * cost data lives only in the structured fields still shows a real cost here
+ * instead of a blank. Its "Cost: " prefix is stripped because this span is a
+ * compact chip beside a label that already says what it is, matching the
+ * mockup's own `parsed.costText` (which strips the same prefix,
+ * scratchpad/roller-live-recovered/public/app.js:311). A confirmed-free power
+ * (vitae_cost 0, willpower_cost 0) yields '' and shows nothing, per that
+ * function's own documented contract. Review fix: `getPool()` did not
+ * originally thread `cost_note` onto `pi` at all, so this precedence chain
+ * was only partially reachable from this call site — "1 V per effect" showed
+ * as a bare "1 Vitae" here while the Sheet tab (which calls fmtCostLine with
+ * the raw rule doc) showed the qualifier correctly. Fixed in
+ * shared/pools.js's getPool(), not here.
+ *
+ * Gating (AC3) deliberately reads only effect/action/duration/cost/rules_text
+ * and NOT vitae_cost/willpower_cost: shared/resist.js builds synthetic `pi`
+ * objects for the Vampire Mechanics tiles that DO carry `willpower_cost` (but
+ * never rules_text — confirmed via a full sweep of every loadPool() call site
+ * in the codebase), and those tiles are explicitly rcv.3c's job, not this
+ * box's. `rules_text` was added to the gate as a review fix: a power whose
+ * rules content lived ONLY in rules_text (no effect/action/duration/cost) was
+ * being hidden entirely, silently dropping the one field this box's own full
+ * expander exists to surface.
+ */
+export function updRulesSummary(pi) {
+  const box = document.getElementById('rules-summary-box');
+  if (!box) return;
+  const bodyEl = document.getElementById('rules-summary-body');
+  const hasRules = pi && (pi.effect || pi.action || pi.duration || pi.cost || pi.rules_text);
+  if (!hasRules) {
+    box.style.display = 'none';
+    box.open = false;
+    if (bodyEl) bodyEl.innerHTML = '';
+    return;
+  }
+  box.style.display = '';
+  box.open = false; // never inherit the previous power's open state
+  const costEl = document.getElementById('rules-summary-cost');
+  if (costEl) costEl.textContent = fmtCostLine(pi).replace(/^Cost:\s*/i, '');
+  const meta = [];
+  if (pi.action) meta.push(esc(pi.action));
+  if (pi.duration) meta.push(esc(pi.duration));
+  const metaHtml = meta.length ? `<div class="power-meta">${meta.map(m => `<span>${m}</span>`).join('')}</div>` : '';
+  // rcv.3c: one <p class="power-desc"> per blank-line-separated paragraph,
+  // reusing shared/rules-text.js's own renderRulesText() convention rather
+  // than inventing a second one. A single-paragraph effect (every existing
+  // Discipline/Rite/Devotion `description`) yields one array entry, so this
+  // is a strict superset of the previous single-<p> rendering.
+  const descHtml = pi.effect
+    ? pi.effect.split('\n\n').map(p => `<p class="power-desc">${esc(p)}</p>`).join('')
+    : '';
+  const expanderHtml = renderRulesExpander('rules-summary-expander', pi.rules_text, pi.rules_source);
+  if (bodyEl) bodyEl.innerHTML = metaHtml + descHtml + expanderHtml;
 }
 
 // ── LOAD POOL ──
@@ -224,6 +307,8 @@ export function loadPool(total, name, pi) {
   state.activeEquipBonus = null;
   state.activeWeaponId = null;
   state.POOL_INFO = pi || null;
+  // rcv.3a: painted once here, never from updPool() (see updRulesSummary()).
+  updRulesSummary(state.POOL_INFO);
   // rlv.7 (#1039): restore this power's persisted mod chips, folding
   // currently-on ones into MOD — same reset-then-rebuild pattern as
   // specBonuses/activeEquipBonus above, just sourced from localStorage
@@ -476,18 +561,25 @@ export function updPool() {
   // existing `togSpec(this)`/`togEquipChip(this)` pattern instead: the id
   // is read via `.dataset.chip` from the clicked element, never embedded
   // as executable JS text at all, so no escaping scheme can be bypassed.
-  if (state.powerChips && state.powerChips.length) {
-    html += '<div class="effpool-specs">' + state.powerChips.map(chip => {
-      const cls = 'effpool-spec' + (chip.on ? ' on' : '');
-      const safeId = String(chip.id).replace(/"/g, '&quot;');
-      const safeLabel = String(chip.label).replace(/</g, '&lt;').replace(/>/g, '&gt;');
-      const sign = chip.value > 0 ? '+' : '';
-      return `<span class="${cls}" data-chip="${safeId}" `
-           + `onclick="togPowerChip(this)" title="Click to toggle">`
-           + `${safeLabel} <span class="effpool-spec-bonus">${sign}${chip.value}</span>`
-           + `<span class="effpool-spec-del" onclick="event.stopPropagation();removePowerChip(this.closest('[data-chip]'))" title="Remove">×</span>`
-           + `</span>`;
-    }).join('') + '</div>';
+  //
+  // rcv.4: surfaced out of #effline's own collapsed-disclosure innerHTML into
+  // its own always-visible container - same template, same togPowerChip()/
+  // removePowerChip() wiring, only the write target changed.
+  const powerChipsEl = document.getElementById('rv2-power-chips');
+  if (powerChipsEl) {
+    powerChipsEl.innerHTML = (state.powerChips && state.powerChips.length)
+      ? '<div class="effpool-specs">' + state.powerChips.map(chip => {
+          const cls = 'effpool-spec' + (chip.on ? ' on' : '');
+          const safeId = String(chip.id).replace(/"/g, '&quot;');
+          const safeLabel = String(chip.label).replace(/</g, '&lt;').replace(/>/g, '&gt;');
+          const sign = chip.value > 0 ? '+' : '';
+          return `<span class="${cls}" data-chip="${safeId}" `
+               + `onclick="togPowerChip(this)" title="Click to toggle">`
+               + `${safeLabel} <span class="effpool-spec-bonus">${sign}${chip.value}</span>`
+               + `<span class="effpool-spec-del" onclick="event.stopPropagation();removePowerChip(this.closest('[data-chip]'))" title="Remove">×</span>`
+               + `</span>`;
+        }).join('') + '</div>'
+      : '';
   }
 
   el.innerHTML = html;

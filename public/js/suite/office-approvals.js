@@ -43,6 +43,10 @@
 
 import { apiGet, apiRaw } from '../data/api.js';
 import { esc, redactCharName, redactPlayer } from '../data/helpers.js';
+// rcv.7: the already-shipped, XSS-safe rules_text renderer (#994) — the same
+// component the character Sheet tab and rcv.3a's Roll-tab Rules-explanation
+// box already use. Reused, not reimplemented.
+import { renderRulesExpander } from '../shared/rules-text.js';
 
 const POLL_MS = 10_000;
 
@@ -302,6 +306,31 @@ function _renderRow(r) {
 // pool arithmetic itself happens server-side once accepted (AC2).
 const BREAKING_POINT_LEVELS = [10, 9, 8, 7, 6, 5, 4, 3, 2, 1];
 
+// rcv.7: the drafted Humanity Breaking Point rules text (formula, outcome
+// tiers, the full 10-level Sample Breaking Points table), ported from
+// roller-live/app.js:148-159,1276-1294 - real, already-drafted content, not
+// authored here. A STATIC reference, not a live-computed touchstone modifier:
+// that would need a new character-data fetch this queue doesn't currently
+// make, out of scope per the epic's own "no schema change" ruling - the ST
+// still does the arithmetic themselves, same as they already do picking a
+// level from the dropdown below. British-English-corrected from the mockup's
+// own American spelling ("defense" -> "defence", "behavior" -> "behaviour",
+// "hospitalize" -> "hospitalise").
+const HC_RULES_TEXT =
+  'Terra Mortis errata pool: 4 - (Current Humanity - Breaking Point level) + Touchstone modifier. No Touchstones attached: -2. One Touchstone attached: +2. Two or more attached: +3. Willpower cannot improve this roll.\n\n' +
+  'Dramatic Failure: lose a Humanity dot, gain the Jaded Condition. Failure: lose a Humanity dot, gain Bestial, Competitive, or Wanton. Success: no loss, gain Bestial, Competitive, or Wanton anyway. Exceptional Success: no loss, gain Inspired. Take a Beat whenever a breaking point is faced. A character may take a bane (-1 permanent, cumulative, max 3) to become immune to losing Humanity from that specific breaking point again.\n\n' +
+  '**Sample Breaking Points, by level:**\n' +
+  '**Humanity 10:** One night without human contact; lying in defence of the Masquerade; spending more than one Vitae in a night.\n' +
+  '**Humanity 9:** Watching humans eat a meal; committing a superhuman feat of physical prowess; feeding from the unwilling or unknowing; urging another\'s behaviour with a Discipline; spending an hour in the sun.\n' +
+  '**Humanity 8:** Creating a ghoul; rejected by a human; riding the wave of frenzy; depriving another of consent with a Discipline; spending most of a day in the sun.\n' +
+  '**Humanity 7:** One week active without human contact; surviving something that would hospitalise a human; injuring someone over blood.\n' +
+  '**Humanity 6:** Falling into torpor; feeding from a child; reading your own obituary; experiencing a car crash or other immense physical trauma.\n' +
+  '**Humanity 5:** Two weeks active without human contact; reaching Blood Potency 3; death of a mortal family member; joining a covenant to the point of gaining Status for it.\n' +
+  '**Humanity 4:** Learning a dot of Cruac; impassioned violence; spending a year or more in torpor; surviving a century; accidentally killing.\n' +
+  '**Humanity 3:** One month active without human contact; reaching Blood Potency 6; death of a mortal spouse or child; impassioned killing.\n' +
+  '**Humanity 2:** One year active without human contact; premeditated killing; seeing a culture that did not exist when you were alive; surviving 500 years; creating a revenant.\n' +
+  '**Humanity 1:** One decade active without human contact; heinous, spree, or mass murder; killing your Touchstone.';
+
 function _renderHumanityCheckRow(r) {
   const id = String(r._id);
   const busy = state.busyIds.has(id);
@@ -313,6 +342,14 @@ function _renderHumanityCheckRow(r) {
   const levelOptions = BREAKING_POINT_LEVELS
     .map(lvl => `<option value="${lvl}" ${chosenLevel === lvl ? 'selected' : ''}>Humanity ${lvl}</option>`)
     .join('');
+
+  // rcv.7: always rendered, not gated on chosenLevel — this is reference
+  // material to help the ST DECIDE the level, so it must be visible before
+  // one is picked. A unique id per row (the request's own id) so multiple
+  // pending Humanity Check rows each get their own independently-toggleable
+  // expander, matching this component's own existing call-site convention
+  // elsewhere in this app.
+  const hcRulesExpander = renderRulesExpander('hc-rules-' + id, HC_RULES_TEXT, 'Terra Mortis Errata');
 
   return `
     <div class="oaq-queue-row-wrap" data-oaq-row="${esc(id)}">
@@ -331,6 +368,7 @@ function _renderHumanityCheckRow(r) {
           </div>
         </div>
       </div>
+      ${hcRulesExpander}
       ${error ? `<div class="ch-error oaq-queue-error">${esc(error)}</div>` : ''}
     </div>
   `;

@@ -1,0 +1,554 @@
+diff --git a/public/css/suite.css b/public/css/suite.css
+index 85e3063b..302c150b 100644
+--- a/public/css/suite.css
++++ b/public/css/suite.css
+@@ -886,10 +886,28 @@ body.desktop-mode .sh-powers-grid > .sh-sec{break-inside:avoid;}
+ .gcp-stat:last-child{border-right:none;}
+ .gcp-stat-v{font-family:var(--fl);font-size:1.25rem;color:var(--gold2);line-height:1;}
+ .gcp-stat-l{font-family:var(--fl);font-size:var(--fs-floor-micro);letter-spacing:.08em;text-transform:uppercase;color:var(--txt3);margin-top:3px;text-align:center;}
+-.gcp-section-hd{font-family:var(--fl);font-size:var(--fs-floor-micro);letter-spacing:.2em;text-transform:uppercase;color:var(--gold);margin:8px 0 6px;}
+-.gcp-collapse-btn{background:none;border:none;cursor:pointer;font-family:var(--fl);font-size:var(--fs-floor-micro);letter-spacing:.2em;text-transform:uppercase;color:var(--gold);padding:0;margin-bottom:4px;display:block;}
+-.gcp-all-collapsed .gcp-pool-grid{display:none;}
+-.gcp-all-collapsed .gcp-section-hd{display:none;}
++/* rcv.2 — Skills / Disciplines / Special as three independent accordions,
++   ported from the recovered roller mockup's own picker sections
++   (scratchpad/roller-live-recovered/public/app.css:160-179) with this file's
++   `gcp-` naming. Replaces gdx-11's single `.gcp-collapse-btn` +
++   `.gcp-all-collapsed` toggle, deleted here. The grid-template-rows 0fr->1fr
++   trick is what animates a body of unknown height. */
++.gcp-accordions{display:flex;flex-direction:column;gap:8px;margin-bottom:8px;}
++.gcp-acc-section{border:1px solid var(--bdr);border-radius:var(--radius-md);background:var(--surf);overflow:hidden;}
++.gcp-acc-head{all:unset;box-sizing:border-box;display:flex;align-items:center;justify-content:space-between;gap:8px;width:100%;min-height:var(--control-height-sm);padding:0 12px;cursor:pointer;}
++.gcp-acc-label{font-family:var(--fl);font-size:var(--type-size-heading);font-weight:var(--type-weight-strong);color:var(--txt);}
++.gcp-acc-count{font-family:var(--fl);font-size:var(--type-size-micro);font-weight:var(--type-weight-label);color:var(--txt3);margin-left:6px;}
++.gcp-chevron{width:9px;height:9px;border-right:2px solid var(--txt3);border-bottom:2px solid var(--txt3);transform:rotate(45deg);transition:transform .18s ease;flex:none;}
++.gcp-acc-section[data-open="true"] .gcp-chevron{transform:rotate(-135deg);}
++.gcp-acc-body-wrap{display:grid;grid-template-rows:0fr;transition:grid-template-rows .22s ease;}
++.gcp-acc-section[data-open="true"] .gcp-acc-body-wrap{grid-template-rows:1fr;}
++.gcp-acc-body{overflow:hidden;min-height:0;}
++.gcp-acc-body-inner{padding:8px 10px 10px;}
++/* rcv.2 — "+ Custom Pool" as a standalone entry point below the accordions,
++   deliberately not a grid tile (mockup app.css:238's freebuild-btn). */
++.gcp-freebuild-btn{all:unset;box-sizing:border-box;cursor:pointer;text-align:center;display:flex;align-items:center;justify-content:center;width:100%;min-height:var(--control-height-md);border-radius:var(--radius-md);border:1px dashed var(--bdr3);background:transparent;color:var(--accent);font-family:var(--fl);font-size:var(--type-size-subheading);font-weight:var(--type-weight-strong);letter-spacing:.02em;text-transform:uppercase;transition:background .15s ease,border-style .15s ease;margin-top:4px;}
++.gcp-freebuild-btn:hover{background:color-mix(in srgb, var(--accent) 8%, transparent);border-style:solid;}
++.gcp-freebuild-btn:focus-visible{outline:2px solid var(--accent);outline-offset:2px;}
+ .gcp-pool-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:8px;}
+ .gcp-pool-btn{display:flex;flex-direction:column;align-items:flex-start;padding:8px 10px;background:var(--surf);border:1px solid var(--bdr);border-radius: var(--radius-sm);cursor:pointer;-webkit-tap-highlight-color:transparent;text-align:left;width:100%;}
+ .gcp-pool-btn:active{background:var(--surf2);border-color:var(--gold-a30);}
+@@ -2883,6 +2901,37 @@ body.desktop-mode.sidebar-collapsed .sb-collapse-btn { width: 100%; justify-cont
+ }
+ .rv2-breakdown[open] summary { color: var(--txt2); }
+ 
++/* ── rcv.3a: rules-explanation disclosure ──
++   Ported from the recovered roller mockup (scratchpad/roller-live-recovered/
++   public/app.css:435-461), class names and all. Sibling to .rv2-breakdown, not
++   a change inside it: "Pool breakdown" is dice-math, this is what the power
++   actually does. The chevron rule is scoped `.rules-summary-head .chevron`
++   rather than a bare `.chevron` so it can never collide with rcv.2's own
++   `.gcp-chevron` (whose rotation keys off `.gcp-acc-section[data-open="true"]`,
++   a different state contract from a native `<details open>`); the mockup could
++   rely on its own global `.chevron` for the box/border, this port carries them
++   here instead. `.rules-expander*` (the shared rules_text component, #994)
++   needs nothing here - already styled in components.css:806-816. */
++/* `flex:none` is this port's one necessary addition to the mockup's own rule,
++   found by measuring the real page: #t-roll is a flex COLUMN whose content
++   overflows, and `overflow:hidden` here makes this box's automatic minimum
++   size 0 (a scroll container's min-height:auto resolves to 0, unlike
++   .rv2-breakdown's), so the flex container squashed it to a 2px sliver with
++   its own <summary> overflowing and unclickable. The mockup never hit this
++   because its container was not an overflowing flex column. */
++.rules-summary{flex:none;border:1px solid var(--bdr2);border-radius:var(--radius-lg);background:linear-gradient(180deg, var(--surf2), var(--surf));overflow:hidden;margin-bottom:8px;}
++.rules-summary-head{all:unset;box-sizing:border-box;cursor:pointer;list-style:none;display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:var(--control-height-sm);padding:0 14px;}
++.rules-summary-head::-webkit-details-marker{display:none;}
++.rules-summary[open] .rules-summary-head{border-bottom:1px solid var(--bdr);}
++.rules-summary-label{font-family:var(--fl);font-size:var(--type-size-heading);font-weight:var(--type-weight-strong);color:var(--accent);}
++.rules-summary-head .chevron{margin-left:auto;width:9px;height:9px;border-right:2px solid var(--txt3);border-bottom:2px solid var(--txt3);transform:rotate(45deg);transition:transform .18s ease;flex:none;}
++.rules-summary[open] .rules-summary-head .chevron{transform:rotate(-135deg);}
++.rules-summary-body{padding:10px 14px 14px;display:flex;flex-direction:column;gap:6px;}
++.power-cost{font-family:var(--fl);font-size:var(--type-size-label);font-weight:var(--type-weight-label);letter-spacing:var(--type-letter-spacing-label);text-transform:uppercase;color:var(--crim2);white-space:nowrap;}
++.power-meta{display:flex;flex-wrap:wrap;gap:6px 10px;font-family:var(--fl);font-size:var(--type-size-caption);color:var(--txt2);}
++.power-meta span:not(:last-child)::after{content:'·';margin-left:10px;color:var(--bdr3);}
++.power-desc{margin:2px 0 0;font-family:var(--ft);font-style:italic;font-size:var(--type-size-body);color:var(--txt2);line-height:1.55;}
++
+ /* Horizontal inset comes from #t-roll's own 20px padding, matching every
+    other block in this tab (Again Rule, Rote/WP, Contested Roll, results,
+    history) - deliberately NOT a left/right margin of its own. A prior
+@@ -3057,7 +3106,6 @@ body.desktop-mode.sidebar-collapsed .sb-collapse-btn { width: 100%; justify-cont
+ .rl-sec-hd,
+ #btn-contested,
+ .cr-type-btn,
+-.gcp-collapse-btn,
+ .hist-clr,
+ .rv2-adj,
+ .rv2-again-seg button,
+@@ -3132,7 +3180,6 @@ body.desktop-mode.sidebar-collapsed .sb-collapse-btn { width: 100%; justify-cont
+ .rl-sec-hd::after,
+ #btn-contested::after,
+ .cr-type-btn::after,
+-.gcp-collapse-btn::after,
+ .hist-clr::after,
+ .rv2-adj::after,
+ .rv2-again-seg button::after,
+diff --git a/public/index.html b/public/index.html
+index 7bedc376..3345eeec 100644
+--- a/public/index.html
++++ b/public/index.html
+@@ -247,6 +247,20 @@
+         <button class="mchip" id="spend-wp-btn" onclick="spendWillpower()">− WP</button>
+       </div>
+ 
++      <!-- rcv.3a: static markup, populated once per loadPool() call (not on every
++           updPool() micro-repaint) so its own open/closed state survives mod/chip
++           toggles - same pattern the add-mod row below already established.
++           Hidden when the loaded pool has no rules data (skills, Custom Pool,
++           Vampire Mechanics tiles - none of these set pi.effect/action/duration/cost). -->
++      <details class="rules-summary" id="rules-summary-box" style="display:none">
++        <summary class="rules-summary-head">
++          <span class="rules-summary-label">Rules explanation</span>
++          <span class="power-cost" id="rules-summary-cost"></span>
++          <span class="chevron"></span>
++        </summary>
++        <div class="rules-summary-body" id="rules-summary-body"></div>
++      </details>
++
+       <!-- Full breakdown lives inside a disclosure so it's available but
+            not competing with the anchor for visual weight. -->
+       <details class="rv2-breakdown">
+diff --git a/public/js/suite/roll-v2.js b/public/js/suite/roll-v2.js
+index 30eabc3f..2954f7e7 100644
+--- a/public/js/suite/roll-v2.js
++++ b/public/js/suite/roll-v2.js
+@@ -26,7 +26,15 @@ import state from './data.js';
+ 
+ import { d10, mkDie, mkChain, rollPool, cntSuc } from '../shared/dice.js';
+ import { skSpecs, skNineAgain } from '../data/accessors.js';
+-import { hasAoE } from '../data/helpers.js';
++import { hasAoE, esc } from '../data/helpers.js';
++// rcv.3a: the already-shipped, XSS-safe rules_text renderer (#994) — the same
++// component the character Sheet tab's Powers/Devotions/Rites/Pacts drawers
++// already use. Reused, not reimplemented.
++import { renderRulesExpander } from '../shared/rules-text.js';
++// rcv.3a: the single source of truth for a power's cost line (gdx.6, #987) —
++// structured vitae_cost/willpower_cost first, cost_note next, legacy free-text
++// `cost` last. See updRulesSummary() for why the "Cost: " prefix is stripped.
++import { fmtCostLine } from './sheet-helpers.js';
+ import { getCatalogueEntry } from '../data/equipment-catalogue-cache.js';
+ import { isCombatGearWeaponShaped, isEquipmentOnMe, isStakeWeapon } from '../data/equipment-derivation.js';
+ import { apiPost } from '../data/api.js';
+@@ -212,9 +220,64 @@ export function resetRollPool() {
+   state.specBonuses = {};
+   state.activeEquipBonus = null;
+   state.activeWeaponId = null;
++  // rcv.3a: POOL_INFO is what the rules box reads, so clearing it must clear
++  // the box too - otherwise the PREVIOUS character's power rules stay painted
++  // under the NEW character, the same staleness class this function already
++  // exists to fix for POOL_NAME/powerChips/MOD.
++  updRulesSummary(null);
+   updPool();
+ }
+ 
++// ── RULES-EXPLANATION BOX (rcv.3a) ──
++
++/**
++ * Rules-explanation box for the currently-loaded pool. Static container in
++ * index.html, painted here (once per loadPool() call) - NOT from inside
++ * updPool(), which repaints far more often (every mod/chip toggle) and would
++ * otherwise collapse this box's own open state on every unrelated interaction.
++ *
++ * Cost line (AC5): built via fmtCostLine() from suite/sheet-helpers.js rather
++ * than a bare `pi.cost`. That function is this app's own existing single source
++ * of truth for a power's cost (gdx.6, #987) and already encodes exactly the
++ * precedence AC5 asks about — structured `vitae_cost`/`willpower_cost` first,
++ * `cost_note` next, the legacy free-text `cost` string last — so a power whose
++ * cost data lives only in the structured fields still shows a real cost here
++ * instead of a blank. Its "Cost: " prefix is stripped because this span is a
++ * compact chip beside a label that already says what it is, matching the
++ * mockup's own `parsed.costText` (which strips the same prefix,
++ * scratchpad/roller-live-recovered/public/app.js:311). A confirmed-free power
++ * (vitae_cost 0, willpower_cost 0) yields '' and shows nothing, per that
++ * function's own documented contract.
++ *
++ * Gating (AC3) deliberately reads only effect/action/duration/cost and NOT
++ * vitae_cost/willpower_cost: shared/resist.js builds synthetic `pi` objects for
++ * the Vampire Mechanics tiles that DO carry `willpower_cost`, and those tiles
++ * are explicitly rcv.3c's job, not this box's.
++ */
++export function updRulesSummary(pi) {
++  const box = document.getElementById('rules-summary-box');
++  if (!box) return;
++  const bodyEl = document.getElementById('rules-summary-body');
++  const hasRules = pi && (pi.effect || pi.action || pi.duration || pi.cost);
++  if (!hasRules) {
++    box.style.display = 'none';
++    box.open = false;
++    if (bodyEl) bodyEl.innerHTML = '';
++    return;
++  }
++  box.style.display = '';
++  box.open = false; // never inherit the previous power's open state
++  const costEl = document.getElementById('rules-summary-cost');
++  if (costEl) costEl.textContent = fmtCostLine(pi).replace(/^Cost:\s*/i, '');
++  const meta = [];
++  if (pi.action) meta.push(esc(pi.action));
++  if (pi.duration) meta.push(esc(pi.duration));
++  const metaHtml = meta.length ? `<div class="power-meta">${meta.map(m => `<span>${m}</span>`).join('')}</div>` : '';
++  const descHtml = pi.effect ? `<p class="power-desc">${esc(pi.effect)}</p>` : '';
++  const expanderHtml = renderRulesExpander('rules-summary-expander', pi.rules_text, pi.rules_source);
++  if (bodyEl) bodyEl.innerHTML = metaHtml + descHtml + expanderHtml;
++}
++
+ // ── LOAD POOL ──
+ 
+ export function loadPool(total, name, pi) {
+@@ -224,6 +287,8 @@ export function loadPool(total, name, pi) {
+   state.activeEquipBonus = null;
+   state.activeWeaponId = null;
+   state.POOL_INFO = pi || null;
++  // rcv.3a: painted once here, never from updPool() (see updRulesSummary()).
++  updRulesSummary(state.POOL_INFO);
+   // rlv.7 (#1039): restore this power's persisted mod chips, folding
+   // currently-on ones into MOD — same reset-then-rebuild pattern as
+   // specBonuses/activeEquipBonus above, just sourced from localStorage
+diff --git a/public/js/suite/sheet-helpers.js b/public/js/suite/sheet-helpers.js
+index 9907f80c..407fc3b2 100644
+--- a/public/js/suite/sheet-helpers.js
++++ b/public/js/suite/sheet-helpers.js
+@@ -257,5 +257,12 @@ export function expRow(id, lbl, val, bodyHtml) {
+ // the unprefixed window globals, which clobbered the suite versions formerly
+ // assigned here — silently no-opping suite chevrons. Namespacing removes the
+ // collision: each renderer's onclick targets its own function.
+-window.suiteToggleExp = toggleExp;
+-window.suiteToggleDisc = toggleDisc;
++// rcv.3a: guarded with the same `typeof window !== 'undefined'` check
++// shared/rules-text.js:106 already uses, for the same reason. This module is
++// now imported by suite/roll-v2.js (for fmtCostLine), which several vitest
++// suites import under Node — an unguarded module-scope window write threw
++// ReferenceError there. Browser behaviour is unchanged.
++if (typeof window !== 'undefined') {
++  window.suiteToggleExp = toggleExp;
++  window.suiteToggleDisc = toggleDisc;
++}
+diff --git a/tests/rcv-3a-rules-explanation-box.spec.js b/tests/rcv-3a-rules-explanation-box.spec.js
+new file mode 100644
+index 00000000..36c8d318
+--- /dev/null
++++ b/tests/rcv-3a-rules-explanation-box.spec.js
+@@ -0,0 +1,318 @@
++// E2E coverage for rcv.3a — the "Rules explanation" disclosure on the Roll
++// tab, a sibling to the existing "Pool breakdown" disclosure. It shows the
++// currently-loaded power's cost / action / duration / effect, plus the shared
++// #994 rules_text expander when that power has real, page-cited rulebook text.
++// See specs/stories/rcv-3a-rules-explanation-disciplines-rites.md.
++//
++// Character injection: this app registers a Service Worker (public/sw.js) that
++// intercepts /api/characters ahead of Playwright's page.route() stubs and
++// serves real cached data from whatever real ST session last used this origin
++// (diagnosed during rlv.4 — see that spec's own header). `serviceWorkers:
++// 'block'` plus injecting the fixture character through the real, exposed
++// `window.pickChar(c)` global sidesteps it entirely: real app code, real
++// renderCharPools()/loadPool() wiring, no network fetch for the SW to hijack.
++
++const { test, expect } = require('@playwright/test');
++test.use({ serviceWorkers: 'block' });
++
++const ST_USER = {
++  id: '900000011', username: 'test_st_rcv3a', global_name: 'Test ST rcv3a',
++  avatar: null, role: 'st', player_id: 'p-rcv3a', character_ids: [], is_dual_role: false,
++};
++
++function attrs(overrides = {}) {
++  return {
++    Intelligence: { dots: 3, bonus: 0 }, Wits: { dots: 2, bonus: 0 }, Resolve: { dots: 2, bonus: 0 },
++    Strength: { dots: 2, bonus: 0 }, Dexterity: { dots: 2, bonus: 0 }, Stamina: { dots: 2, bonus: 0 },
++    Presence: { dots: 2, bonus: 0 }, Manipulation: { dots: 2, bonus: 0 }, Composure: { dots: 2, bonus: 0 },
++    ...overrides,
++  };
++}
++
++// Two synthetic Auspex powers seeded into the rules cache, both inside the
++// fixture character's Auspex 2 so both render as tiles. Deliberately fictional
++// names so nothing here depends on live purchasable_powers content — and,
++// critically, so the WITHOUT-rules_text case is a guaranteed, stable fixture
++// rather than a live power that a later uplift top-up could quietly fill in.
++// `key` must be the slug of `name` — that is what shared/pools.js's getPool()
++// looks the rule up by.
++const SEEDED_RULES = [
++  {
++    // Legacy free-text `cost` only (no structured vitae_cost/willpower_cost),
++    // plus real rules_text + rules_source — the "full house" case.
++    key: 'rcv3a-bright-sight', name: 'Rcv3a Bright Sight', category: 'discipline',
++    parent: 'Auspex', rank: 1, pool: { attr: 'Wits', skill: 'Occult' },
++    cost: '1 Vitae',
++    action: 'Instant action',
++    duration: 'One scene',
++    description: 'The Kindred perceives the unseen edges of a room.',
++    rules_text: 'Spend one Vitae and roll the pool.\n\nOn a success the character sees clearly through the dark for the rest of the scene.\n\n---\n**TM Errata:** Ranged use is capped at ten yards.',
++    rules_source: 'VtR 2e p.123',
++  },
++  {
++    // Structured costs only (gdx.6 shape), and deliberately NO rules_text —
++    // the genuine coverage gap the box must degrade gracefully into.
++    key: 'rcv3a-dim-sight', name: 'Rcv3a Dim Sight', category: 'discipline',
++    parent: 'Auspex', rank: 2, pool: { attr: 'Wits', skill: 'Occult' },
++    vitae_cost: 2, willpower_cost: 1,
++    action: 'Reflexive action',
++    duration: 'One turn',
++    description: 'A brief flicker of borrowed sight.',
++  },
++];
++
++const RICH_CHAR = {
++  _id: 'char-rcv3a-rich', name: 'Rules Box Tester', moniker: null, honorific: null,
++  clan: 'Mekhet', covenant: 'Invictus', player: 'Test Player',
++  blood_potency: 1, humanity: 7, humanity_base: 7, court_title: null, retired: false,
++  status: { city: 1, clan: 1, covenant: {} },
++  attributes: attrs(),
++  skills: {
++    Occult: { dots: 3, bonus: 0, specs: [], nine_again: false },
++    Athletics: { dots: 2, bonus: 0, specs: [], nine_again: false },
++  },
++  disciplines: { Auspex: { dots: 2 } },
++  merits: [], powers: [], ordeals: [],
++};
++
++const SKILLS_SEC = '#roll-char-pools .gcp-acc-section[data-storage-key="tm_pools_open_skills"]';
++const DISC_SEC   = '#roll-char-pools .gcp-acc-section[data-storage-key="tm_pools_open_disc"]';
++
++const BOX  = '#rules-summary-box';
++const HEAD = '#rules-summary-box .rules-summary-head';
++const COST = '#rules-summary-cost';
++const BODY = '#rules-summary-body';
++
++async function setupSuite(page, chars) {
++  await page.addInitScript(({ user, rules }) => {
++    localStorage.setItem('tm_auth_token', 'local-test-token');
++    localStorage.setItem('tm_auth_expires', String(Date.now() + 3600000));
++    localStorage.setItem('tm_auth_user', JSON.stringify(user));
++    // loadRulesFromApi() falls back to this key when /api/rules returns an
++    // empty array (which the blanket **/api/** stub below does).
++    localStorage.setItem('tm_rules_db', JSON.stringify(rules));
++  }, { user: ST_USER, rules: SEEDED_RULES });
++
++  await page.route('**/api/**', r => r.fulfill({ status: 200, contentType: 'application/json', body: '[]' }));
++  await page.route(/\/api\/game_sessions\/next/, r => r.fulfill({ status: 200, contentType: 'application/json', body: 'null' }));
++  await page.route(/\/api\/characters$/, r => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(chars) }));
++
++  await page.goto('/');
++  await page.waitForSelector('#app', { state: 'visible', timeout: 15000 });
++  await page.evaluate(() => window.goTab('roll'));
++  await page.waitForSelector('#t-roll.active', { state: 'visible', timeout: 5000 });
++}
++
++async function pickCharacter(page, char) {
++  await page.evaluate((c) => window.pickChar(c), char);
++  await expect(page.locator('#roll-char-pools')).toBeVisible({ timeout: 5000 });
++}
++
++/** Open the Disciplines accordion and tap one seeded power tile. */
++async function loadPower(page, label) {
++  const sec = page.locator(DISC_SEC);
++  if (await sec.getAttribute('data-open') !== 'true') {
++    await page.locator(DISC_SEC + ' .gcp-acc-head').click();
++  }
++  await page.locator(DISC_SEC + ' .gcp-pool-btn', { hasText: label }).click();
++  await expect(page.locator('#pool-banner')).toContainText(label);
++}
++
++const isOpen = (page) => page.locator(BOX).evaluate(el => el.open);
++
++// ── Source-fetch smokes ──────────────────────────────────────────────────
++
++test('rcv.3a — index.html carries the static rules-summary disclosure before the breakdown', async ({ request }) => {
++  const res = await request.get('/index.html');
++  const html = await res.text();
++  expect(html).toMatch(/<details class="rules-summary" id="rules-summary-box" style="display:none">/);
++  expect(html).toMatch(/id="rules-summary-cost"/);
++  expect(html).toMatch(/id="rules-summary-body"/);
++  expect(html).toMatch(/class="rules-summary-label">Rules explanation</);
++  // AC1: it sits BEFORE the existing Pool breakdown disclosure, not inside it.
++  expect(html.indexOf('id="rules-summary-box"')).toBeLessThan(html.indexOf('class="rv2-breakdown"'));
++  expect(html.indexOf('id="rules-summary-body"')).toBeLessThan(html.indexOf('class="rv2-breakdown"'));
++});
++
++test('rcv.3a — roll-v2.js wires the shared rules-text component into loadPool, not updPool', async ({ request }) => {
++  const res = await request.get('/js/suite/roll-v2.js');
++  const src = await res.text();
++  expect(src).toMatch(/export\s+function\s+updRulesSummary\(/);
++  // AC7: both imports present, esc folded onto the existing hasAoE line.
++  expect(src).toMatch(/import\s*\{\s*hasAoE,\s*esc\s*\}\s*from\s*'\.\.\/data\/helpers\.js';/);
++  expect(src).toMatch(/import\s*\{\s*renderRulesExpander\s*\}\s*from\s*'\.\.\/shared\/rules-text\.js';/);
++  // AC5: the cost line reuses the existing single-source formatter.
++  expect(src).toMatch(/import\s*\{\s*fmtCostLine\s*\}\s*from\s*'\.\/sheet-helpers\.js';/);
++  expect(src).toMatch(/fmtCostLine\(pi\)/);
++  // AC2: called from loadPool()...
++  expect(src).toMatch(/updRulesSummary\(state\.POOL_INFO\);/);
++  // ...and NOT from inside updPool(), whose repaints must never collapse it.
++  const updPoolBody = src.slice(src.indexOf('export function updPool()'), src.indexOf('// ── SPECIALTY TOGGLE'));
++  expect(updPoolBody.length).toBeGreaterThan(100);
++  expect(updPoolBody).not.toContain('updRulesSummary');
++});
++
++test('rcv.3a — suite.css carries the ported rules-summary rules', async ({ request }) => {
++  const res = await request.get('/css/suite.css');
++  const css = await res.text();
++  for (const cls of [
++    '.rules-summary{',
++    '.rules-summary-head{',
++    '.rules-summary-label{',
++    '.rules-summary-body{',
++    '.rules-summary-head .chevron{',
++    '.power-cost{',
++    '.power-meta{',
++    '.power-desc{',
++  ]) {
++    expect(css.includes(cls), `${cls} missing from suite.css`).toBe(true);
++  }
++  // The chevron rule is scoped, never a bare `.chevron{` that could bleed.
++  expect(css.includes('\n.chevron{')).toBe(false);
++});
++
++// ── AC3: hidden until a real power is loaded ─────────────────────────────
++
++test('rcv.3a — the box is hidden before any pool is loaded', async ({ page }) => {
++  await setupSuite(page, [RICH_CHAR]);
++  await pickCharacter(page, RICH_CHAR);
++  await expect(page.locator(BOX)).toBeHidden();
++});
++
++test('rcv.3a — a plain Skill pool leaves the box hidden', async ({ page }) => {
++  await setupSuite(page, [RICH_CHAR]);
++  await pickCharacter(page, RICH_CHAR);
++
++  await page.locator(SKILLS_SEC + ' .gcp-acc-head').click();
++  await page.locator(SKILLS_SEC + ' .gcp-pool-btn', { hasText: 'Occult' }).click();
++  await expect(page.locator('#pool-banner')).toContainText('Occult');
++
++  await expect(page.locator(BOX)).toBeHidden();
++  expect(await page.locator(BODY).innerHTML()).toBe('');
++});
++
++test('rcv.3a — a Custom Pool leaves the box hidden, and clears a power already shown', async ({ page }) => {
++  await setupSuite(page, [RICH_CHAR]);
++  await pickCharacter(page, RICH_CHAR);
++
++  // Show it first, so this also proves the box is actively cleared, not just
++  // never populated.
++  await loadPower(page, 'Rcv3a Bright Sight');
++  await expect(page.locator(BOX)).toBeVisible();
++
++  await page.locator('#roll-char-pools .gcp-freebuild-btn').click();
++  await page.waitForSelector('#panel', { state: 'visible', timeout: 10000 });
++  await page.locator('.cp-attr-chip[data-a="Intelligence"]').click();
++  await page.locator('.cp-skill-chip[data-s="Occult"]').click();
++  await page.locator('#cp-load').click();
++
++  await expect(page.locator(BOX)).toBeHidden();
++  expect(await page.locator(BODY).innerHTML()).toBe('');
++});
++
++// ── AC5/AC6: what a loaded power actually shows ──────────────────────────
++
++test('rcv.3a — a power with rules_text shows cost, meta, effect and a working expander', async ({ page }) => {
++  await setupSuite(page, [RICH_CHAR]);
++  await pickCharacter(page, RICH_CHAR);
++  await loadPower(page, 'Rcv3a Bright Sight');
++
++  await expect(page.locator(BOX)).toBeVisible();
++  // AC4: collapsed on load.
++  expect(await isOpen(page)).toBe(false);
++  await expect(page.locator(BOX + ' .rules-summary-label')).toHaveText('Rules explanation');
++  // AC5: legacy free-text cost, with fmtCostLine's "Cost: " prefix stripped
++  // for this compact chip.
++  await expect(page.locator(COST)).toHaveText('1 Vitae');
++
++  await page.locator(HEAD).click();
++  expect(await isOpen(page)).toBe(true);
++
++  const meta = page.locator(BODY + ' .power-meta span');
++  await expect(meta).toHaveCount(2);
++  await expect(meta.nth(0)).toHaveText('Instant action');
++  await expect(meta.nth(1)).toHaveText('One scene');
++  await expect(page.locator(BODY + ' .power-desc')).toHaveText('The Kindred perceives the unseen edges of a room.');
++
++  // AC6: the shared #994 expander, collapsed, then toggling open.
++  const expander = page.locator(BODY + ' .rules-expander');
++  await expect(expander).toHaveCount(1);
++  const expBody = page.locator('#rules-body-rules-summary-expander');
++  await expect(expBody).not.toHaveClass(/\bvisible\b/);
++
++  await page.locator(BODY + ' .rules-expander-toggle').click();
++  await expect(expBody).toHaveClass(/\bvisible\b/);
++  await expect(expBody).toContainText('Spend one Vitae and roll the pool.');
++  await expect(expBody).toContainText('Source: VtR 2e p.123');
++  // The markdown-lite transforms the shared renderer promises.
++  await expect(expBody.locator('strong')).toHaveText('TM Errata:');
++  await expect(expBody.locator('.rules-text-hr')).toHaveCount(1);
++
++  await page.locator(BODY + ' .rules-expander-toggle').click();
++  await expect(expBody).not.toHaveClass(/\bvisible\b/);
++});
++
++test('rcv.3a — a power with NO rules_text still shows its summary, with no expander', async ({ page }) => {
++  await setupSuite(page, [RICH_CHAR]);
++  await pickCharacter(page, RICH_CHAR);
++  await loadPower(page, 'Rcv3a Dim Sight');
++
++  await expect(page.locator(BOX)).toBeVisible();
++  // AC5 fallback: no legacy `cost`, but real structured vitae/willpower costs.
++  await expect(page.locator(COST)).toHaveText('2 Vitae & 1 Willpower');
++
++  await page.locator(HEAD).click();
++  const meta = page.locator(BODY + ' .power-meta span');
++  await expect(meta).toHaveCount(2);
++  await expect(meta.nth(0)).toHaveText('Reflexive action');
++  await expect(meta.nth(1)).toHaveText('One turn');
++  await expect(page.locator(BODY + ' .power-desc')).toHaveText('A brief flicker of borrowed sight.');
++  // renderRulesExpander() self-guards to '' — nothing rendered, no empty shell.
++  await expect(page.locator(BODY + ' .rules-expander')).toHaveCount(0);
++  await expect(page.locator(BODY + ' .rules-expander-toggle')).toHaveCount(0);
++});
++
++// ── AC4: never inherit the previous power's open state ───────────────────
++
++test('rcv.3a — switching powers resets an open box to closed', async ({ page }) => {
++  await setupSuite(page, [RICH_CHAR]);
++  await pickCharacter(page, RICH_CHAR);
++
++  await loadPower(page, 'Rcv3a Bright Sight');
++  await page.locator(HEAD).click();
++  expect(await isOpen(page)).toBe(true);
++
++  await loadPower(page, 'Rcv3a Dim Sight');
++  expect(await isOpen(page)).toBe(false);
++  // And it is genuinely the new power's content, not the old one's.
++  await expect(page.locator(COST)).toHaveText('2 Vitae & 1 Willpower');
++  await expect(page.locator(BODY + ' .rules-expander')).toHaveCount(0);
++});
++
++// ── The whole reason this is painted from loadPool(), not updPool() ──────
++
++test('rcv.3a — an open box survives an unrelated updPool() repaint (WP chip)', async ({ page }) => {
++  await setupSuite(page, [RICH_CHAR]);
++  await pickCharacter(page, RICH_CHAR);
++  await loadPower(page, 'Rcv3a Bright Sight');
++
++  await page.locator(HEAD).click();
++  expect(await isOpen(page)).toBe(true);
++  // Leave the shared expander open too — its state lives in the same innerHTML
++  // that a rebuild-inside-updPool() implementation would have wiped.
++  await page.locator(BODY + ' .rules-expander-toggle').click();
++  await expect(page.locator('#rules-body-rules-summary-expander')).toHaveClass(/\bvisible\b/);
++
++  // togMod('wp') -> updPool(): repaints #effline, the sub-line, the roll button.
++  await page.locator('#wp-c').click();
++  await expect(page.locator('#rv2-sub')).toContainText('WP +3');
++
++  expect(await isOpen(page)).toBe(true);
++  await expect(page.locator('#rules-body-rules-summary-expander')).toHaveClass(/\bvisible\b/);
++  await expect(page.locator(BODY + ' .power-desc')).toHaveText('The Kindred perceives the unseen edges of a room.');
++
++  // A second repaint (Rote chip) is equally harmless.
++  await page.locator('#rote-c').click();
++  await expect(page.locator('#rv2-sub')).toContainText('rote');
++  expect(await isOpen(page)).toBe(true);
++});

@@ -1025,8 +1025,10 @@ const GDX3_PROBES = [
     html: '<div class="cr-box"><div class="cr-types"><button class="cr-type-btn on">Contested</button><button class="cr-type-btn">Resisted</button></div></div>' },
   { sel: '.cr-adj', tech: 'T3', tab: 't-roll',
     html: '<div class="cr-box"><div class="cr-ctr"><button class="cr-adj">−</button><span>4</span><button class="cr-adj">+</button></div></div>' },
-  { sel: '.gcp-collapse-btn', tech: 'T2', tab: 't-roll',
-    html: '<div id="roll-char-pools"><button class="gcp-collapse-btn">Hide pools</button></div>' },
+  // rcv.2 (Epic RCV) removed `.gcp-collapse-btn` outright — the single "Pools"
+  // collapse toggle was replaced by three independent accordions, and its
+  // touch-target rules were deleted from suite.css along with it, so the probe
+  // that used to sit here has nothing left to measure.
   { sel: '.gcp-pool-btn', tech: 'none', tab: 't-roll',
     html: '<div id="roll-char-pools"><button class="gcp-pool-btn"><span class="gcp-pool-lbl">Dominate</span><span class="gcp-stats">7 dice</span></button></div>' },
   { sel: '.hist-clr', tech: 'T2', tab: 't-dice',
