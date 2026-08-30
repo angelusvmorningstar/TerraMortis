@@ -96,7 +96,10 @@ import { openRulesOverlay, closeRulesOverlay } from './game/rules.js';
 import { renderPastOutcomes } from './tabs/downtime-tab.js';
 import { renderStatusTab } from './tabs/status-tab.js';
 import { renderRegencyTab } from './tabs/regency-tab.js';
-import { renderOfficeTab } from './tabs/office-tab.js';
+// prax.4b: `onPraxisResolved` is aliased the same way admin.js aliases its own
+// WS callbacks, so the initWS({...}) entry below reads as a wiring line rather
+// than a bare imported name.
+import { renderOfficeTab, onPraxisResolved as onOfficeTabPraxisResolved } from './tabs/office-tab.js';
 import { initArchiveTab } from './tabs/archive-tab.js';
 import { renderFeedingTab } from './tabs/feeding-tab.js';
 import { findRegentTerritory } from './data/helpers.js';
@@ -1893,6 +1896,19 @@ async function boot() {
           // player reloads, and there is no second chance. refetchBloodlines
           // preserves the last good index on failure by design.
           onBloodlineUpdate: () => { refetchBloodlines(); },
+          // prax.4b (Epic PRAX, AC16): a Praxis resolution mass-clears every
+          // Enforcer, Administrator and City Harpy seat at once, so an open
+          // Office tab is showing a seat that may no longer have a holder -
+          // wrong purchase controls, wrong budget preview, wrong "your office"
+          // banner. Passed straight to the office-tab module, which no-ops until
+          // that tab has been rendered at least once this session (same guard
+          // the admin app's own roll-feed and Praxis callbacks use, for the same
+          // reason: nothing to paint into before the first render).
+          //
+          // The frame is ST/dev-only at the transport layer (server/ws.js's
+          // `_fanOutRoles`), so a player socket never receives it and this
+          // callback simply never fires for them.
+          onPraxisResolved: () => { onOfficeTabPraxisResolved(); },
         });
 
         // Issue #425: install the STM popover delegated click handler for

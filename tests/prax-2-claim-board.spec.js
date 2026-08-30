@@ -86,12 +86,25 @@ const SESSIONS = [{
   ],
 }];
 
-// Brandy holds the "People's Harpy" seat; the other Socialite seat ('Harpy') is
-// held by nobody here, which is what makes the seat_label check load-bearing.
+// Brandy holds the "People's Harpy" seat; the other Socialite seat is held by
+// nobody here, which is what makes the seat_label check load-bearing.
+//
+// prax.4b renamed that other seat's label from plain 'Harpy' to 'City Harpy'
+// (its own precondition - the Praxis mass-clear matches on the label and the two
+// must not be confusable). Nothing in prax.2/prax.3/prax.4a's own tests reads
+// that label, so the rename is invisible to them; the seat is still Socialite,
+// still vacant, still the one the People's Harpy lookup must not return.
+const SEAT_CITY_HARPY = cid(70);
+const SEAT_PEOPLES_HARPY = cid(71);
+const SEAT_PRIMOGEN = cid(72);
+const SEAT_ENFORCER = cid(73);
+const SEAT_ADMIN = cid(74);
+const CITY_HARPY_SEAT_LABEL = 'City Harpy';
+
 const SEATS = [
-  { _id: cid(70), office_category: 'Socialite', seat_label: 'Harpy', holder_id: null, created_at: '2026-01-01' },
-  { _id: cid(71), office_category: 'Socialite', seat_label: "People's Harpy", holder_id: BRANDY, created_at: '2026-01-02' },
-  { _id: cid(72), office_category: 'Primogen', seat_label: null, holder_id: MIKAEL, created_at: '2026-01-03' },
+  { _id: SEAT_CITY_HARPY, office_category: 'Socialite', seat_label: CITY_HARPY_SEAT_LABEL, holder_id: null, created_at: '2026-01-01' },
+  { _id: SEAT_PEOPLES_HARPY, office_category: 'Socialite', seat_label: "People's Harpy", holder_id: BRANDY, created_at: '2026-01-02' },
+  { _id: SEAT_PRIMOGEN, office_category: 'Primogen', seat_label: null, holder_id: MIKAEL, created_at: '2026-01-03' },
 ];
 
 /** The resolve timestamp the fake stamps on every snapshot (prax.4a). */
@@ -127,6 +140,38 @@ function boardWithTallies(praxis, harpy) {
   b.harpy.claims = asClaims(harpy?.claims);
   b.harpy.support = { ...(harpy?.support || {}) };
   return b;
+}
+
+/**
+ * prax.4b: the mass-clear set, as the SERVER computes it - every occupied
+ * Enforcer or Administrator seat, plus the one Socialite seat labelled
+ * 'City Harpy'. A deliberate mirror of `massClearFilter()` in
+ * server/routes/praxis-sessions.js AND of `massClearSeats()` in
+ * public/js/admin/praxis-tab.js: this fake is the third implementation, and the
+ * whole point of the confirmed-set diff is that all three agree.
+ *
+ * "People's Harpy" is never a member. It is matched on the OTHER label.
+ */
+function massClearOf(seats) {
+  return (seats || [])
+    .filter(s => s && s.holder_id != null && (
+      ['Enforcer', 'Administrator'].includes(s.office_category)
+      || (s.office_category === 'Socialite' && s.seat_label === CITY_HARPY_SEAT_LABEL)
+    ))
+    .sort((a, b) => String(a._id).localeCompare(String(b._id)));
+}
+
+/**
+ * City Status for one character id, mirroring `calcCityStatus`'s own formula
+ * for these fixtures: `status.city` plus the title bonus of their court
+ * category. No territories are mocked, so there is no regent-ambience
+ * component, and none of these figures reaches the 10 cap.
+ */
+const TITLE_STATUS_BONUS = { 'Head of State': 3, Primogen: 2, Socialite: 1, Enforcer: 1, Administrator: 1 };
+function cityStatusOf(id) {
+  const c = CHARS.find(x => x._id === id);
+  if (!c) return 0;
+  return (c.status?.city || 0) + (TITLE_STATUS_BONUS[c.court_category] || 0);
 }
 
 // ── Stateful praxis_sessions fake ────────────────────────────────────────────
@@ -208,6 +253,71 @@ async function mockPraxis(page, state) {
         if (seat) seat.holder_id = winner;
       }
       return json(200, { ok: true, dismissed: winner === null, resolved });
+    }
+
+    // POST /api/praxis_sessions/:id/resolve-praxis   (prax.4b)
+    //
+    // Models the four things the real route guarantees and the client depends
+    // on: the snapshot is written ONCE; the confirmed vacate list is DIFFED
+    // against a live recomputation of the mass-clear set and a mismatch is a 409
+    // carrying the CURRENT list (never the stale one); every matched seat is
+    // emptied in the same call, so the seat array the client re-reads afterwards
+    // is post-clear; and the claim/support history is left completely alone.
+    //
+    // The mass-clear set is recomputed from `state.seats` on every call rather
+    // than captured, which is what lets a test move a seat between opening the
+    // modal and confirming and get a genuine stale-list 409 out of it.
+    if (method === 'POST' && /\/resolve-praxis$/.test(url)) {
+      if (state.board.resolved.praxis) {
+        return json(409, {
+          error: 'CONFLICT',
+          message: 'The Praxis claim on this board has already been resolved',
+        });
+      }
+      const winner = body.claimant_character_id;
+
+      if (winner === null) {
+        state.board.resolved.praxis = { dismissed: true, resolved_at: RESOLVED_AT };
+        return json(200, { ok: true, dismissed: true, resolved: state.board.resolved.praxis });
+      }
+
+      const live = massClearOf(state.seats);
+      const liveIds = live.map(s => String(s._id)).sort();
+      const confirmed = [...new Set(body.confirmed_vacate_seat_ids || [])].sort();
+      const matches = liveIds.length === confirmed.length && liveIds.every((id, i) => id === confirmed[i]);
+      if (!matches) {
+        return json(409, {
+          error: 'CONFLICT',
+          message: 'The offices this resolution would vacate changed since the confirmation was opened. Review the updated list and confirm again.',
+          current_vacate_seat_ids: liveIds,
+          current_vacate: live.map(s => ({
+            seat_id: String(s._id),
+            office_category: s.office_category,
+            seat_label: s.seat_label ?? null,
+            holder_id: s.holder_id ?? null,
+          })),
+        });
+      }
+
+      // The mass-clear itself, plus the winner's own People's Harpy seat if
+      // they hold it - the explicit extra branch the real route carries, never
+      // a member of the query's match set.
+      for (const seat of live) seat.holder_id = null;
+      const peoples = state.seats.find(s => s.office_category === 'Socialite' && s.seat_label === "People's Harpy");
+      if (peoples && peoples.holder_id === winner) peoples.holder_id = null;
+
+      const support = state.board.praxis.support;
+      const resolved = {
+        winner_character_id: winner,
+        // The City Status sum, mirroring the board's own Praxis weighting: the
+        // claimant plus every supporter assigned to them.
+        final_tally: [winner, ...Object.keys(support).filter(k => support[k] === winner)]
+          .reduce((sum, id) => sum + cityStatusOf(id), 0),
+        vacated_seat_ids: confirmed,
+        resolved_at: RESOLVED_AT,
+      };
+      state.board.resolved.praxis = resolved;
+      return json(200, { ok: true, dismissed: false, resolved });
     }
 
     // DELETE /api/praxis_sessions/:id/claims/:characterId?tally=praxis
@@ -1042,16 +1152,31 @@ test.describe('prax.4a - the confirmation toast (AC10)', () => {
 });
 
 test.describe('prax.4a - the Praxis tally is untouched (AC8, AC11)', () => {
-  test('neither resolve action ever appears on the Praxis tab', async ({ page }) => {
+  // SUPERSEDED BY prax.4b, deliberately rewritten rather than deleted.
+  //
+  // As prax.4a shipped it, this test asserted that NEITHER resolve action ever
+  // appeared on the Praxis tab, because `resolved.praxis` had no writer yet -
+  // "prax.4b owns resolving Praxis. Nothing here may offer it." prax.4b built
+  // that writer, so both actions are now correct on both tallies and the old
+  // assertion pinned an absence that was only ever temporary.
+  //
+  // What is still worth pinning, and is what this test now checks, is that the
+  // two tallies remain DISTINCT: the Praxis action carries the crimson variant
+  // class and opens a confirmation, the Harpy action does not and resolves on
+  // the tap. That is the real invariant prax.4a was reaching for.
+  test('both tallies offer the actions, and the Praxis one is visibly the heavier', async ({ page }) => {
     await setup(page, boardWithTallies({ claims: [BRANDY, MIKAEL] }, { claims: [MIKAEL] }));
     await openPraxis(page);
 
-    // prax.4b owns resolving Praxis. Nothing here may offer it.
-    await expect(board(page).locator('.claim-resolve')).toHaveCount(0);
-    await expect(dismissBtn(page)).toHaveCount(0);
+    await expect(board(page).locator('.claim-resolve')).toHaveCount(2);
+    await expect(board(page).locator('.claim-resolve.praxis')).toHaveCount(2);
+    await expect(dismissBtn(page)).toHaveCount(1);
 
     await switchTo(page, 'harpy', 'People’s Harpy Vote');
     await expect(board(page).locator('.claim-resolve')).toHaveCount(1);
+    // The Harpy button keeps prax.4a's own gold treatment - the variant class
+    // is Praxis-only.
+    await expect(board(page).locator('.claim-resolve.praxis')).toHaveCount(0);
     await expect(dismissBtn(page)).toHaveCount(1);
   });
 
@@ -1098,5 +1223,417 @@ test.describe('prax.4a - the Praxis tally is untouched (AC8, AC11)', () => {
     await switchTo(page, 'praxis', 'Praxis Claim');
 
     await expect(cardFor(page, BRANDY).locator('.claim-badge.amber')).toHaveCount(0);
+  });
+});
+
+// ═══ prax.4b - resolving the Praxis claim (Head of State) ════════════════════
+//
+// Extends this spec again rather than forking, on the same reasoning prax.3 and
+// prax.4a gave: every test below drives the SAME component through the SAME
+// stateful fake, and that fake now models the Praxis resolve route's own four
+// guarantees too - written once, diffed against the confirmed list, mass-cleared
+// in one call, history untouched.
+
+const confirmModal = page => page.locator('.confirm-modal-overlay');
+const confirmRows = page => confirmModal(page).locator('.confirm-vacate-row');
+const confirmNotes = page => confirmModal(page).locator('.confirm-note-row');
+const confirmGo = page => confirmModal(page).locator('.confirm-go');
+const confirmCancel = page => confirmModal(page).locator('.confirm-cancel');
+
+/**
+ * Seats with the mass-clear set actually populated.
+ *
+ *   City Harpy    -> Desmond Okafor   } the two-seat mass-clear set
+ *   Enforcer      -> Corvin Adeyemi   }
+ *   Administrator -> VACANT, so it is simply absent from the list rather than
+ *                    shown as "nobody" (the locked mockup's variant 2)
+ *   People's Harpy-> Brandy LaRoux    (her own, vacated by its own branch)
+ *   Primogen      -> Mikael Thorne    (kept, not vacated)
+ */
+const PRAX4B_SEATS = [
+  { _id: SEAT_CITY_HARPY, office_category: 'Socialite', seat_label: CITY_HARPY_SEAT_LABEL, holder_id: DESMOND, created_at: '2026-01-01' },
+  { _id: SEAT_PEOPLES_HARPY, office_category: 'Socialite', seat_label: "People's Harpy", holder_id: BRANDY, created_at: '2026-01-02' },
+  { _id: SEAT_PRIMOGEN, office_category: 'Primogen', seat_label: null, holder_id: MIKAEL, created_at: '2026-01-03' },
+  { _id: SEAT_ENFORCER, office_category: 'Enforcer', seat_label: null, holder_id: CORVIN, created_at: '2026-01-04' },
+  { _id: SEAT_ADMIN, office_category: 'Administrator', seat_label: null, holder_id: null, created_at: '2026-01-05' },
+];
+
+/** Every one of the three offices already vacant - the locked mockup's 2b. */
+const PRAX4B_SEATS_ALL_VACANT = PRAX4B_SEATS.map(s => (
+  s._id === SEAT_PRIMOGEN || s._id === SEAT_PEOPLES_HARPY ? s : { ...s, holder_id: null }
+));
+
+/** The mass-clear ids the modal should send, in the order the client sorts them. */
+const EXPECTED_VACATE_IDS = [SEAT_CITY_HARPY, SEAT_ENFORCER].sort();
+
+/** A board whose Praxis tally is already resolved when the tab first loads. */
+function praxisResolvedBoard(praxisResolved, praxis, harpy) {
+  const b = boardWithTallies(praxis, harpy);
+  b.resolved.praxis = praxisResolved;
+  return b;
+}
+
+test.describe('prax.4b - the Declare Winner action (AC10, AC11)', () => {
+  test('the Praxis action is the crimson variant and OPENS THE MODAL rather than resolving', async ({ page }) => {
+    const state = await setup(page, boardWithTallies(
+      { claims: [BRANDY, MIKAEL], support: { [PETRA]: BRANDY } },
+      { claims: [CORVIN] },
+    ), { seats: PRAX4B_SEATS });
+    await openPraxis(page);
+
+    // AC10: present on Praxis now (prax.4a's own test pinned it ABSENT here),
+    // and carrying the extra class the crimson treatment hangs off.
+    await expect(declareBtn(page, BRANDY)).toHaveText('Declare Winner');
+    await expect(declareBtn(page, BRANDY)).toHaveClass(/\bpraxis\b/);
+    await expect(dismissBtn(page)).toHaveCount(1);
+
+    await declareBtn(page, BRANDY).click();
+
+    // The whole difference from Harpy: nothing is sent yet.
+    await expect(confirmModal(page)).toBeVisible();
+    expect(state.calls.filter(c => /\/resolve-praxis$/.test(c.url))).toHaveLength(0);
+    // And the board underneath is untouched.
+    await expect(cardFor(page, BRANDY)).toBeVisible();
+    await expect(resolvedCard(page)).toHaveCount(0);
+  });
+
+  test('the Harpy action stays gold and keeps its own no-modal behaviour', async ({ page }) => {
+    await setup(page, boardWithTallies({ claims: [BRANDY] }, { claims: [MIKAEL] }), { seats: PRAX4B_SEATS });
+    await openPraxis(page);
+    await switchTo(page, 'harpy', 'People’s Harpy Vote');
+
+    await expect(declareBtn(page, MIKAEL)).not.toHaveClass(/\bpraxis\b/);
+    await declareBtn(page, MIKAEL).click();
+    // Resolves on the tap, exactly as prax.4a shipped it. No modal, ever.
+    await expect(confirmModal(page)).toHaveCount(0);
+    await expect(resolvedCard(page)).toHaveCount(1);
+  });
+});
+
+test.describe('prax.4b - the confirm modal (AC12)', () => {
+  test('names the winner and every office the resolution vacates', async ({ page }) => {
+    await setup(page, boardWithTallies({ claims: [BRANDY] }), { seats: PRAX4B_SEATS });
+    await openPraxis(page);
+    await declareBtn(page, BRANDY).click();
+
+    await expect(confirmModal(page).locator('.confirm-headline'))
+      .toHaveText('Brandy LaRoux will become Head of State');
+
+    // Two rows, one per occupied seat in the mass-clear set. Administrator is
+    // vacant, so it is simply absent rather than listed as "nobody".
+    await expect(confirmRows(page)).toHaveCount(2);
+    await expect(confirmRows(page)).toContainText(['Desmond Okafor', 'Corvin Adeyemi']);
+    await expect(confirmRows(page).nth(0).locator('.office')).toHaveText('City Harpy');
+    await expect(confirmRows(page).nth(1).locator('.office')).toHaveText('Enforcer');
+    // The People's Harpy seat is NEVER a row: it is vacated by its own branch.
+    await expect(confirmRows(page)).not.toContainText(['People’s Harpy']);
+  });
+
+  test('shows the People’s Harpy note when the winner holds that seat, and no Primogen note', async ({ page }) => {
+    await setup(page, boardWithTallies({ claims: [BRANDY] }), { seats: PRAX4B_SEATS });
+    await openPraxis(page);
+    await declareBtn(page, BRANDY).click();
+
+    await expect(confirmNotes(page)).toHaveCount(1);
+    await expect(confirmNotes(page)).toContainText('People’s Harpy seat is vacated');
+    await expect(confirmNotes(page)).not.toContainText('Primogen');
+  });
+
+  test('shows the Primogen note when the winner holds that seat, and no People’s Harpy note', async ({ page }) => {
+    await setup(page, boardWithTallies({ claims: [MIKAEL] }), { seats: PRAX4B_SEATS });
+    await openPraxis(page);
+    await declareBtn(page, MIKAEL).click();
+
+    await expect(confirmNotes(page)).toHaveCount(1);
+    await expect(confirmNotes(page)).toContainText('own Primogen seat');
+    await expect(confirmNotes(page)).toContainText('the seat itself is untouched');
+    await expect(confirmNotes(page)).not.toContainText('People’s Harpy seat is vacated');
+  });
+
+  test('a winner who holds one of the three appears in the list like anyone else', async ({ page }) => {
+    // Corvin is the sitting Enforcer. Design-lock item 2: his own seat is
+    // vacated by the same mass-clear and he is named in the list, with a small
+    // suffix rather than a separate note or a silent omission.
+    await setup(page, boardWithTallies({ claims: [CORVIN] }), { seats: PRAX4B_SEATS });
+    await openPraxis(page);
+    await declareBtn(page, CORVIN).click();
+
+    await expect(confirmRows(page)).toHaveCount(2);
+    const own = confirmRows(page).filter({ hasText: 'Corvin Adeyemi' });
+    await expect(own.locator('.office')).toHaveText('Enforcer · their own');
+    // He is in the LIST, not hidden behind a note.
+    await expect(confirmNotes(page)).toHaveCount(0);
+  });
+
+  test('an empty match set says so in words rather than rendering blank', async ({ page }) => {
+    await setup(page, boardWithTallies({ claims: [MIKAEL] }), { seats: PRAX4B_SEATS_ALL_VACANT });
+    await openPraxis(page);
+    await declareBtn(page, MIKAEL).click();
+
+    await expect(confirmRows(page)).toHaveCount(0);
+    await expect(confirmModal(page).locator('.confirm-vacate-empty'))
+      .toHaveText('Nobody — Enforcer, Administrator and City Harpy are all currently vacant.');
+    await expect(confirmGo(page)).toBeVisible();
+  });
+
+  test('Cancel closes it and sends nothing', async ({ page }) => {
+    const state = await setup(page, boardWithTallies({ claims: [BRANDY] }), { seats: PRAX4B_SEATS });
+    await openPraxis(page);
+    await declareBtn(page, BRANDY).click();
+    await expect(confirmModal(page)).toBeVisible();
+
+    await confirmCancel(page).click();
+
+    await expect(confirmModal(page)).toHaveCount(0);
+    expect(state.calls.filter(c => /\/resolve-praxis$/.test(c.url))).toHaveLength(0);
+    // The live board is exactly where it was.
+    await expect(cardFor(page, BRANDY)).toBeVisible();
+  });
+
+  test('the open modal blocks the board underneath, so no mis-tap escapes it', async ({ page }) => {
+    // The overlay is the reason the module's own switch-tally reset is belt and
+    // braces rather than the primary guard: while a confirmation is open the ST
+    // cannot reach the segmented control, the pool chips or the claim cards at
+    // all. This is the highest-stakes screen in the board, and a stray tap on
+    // the tally switch must not quietly abandon it half-read.
+    await setup(page, boardWithTallies({ claims: [BRANDY] }, { claims: [MIKAEL] }), { seats: PRAX4B_SEATS });
+    await openPraxis(page);
+    await declareBtn(page, BRANDY).click();
+    await expect(confirmModal(page)).toBeVisible();
+
+    // Playwright's own pointer-interception check is the assertion: a `trial`
+    // click reports whether the click COULD land, without performing it, and it
+    // times out rather than landing when something covers the target.
+    let blocked = false;
+    try {
+      await tallyBtn(page, 'harpy').click({ trial: true, timeout: 2000 });
+    } catch {
+      blocked = true;
+    }
+    expect(blocked).toBe(true);
+    await expect(board(page).locator('.pb-title')).toHaveText('Praxis Claim');
+    await expect(confirmModal(page)).toBeVisible();
+
+    // Cancel is the way out, and it leaves the board exactly where it was.
+    await confirmCancel(page).click();
+    await expect(confirmModal(page)).toHaveCount(0);
+    await switchTo(page, 'harpy', 'People’s Harpy Vote');
+    await expect(confirmModal(page)).toHaveCount(0);
+  });
+});
+
+test.describe('prax.4b - Confirm Resolve (AC12, AC14, AC15)', () => {
+  test('posts the exact confirmed list, then shows the frozen result', async ({ page }) => {
+    const state = await setup(page, boardWithTallies(
+      { claims: [BRANDY, MIKAEL], support: { [PETRA]: BRANDY } },
+      { claims: [CORVIN] },
+    ), { seats: PRAX4B_SEATS });
+    await openPraxis(page);
+
+    await declareBtn(page, BRANDY).click();
+    await confirmGo(page).click();
+
+    const post = state.calls.find(c => /\/resolve-praxis$/.test(c.url));
+    expect(post.body.claimant_character_id).toBe(BRANDY);
+    // The CAS baseline: exactly the seat ids the modal displayed.
+    expect([...post.body.confirmed_vacate_seat_ids].sort()).toEqual(EXPECTED_VACATE_IDS);
+
+    // AC15: the live section is replaced by the frozen summary. Brandy's own
+    // City Status is 4 + Socialite 1 = 5; Petra backs her at 2. Named by the
+    // OFFICE won, and counted in `status`, not `votes`.
+    await expect(confirmModal(page)).toHaveCount(0);
+    await expect(resolvedCard(page)).toHaveClass(/\bwon\b/);
+    await expect(resolvedCard(page).locator('.winner-name')).toHaveText('Brandy LaRoux');
+    await expect(resolvedCard(page).locator('.winner-tally'))
+      .toHaveText('Head of State · 7 status · 12 Aug 2026');
+
+    // Nothing left to assign, and no sheet trigger left to tap.
+    await expect(board(page).locator('.pool-strip')).toHaveCount(0);
+    await expect(cards(page)).toHaveCount(0);
+    await expect(board(page).locator('.claim-resolve')).toHaveCount(0);
+    await expect(dismissBtn(page)).toHaveCount(0);
+  });
+
+  test('the toast names the winner and a COUNT of offices, with no Undo', async ({ page }) => {
+    await setup(page, boardWithTallies({ claims: [BRANDY] }), { seats: PRAX4B_SEATS });
+    await openPraxis(page);
+    await declareBtn(page, BRANDY).click();
+    await confirmGo(page).click();
+
+    await expect(praxisToast(page)).toBeVisible();
+    await expect(praxisToast(page)).toContainText('Brandy LaRoux is now Head of State.');
+    // A count, not a list of names: a mass-clear can affect several people.
+    await expect(praxisToast(page)).toContainText('2 offices vacated.');
+    await expect(praxisToast(page).locator('button')).toHaveCount(0);
+  });
+
+  test('the second toast line is omitted entirely when nothing was vacated', async ({ page }) => {
+    await setup(page, boardWithTallies({ claims: [MIKAEL] }), { seats: PRAX4B_SEATS_ALL_VACANT });
+    await openPraxis(page);
+    await declareBtn(page, MIKAEL).click();
+    await confirmGo(page).click();
+
+    await expect(praxisToast(page)).toContainText('Mikael Thorne is now Head of State.');
+    await expect(praxisToast(page)).not.toContainText('vacated');
+  });
+
+  test('a board that is ALREADY resolved on load renders the summary and no actions', async ({ page }) => {
+    await setup(page, praxisResolvedBoard(
+      { winner_character_id: PETRA, final_tally: 11, vacated_seat_ids: EXPECTED_VACATE_IDS, resolved_at: RESOLVED_AT },
+      { claims: [PETRA, BRANDY] },
+      { claims: [MIKAEL] },
+    ), { seats: PRAX4B_SEATS });
+    await openPraxis(page);
+
+    await expect(resolvedCard(page).locator('.winner-name')).toHaveText('Petra Voss');
+    await expect(resolvedCard(page).locator('.winner-tally'))
+      .toHaveText('Head of State · 11 status · 12 Aug 2026');
+    await expect(board(page).locator('.claim-resolve')).toHaveCount(0);
+    await expect(dismissBtn(page)).toHaveCount(0);
+    await expect(cards(page)).toHaveCount(0);
+  });
+});
+
+test.describe('prax.4b - the stale confirm list (AC13)', () => {
+  test('a 409 re-renders the SAME modal with the fresh list, and a retry then succeeds', async ({ page }) => {
+    const state = await setup(page, boardWithTallies({ claims: [BRANDY] }), { seats: PRAX4B_SEATS });
+    await openPraxis(page);
+
+    await declareBtn(page, BRANDY).click();
+    await expect(confirmRows(page)).toHaveCount(2);
+
+    // Somebody vacates the Enforcer seat through the Court panel while the ST is
+    // reading their confirmation. The list on screen is now the stale baseline.
+    state.seats.find(s => s.office_category === 'Enforcer').holder_id = null;
+
+    await confirmGo(page).click();
+
+    // Design-lock item 5: the modal STAYS OPEN, re-rendered from the fresh list
+    // the error carried, with a warning saying why.
+    await expect(confirmModal(page)).toBeVisible();
+    await expect(confirmModal(page).locator('.confirm-stale'))
+      .toContainText('This board changed since you opened this confirmation.');
+    await expect(confirmModal(page).locator('.confirm-section-label').first())
+      .toHaveText('Offices vacated by this resolution (updated)');
+    await expect(confirmRows(page)).toHaveCount(1);
+    await expect(confirmRows(page)).toContainText(['Desmond Okafor']);
+    await expect(confirmRows(page)).not.toContainText(['Corvin Adeyemi']);
+    // NOTHING was written on the refused attempt.
+    await expect(resolvedCard(page)).toHaveCount(0);
+
+    // The immediate retry sends the UPDATED list and goes through.
+    await confirmGo(page).click();
+
+    const posts = state.calls.filter(c => /\/resolve-praxis$/.test(c.url));
+    expect(posts).toHaveLength(2);
+    expect([...posts[1].body.confirmed_vacate_seat_ids].sort()).toEqual([SEAT_CITY_HARPY]);
+    await expect(confirmModal(page)).toHaveCount(0);
+    await expect(resolvedCard(page).locator('.winner-name')).toHaveText('Brandy LaRoux');
+  });
+
+  test('Cancel is still available on a stale list, and still sends nothing more', async ({ page }) => {
+    const state = await setup(page, boardWithTallies({ claims: [BRANDY] }), { seats: PRAX4B_SEATS });
+    await openPraxis(page);
+    await declareBtn(page, BRANDY).click();
+    state.seats.find(s => s.office_category === 'Enforcer').holder_id = null;
+    await confirmGo(page).click();
+    await expect(confirmModal(page).locator('.confirm-stale')).toBeVisible();
+
+    await confirmCancel(page).click();
+
+    await expect(confirmModal(page)).toHaveCount(0);
+    expect(state.calls.filter(c => /\/resolve-praxis$/.test(c.url))).toHaveLength(1);
+    await expect(resolvedCard(page)).toHaveCount(0);
+    await expect(cardFor(page, BRANDY)).toBeVisible();
+  });
+});
+
+test.describe('prax.4b - dismissing the Praxis vote (AC11, AC14)', () => {
+  test('Dismiss vote sends an explicit null, with NO confirm step', async ({ page }) => {
+    const state = await setup(page, boardWithTallies({ claims: [BRANDY], support: { [PETRA]: BRANDY } }), { seats: PRAX4B_SEATS });
+    await openPraxis(page);
+
+    await expect(dismissBtn(page)).toHaveText('Dismiss vote (no winner)');
+    await dismissBtn(page).click();
+
+    // Design-lock item 1: the same low-stakes posture as Harpy's own dismiss.
+    await expect(confirmModal(page)).toHaveCount(0);
+    const post = state.calls.find(c => /\/resolve-praxis$/.test(c.url));
+    expect(Object.keys(post.body)).toEqual(['claimant_character_id']);
+    expect(post.body.claimant_character_id).toBeNull();
+
+    await expect(resolvedCard(page)).toHaveClass(/\babandoned\b/);
+    await expect(resolvedCard(page).locator('.icon')).toHaveText('Dismissed');
+    await expect(resolvedCard(page).locator('.winner-name')).toHaveText('No winner declared');
+    await expect(resolvedCard(page).locator('.winner-tally')).toHaveText('Head of State · 12 Aug 2026');
+    await expect(praxisToast(page)).toHaveText('Praxis vote dismissed. No winner recorded.');
+
+    // The claim history is not wiped server-side, and the summary row above
+    // still reads it: only the LIVE section below is gone.
+    await expect(cards(page)).toHaveCount(0);
+    await expect(summaryFor(page, 'praxis').locator('.tally-summary-leader')).toContainText('Brandy LaRoux');
+  });
+
+  test('no seat is vacated by a dismissal', async ({ page }) => {
+    const state = await setup(page, boardWithTallies({ claims: [BRANDY] }), { seats: PRAX4B_SEATS });
+    await openPraxis(page);
+    await dismissBtn(page).click();
+    await expect(resolvedCard(page)).toHaveCount(1);
+
+    expect(state.seats.find(x => x.office_category === 'Enforcer').holder_id).toBe(CORVIN);
+    expect(state.seats.find(x => x.seat_label === CITY_HARPY_SEAT_LABEL).holder_id).toBe(DESMOND);
+  });
+});
+
+test.describe('prax.4b - the two tallies stay independent (AC15)', () => {
+  test('the Harpy tab is completely unaffected by a Praxis resolve', async ({ page }) => {
+    const state = await setup(page, boardWithTallies(
+      { claims: [BRANDY], support: { [PETRA]: BRANDY } },
+      { claims: [MIKAEL], support: { [WREN]: MIKAEL } },
+    ), { seats: PRAX4B_SEATS });
+    await openPraxis(page);
+
+    await declareBtn(page, BRANDY).click();
+    await confirmGo(page).click();
+    await expect(resolvedCard(page)).toHaveCount(1);
+
+    await switchTo(page, 'harpy', 'People’s Harpy Vote');
+
+    // Still fully live: claim card, supporter chip, both resolve actions.
+    await expect(resolvedCard(page)).toHaveCount(0);
+    await expect(cardFor(page, MIKAEL).locator('.claim-tally')).toContainText('1');
+    await expect(cardFor(page, MIKAEL).locator('.support-chip')).toContainText('Wren Halloway');
+    await expect(declareBtn(page, MIKAEL)).toHaveCount(1);
+    await expect(dismissBtn(page)).toHaveCount(1);
+
+    // And still writable, on its own tally.
+    await chipNamed(page, 'Corvin Adeyemi').click();
+    await sheet(page).locator('.sheet-row', { hasText: 'Mikael Thorne' }).click();
+    await expect(cardFor(page, MIKAEL).locator('.claim-tally')).toContainText('2');
+    const put = state.calls.filter(c => c.method === 'PUT').pop();
+    expect(put.body.tally).toBe('harpy');
+
+    // The Praxis side is still resolved, and switching back proves it.
+    await switchTo(page, 'praxis', 'Praxis Claim');
+    await expect(resolvedCard(page).locator('.winner-name')).toHaveText('Brandy LaRoux');
+  });
+
+  test('a board resolved on BOTH tallies shows each tally its own result', async ({ page }) => {
+    const b = praxisResolvedBoard(
+      { winner_character_id: BRANDY, final_tally: 7, vacated_seat_ids: EXPECTED_VACATE_IDS, resolved_at: RESOLVED_AT },
+      { claims: [BRANDY] },
+      { claims: [MIKAEL] },
+    );
+    b.resolved.harpy = { winner_character_id: MIKAEL, final_tally: 2, resolved_at: RESOLVED_AT };
+    await setup(page, b, { seats: PRAX4B_SEATS });
+    await openPraxis(page);
+
+    await expect(resolvedCard(page).locator('.winner-tally'))
+      .toHaveText('Head of State · 7 status · 12 Aug 2026');
+
+    await switchTo(page, 'harpy', 'People’s Harpy Vote');
+    await expect(resolvedCard(page).locator('.winner-name')).toHaveText('Mikael Thorne');
+    await expect(resolvedCard(page).locator('.winner-tally'))
+      .toHaveText('People’s Harpy · 2 votes · 12 Aug 2026');
   });
 });

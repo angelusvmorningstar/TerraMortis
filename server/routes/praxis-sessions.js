@@ -21,20 +21,24 @@
  * ═══ WHAT IS AND IS NOT HERE ═══
  *
  * Opening and withdrawing claims, and assigning and unassigning supporters,
- * plus (prax.4a) resolving the People's Harpy tally.
+ * plus (prax.4a) resolving the People's Harpy tally and (prax.4b) resolving the
+ * Praxis claim itself.
  *
- * Nothing renders (prax.2/prax.3 build the boards). `resolved.praxis` is still
- * minted as null by POST / and never written again by any handler below -
- * prax.4b owns the Praxis/Head of State resolve and its much larger mass-clear.
- * `resolved.harpy` gained exactly ONE writer in prax.4a: the sixth route at the
- * bottom of this file.
+ * Nothing renders (prax.2/prax.3 build the boards). Each `resolved.<tally>`
+ * field has exactly ONE writer, and both live at the bottom of this file:
+ * `resolved.harpy` is written by the sixth route (`POST /:id/resolve-harpy`,
+ * prax.4a, a single-seat handover) and `resolved.praxis` by the seventh
+ * (`POST /:id/resolve-praxis`, prax.4b, the Head of State mass-clear). The two
+ * are structurally similar and deliberately independent: neither reads or
+ * writes the other's half of the document, so resolving one tally leaves the
+ * other fully live.
  */
 
 import { Router } from 'express';
 import { ObjectId } from 'mongodb';
 import { getCollection, getClient } from '../db.js';
 import { requireRole } from '../middleware/auth.js';
-import { broadcastPraxisUpdate } from '../ws.js';
+import { broadcastPraxisUpdate, broadcastPraxisResolved } from '../ws.js';
 // prax.4a: the office-manoeuvre reset, extracted verbatim out of
 // office-seats.js when this route became its second caller (AC1). This route
 // cannot call `PUT /api/office_seats/:seatId/holder` over HTTP - it needs the
@@ -52,6 +56,20 @@ import { resetManoeuvreRank } from '../lib/reset-manoeuvre-rank.js';
 // starts accepting an id shape another rejects. Only the pattern is imported;
 // `resolveOfficeSeat` itself has nothing to do with this collection.
 import { SEAT_ID_PATTERN } from '../lib/office-seat-resolve.js';
+// prax.4b: prax.0's headline derivation, reused rather than reimplemented. This
+// route is the first real caller outside office-seats.js's own handover route.
+// The PURE half is what is used below, not the querying half - see the note at
+// the headline write for why this route has to supply a seat the winner does
+// not hold a document for.
+import { deriveCourtCategory } from '../lib/court-category.js';
+// prax.4b: the Praxis tally is a City Status SUM, not a headcount, so freezing
+// it needs the same arithmetic the board renders with. `city-status-calc.js`
+// exists precisely to be importable from both sides (see its own header, and
+// office-actions.js's authoritative budget check, the other server caller);
+// `accessors.js` itself is NOT server-safe. `findRegentTerritory` is the same
+// pure helper accessors.js resolves the regent-ambience component through.
+import { calcEffectiveCityStatus } from '../../public/js/data/city-status-calc.js';
+import { findRegentTerritory } from '../../public/js/data/helpers.js';
 
 const router = Router();
 const col = () => getCollection('praxis_sessions');
@@ -82,6 +100,67 @@ const PEOPLES_HARPY_SEAT_LABEL = "People's Harpy";
 
 /** The office category both Socialite seats sit under. */
 const SOCIALITE_CATEGORY = 'Socialite';
+
+/**
+ * prax.4b: the office a Praxis win confers.
+ *
+ * Written to `characters.court_category` / `court_title` only. This route does
+ * NOT hand over a Head of State SEAT, and that is the epic's own ruled scope,
+ * not an omission: the winner's HEADLINE flips to Head of State while
+ * `office_seats` records only the seats they really sit in. See the headline
+ * write below, and prax.0's own `server/lib/court-category.js`, which documents
+ * that a dual-seat holder's headline and their held seats legitimately and
+ * permanently disagree.
+ */
+const HEAD_OF_STATE_CATEGORY = 'Head of State';
+
+/**
+ * prax.4b: the APPOINTED Socialite seat, one of the three offices a Praxis win
+ * mass-clears.
+ *
+ * `'City Harpy'`, NOT plain `'Harpy'`. The rename is this story's own
+ * precondition (`server/scripts/rename-city-harpy-seat.mjs` for the live
+ * document, `server/scripts/seed-office-seats.mjs`'s literal for a fresh seed)
+ * and it exists for exactly one reason: the mass-clear query below has to tell
+ * Socialite's two seats apart by `seat_label` alone, and a label that is a
+ * PREFIX of the other one is not a safe thing to match on when the two must
+ * never be confused. The popular seat, `PEOPLES_HARPY_SEAT_LABEL` above, is
+ * never a member of the mass-clear set - it gets its own explicit branch.
+ */
+const CITY_HARPY_SEAT_LABEL = 'City Harpy';
+
+/**
+ * prax.4b: the two office categories a Praxis win clears wholesale, whoever
+ * holds them.
+ *
+ * Primogen and Head of State are deliberately absent. The epic's locked game
+ * rule: Primogen seats (and Territory Regent, which is not an office_seats
+ * category at all) are not created by the Head of State and survive a Praxis
+ * change untouched.
+ */
+const MASS_CLEAR_CATEGORIES = ['Enforcer', 'Administrator'];
+
+/**
+ * Every seat a Praxis resolution vacates: both mass-clear categories, plus the
+ * ONE Socialite seat that is the City Harpy, filtered to seats somebody
+ * actually holds.
+ *
+ * `holder_id: { $ne: null }` excludes an absent field as well as an explicit
+ * null, which is what makes "occupied" mean occupied even on a document written
+ * before the field was required.
+ *
+ * Built as a function rather than a frozen literal so no caller can mutate the
+ * shared object it is about to hand to Mongo.
+ */
+function massClearFilter() {
+  return {
+    holder_id: { $ne: null },
+    $or: [
+      { office_category: { $in: MASS_CLEAR_CATEGORIES } },
+      { office_category: SOCIALITE_CATEGORY, seat_label: CITY_HARPY_SEAT_LABEL },
+    ],
+  };
+}
 
 /**
  * A deliberate business rejection, thrown from a helper and caught by the
@@ -162,6 +241,39 @@ function parseClaimantId(body, nullMeaning = NULL_MEANS_UNASSIGN) {
     });
   if (body.claimant_character_id === null) return null;
   return normaliseId(body.claimant_character_id, 'claimant_character_id');
+}
+
+/**
+ * prax.4b: `confirmed_vacate_seat_ids`, normalised to a sorted, de-duplicated
+ * array of lower-case 24-hex strings.
+ *
+ * REQUIRED on the resolve path, and required as an ARRAY even when it is empty.
+ * An absent key is a 400 rather than an implicit "nothing to vacate", the same
+ * absent-vs-explicit discipline `parseClaimantId` above enforces and for a
+ * sharper version of the same reason: a client bug that dropped the field would
+ * otherwise sail through the execute-time re-verification whenever the live set
+ * happened to be empty, and silently fail whenever it was not. "The ST confirmed
+ * that nobody is vacated" and "the client forgot to tell us" must not be the
+ * same request.
+ *
+ * Sorted and de-duplicated here, once, so the comparison below is a plain
+ * element-wise equality rather than set logic scattered across two call sites,
+ * and so the array frozen into the historical record has a stable order.
+ */
+function parseConfirmedVacateSeatIds(body) {
+  if (!body || typeof body !== 'object' || !('confirmed_vacate_seat_ids' in body))
+    throw new RouteResponse(400, {
+      error: 'VALIDATION_ERROR',
+      message: 'confirmed_vacate_seat_ids is required when declaring a winner (an array of 24-character hexadecimal seat ids, empty if no office is currently held)',
+    });
+  const raw = body.confirmed_vacate_seat_ids;
+  if (!Array.isArray(raw))
+    throw new RouteResponse(400, {
+      error: 'VALIDATION_ERROR',
+      message: 'confirmed_vacate_seat_ids must be an array of 24-character hexadecimal seat ids',
+    });
+  const ids = raw.map(id => normaliseId(id, 'confirmed_vacate_seat_ids[]'));
+  return [...new Set(ids)].sort();
 }
 
 /** Serialise one stored board for the JSON boundary: both id fields become
@@ -749,6 +861,451 @@ router.post('/:id/resolve-harpy', requireRole('st'), handle(async (req, res) => 
   // No seat or character data in the response, deliberately: the client already
   // holds every character's current data and refetches the board through its
   // own established write-then-reread path, so resolving names here would be a
+  // second implementation of what `nameFor()` already does client-side.
+  res.json({ ok: true, dismissed, resolved: snapshot });
+}));
+
+// ─────────────────────────────────────────────────────────────────────────────
+// prax.4b. POST /api/praxis_sessions/:id/resolve-praxis
+// body { claimant_character_id: <24-hex string> | null,
+//        confirmed_vacate_seat_ids: <array of 24-hex strings> }
+// ─────────────────────────────────────────────────────────────────────────────
+// Declares a winner of the Praxis claim - the new Head of State - or dismisses
+// the vote with no winner. ST-only, like every other route in this file.
+//
+// Structurally this is `resolve-harpy` above with one difference that changes
+// everything about it: the write set is a LIVE QUERY rather than one fixed seat.
+// A Praxis win mass-clears every Enforcer, Administrator and City Harpy seat at
+// once, so the route vacates an unknown number of offices belonging to people
+// who are not in the room and are not watching the board.
+//
+// ═══ FULLY ATOMIC, DELIBERATELY - DO NOT "ALIGN" THIS WITH saveCourt ═══
+//
+// Every write below happens inside ONE transaction. The other multi-seat write
+// path in this codebase, `public/js/admin/city-views.js`'s `saveCourt`, is
+// deliberately NOT atomic: it loops independent `PUT /api/office_seats/:id/holder`
+// calls and accepts partial completion, because an ST sitting at that panel can
+// see what landed and simply finish the job. Nobody is sitting in front of THIS
+// one in the same way - it fires from a single tap, clears offices belonging to
+// several other players at once, and destroys each seat's manoeuvre XP as it
+// goes. A half-applied mass-clear would leave some offices vacated, some not,
+// and `resolved.praxis` still null, with no read path anywhere that would
+// notice. The two shapes differ on purpose; converging them would be a
+// regression in whichever direction it was done.
+//
+// ═══ RUNS EXACTLY ONCE PER BOARD ═══
+//
+// `resolved.praxis` is a frozen historical record, not a mutable field. A second
+// call is a 409 whichever branch it takes, compare-and-swap enforced exactly as
+// `resolve-harpy` documents at length: the baseline is read OUTSIDE the
+// transaction and the write inside it is filtered on that baseline still
+// holding, because `withTransaction` RE-RUNS its callback on any error MongoDB
+// labels transient and a filter built from an in-callback read would see the
+// winner's freshly committed value on the retry.
+//
+// ═══ THE CONFIRM LIST IS THE CAS BASELINE ═══
+//
+// The one genuine departure from `resolve-harpy`'s shape. The client shows the
+// ST every office this resolution would vacate, and sends that exact list back
+// on the request. The live query inside the transaction is the execute-time
+// truth; the confirmed list is only ever the thing it is DIFFED AGAINST, never
+// the write target. Any difference at all - a seat vacated by somebody else
+// since the modal opened, or a seat newly filled - aborts with a 409 naming the
+// CURRENT list, so the ST re-reads a fresh confirmation rather than either
+// retrying blind or silently clearing offices they never saw.
+//
+// ═══ WHAT THIS ROUTE DOES NOT TOUCH ═══
+//
+//   - `praxis.claims` / `praxis.support`. NOT cleared, NOT mutated, the same
+//     permanent-history posture prax.4a established for the Harpy side.
+//   - `resolved.harpy`, and every Harpy-side field. The two tallies stay fully
+//     independent; a Praxis resolve leaves a live Harpy vote live.
+//   - PRIMOGEN seats, and Territory Regent. The epic's locked game rule: both
+//     survive a Praxis change untouched. A winner who holds Primogen keeps the
+//     seat and only their headline moves.
+//   - `office_merit_dots`. Permanent merits survive a handover by construction -
+//     a seat's `_id` never changes, so nothing has to be carried across.
+//
+// The Head of State SEAT (unlike the three lines above) IS touched - added
+// during this story's own review (2026-08-30, confirmed with Angelus). The
+// original spec said this route wrote only the winner's headline and left any
+// Head of State seat document alone; that turned out to strand the new Head
+// of State with no seat `resolveHeldSeat`/`resolveOfficeSeat` could ever
+// match them to, since office purchases are seat-keyed (oxp.11) and Head of
+// State has real purchasable content. See step 6b below.
+router.post('/:id/resolve-praxis', requireRole('st'), handle(async (req, res) => {
+  const board = await loadBoard(req.params.id);
+  const claimantId = parseClaimantId(req.body, 'null to dismiss the vote with no winner');
+
+  // ── The CAS baseline, frozen before the transaction opens. ────────────────
+  const baselineResolved = board.resolved?.praxis ?? null;
+  if (baselineResolved !== null)
+    throw new RouteResponse(409, {
+      error: 'CONFLICT',
+      message: 'The Praxis claim on this board has already been resolved',
+    });
+
+  const dismissed = claimantId === null;
+  const seats = getCollection('office_seats');
+  const characters = getCollection('characters');
+
+  let confirmedIds = [];
+
+  if (!dismissed) {
+    // You cannot declare a winner who was never standing. Checked against the
+    // OPEN claims in the PRAXIS tally only; a Harpy claim is irrelevant here,
+    // because the two tallies are never coupled.
+    const openClaims = board.praxis?.claims || [];
+    if (!openClaims.some(c => c && c.character_id === claimantId))
+      throw new RouteResponse(400, {
+        error: 'VALIDATION_ERROR',
+        message: 'claimant_character_id has no open praxis claim on this board',
+      });
+
+    confirmedIds = parseConfirmedVacateSeatIds(req.body);
+  }
+
+  const client = getClient();
+  const dbSession = client.startSession();
+  // Captured outside the callback and used only after the commit: responding
+  // from inside would answer before the transaction had committed, and a retry
+  // would then try to respond twice. The two broadcast payloads are captured
+  // the same way and for the same reason.
+  let snapshot = null;
+  let affectedSeatIds = [];
+  let affectedCharacterIds = [];
+  try {
+    await dbSession.withTransaction(async () => {
+      const timestamp = new Date().toISOString();
+      // Re-initialised on every attempt: `withTransaction` re-runs its callback
+      // on a transient error, and appending to arrays that survived the last
+      // attempt would broadcast each affected id twice.
+      affectedSeatIds = [];
+      affectedCharacterIds = [];
+
+      if (dismissed) {
+        // No seat write, no character write, no manoeuvre reset, and the
+        // mass-clear query is never run at all. The claim is formally closed so
+        // it does not sit "still open" forever, and nothing else changes.
+        snapshot = { dismissed: true, resolved_at: timestamp };
+      } else {
+        const winnerOid = new ObjectId(claimantId);
+
+        // ── 1. The mass-clear set, queried LIVE inside the session. ─────────
+        // This is the execute-time truth and the only thing the writes below
+        // ever iterate. The request body's own list is never a write target.
+        // Sorted by id so the 409 payload, the broadcast and the frozen record
+        // all carry the same stable order.
+        const liveSeats = (await seats.find(massClearFilter(), { session: dbSession }).toArray())
+          .sort((a, b) => (String(a._id) < String(b._id) ? -1 : String(a._id) > String(b._id) ? 1 : 0));
+        const liveIds = [...new Set(liveSeats.map(s => String(s._id).toLowerCase()))].sort();
+
+        // ── 2. Diff it against what the ST actually confirmed. ──────────────
+        // Any difference in either direction aborts. NO partial clear ever
+        // happens on a mismatch: nothing has been written yet at this point,
+        // which is why this check sits before every write rather than inside
+        // the loop.
+        const matches = liveIds.length === confirmedIds.length
+          && liveIds.every((id, i) => id === confirmedIds[i]);
+        if (!matches)
+          throw new RouteResponse(409, {
+            error: 'CONFLICT',
+            message: 'The offices this resolution would vacate changed since the confirmation was opened. Review the updated list and confirm again.',
+            // The CURRENT list, never the stale one the caller sent: the client
+            // re-renders its confirmation from this and lets the ST retry
+            // immediately, rather than closing back to the live board.
+            current_vacate_seat_ids: liveIds,
+            current_vacate: liveSeats.map(s => ({
+              seat_id: String(s._id),
+              office_category: s.office_category,
+              seat_label: s.seat_label ?? null,
+              holder_id: s.holder_id == null ? null : String(s.holder_id),
+            })),
+          });
+
+        // ── 3. The winner's own character document must exist. ──────────────
+        // Named as a CHARACTER 404, not a seat one, for the reason
+        // resolve-harpy's own step 2 documents: a message about a seat would
+        // send the ST looking in the wrong place. Read BEFORE any write, so
+        // the tally below is computed against the pre-clear world.
+        const winner = await characters.findOne({ _id: winnerOid }, { session: dbSession });
+        if (!winner)
+          throw new RouteResponse(404, { error: 'NOT_FOUND', message: 'No character with that id' });
+
+        // ── 4. The frozen tally, computed BEFORE any write. ─────────────────
+        // Order is load-bearing. The Praxis weighting is a City Status SUM, and
+        // City Status includes a title bonus read off `court_category` - which
+        // the mass-clear below is about to null on several of these very
+        // characters. Computed after the clears, a supporter who happened to be
+        // the sitting Enforcer would silently contribute less than the number
+        // the ST was looking at when they tapped.
+        //
+        // The arithmetic is `praxis-tab.js`'s own `tallyFor` for this tally,
+        // through the same shared `calcEffectiveCityStatus`: the claimant's own
+        // City Status plus that of every character currently assigned to support
+        // them. A claimant who is assigned to themselves is counted twice, once
+        // as the claimant and once as their own supporter, exactly as the board
+        // renders it - which is why `tallyIds` is deliberately NOT deduplicated.
+        // An id with no character document contributes 0, matching `statusFor`.
+        const supporterIds = Object.entries(board.praxis?.support || {})
+          .filter(([, assignedTo]) => String(assignedTo).toLowerCase() === claimantId)
+          .map(([supporterId]) => String(supporterId).toLowerCase())
+          .filter(id => SEAT_ID_PATTERN.test(id));
+        const tallyIds = [claimantId, ...supporterIds];
+        const tallyChars = await characters
+          .find({ _id: { $in: [...new Set(tallyIds)].map(id => new ObjectId(id)) } }, { session: dbSession })
+          .toArray();
+        const tallyCharById = new Map(tallyChars.map(c => [String(c._id).toLowerCase(), c]));
+        const territories = await getCollection('territories').find({}, { session: dbSession }).toArray();
+        const finalTally = tallyIds.reduce((sum, id) => {
+          const c = tallyCharById.get(id);
+          if (!c) return sum;
+          return sum + (calcEffectiveCityStatus(c, findRegentTerritory(territories, c)?.ambience) || 0);
+        }, 0);
+
+        // ── 5. The mass-clear. ─────────────────────────────────────────────
+        // Applies UNIFORMLY, whether the departing holder is a third party or
+        // the winner themselves. The winner holding one of these three seats is
+        // an ordinary case, not a special one - prax.0's exclusivity matrix says
+        // Head of State cannot also hold Enforcer, Administrator or Socialite,
+        // so their own seat has to go the same way as anybody else's. The only
+        // place that case is treated differently at all is what the confirm
+        // modal DISPLAYED beforehand.
+        for (const seat of liveSeats) {
+          const holderId = String(seat.holder_id).toLowerCase();
+
+          // Compare-and-swap on the holder read a moment ago inside this same
+          // session. A miss cannot happen under snapshot isolation, and is
+          // treated as a hard 409 rather than skipped: a seat that moved is
+          // exactly the situation the confirm-list diff above exists to refuse,
+          // and quietly carrying on would produce the partial clear this route
+          // must never leave behind.
+          const cleared = await seats.updateOne(
+            { _id: seat._id, holder_id: new ObjectId(holderId) },
+            { $set: { holder_id: null } },
+            { session: dbSession },
+          );
+          if (cleared.matchedCount === 0)
+            throw new RouteResponse(409, {
+              error: 'CONFLICT',
+              message: 'A seat this resolution would vacate was changed by another handover - please retry',
+              conflicting_seat_id: String(seat._id),
+            });
+
+          // Clear the departing holder's headline, CAS-filtered on THIS seat's
+          // category. A matchedCount of 0 is BENIGN, not an error: it means
+          // their `court_category` had already moved elsewhere by another route,
+          // and clearing it unconditionally would wipe a legitimate newer
+          // assignment. Same tolerance resolve-harpy's own step 5 documents.
+          await characters.updateOne(
+            { _id: new ObjectId(holderId), court_category: seat.office_category },
+            { $set: { court_category: null, court_title: null, updated_at: timestamp } },
+            { session: dbSession },
+          );
+
+          // office-powers.md's ruling: manoeuvres reset to zero on every
+          // handover and the XP spent on them is destroyed, not refunded.
+          // Vacating IS a handover - see the shared module's own header.
+          await resetManoeuvreRank(String(seat._id), seat.office_category, timestamp, dbSession);
+
+          affectedSeatIds.push(String(seat._id));
+          affectedCharacterIds.push(holderId);
+        }
+
+        // ── 6. The winner's own People's Harpy seat, if they hold it. ───────
+        // This seat is NEVER a member of the mass-clear query's match set (that
+        // matches 'City Harpy', the appointed seat), so it needs its own
+        // explicit branch rather than a query match.
+        //
+        // Gated on the SEAT's own `holder_id`, read inside the transaction, and
+        // never on the confirm list. The story's own wording pairs that with
+        // `winner.court_category === 'Socialite'`; the character-field CAS below
+        // already carries that half of the test, and gating the SEAT write on a
+        // headline that had drifted would strand a real seat under a new Head of
+        // State - a combination prax.0's exclusivity matrix forbids outright.
+        // The seat is the authoritative fact here, so the seat is what gates.
+        const peoplesHarpy = await seats.findOne(
+          { office_category: SOCIALITE_CATEGORY, seat_label: PEOPLES_HARPY_SEAT_LABEL },
+          { session: dbSession },
+        );
+        // A missing seat is simply "the winner does not hold it" here, NOT the
+        // 500 resolve-harpy raises. There the seat IS the thing being handed
+        // over and its absence makes the whole request meaningless; here it is
+        // one conditional extra step, and a Praxis resolve must not be blocked
+        // by the state of a seat this contest is not about.
+        if (peoplesHarpy && peoplesHarpy.holder_id != null
+            && String(peoplesHarpy.holder_id).toLowerCase() === claimantId) {
+          const vacated = await seats.updateOne(
+            { _id: peoplesHarpy._id, holder_id: winnerOid },
+            { $set: { holder_id: null } },
+            { session: dbSession },
+          );
+          if (vacated.matchedCount === 0)
+            throw new RouteResponse(409, {
+              error: 'CONFLICT',
+              message: "The winner's People's Harpy seat was changed by another handover - please retry",
+              conflicting_seat_id: String(peoplesHarpy._id),
+            });
+
+          // Same benign-mismatch tolerance as the mass-clear's own character
+          // write. The headline is overwritten with Head of State a few lines
+          // below either way; this write exists so that a winner whose
+          // `court_category` genuinely still reads Socialite does not carry a
+          // stale People's Harpy title through the intervening moment.
+          await characters.updateOne(
+            { _id: winnerOid, court_category: SOCIALITE_CATEGORY },
+            { $set: { court_category: null, court_title: null, updated_at: timestamp } },
+            { session: dbSession },
+          );
+
+          await resetManoeuvreRank(String(peoplesHarpy._id), SOCIALITE_CATEGORY, timestamp, dbSession);
+          affectedSeatIds.push(String(peoplesHarpy._id));
+        }
+
+        // ── 6b. The Head of State seat itself, handed over unconditionally. ─
+        // FOUND DURING REVIEW (2026-08-30), confirmed with Angelus, not in the
+        // original spec. Office purchases are SEAT-keyed (oxp.11), and Head of
+        // State has real purchasable content (server/scripts/seed-office-content.js).
+        // Writing only the winner's headline (step 7 below) and leaving this
+        // seat's `holder_id` pointed at whoever held it before would strand the
+        // new Head of State with no seat `resolveHeldSeat`/`resolveOfficeSeat`
+        // can ever match them to - a genuine purchase-eligibility break, not a
+        // cosmetic one. Winning Praxis makes the claimant the real, seat-holding
+        // Head of State, the same way every other office in this file works.
+        //
+        // Unconditional, unlike the People's Harpy branch above: every Praxis
+        // resolve wins this seat, where People's Harpy only transfers if the
+        // winner happened to hold it already. A missing seat document (the
+        // office was never seeded) is tolerated, not fatal - a Praxis resolve
+        // must not be blocked by a seeding gap in an office this route does not
+        // otherwise depend on.
+        const headOfState = await seats.findOne(
+          { office_category: HEAD_OF_STATE_CATEGORY },
+          { session: dbSession },
+        );
+        if (headOfState) {
+          const previousHolderId = headOfState.holder_id == null
+            ? null
+            : String(headOfState.holder_id).toLowerCase();
+          // A no-op, not an error, when the winner already held it (re-declared
+          // or somehow already seated) - clearing and re-setting the same
+          // document would reach the same end state only because of ordering,
+          // the same reasoning step 5's own skip-on-self-hold carries.
+          if (previousHolderId !== claimantId) {
+            const claimedHos = await seats.updateOne(
+              { _id: headOfState._id, holder_id: headOfState.holder_id },
+              { $set: { holder_id: winnerOid } },
+              { session: dbSession },
+            );
+            if (claimedHos.matchedCount === 0)
+              throw new RouteResponse(409, {
+                error: 'CONFLICT',
+                message: 'The Head of State seat was changed by another handover - please retry',
+                conflicting_seat_id: String(headOfState._id),
+              });
+
+            if (previousHolderId !== null) {
+              // Same benign-mismatch tolerance every other departing-holder
+              // clear in this route uses: a matchedCount of 0 means their
+              // headline had already moved elsewhere, not an error.
+              await characters.updateOne(
+                { _id: new ObjectId(previousHolderId), court_category: HEAD_OF_STATE_CATEGORY },
+                { $set: { court_category: null, court_title: null, updated_at: timestamp } },
+                { session: dbSession },
+              );
+              // Vacating IS a handover - office-powers.md's ruling applies to
+              // the outgoing Head of State exactly as it does to everyone else
+              // this route clears.
+              await resetManoeuvreRank(String(headOfState._id), HEAD_OF_STATE_CATEGORY, timestamp, dbSession);
+              affectedCharacterIds.push(previousHolderId);
+            }
+            affectedSeatIds.push(String(headOfState._id));
+          }
+        }
+
+        // ── 7. The winner's headline. ──────────────────────────────────────
+        // prax.0's derivation, reused rather than reimplemented - but through
+        // its PURE half, `deriveCourtCategory`, rather than the querying
+        // `deriveCourtHeadlineForHolder`. That is not a shortcut: this story
+        // hands over no Head of State SEAT (the epic's own ruled scope), so a
+        // derivation that read only the seats the winner really holds would
+        // return Primogen, or null, and never the office they just won. The
+        // held seats are read live inside the session - AFTER every clear above,
+        // so a seat the winner just lost is genuinely gone from the list - and
+        // the won office is supplied alongside them.
+        //
+        // Head of State is the TOP of `COURT_CATEGORY_PRECEDENCE`, so it always
+        // wins the derivation, and `seatTitle` is therefore always the title
+        // that lands. A winner who holds Primogen keeps that seat's `holder_id`
+        // completely untouched and only their headline moves - the one dual-hold
+        // `mayHoldBothOffices` permits, and the reason a dual holder's headline
+        // and one of their seats permanently disagree by design.
+        const heldAfterClears = await seats.find({ holder_id: winnerOid }, { session: dbSession }).toArray();
+        const derived = deriveCourtCategory(
+          [...heldAfterClears, { office_category: HEAD_OF_STATE_CATEGORY }],
+          { seatCategory: HEAD_OF_STATE_CATEGORY, seatTitle: HEAD_OF_STATE_CATEGORY },
+        );
+        await characters.updateOne(
+          { _id: winnerOid },
+          {
+            $set: {
+              court_category: derived.court_category,
+              court_title: derived.court_title,
+              updated_at: timestamp,
+            },
+          },
+          { session: dbSession },
+        );
+        affectedCharacterIds.push(claimantId);
+
+        snapshot = {
+          winner_character_id: claimantId,
+          final_tally: finalTally,
+          // The confirmed, re-verified array, frozen. Identical to `liveIds` by
+          // the time this line runs - the diff above is what makes that true -
+          // and stored so the historical record says which offices this
+          // resolution actually emptied, which nothing else records.
+          vacated_seat_ids: confirmedIds,
+          resolved_at: timestamp,
+        };
+      }
+
+      // ── The snapshot, in the SAME transaction as everything above. ────────
+      // Filtered on the frozen baseline, so a concurrent resolve loses here
+      // rather than double-writing. `{ 'resolved.praxis': null }` matches a
+      // missing field as well as an explicit null, so a board written before the
+      // field existed is handled by the same filter.
+      const written = await col().updateOne(
+        { _id: board._id, 'resolved.praxis': null },
+        { $set: { 'resolved.praxis': snapshot, updated_at: timestamp } },
+        { session: dbSession },
+      );
+      if (written.matchedCount === 0)
+        throw new RouteResponse(409, {
+          error: 'CONFLICT',
+          message: 'The Praxis claim on this board has already been resolved',
+        });
+    });
+  } finally {
+    await dbSession.endSession();
+  }
+
+  // The plain "this board changed" signal the Praxis board itself refetches on,
+  // fired on BOTH paths exactly as every other write route in this file does.
+  broadcastPraxisUpdate(board._id);
+  // The richer frame, on a successful RESOLVE only. Nothing outside the Praxis
+  // board needs to know about a dismissal: no seat changed hands, no character
+  // moved, so there is nothing for the Office or City surfaces to refetch.
+  if (!dismissed) {
+    broadcastPraxisResolved(board._id, {
+      affected_seat_ids: [...new Set(affectedSeatIds)],
+      affected_character_ids: [...new Set(affectedCharacterIds)],
+      resolved_office: HEAD_OF_STATE_CATEGORY,
+    });
+  }
+  // No seat or character data in the response, deliberately: the client already
+  // holds every character's current data and refetches through its own
+  // established write-then-reread path, so resolving names here would be a
   // second implementation of what `nameFor()` already does client-side.
   res.json({ ok: true, dismissed, resolved: snapshot });
 }));

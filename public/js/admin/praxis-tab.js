@@ -71,9 +71,36 @@
  *   - The OUTGOING holder is read from `_seats` BEFORE the write, because the
  *     response deliberately carries no seat or character data and by the time
  *     the toast is composed the seat has already changed hands.
- *   - Only the HARPY tally is resolvable here. `resolved.praxis` is prax.4b's
- *     own story; the Praxis tab stays fully live after a Harpy resolve, and
- *     nothing below reads or writes the Praxis half of the document.
+ *   - Only the HARPY tally is resolvable through that flow. The Praxis tally
+ *     has its own, below.
+ *
+ * ═══ RESOLVING THE PRAXIS TALLY (prax.4b) ═══
+ *
+ * prax.4b gives the Praxis tally the same two actions and one more component:
+ * a CONFIRM MODAL between "Declare Winner" and the request.
+ *
+ * That is a deliberate departure from the Harpy flow above, not an
+ * inconsistency. A Harpy resolve hands over ONE seat, and the person losing it
+ * is standing in the room. A Praxis resolve mass-clears EVERY Enforcer,
+ * Administrator and City Harpy seat at once - offices belonging to people who
+ * are not watching this board and did not know it was about to happen. The
+ * modal names each of them before anything is written; a mass-clear is never
+ * pretended to be undoable, and there is no Undo here either.
+ *
+ * Three more things about it, all deliberate:
+ *
+ *   - THE CONFIRM LIST IS THE CAS BASELINE. The exact seat ids the modal
+ *     displayed are sent back on the request, and the server re-verifies them
+ *     against a live query inside its own transaction. A 409 from that check
+ *     re-renders THIS SAME MODAL from the fresh list the error carries, rather
+ *     than closing back to the board - the ST reviews what changed and can
+ *     confirm again immediately.
+ *   - The two resolve flows share `showToast` and `renderResolvedSummary`,
+ *     parameterised by tally rather than duplicated. Everything that differs
+ *     between them is a lookup in one of the TALLY_* maps at the top of this
+ *     file.
+ *   - The two tallies still never influence each other's render. A resolved
+ *     Praxis tab and a live Harpy tab (or the reverse) is an ordinary state.
  */
 
 import { apiGet, apiPost, apiPut, apiDelete, apiRaw } from '../data/api.js';
@@ -108,6 +135,30 @@ const TALLY_SUMMARY_LABELS = { praxis: 'Praxis leader', harpy: 'Harpy leader' };
  * office_seats collection exists (see server/schemas/office_seat.schema.js).
  */
 const PEOPLES_HARPY_SEAT_LABEL = "People's Harpy";
+
+/**
+ * prax.4b: the APPOINTED Socialite seat, one of the three offices a Praxis win
+ * mass-clears.
+ *
+ * `'City Harpy'`, NOT plain `'Harpy'` - renamed by prax.4b's own precondition
+ * (`server/scripts/rename-city-harpy-seat.mjs`, plus the seed literal) so that
+ * the mass-clear can tell Socialite's two seats apart by `seat_label` alone.
+ * A THIRD copy of a seat-label literal in this codebase, deliberately, on the
+ * same reasoning `PEOPLES_HARPY_SEAT_LABEL` above records: nothing exports a
+ * constant across the client/server boundary here, and inventing a shared
+ * module for one string is not warranted. It must stay in step with
+ * `server/routes/praxis-sessions.js`'s own copy - the modal computes the set
+ * the server is about to re-verify, and a drifted label would show the ST a
+ * list the server then refuses.
+ */
+const CITY_HARPY_SEAT_LABEL = 'City Harpy';
+
+/** The two office categories a Praxis win clears wholesale. Primogen and Head
+ *  of State are deliberately absent - see the server route's own note. */
+const MASS_CLEAR_CATEGORIES = ['Enforcer', 'Administrator'];
+
+/** What a Praxis winner becomes. Used in copy only; the server writes it. */
+const HEAD_OF_STATE_LABEL = 'Head of State';
 
 /**
  * How long the resolve/dismiss toast stays up, in milliseconds.
@@ -166,6 +217,18 @@ let _activeTally = 'praxis';
 // re-render is guaranteed, because `write()` always refetches and repaints.
 let _toastEl = null;
 let _toastTimer = null;
+/**
+ * prax.4b: the Praxis confirm modal's own state, or null when it is closed.
+ *
+ * `{ claimantId, seats: [<office_seats doc-ish>], stale: <bool> }`. The `seats`
+ * array is the exact list the ST is looking at AND the exact list sent back on
+ * the request - the two must never diverge, which is why it is captured once
+ * when the modal opens rather than recomputed on each render.
+ *
+ * `stale` flips true only after a server 409 has replaced `seats` with the
+ * fresh list from the error body. It drives the warning row, and nothing else.
+ */
+let _confirm = null;
 
 // ── Pure helpers (no DOM, no fetch - kept exported for direct coverage) ───────
 
@@ -252,13 +315,78 @@ function support(tally = _activeTally) {
 /**
  * One tally's frozen resolve snapshot, or null while it is still live.
  *
- * Read for the HARPY tally only in this story - `resolved.praxis` has no writer
- * until prax.4b, so every call site below names 'harpy' explicitly rather than
- * defaulting to the active tally. That keeps the Praxis tab provably untouched:
- * there is no code path here that could hide the live Praxis board.
+ * prax.4b gave `resolved.praxis` its own writer, so this is now read for BOTH
+ * tallies and the call sites below pass the ACTIVE one rather than naming
+ * 'harpy' explicitly the way prax.4a's did. The two halves stay independent: a
+ * resolved Praxis tab and a live Harpy tab (or the reverse) is an ordinary
+ * state, and nothing here reads one tally's snapshot to decide anything about
+ * the other.
  */
 function resolvedFor(tally) {
   return _board?.resolved?.[tally] || null;
+}
+
+/**
+ * prax.4b: every seat a Praxis win would vacate, computed from the seat array
+ * already loaded at boot.
+ *
+ * A deliberate mirror of `server/routes/praxis-sessions.js`'s own
+ * `massClearFilter()`, down to the two categories, the exact `'City Harpy'`
+ * label match and the occupied-only filter. Read that function before changing
+ * this one: this list is what the ST confirms and what the server then
+ * re-verifies against its own live query, so a difference between the two shows
+ * up as a 409 on a board that looked perfectly consistent.
+ *
+ * The People's Harpy seat is NEVER a member of this set. It is matched on the
+ * OTHER label and gets its own note row in the modal, exactly as the server
+ * gives it its own branch.
+ *
+ * Sorted by id so the array sent to the server has a stable order and the modal
+ * does not reshuffle between renders.
+ */
+function massClearSeats() {
+  return (_seats || [])
+    .filter(seat => seat && seat.holder_id != null && (
+      MASS_CLEAR_CATEGORIES.includes(seat.office_category)
+      || (seat.office_category === 'Socialite' && String(seat.seat_label || '') === CITY_HARPY_SEAT_LABEL)
+    ))
+    .sort((a, b) => String(a._id).localeCompare(String(b._id)));
+}
+
+/** The People's Harpy seat's current holder id, or null when it is vacant. */
+function peoplesHarpyHolderId() {
+  const seat = peoplesHarpySeat();
+  return seat && seat.holder_id != null ? String(seat.holder_id).toLowerCase() : null;
+}
+
+/**
+ * The Head of State seat's current holder id, or null when it is vacant or the
+ * seat does not exist. Added during this story's own review (2026-08-30):
+ * `resolve-praxis` hands this seat over unconditionally (server-side step 6b),
+ * so the confirm modal's own vacate-list philosophy - never hide who this
+ * resolution affects - applies to the sitting Head of State too, the same
+ * reasoning that already covers the mass-clear and the winner's own held
+ * seats.
+ */
+function headOfStateHolderId() {
+  const seat = (_seats || []).find(s => s && s.office_category === 'Head of State') || null;
+  return seat && seat.holder_id != null ? String(seat.holder_id).toLowerCase() : null;
+}
+
+/**
+ * Does this character hold a Primogen seat right now?
+ *
+ * Read off `office_seats`, not off `court_category`: a Praxis winner who
+ * already holds Head of State somewhere else would have Primogen hidden behind
+ * their headline, which is precisely the drift prax.0's own derivation exists
+ * to handle. The seat is the fact.
+ */
+function holdsPrimogenSeat(characterId) {
+  const key = String(characterId || '').toLowerCase();
+  return (_seats || []).some(seat => seat
+    && seat.office_category === 'Primogen'
+    && seat.holder_id != null
+    && String(seat.holder_id).toLowerCase() === key);
 }
 
 /**
@@ -385,6 +513,10 @@ export async function initPraxisView(chars) {
 
   _initialised = true;
   _sheetFor = null;
+  // A fresh domain entry never resumes a half-finished confirmation: the list it
+  // captured could be minutes old by now, and the whole point of that list is
+  // that the ST just read it.
+  _confirm = null;
   _status = '';
   // A fresh domain entry always lands on Praxis, never on the tally that
   // happened to be open last time.
@@ -607,10 +739,20 @@ function showToast(lines) {
   _toastTimer = setTimeout(() => { if (_toastEl) _toastEl.classList.remove('on'); }, TOAST_MS);
 }
 
-// ── Resolving the Harpy tally (prax.4a) ──────────────────────────────────────
+// ── Resolving a tally (prax.4a: Harpy · prax.4b: Praxis) ─────────────────────
 
-const resolveUrl = () =>
-  `/api/praxis_sessions/${encodeURIComponent(String(_board._id))}/resolve-harpy`;
+/**
+ * The resolve route for one tally.
+ *
+ * Two genuinely different endpoints, not one parameterised route: a Harpy
+ * resolve is a single-seat handover and a Praxis resolve is a mass-clear with a
+ * confirm-list round-trip, so they validate different bodies and can fail in
+ * different ways. Only the URL is selected here.
+ */
+const RESOLVE_PATHS = { harpy: 'resolve-harpy', praxis: 'resolve-praxis' };
+
+const resolveUrl = (tally) =>
+  `/api/praxis_sessions/${encodeURIComponent(String(_board._id))}/${RESOLVE_PATHS[tally]}`;
 
 /**
  * Refresh the cached seat array after a handover.
@@ -629,20 +771,20 @@ async function refreshSeats() {
 }
 
 /**
- * Declare a winner. No confirm modal and no undo, both locked at design-lock.
+ * prax.4a: declare a Harpy winner. No confirm modal and no undo, both locked at
+ * design-lock.
  *
  * The outgoing holder is captured BEFORE the write for the toast's second line,
  * because the resolve response carries no seat data (the client already holds
  * every character, so resolving names server-side would duplicate `nameFor`)
  * and by the time it returns the seat names the winner.
  */
-function declareWinner(claimantId) {
+function declareHarpyWinner(claimantId) {
   if (!_board) return;
   const id = String(claimantId || '').toLowerCase();
-  const seat = peoplesHarpySeat();
-  const outgoingId = seat && seat.holder_id ? String(seat.holder_id).toLowerCase() : null;
+  const outgoingId = peoplesHarpyHolderId();
   return write(async () => {
-    await apiPost(resolveUrl(), { claimant_character_id: id });
+    await apiPost(resolveUrl('harpy'), { claimant_character_id: id });
     await refreshSeats();
     showToast([
       `${nameFor(id)} is now ${TALLY_LABELS.harpy}.`,
@@ -655,16 +797,132 @@ function declareWinner(claimantId) {
 }
 
 /**
- * Dismiss the vote with no winner. Same posture as Declare Winner: no confirm
- * modal (confirmed at design-lock), and no seat handover happens at all - the
- * tally is simply closed so it does not sit open forever.
+ * Dismiss a vote with no winner, on either tally.
+ *
+ * NO confirm modal on this path, even on Praxis where declaring a winner has
+ * one - design-lock item 1. Dismissing is the low-stakes half: no seat changes
+ * hands, no manoeuvre XP is destroyed, and the tally is simply closed so it does
+ * not sit open forever. The modal exists for the mass-clear, not for the act of
+ * resolving as such.
  */
-function dismissHarpy() {
+function dismissVote(tally) {
   if (!_board) return;
   return write(async () => {
-    await apiPost(resolveUrl(), { claimant_character_id: null });
-    showToast([`${TALLY_LABELS.harpy} vote dismissed. No winner recorded.`]);
+    await apiPost(resolveUrl(tally), { claimant_character_id: null });
+    showToast([`${TALLY_LABELS[tally]} vote dismissed. No winner recorded.`]);
   });
+}
+
+// ── The Praxis confirm modal (prax.4b) ───────────────────────────────────────
+
+/**
+ * Open the confirmation for a Praxis winner. Sends nothing.
+ *
+ * The vacate list is computed HERE, once, from the seat array already in hand,
+ * and then held in `_confirm.seats` for as long as the modal is open. It is
+ * both what the ST reads and what is sent back on the request - capturing it
+ * once is what makes "the confirm list IS the CAS baseline" true rather than
+ * merely intended. Recomputing it at Confirm time from a `_seats` array that a
+ * WS refetch had quietly updated underneath would send a list the ST never saw.
+ */
+function openPraxisConfirm(claimantId) {
+  if (!_board) return;
+  const id = String(claimantId || '').toLowerCase();
+  if (!id) return;
+  _confirm = { claimantId: id, seats: massClearSeats(), stale: false };
+  _status = '';
+  render();
+}
+
+function closePraxisConfirm() {
+  _confirm = null;
+  render();
+}
+
+/**
+ * Confirm the resolution: post the winner AND the exact seat ids the modal
+ * displayed.
+ *
+ * ═══ THE 409 IS NOT A FAILURE STATE ═══
+ *
+ * A mismatch between the confirmed list and the server's own live query means
+ * the board moved while the ST was reading. Design-lock item 5: the modal stays
+ * OPEN, re-renders from the fresh list the error carries, and the ST can
+ * confirm again immediately - no hard stop back to the live board, and no blind
+ * retry of a list that is already known to be wrong.
+ *
+ * `apiRaw` rather than `apiPost` precisely so the 409's own body is readable;
+ * `apiPost` would throw the message away with the payload that makes recovery
+ * possible. `_seats` is refreshed alongside, so the note rows (Primogen kept,
+ * People's Harpy vacated) are recomputed against the same fresh world.
+ */
+function confirmPraxisResolve() {
+  if (!_board || !_confirm || _busy) return;
+  const { claimantId, seats } = _confirm;
+  const confirmedIds = seats.map(seat => String(seat._id).toLowerCase());
+  const vacatedCount = seats.length;
+  // Captured BEFORE the write, same reasoning declareHarpyWinner's own
+  // outgoingId capture gives: refreshSeats() below will show the WINNER on
+  // this seat afterwards, so the outgoing name has to be read now or not at
+  // all. Added at review (2026-08-30) alongside the server's own Head of
+  // State seat handover.
+  const outgoingHosId = headOfStateHolderId();
+
+  _busy = true;
+  _status = '';
+  return (async () => {
+    let stale = null;
+    try {
+      const res = await apiRaw('POST', resolveUrl('praxis'), {
+        claimant_character_id: claimantId,
+        confirmed_vacate_seat_ids: confirmedIds,
+      });
+      if (res.ok) {
+        _confirm = null;
+      } else if (res.status === 409 && Array.isArray(res.body?.current_vacate)) {
+        // The stale-list recovery. Rebuilt from the error body rather than from
+        // a second fetch: this list is the one the server has just committed to
+        // re-verifying against, so anything else could be stale again by the
+        // time the ST taps.
+        stale = res.body.current_vacate.map(row => ({
+          _id: row.seat_id,
+          office_category: row.office_category,
+          seat_label: row.seat_label ?? null,
+          holder_id: row.holder_id ?? null,
+        }));
+      } else {
+        _status = res.body?.message || 'That resolution could not be saved.';
+        _confirm = null;
+      }
+    } catch (err) {
+      _status = err?.message || 'That resolution could not be saved.';
+      _confirm = null;
+    } finally {
+      _busy = false;
+    }
+
+    if (stale) {
+      _confirm = { claimantId, seats: stale, stale: true };
+    } else if (!_status) {
+      await refreshSeats();
+      showToast([
+        `${nameFor(claimantId)} is now ${HEAD_OF_STATE_LABEL}.`,
+        // Named individually, unlike the mass-clear count below: there is at
+        // most ONE outgoing Head of State, so naming them costs nothing and
+        // matches Harpy's own single-name second line. Omitted when the seat
+        // was vacant or the winner already held it (server-side no-op, added
+        // at review 2026-08-30).
+        outgoingHosId && outgoingHosId !== claimantId ? `${nameFor(outgoingHosId)} replaced as ${HEAD_OF_STATE_LABEL}.` : null,
+        // A COUNT, not a list of names: a mass-clear can affect several people
+        // at once, unlike Harpy's single-name second line. Omitted entirely when
+        // nothing was vacated, rather than reading "0 offices vacated".
+        vacatedCount ? `${vacatedCount} office${vacatedCount === 1 ? '' : 's'} vacated.` : null,
+      ]);
+    }
+
+    await refetchBoard();
+    render();
+  })();
 }
 
 // ── Rendering ────────────────────────────────────────────────────────────────
@@ -764,28 +1022,30 @@ function renderEmpty() {
 }
 
 /**
- * Are the two resolve actions live right now?
+ * Are the two resolve actions live on the tally currently on screen?
  *
- * Harpy tab only, and only while `resolved.harpy` is still null. Both halves
- * matter: the Praxis tab must never offer them (prax.4b owns that tally), and a
- * resolved board must never offer them again (the route would 409, and the
- * summary below has already replaced everything they act on).
+ * prax.4a scoped this to Harpy because Praxis had no writer; prax.4b gave it
+ * one, so BOTH tallies offer the actions now and the only remaining condition is
+ * that the tally on screen is still unresolved. That still matters: a resolved
+ * board must never offer them again, because the route would 409 and the summary
+ * below has already replaced everything they act on.
  */
-function canResolveHarpy() {
-  return _activeTally === 'harpy' && !resolvedFor('harpy');
+function canResolveActive() {
+  return !resolvedFor(_activeTally);
 }
 
 function renderPopulated() {
-  // AC11/AC12. Once the Harpy tally is resolved, its LIVE section is gone
-  // entirely: no pool strip, no claimant cards, and therefore no bottom-sheet
-  // trigger left to tap. The replacement is structural rather than a set of
-  // disabled controls, so there is nothing to reach even by accident.
+  // Once the tally ON SCREEN is resolved, its LIVE section is gone entirely: no
+  // pool strip, no claimant cards, and therefore no bottom-sheet trigger left to
+  // tap. The replacement is structural rather than a set of disabled controls,
+  // so there is nothing to reach even by accident.
   //
-  // The header and the summary row above are untouched, and so is the Praxis
-  // tab: switching back to it renders the full, still-live board exactly as
-  // prax.2/prax.3 shipped it.
-  const resolved = _activeTally === 'harpy' ? resolvedFor('harpy') : null;
-  if (resolved) return `${renderSummary()}${renderResolvedSummary(resolved)}`;
+  // The header and the summary row above are untouched, and so is the OTHER
+  // tally: switching to it renders whatever state IT is independently in, live
+  // or resolved. prax.4b widened this from Harpy-only to both tallies; the two
+  // halves still never influence each other's render.
+  const resolved = resolvedFor(_activeTally);
+  if (resolved) return `${renderSummary()}${renderResolvedSummary(resolved, _activeTally)}`;
 
   const pool = unassignedPool(_attendees, support(), claims());
   const noSession = !_session
@@ -796,7 +1056,7 @@ function renderPopulated() {
     <div class="pool-label">Not yet assigned (tap to support or open a claim)</div>
     <div class="pool-strip">${pool.map(renderPoolChip).join('')}</div>
     <div class="claimants-label"><span class="pool-label pool-label--inline">Claimants</span>${
-      canResolveHarpy()
+      canResolveActive()
         ? '<button type="button" class="dismiss-vote" data-praxis-action="dismiss-vote">Dismiss vote (no winner)</button>'
         : ''
     }</div>
@@ -805,7 +1065,8 @@ function renderPopulated() {
         ? claims().map(renderClaimCard).join('')
         : '<p class="pb-note">No claims open yet. Tap anyone above to open one.</p>'
     }</div>
-    ${_sheetFor ? renderSheet() : ''}`;
+    ${_sheetFor ? renderSheet() : ''}
+    ${_confirm ? renderConfirmModal() : ''}`;
 }
 
 /**
@@ -820,7 +1081,13 @@ function resolvedDate(iso) {
 }
 
 /**
- * The frozen result, replacing the live section on a resolved Harpy tab.
+ * The frozen result, replacing the live section on whichever tally is resolved.
+ *
+ * ONE component for both tallies (prax.4b), parameterised rather than
+ * duplicated: everything that differs between them is a lookup in the TALLY_*
+ * maps at the top of this file. The Praxis half reads "Head of State · 9 status
+ * · 12 Aug 2026" where the Harpy half reads "People's Harpy · 3 votes · …" -
+ * the same three slots, different words.
  *
  * Everything shown here comes from the SNAPSHOT, not from a recount: the winner
  * is named from the stored id and the number is the stored `final_tally`. That
@@ -828,11 +1095,15 @@ function resolvedDate(iso) {
  * whose City Status changes months afterwards, must not move a historical
  * result.
  */
-function renderResolvedSummary(resolved) {
+function renderResolvedSummary(resolved, tally) {
   const date = resolvedDate(resolved.resolved_at);
+  // What the result is called in the summary line. Praxis is named by the OFFICE
+  // won rather than by the contest ("Head of State", not "Praxis"), which is
+  // what an ST reading the record months later actually wants to see.
+  const label = tally === 'praxis' ? HEAD_OF_STATE_LABEL : TALLY_LABELS[tally];
 
   if (resolved.dismissed) {
-    const meta = [TALLY_LABELS.harpy, date].filter(Boolean).join(' · ');
+    const meta = [label, date].filter(Boolean).join(' · ');
     return `<div class="resolved-summary abandoned">
         <div class="icon">Dismissed</div>
         <div class="winner-name">No winner declared</div>
@@ -841,16 +1112,129 @@ function renderResolvedSummary(resolved) {
   }
 
   const winnerId = String(resolved.winner_character_id || '').toLowerCase();
-  const votes = Number(resolved.final_tally) || 0;
-  const meta = [
-    TALLY_LABELS.harpy,
-    `${votes} ${votes === 1 ? 'vote' : 'votes'}`,
-    date,
-  ].filter(Boolean).join(' · ');
+  const total = Number(resolved.final_tally) || 0;
+  // The unit follows the tally's own weighting: Praxis is a City Status sum,
+  // Harpy an unweighted headcount, and calling either by the other's name would
+  // misdescribe the number beside it.
+  const unit = tally === 'praxis'
+    ? TALLY_UNIT_LABELS.praxis
+    : `${total === 1 ? 'vote' : 'votes'}`;
+  const meta = [label, `${total} ${unit}`, date].filter(Boolean).join(' · ');
   return `<div class="resolved-summary won">
       <div class="icon">Resolved</div>
       <div class="winner-name">${esc(nameFor(winnerId))}</div>
       <div class="winner-tally">${esc(meta)}</div>
+    </div>`;
+}
+
+// ── The Praxis confirm modal's markup (prax.4b) ──────────────────────────────
+
+/**
+ * One row of the vacate list: who loses what.
+ *
+ * The winner's own row carries a small "· his own" / "· her own" suffix rather
+ * than being hidden or moved into a note (design-lock item 2). The list is
+ * honest about everybody it affects, the winner included.
+ *
+ * The gendered suffix reads `pronoun_possessive` off the character where one is
+ * recorded and falls back to "their own" otherwise - a neutral fallback is
+ * always correct English here, so a missing field costs nothing.
+ */
+function renderVacateRow(seat, winnerId) {
+  const holderId = String(seat.holder_id || '').toLowerCase();
+  const office = seat.office_category === 'Socialite' && String(seat.seat_label || '')
+    ? String(seat.seat_label)
+    : String(seat.office_category || '');
+  const own = holderId && holderId === winnerId
+    ? ` · ${possessiveFor(holderId)} own`
+    : '';
+  return `<div class="confirm-vacate-row">
+      <span class="name">${esc(nameFor(holderId))}</span>
+      <span class="office">${esc(office)}${esc(own)}</span>
+    </div>`;
+}
+
+/**
+ * A character's possessive pronoun, derived from the `pronouns` free-text field
+ * (`character.schema.js`'s own nullable string, e.g. "she/her").
+ *
+ * Neutral fallback, always. A missing or unrecognised value yields "their",
+ * which is correct English for every character in the game, so this can never
+ * be wrong in a way that matters - it can only be less specific than it could
+ * have been. That is why it does not warn, log or render a placeholder.
+ *
+ * "she" is tested first because \bhe\b cannot match inside "she" or "her"
+ * anyway (no word boundary before the 'h', none after in "her"), but ordering it
+ * this way makes the intent obvious rather than depending on that reading.
+ */
+function possessiveFor(characterId) {
+  const raw = String(charFor(characterId)?.pronouns || '').toLowerCase();
+  if (/\bshe\b/.test(raw)) return 'her';
+  if (/\bhe\b/.test(raw)) return 'his';
+  return 'their';
+}
+
+/**
+ * The confirmation. The single highest-stakes screen on this board.
+ *
+ * Rendered from `_confirm.seats` and NOT from a fresh `massClearSeats()` call:
+ * what is on screen must be exactly what is sent, or the phrase "the confirm
+ * list is the CAS baseline" stops being true. The two note rows below are the
+ * only things recomputed live, because they describe the winner rather than the
+ * write set.
+ */
+function renderConfirmModal() {
+  const winnerId = _confirm.claimantId;
+  const seats = _confirm.seats || [];
+
+  const stale = _confirm.stale
+    ? '<div class="confirm-stale">This board changed since you opened this confirmation. '
+      + 'Review the updated list below before confirming.</div>'
+    : '';
+
+  const list = seats.length
+    ? `<div class="confirm-vacate-list">${seats.map(seat => renderVacateRow(seat, winnerId)).join('')}</div>`
+    // Never a bare empty list: an ST tapping Confirm on blank space would have
+    // no way to tell "nothing to vacate" from "the list failed to load".
+    : '<div class="confirm-vacate-empty">Nobody &mdash; Enforcer, Administrator and '
+      + 'City Harpy are all currently vacant.</div>';
+
+  // Shown only when true. Each describes a consequence the vacate list above
+  // cannot express: Primogen is NOT vacated (the seat survives, only the
+  // headline moves), the People's Harpy seat IS vacated but by a different
+  // mechanism, and the sitting Head of State (added at review) is replaced by
+  // a mechanism of its own too - none of the three is a row in that list.
+  const sittingHos = headOfStateHolderId();
+  const notes = [
+    holdsPrimogenSeat(winnerId)
+      ? `Keeps ${esc(possessiveFor(winnerId))} own Primogen seat &mdash; the title changes to `
+        + `${esc(HEAD_OF_STATE_LABEL)}, the seat itself is untouched.`
+      : null,
+    peoplesHarpyHolderId() === winnerId
+      ? `${esc(possessiveFor(winnerId).replace(/^./, ch => ch.toUpperCase()))} own `
+        + `${esc(TALLY_LABELS.harpy)} seat is vacated as part of this resolution.`
+      : null,
+    sittingHos && sittingHos !== winnerId
+      ? `${esc(nameFor(sittingHos))} is replaced as ${esc(HEAD_OF_STATE_LABEL)}.`
+      : null,
+  ].filter(Boolean)
+    .map(text => `<div class="confirm-note-row"><span class="dot"></span>${text}</div>`)
+    .join('');
+
+  return `<div class="confirm-modal-overlay" data-praxis-action="confirm-backdrop">
+      <div class="confirm-modal-box" role="dialog" aria-modal="true" aria-label="Confirm Praxis resolution">
+        <div class="panel-label">Confirm Praxis Resolution</div>
+        <div class="confirm-headline"><span class="winner">${esc(nameFor(winnerId))}</span> will become ${esc(HEAD_OF_STATE_LABEL)}</div>
+        <div class="confirm-sub">This cannot be undone from this screen. Review carefully before confirming.</div>
+        ${stale}
+        <div class="confirm-section-label">Offices vacated by this resolution${_confirm.stale ? ' (updated)' : ''}</div>
+        ${list}
+        ${notes}
+        <div class="confirm-actions">
+          <button type="button" class="confirm-cancel" data-praxis-action="confirm-cancel">Cancel</button>
+          <button type="button" class="confirm-go" data-praxis-action="confirm-go">Confirm Resolve</button>
+        </div>
+      </div>
     </div>`;
 }
 
@@ -909,8 +1293,12 @@ function renderClaimCard(claim) {
         ? `<div class="claim-supporters">${supporters.map(sid => renderSupportChip(sid)).join('')}</div>`
         : '<div class="claim-empty-supporters">No supporters yet.</div>'}
       <div class="claim-actions">
-        ${canResolveHarpy()
-          ? `<button type="button" class="claim-resolve" data-praxis-action="declare-winner" data-claimant-id="${esc(id)}">Declare Winner</button>`
+        ${canResolveActive()
+          // The Praxis variant carries an extra class and is crimson rather than
+          // gold (design-lock): the two buttons share a name but not a weight -
+          // this one mass-clears three offices, Harpy's hands over one seat. It
+          // also does NOT resolve on tap; it opens the confirmation.
+          ? `<button type="button" class="claim-resolve${_activeTally === 'praxis' ? ' praxis' : ''}" data-praxis-action="declare-winner" data-claimant-id="${esc(id)}">Declare Winner</button>`
           : ''}
         <button type="button" class="claim-withdraw" data-praxis-action="withdraw" data-claimant-id="${esc(id)}">Withdraw claim</button>
       </div>
@@ -984,6 +1372,10 @@ function _wire() {
       if (!TALLIES.includes(next) || next === _activeTally) return;
       _activeTally = next;
       _sheetFor = null;
+      // Leaving the tally abandons its confirmation. The modal names a Praxis
+      // winner and a Praxis vacate list; carrying it onto the Harpy tab would be
+      // meaningless, and carrying it back later would offer a stale list.
+      _confirm = null;
       _status = '';
       render();
       return;
@@ -998,10 +1390,29 @@ function _wire() {
     }
     if (action === 'unassign') { unassignSupport(el.dataset.charId); return; }
     if (action === 'withdraw') { withdrawClaim(el.dataset.claimantId); return; }
-    // Both resolve actions go straight through, with no confirm step - locked
-    // at design-lock, and consistent with this tool's own two-taps-no-confirm
-    // ethos everywhere else on this board.
-    if (action === 'declare-winner') { declareWinner(el.dataset.claimantId); return; }
-    if (action === 'dismiss-vote') { dismissHarpy(); return; }
+    // Declaring a winner branches by tally, and the two branches genuinely
+    // differ: Harpy resolves on the tap (locked at design-lock, consistent with
+    // this tool's two-taps-no-confirm ethos), while Praxis opens the
+    // confirmation first because it mass-clears offices belonging to people who
+    // are not watching the board.
+    if (action === 'declare-winner') {
+      const claimantId = el.dataset.claimantId;
+      if (_activeTally === 'praxis') openPraxisConfirm(claimantId);
+      else declareHarpyWinner(claimantId);
+      return;
+    }
+    // Dismissing has no confirm step on EITHER tally - design-lock item 1. No
+    // seat changes hands, so there is nothing to review.
+    if (action === 'dismiss-vote') { dismissVote(_activeTally); return; }
+    // Only a click on the scrim itself closes the confirmation, never one that
+    // bubbled up from a control inside it - the same rule the bottom sheet's own
+    // backdrop follows.
+    if (action === 'confirm-backdrop') {
+      if (e.target !== el) return;
+      closePraxisConfirm();
+      return;
+    }
+    if (action === 'confirm-cancel') { closePraxisConfirm(); return; }
+    if (action === 'confirm-go') { confirmPraxisResolve(); return; }
   });
 }

@@ -1591,3 +1591,27 @@ two below were judged real but out of proportion to fix in this pass, or not thi
   who hits it cold will spend time re-diagnosing something already known. Not fixed here (out of
   scope for a UI-board epic to go patch an unrelated CSS-standards test), but worth its own line in
   `CLAUDE.md`'s known-failures list the next time that file gets a maintenance pass.
+
+## Deferred from: independent review of prax-4b-head-of-state-resolve (2026-08-30, bmad-epic-loop)
+
+- **`office-tab.js`'s new `praxis_resolved` WS wiring can never reach the player it is for**
+  (Medium - `public/js/tabs/office-tab.js`'s `onPraxisResolved`, wired via `public/js/app.js`).
+  `server/ws.js`'s `broadcastPraxisResolved` fans out to `['st', 'dev']` roles only (the same,
+  correct scope every other route in `praxis-sessions.js` uses, since Praxis tally/vote data must
+  never reach a player socket) - but `office-tab.js` is loaded by `app.js`, the PLAYER Suite app
+  (`public/index.html`), not the ST admin app, and the actual audience for a post-resolve office-tab
+  refresh is the affected PLAYER themselves: the new Head of State, or whoever just lost
+  Enforcer/Administrator/City Harpy/People's Harpy/the old Head of State seat. A real player's own
+  Office tab will show stale purchase controls and budget preview - a seat they no longer hold, or one
+  they now do but the tab does not yet know it - until they manually reload the page or switch domains
+  away and back. `city-views.js`'s own wiring (via `admin.js`, correctly ST-only) has no equivalent
+  problem. Bounded impact, not a security gap: `server/routes/office-purchase.js` independently
+  re-validates `holder_id` server-side before any purchase commits, so a stale client can never let a
+  wrongful purchase actually go through - this is UX staleness, not data integrity. Root cause: the
+  story's own spec (written by the orchestrator, before this session confirmed the real file layout)
+  assumed `office-tab.js` lived under `public/js/admin/`, an ST-only surface; it does not. **Not fixed
+  here** - the real fix (broadening `broadcastPraxisResolved` to reach the affected player
+  specifically, or to all roles outright - arguably safe, since `court_category`/`court_title` are
+  already ordinary player-visible character-sheet fields and only the tally/vote *process* itself is
+  meant to stay ST-only) is a genuine scope/architecture call that deserves its own decision, not a
+  drive-by patch inside this story's own review pass.

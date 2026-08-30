@@ -10411,3 +10411,130 @@ html:not([data-theme="dark"]) .btn-danger {
 }
 .praxis-toast.on { display: flex; }
 .praxis-toast .msg { font-family: var(--fl); font-size: 12.5px; line-height: 1.4; }
+
+/* ════════════════════════════════════════════════════════════════════
+   Praxis board, resolving the Praxis tally (Epic PRAX, prax.4b)
+
+   Ported from the locked design mockup at
+   specs/mockups/prax-4b-head-of-state-resolve/index.html, same posture as
+   the three blocks above: the mockup's hand-copied :root block is NOT
+   reproduced, every value resolves through theme.css, and every rule
+   stays scoped under .praxis-board - with ONE deliberate exception, the
+   confirm modal's overlay, for the same reason prax.4a's toast is one
+   (it is fixed to the viewport, not to the board).
+
+   THREE mockup values had no real token behind them and are resolved
+   here rather than redeclared, following prax.4a's own precedent with
+   `--green3-a15`:
+
+     - the mockup's `--accent-a15` (a hover fill) becomes `--accent-a25`.
+       theme.css carries `--accent-a8`, `--accent-a25` and `--accent-a40`
+       and no a15, and `--accent` is the token that correctly flips
+       crimson-to-gold between the two themes, so pinning `--crim-a15`
+       instead would freeze this one button crimson in dark mode while
+       every other accent surface on the board flipped.
+     - the mockup's `--warn-a8` / `--warn-a25` become
+       `--warn-orange-bg` / `--warn-orange-bdr`, which are the real
+       theme-aware tokens for exactly this treatment and are already what
+       `.claim-badge.amber` above resolves through.
+     - the mockup's `rgba(0,0,0,.35)` modal shadow becomes `--overlay`,
+       which is what prax.2's sheet and prax.4a's toast already use.
+
+   Nothing above is modified. `.claim-resolve.praxis` LAYERS onto
+   prax.4a's `.claim-resolve` rather than replacing it, so the Harpy
+   button keeps the gold treatment that story shipped.
+   ════════════════════════════════════════════════════════════════════ */
+
+/* ── the Praxis variant of "Declare Winner" ── */
+/* Crimson rather than gold, and deliberately heavier than the Harpy button it
+   sits in the same slot as: that one hands over a single seat, this one
+   mass-clears three offices belonging to people who are not watching the board.
+   The colour should read as heavier before anyone reads a word. */
+.praxis-board .claim-resolve.praxis {
+  background: var(--accent-a8);
+  border-color: var(--accent-a25);
+  color: var(--accent);
+}
+.praxis-board .claim-resolve.praxis:hover { background: var(--accent-a25); }
+
+/* ── the confirm modal ── */
+/* THE SECOND RULE IN THIS FILE'S PRAXIS BLOCKS THAT IS NOT SCOPED UNDER
+   .praxis-board, and it has to be: the overlay is fixed to the VIEWPORT rather
+   than to the board, because the vacate list can be longer than the board is
+   tall and a modal clipped to a card is not a modal. It reuses this app's own
+   established `ec-modal-overlay` / `ec-modal-box` shape (see them earlier in
+   this file) rather than inventing a new dialog pattern, themed to the Praxis
+   board's crimson because this is the highest-stakes confirmation in the app. */
+.confirm-modal-overlay {
+  position: fixed; inset: 0; background: var(--overlay); z-index: 2000;
+  display: flex; align-items: center; justify-content: center; padding: 20px;
+}
+.confirm-modal-box {
+  max-width: 480px; width: 100%; background: var(--surf); border: 1px solid var(--bdr2);
+  border-radius: var(--radius-lg); padding: 20px 22px; box-shadow: 0 12px 40px var(--overlay);
+  max-height: calc(100vh - 40px); overflow-y: auto;
+}
+.confirm-modal-box .panel-label {
+  font-family: var(--fl); font-size: 11px; font-weight: 700; letter-spacing: .12em;
+  text-transform: uppercase; color: var(--accent); padding-bottom: 10px;
+  margin-bottom: 4px; border-bottom: 1px solid var(--bdr);
+}
+.confirm-headline { font-family: var(--fl); font-size: 16px; font-weight: 700; color: var(--txt); margin: 14px 0 4px; }
+.confirm-headline .winner { color: var(--accent); }
+.confirm-sub { font-family: var(--fl); font-size: 12px; color: var(--txt3); margin-bottom: 16px; }
+.confirm-section-label {
+  font-family: var(--fl); font-size: 10px; font-weight: 700; letter-spacing: .08em;
+  text-transform: uppercase; color: var(--txt3); margin: 16px 0 8px;
+}
+
+/* One row per office this resolution empties, named individually and never
+   folded into a count - the whole reason this screen exists. */
+.confirm-vacate-list { display: flex; flex-direction: column; gap: 6px; }
+.confirm-vacate-row {
+  display: flex; align-items: baseline; justify-content: space-between;
+  background: var(--accent-a8); border: 1px solid var(--accent-a25);
+  border-radius: var(--radius-sm); padding: 8px 12px;
+}
+.confirm-vacate-row .name { font-family: var(--fl); font-size: 13px; font-weight: 600; color: var(--txt); }
+.confirm-vacate-row .office { font-family: var(--fl); font-size: 11px; color: var(--txt3); }
+/* An empty match set says so in words rather than rendering as blank space: an
+   ST tapping Confirm over nothing must be able to tell "nobody holds any of the
+   three" from "the list failed to load". */
+.confirm-vacate-empty { font-family: var(--fl); font-size: 12px; color: var(--txt3); font-style: italic; padding: 6px 0; }
+
+/* The two consequences the vacate list cannot express: a Primogen seat that
+   SURVIVES, and a People's Harpy seat vacated by a different mechanism. Gold
+   rather than crimson, because neither is a person losing an office to this
+   resolution in the way every row above is. */
+.confirm-note-row {
+  display: flex; align-items: center; gap: 8px; background: var(--gold-a8);
+  border: 1px solid var(--bdr2); border-radius: var(--radius-sm); padding: 8px 12px;
+  margin-top: 8px; font-family: var(--fl); font-size: 12px; color: var(--txt2);
+}
+.confirm-note-row .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--gold2); flex-shrink: 0; }
+
+.confirm-actions {
+  display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px;
+  padding-top: 16px; border-top: 1px solid var(--bdr);
+}
+.confirm-cancel {
+  background: none; border: 1px solid var(--bdr2); border-radius: var(--radius-sm);
+  padding: 9px 16px; font-family: var(--fl); font-size: 12px; font-weight: 700;
+  letter-spacing: .02em; color: var(--txt2); cursor: pointer;
+}
+.confirm-go {
+  background: var(--accent); border: 1px solid var(--accent); border-radius: var(--radius-sm);
+  padding: 9px 18px; font-family: var(--fl); font-size: 12px; font-weight: 700;
+  letter-spacing: .02em; color: var(--txt-on-dark); cursor: pointer;
+}
+.confirm-go:hover { background: var(--accent2); }
+
+/* The stale-confirm-list state: the execute-time re-verify found the board had
+   moved since this modal opened. Orange rather than crimson - nothing has gone
+   wrong and nothing was written, the list simply needs re-reading before the ST
+   confirms again. */
+.confirm-stale {
+  background: var(--warn-orange-bg); border: 1px solid var(--warn-orange-bdr);
+  border-radius: var(--radius-sm); padding: 10px 12px; margin-top: 14px;
+  font-family: var(--fl); font-size: 12px; color: var(--warn-orange); line-height: 1.5;
+}

@@ -384,11 +384,111 @@ extraction needed, see the corrections above)**
 
 ## Dev Agent Record
 
-*(filled in during dev-story)*
+Implemented 2026-08-30 (`/bmad-epic-loop prax`, Opus subagent, orchestrator-supervised), then extended
+by the orchestrator itself during review (see Senior Developer Review below).
+
+**Files touched** (matches Dev Notes closely; two path corrections against the spec's own guesses —
+see deviations): `server/scripts/rename-city-harpy-seat.mjs` (new, 280 lines),
+`server/tests/prax-4b-head-of-state-resolve.test.js` (new, 64 tests after review additions),
+`server/routes/praxis-sessions.js` (7th route, AC3-AC9, plus the review's own Head of State seat
+step), `public/js/admin/praxis-tab.js` (client, plus the review's own note row and toast line),
+`public/css/admin-layout.css` (new confirm-modal block), `server/ws.js` (`broadcastPraxisResolved`),
+`public/js/data/ws.js` (`praxis_resolved` dispatch), `public/js/admin.js` +
+`public/js/admin/city-views.js` (ST-side WS wiring), `public/js/app.js` + `public/js/tabs/office-tab.js`
+(player-suite-side WS wiring — see the review's own Medium finding on this pair),
+`server/scripts/seed-office-seats.mjs` (AC2 literal), `server/tests/oxp-1-office-seats.test.js`
+(assertion updated for the renamed label).
+
+**Deviations from the spec's literal text** (all reviewed):
+- **AC16 file paths were wrong.** The spec named `public/js/admin/office-tab.js` and
+  `public/js/admin/city-tab.js`; neither exists. The real files are `public/js/tabs/office-tab.js`
+  (player-facing, wired via `app.js`) and `public/js/admin/city-views.js` (`initCityView`, wired via
+  `admin.js`) — `public/js/admin/city-tab.js` was never wired anywhere and has zero callers repo-wide,
+  so it was correctly left untouched.
+- **People's Harpy branch gate.** The spec's own AC6 wording paired the gate with
+  `winner.court_category === 'Socialite'` AND the seat's own `holder_id`. The shipped code gates the
+  SEAT write on the seat's own `holder_id` alone (read inside the transaction), keeping the
+  character-field CAS as its own separate, benign-mismatch-tolerant check — gating the seat write on a
+  headline that had drifted could strand a real seat under the new Head of State, a combination
+  prax.0's exclusivity matrix forbids outright. Reviewed and confirmed correct: the seat is the
+  authoritative fact, so the seat is what gates.
+- **Headline derivation uses `deriveCourtCategory` (the pure half), not `deriveCourtHeadlineForHolder`
+  (the querying half)**, both named in AC6. The querying variant would read only seats the winner
+  really holds and never return Head of State (this route confers no such seat — see the review
+  finding below, which changed that). The held seats are read live post-clear and a virtual
+  `{office_category: 'Head of State'}` entry is appended alongside them. Reviewed and confirmed
+  correct — necessary given the route's original scope, and still correct after the review's own
+  addition of a real Head of State seat handover (see below).
+- **`possessiveFor`** reads the real, nullable `character.pronouns` field with a neutral "their"
+  fallback, rather than inventing one. Matches prax.4a's own established pattern for this exact need.
 
 ## Senior Developer Review
 
-*(filled in during the independent review pass)*
+Independently re-verified 2026-08-30 by the orchestrator (inline 3-lens pass: Blind Hunter, Edge Case
+Hunter, Acceptance Auditor), not the subagent's own self-report. Re-ran every test suite personally:
+59/59 (later 64/64 after the fix below) new server tests, 56/56 Playwright, the full office/praxis
+regression batch, and confirmed the two remaining test-suite failures elsewhere in the repo
+(`fix-587-css-tokens.spec.js`'s two failures, `oxp-1`'s own seat-count race) are pre-existing —
+`fix-587` clicks the `downtime` admin domain, removed 2026-08-29 (confirmed against
+[[project-downtime-ordeals-full-removal-2026-08-29]]); `oxp-1`'s race reproduces identically with this
+story's changes `git stash`-ed. Read every changed file's own diff line by line, including the
+`resolve-praxis` route's full transaction body against `resolve-harpy`'s own precedent, the
+cross-boundary server import of `public/js/data/city-status-calc.js`/`helpers.js` (confirmed
+already-established precedent via `office-actions.js`, and confirmed the `helpers.js` import chain is
+genuinely Node-safe, not just untested — `auth/discord.js` guards its own module-scope `location`
+read). Visually verified against the locked mockup via a throwaway Playwright screenshot script (the
+live board, the confirm modal populated/empty/winner-holds-one-of-three, and the resolved summary +
+toast) — close fidelity to the design-lock.
+
+**One High finding, found during review and FIXED (not deferred) with Angelus's own sign-off:**
+
+- **The Head of State `office_seats` document was never handed over.** The original spec (following
+  the epic doc's own silence on this point) explicitly scoped this route to write only the winner's
+  headline and leave any Head of State seat document alone. Live seed data has a real, occupied Head
+  of State seat (`Eve Lockridge`), and office purchases are seat-keyed (oxp.11) — `resolveHeldSeat`/
+  `resolveOfficeSeat` both require the character's own id to match a seat's `holder_id` before a
+  purchase can resolve to a seat at all. Leaving the seat's `holder_id` pointed at the outgoing holder
+  would have stranded every new Head of State with no seat to buy their own office's real, seeded
+  merits and manoeuvres against (`server/scripts/seed-office-content.js` confirmed real content
+  exists for this category) — a genuine functional break, not cosmetic staleness. Raised to Angelus
+  directly (not silently patched or silently deferred, given it is a real game-rules/architecture
+  call); confirmed: extend `resolve-praxis` to hand the seat over too. Implemented as a new
+  unconditional step (6b) mirroring the People's Harpy branch's own shape — CAS-claim the seat, clear
+  the outgoing holder's headline (benign-mismatch tolerant, same as every other departing-holder
+  clear in this route), reset their manoeuvre rank (vacating is a handover, same ruling as everywhere
+  else). A missing Head of State seat document is tolerated, not fatal — a Praxis resolve must not be
+  blocked by a seeding gap in an office this route did not originally depend on. Five new tests added
+  (occupied, vacant, missing-document, sitting-holder-re-declares-as-no-op, and a dedicated atomicity
+  probe that fails specifically on this new step's own manoeuvre reset, proving the whole mass-clear
+  rolls back with it) — all passing, plus the existing suite's own stale assertions (`never touches...
+  the Head of State seat`, the `praxis_resolved` payload's exact `affected_seat_ids` set) corrected to
+  match. Client gained a matching confirm-modal note row (`"<outgoing> is replaced as Head of
+  State."`, reusing the exact `.confirm-note-row` component the Primogen/People's-Harpy notes already
+  use) and a matching toast line, both visually verified.
+
+**One Medium finding, found during review, DEFERRED (not patched — logged to `deferred-work.md`):**
+
+- **`office-tab.js`'s own `praxis_resolved` WS wiring can never reach the player it is for.**
+  `broadcastPraxisResolved` fans out to `['st', 'dev']` roles only (server-side, `_fanOutRoles`) — the
+  same scope every other route in `praxis-sessions.js` uses, correctly, since Praxis tally/vote data
+  must never reach a player socket. But `office-tab.js` is wired via `app.js` (the player Suite app,
+  confirmed by checking which HTML file loads which JS entry point), and the actual audience for a
+  post-resolve office-tab refresh is the affected PLAYER — the new Head of State, or whoever just lost
+  Enforcer/Administrator/City Harpy/People's Harpy/the old Head of State seat — not an ST who happens
+  to have the Suite app open. A real player's own Office tab will show stale purchase controls/budget
+  until they manually reload or switch domains. Bounded impact, not a security gap:
+  `office-purchase.js` independently re-validates `holder_id` server-side before any purchase
+  completes, so a stale client cannot let a wrongful purchase through — this is UX staleness, not data
+  integrity. `city-views.js`'s own wiring (via `admin.js`, correctly ST-only) has no equivalent
+  problem. Root cause: the story's own spec (written by the orchestrator) assumed
+  `office-tab.js` lived under `public/js/admin/`, an ST-only surface; it does not. The real fix -
+  broadening `broadcastPraxisResolved` to reach the affected player specifically, or to all roles
+  outright (arguably safe: `court_category`/`court_title` are already ordinary player-visible
+  character-sheet fields, not Praxis-secret data; only the tally/vote *process* is meant to stay
+  ST-only) - is a genuine scope/architecture call, not a drive-by fix, so it is deferred rather than
+  silently decided either way.
+
+Status: **done**.
 
 ## Change Log
 

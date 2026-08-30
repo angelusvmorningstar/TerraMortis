@@ -222,7 +222,10 @@ export function broadcastRollLogged(doc) {
  * Refetch is the only correct response, so the frame carries only the id.
  *
  * The richer resolve-time frame ({ type: 'praxis_resolved', affected_seat_ids,
- * ... }) is prax.4b's own addition, deliberately not pre-built here.
+ * ... }) landed in prax.4b as `broadcastPraxisResolved` below. It is fired IN
+ * ADDITION to this one, not instead of it: this frame is what the board itself
+ * refetches on, and that one is for the domains outside the board whose office
+ * data a Praxis mass-clear has just invalidated.
  *
  * Uses `_fanOutRoles`, NOT `_fanOut`, for exactly the reason
  * `broadcastRollLogged` does. Every route in server/routes/praxis-sessions.js
@@ -242,6 +245,64 @@ export function broadcastPraxisUpdate(sessionId) {
   _fanOutRoles(JSON.stringify({
     type: 'praxis_session',
     session_id: String(sessionId),
+  }), ['st', 'dev']);
+}
+
+/**
+ * Broadcast a completed Praxis RESOLUTION to ST/dev-role connected clients only
+ * (Epic PRAX, prax.4b).
+ *
+ * Frame shape: { type: 'praxis_resolved', session_id, affected_seat_ids,
+ * affected_character_ids, resolved_office }.
+ *
+ * ═══ WHY THIS IS NOT `broadcastPraxisUpdate` ═══
+ *
+ * That frame says "this BOARD changed, refetch it", and it still fires on every
+ * Praxis write including this one - the board itself needs it. This frame says
+ * something the board's own listener cannot act on and does not care about:
+ * offices outside the board just changed hands, and whole other domains are now
+ * showing stale data. A Praxis resolve mass-clears every Enforcer,
+ * Administrator and City Harpy seat at once, so the Office and City surfaces
+ * are wrong the instant it commits, and neither of them watches
+ * `praxis_sessions` at all.
+ *
+ * ═══ THE PAYLOAD IS GENUINELY A NEW SHAPE HERE ═══
+ *
+ * Every other broadcaster in this file names AT MOST ONE entity - one character,
+ * one item, one board, one roll. Both id fields below are ARRAYS, because a
+ * single mass-clear affects several seats and several characters in one commit,
+ * and a consumer that had to guess how many would either under-refetch or
+ * refetch everything.
+ *
+ * They are still ADVISORY, not a diff to apply. Consumers refetch their own
+ * domain's data on receipt rather than patching in place, the same
+ * refetch-not-patch contract the catalogue / settings / bloodline / praxis_session
+ * frames all use. The arrays are there so a consumer can decide WHETHER what it
+ * is showing is affected, not so it can reconstruct the new state from the frame.
+ *
+ * Uses `_fanOutRoles`, NOT `_fanOut`, for exactly the reason
+ * `broadcastPraxisUpdate` above does at length: every route in
+ * server/routes/praxis-sessions.js is `requireRole('st')` and Praxis results are
+ * permanently ST-only by Angelus's locked ruling for the whole epic. This frame
+ * additionally names which characters just lost an office, which is a live
+ * readout of the night's outcome; it has no business on a player socket.
+ *
+ * Fired on a successful RESOLVE only, never on a dismissal - a dismissed vote
+ * hands no seat over and moves no character, so there is nothing stale for
+ * anyone to refetch.
+ *
+ * @param {string|ObjectId} sessionId - the praxis_sessions doc that resolved
+ * @param {{ affected_seat_ids: string[], affected_character_ids: string[],
+ *   resolved_office: string }} payload
+ */
+export function broadcastPraxisResolved(sessionId, payload = {}) {
+  if (!_wss) return;
+  _fanOutRoles(JSON.stringify({
+    type: 'praxis_resolved',
+    session_id: String(sessionId),
+    affected_seat_ids: (payload.affected_seat_ids || []).map(String),
+    affected_character_ids: (payload.affected_character_ids || []).map(String),
+    resolved_office: payload.resolved_office ?? null,
   }), ['st', 'dev']);
 }
 

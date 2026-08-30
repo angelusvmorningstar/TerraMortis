@@ -176,8 +176,55 @@ export function manoeuvreRankHtml(rank, count, isST, reasons) {
   return html;
 }
 
+/**
+ * prax.4b: the last render's own arguments, so a `praxis_resolved` WS frame can
+ * repaint this tab without the caller having to hold them.
+ *
+ * Module-level rather than anchored to `el` (unlike `_officeManoeuvreGen`
+ * below): a WS callback arrives with no element in hand at all, so there is
+ * nothing to read it off. Only the MOST RECENT render is remembered, which is
+ * correct - this tab has exactly one live mount in the app, and a stale entry
+ * from an unmounted one is discarded by the `isConnected` check in
+ * `onPraxisResolved`.
+ */
+let _lastRender = null;
+
+/**
+ * prax.4b (AC16): a Praxis resolution just mass-cleared several office seats.
+ *
+ * Wired into `app.js`'s own single `initWS({...})` call, the same shape
+ * `roll-feed.js`'s `onRollLogged` and `praxis-tab.js`'s `onPraxisUpdate` use -
+ * this module does not open a socket of its own. It no-ops until the tab has
+ * been rendered at least once this session, for the same reason those two guard
+ * on their own `_initialized` flags: before the first render there is nothing to
+ * paint into.
+ *
+ * REFETCH, NOT PATCH. `renderOfficeTab` bumps the render generation, which
+ * invalidates `_seatsForRender`'s memoised `/api/office_seats` promise, so the
+ * repaint genuinely re-reads the seats rather than serving the pre-resolve
+ * answer. That is the whole point: after a mass-clear this tab's holder
+ * resolution, purchase controls and budget preview are all reading a seat that
+ * may no longer have a holder.
+ *
+ * The frame's `affected_*` arrays are deliberately NOT consulted to decide
+ * whether to repaint. A resolution also rewrites the WINNER's headline, and this
+ * tab's own "is this my office" test spans both collections; filtering on the
+ * ids would be a second, subtly different implementation of that test.
+ * Repainting unconditionally costs one small fetch on a rare ST-only event.
+ */
+export function onPraxisResolved() {
+  const last = _lastRender;
+  if (!last || !last.el) return;
+  // A tab that has since been unmounted (the More menu rebuilds its panes) has
+  // nothing to paint into, and painting into a detached node would leave the
+  // memoised seat promise pointing at a dead element.
+  if (typeof last.el.isConnected === 'boolean' && !last.el.isConnected) return;
+  renderOfficeTab(last.el, last.char, last.chars, last.viewCategory);
+}
+
 export function renderOfficeTab(el, char, chars = [], viewCategory) {
   if (!el || !char) { if (el) el.innerHTML = '<div class="dtl-empty">No character loaded.</div>'; return; }
+  _lastRender = { el, char, chars, viewCategory };
 
   // oxp.3 render generation. Every render replaces el.innerHTML wholesale, so
   // every render invalidates the DOM nodes any in-flight async wiring captured.

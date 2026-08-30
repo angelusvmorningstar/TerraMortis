@@ -49,9 +49,61 @@ let prestigeView = 0; // 0-3 for the four views
 let _activeCycle = null;     // active downtime cycle (for regent confirmation chips)
 let _latestSession = null;   // most recent game session (for Eminence & Ascendancy)
 
+/**
+ * prax.4b: flips true on the first initCityView and never back. Guards the WS
+ * callback below - before the domain has been opened there is no loaded roster
+ * or seat array to refresh, the same reason roll-feed.js and praxis-tab.js
+ * carry their own `_initialized` guards.
+ */
+let _cityInitialised = false;
+
+/**
+ * prax.4b (AC16): a Praxis resolution just mass-cleared several office seats.
+ *
+ * Wired into `admin.js`'s own single `initWS({...})` call, the same shape
+ * `roll-feed.js`'s `onRollLogged` and `praxis-tab.js`'s `onPraxisUpdate` use -
+ * this module does not open a socket of its own. This domain shows the Court
+ * panel, so after a mass-clear its holder rows and every court title on screen
+ * are stale.
+ *
+ * REFETCH, NOT PATCH: both `/api/characters` and `/api/office_seats` are re-read
+ * whole, matching the contract every other broadcast frame in this codebase
+ * uses. The frame's `affected_*` arrays are advisory and deliberately not used
+ * to narrow the refetch - a resolution also rewrites the WINNER's headline, and
+ * a partial patch would have to re-derive the dual-seat precedence rule that
+ * `server/lib/court-category.js` owns.
+ *
+ * ═══ SKIPPED WHILE THE COURT EDIT PANEL IS OPEN, DELIBERATELY ═══
+ *
+ * `saveCourt` decides which rows changed by diffing the DOM's `<select>` values
+ * against `seatDocs`. Refreshing `seatDocs` underneath an open panel would break
+ * that pairing: rows the ST never touched would suddenly differ from the new
+ * baseline, and saving would fire real handovers nobody asked for. Re-rendering
+ * instead would silently discard whatever they had part-typed. Neither is
+ * acceptable, so an open panel is left completely alone - it re-reads both
+ * collections itself on its next save, which is the only moment the staleness
+ * could matter.
+ */
+export async function onPraxisResolved() {
+  if (!_cityInitialised || _courtPanelOpen) return;
+  const container = document.getElementById('city-content');
+  if (!container) return;
+
+  try {
+    const fresh = await apiGet('/api/characters');
+    if (Array.isArray(fresh)) {
+      fresh.forEach(c => applyDerivedMerits(c));
+      chars = fresh;
+    }
+  } catch { /* keep the roster we have rather than blanking the panel */ }
+  await refreshSeats();
+  renderCity(container);
+}
+
 export async function initCityView() {
   const container = document.getElementById('city-content');
   if (!container) return;
+  _cityInitialised = true;
   container.innerHTML = '<p class="placeholder">Loading city data...</p>';
 
   try {

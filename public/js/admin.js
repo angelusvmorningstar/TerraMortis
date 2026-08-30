@@ -30,7 +30,10 @@ import { vmUsed, lorekeeperUsed, ohmUsed, investedUsed } from './editor/domain.j
 import { isLoggedIn, validateToken, login, logout, getUser, getPlayerInfo, localTestLogin } from './auth/discord.js';
 import { initSessionLog } from './admin/session-log.js';
 import { initPlayersView } from './admin/players-view.js';
-import { initCityView } from './admin/city-views.js';
+// prax.4b: `onPraxisResolved` is aliased the same way `onPraxisUpdate` is
+// below, so the initWS({...}) entry reads as a wiring line rather than a bare
+// imported name.
+import { initCityView, onPraxisResolved as _onCityPraxisResolved } from './admin/city-views.js';
 import { initSpheresView } from './admin/spheres-view.js';
 // prax.2 (Epic PRAX): the Praxis Claim board. `onPraxisUpdate` is aliased the
 // same way roll-feed.js's own WS callback is, so the initWS({...}) entry below
@@ -285,6 +288,15 @@ async function boot() {
         // - same guard onRollLogged uses above, for the same reason (nothing
         // to paint into before the domain first renders).
         onPraxisUpdate: (sessionId) => { _onPraxisUpdateFeed(sessionId); },
+        // prax.4b (Epic PRAX, AC16): a Praxis resolution mass-clears every
+        // Enforcer, Administrator and City Harpy seat in one commit, so the City
+        // domain's Court panel and every court title it renders are stale the
+        // instant it lands. Passed straight to the city-views module, which
+        // no-ops until the City domain has been opened at least once this
+        // session AND declines to act while its own edit panel is open (see that
+        // function's own note - refreshing the baseline underneath an open panel
+        // would make the next save fire handovers nobody asked for).
+        onPraxisResolved: () => { _onCityPraxisResolved(); },
         // gdx.8 review fix (Codex + Edge Case Hunter, independently): a WS
         // drop-and-reconnect while Engine is open has no live catch-up
         // otherwise — rolls broadcast during the outage are simply never
