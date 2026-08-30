@@ -407,6 +407,12 @@ body.desktop-mode .sh-powers-grid > .sh-sec{break-inside:avoid;}
 .panel-total b{color:var(--gold2);}
 .pnl-confirm-btn{display:block;width:calc(100% - 32px);margin:8px 16px 16px;padding:14px;border:none;border-radius:8px;background:var(--crim);color:var(--txt-on-dark);font-family:var(--fl);font-size:0.75rem;letter-spacing:.14em;text-transform:uppercase;cursor:pointer;-webkit-tap-highlight-color:transparent;}
 .pnl-confirm-btn:active{filter:brightness(1.15);}
+/* rcv.5 — Detecting Blood Sympathy's Relation chips carry a second, quieter
+   line (the relation examples). .mchip is a centred row flex at a fixed 36px,
+   so a two-line chip needs its own column-flex override; the sub-line reuses
+   the same micro type token .panel-section already uses. */
+.vm-chip-wrap .mchip.bs-tier-chip{flex-direction:column;justify-content:center;gap:2px;height:auto;min-height:36px;padding:6px 12px;line-height:1.25;}
+.bs-tier-sub{font-size:var(--fs-floor-micro);color:var(--gdim);letter-spacing:.02em;text-transform:none;}
 /* ── Auspex Insight ── */
 .auspex-insight-btn{display:block;width:100%;margin-top:10px;padding:10px 14px;background:var(--gold-a8);border:1px solid var(--gold-a20);border-radius: var(--radius-md);color:var(--gold);font-family:var(--fl);font-size:0.75rem;letter-spacing:.1em;text-align:left;cursor:pointer;-webkit-tap-highlight-color:transparent;}
 .auspex-insight-btn:active{background:var(--gold-a15);}
@@ -886,10 +892,28 @@ body.desktop-mode .sh-powers-grid > .sh-sec{break-inside:avoid;}
 .gcp-stat:last-child{border-right:none;}
 .gcp-stat-v{font-family:var(--fl);font-size:1.25rem;color:var(--gold2);line-height:1;}
 .gcp-stat-l{font-family:var(--fl);font-size:var(--fs-floor-micro);letter-spacing:.08em;text-transform:uppercase;color:var(--txt3);margin-top:3px;text-align:center;}
-.gcp-section-hd{font-family:var(--fl);font-size:var(--fs-floor-micro);letter-spacing:.2em;text-transform:uppercase;color:var(--gold);margin:8px 0 6px;}
-.gcp-collapse-btn{background:none;border:none;cursor:pointer;font-family:var(--fl);font-size:var(--fs-floor-micro);letter-spacing:.2em;text-transform:uppercase;color:var(--gold);padding:0;margin-bottom:4px;display:block;}
-.gcp-all-collapsed .gcp-pool-grid{display:none;}
-.gcp-all-collapsed .gcp-section-hd{display:none;}
+/* rcv.2 — Skills / Disciplines / Special as three independent accordions,
+   ported from the recovered roller mockup's own picker sections
+   (scratchpad/roller-live-recovered/public/app.css:160-179) with this file's
+   `gcp-` naming. Replaces gdx-11's single `.gcp-collapse-btn` +
+   `.gcp-all-collapsed` toggle, deleted here. The grid-template-rows 0fr->1fr
+   trick is what animates a body of unknown height. */
+.gcp-accordions{display:flex;flex-direction:column;gap:8px;margin-bottom:8px;}
+.gcp-acc-section{border:1px solid var(--bdr);border-radius:var(--radius-md);background:var(--surf);overflow:hidden;}
+.gcp-acc-head{all:unset;box-sizing:border-box;display:flex;align-items:center;justify-content:space-between;gap:8px;width:100%;min-height:var(--control-height-sm);padding:0 12px;cursor:pointer;}
+.gcp-acc-label{font-family:var(--fl);font-size:var(--type-size-heading);font-weight:var(--type-weight-strong);color:var(--txt);}
+.gcp-acc-count{font-family:var(--fl);font-size:var(--type-size-micro);font-weight:var(--type-weight-label);color:var(--txt3);margin-left:6px;}
+.gcp-chevron{width:9px;height:9px;border-right:2px solid var(--txt3);border-bottom:2px solid var(--txt3);transform:rotate(45deg);transition:transform .18s ease;flex:none;}
+.gcp-acc-section[data-open="true"] .gcp-chevron{transform:rotate(-135deg);}
+.gcp-acc-body-wrap{display:grid;grid-template-rows:0fr;transition:grid-template-rows .22s ease;}
+.gcp-acc-section[data-open="true"] .gcp-acc-body-wrap{grid-template-rows:1fr;}
+.gcp-acc-body{overflow:hidden;min-height:0;}
+.gcp-acc-body-inner{padding:8px 10px 10px;}
+/* rcv.2 — "+ Custom Pool" as a standalone entry point below the accordions,
+   deliberately not a grid tile (mockup app.css:238's freebuild-btn). */
+.gcp-freebuild-btn{all:unset;box-sizing:border-box;cursor:pointer;text-align:center;display:flex;align-items:center;justify-content:center;width:100%;min-height:var(--control-height-md);border-radius:var(--radius-md);border:1px dashed var(--bdr3);background:transparent;color:var(--accent);font-family:var(--fl);font-size:var(--type-size-subheading);font-weight:var(--type-weight-strong);letter-spacing:.02em;text-transform:uppercase;transition:background .15s ease,border-style .15s ease;margin-top:4px;}
+.gcp-freebuild-btn:hover{background:color-mix(in srgb, var(--accent) 8%, transparent);border-style:solid;}
+.gcp-freebuild-btn:focus-visible{outline:2px solid var(--accent);outline-offset:2px;}
 .gcp-pool-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:8px;}
 .gcp-pool-btn{display:flex;flex-direction:column;align-items:flex-start;padding:8px 10px;background:var(--surf);border:1px solid var(--bdr);border-radius: var(--radius-sm);cursor:pointer;-webkit-tap-highlight-color:transparent;text-align:left;width:100%;}
 .gcp-pool-btn:active{background:var(--surf2);border-color:var(--gold-a30);}
@@ -2883,6 +2907,52 @@ body.desktop-mode.sidebar-collapsed .sb-collapse-btn { width: 100%; justify-cont
 }
 .rv2-breakdown[open] summary { color: var(--txt2); }
 
+/* ── rcv.3a: rules-explanation disclosure ──
+   Ported from the recovered roller mockup (scratchpad/roller-live-recovered/
+   public/app.css:435-461), class names and all. Sibling to .rv2-breakdown, not
+   a change inside it: "Pool breakdown" is dice-math, this is what the power
+   actually does. The chevron rule is `.rules-chevron` — review fix: the
+   mockup's own bare `class="chevron"` markup was ported unchanged, so a
+   future global `.chevron{}` rule anywhere in this stylesheet would have
+   silently reached into this box even though the CSS RULE below was always
+   correctly scoped to `.rules-summary-head`; both the markup class and the
+   selector are now `.rules-chevron`, closing that latent risk rather than
+   leaving it live. Distinct from rcv.2's own `.gcp-chevron` (whose rotation
+   keys off `.gcp-acc-section[data-open="true"]`, a different state contract
+   from a native `<details open>`); the mockup could rely on its own global
+   `.chevron` for the box/border, this port carries them here instead.
+   `.power-cost`/`.power-meta`/`.power-desc` are scoped under `.rules-summary`
+   (review fix — the mockup's own equivalents were bare/global; ported bare
+   here first, then scoped once review confirmed no live collision existed
+   today but the risk cost nothing to close, since none of the three appear
+   anywhere else in this app). `.rules-expander*` (the shared rules_text
+   component, #994) needs nothing here - already styled in
+   components.css:806-816. */
+/* `flex:none` is this port's one necessary addition to the mockup's own rule,
+   found by measuring the real page: #t-roll is a flex COLUMN whose content
+   overflows, and `overflow:hidden` here makes this box's automatic minimum
+   size 0 (a scroll container's min-height:auto resolves to 0, unlike
+   .rv2-breakdown's), so the flex container squashed it to a 2px sliver with
+   its own <summary> overflowing and unclickable. The mockup never hit this
+   because its container was not an overflowing flex column. */
+.rules-summary{flex:none;border:1px solid var(--bdr2);border-radius:var(--radius-lg);background:linear-gradient(180deg, var(--surf2), var(--surf));overflow:hidden;margin-bottom:8px;}
+.rules-summary-head{all:unset;box-sizing:border-box;cursor:pointer;list-style:none;display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:var(--control-height-sm);padding:0 14px;}
+.rules-summary-head::-webkit-details-marker{display:none;}
+.rules-summary[open] .rules-summary-head{border-bottom:1px solid var(--bdr);}
+/* Review fix: `all:unset` above strips the UA focus ring; restore one
+   explicitly, matching .gcp-freebuild-btn's own precedent (suite.css, rcv.2)
+   rather than leaving this the one interactive control in the pair with no
+   visible keyboard focus state. */
+.rules-summary-head:focus-visible{outline:2px solid var(--accent);outline-offset:2px;}
+.rules-summary-label{font-family:var(--fl);font-size:var(--type-size-heading);font-weight:var(--type-weight-strong);color:var(--accent);}
+.rules-summary .rules-chevron{margin-left:auto;width:9px;height:9px;border-right:2px solid var(--txt3);border-bottom:2px solid var(--txt3);transform:rotate(45deg);transition:transform .18s ease;flex:none;}
+.rules-summary[open] .rules-chevron{transform:rotate(-135deg);}
+.rules-summary-body{padding:10px 14px 14px;display:flex;flex-direction:column;gap:6px;}
+.rules-summary .power-cost{font-family:var(--fl);font-size:var(--type-size-label);font-weight:var(--type-weight-label);letter-spacing:var(--type-letter-spacing-label);text-transform:uppercase;color:var(--crim2);white-space:nowrap;}
+.rules-summary .power-meta{display:flex;flex-wrap:wrap;gap:6px 10px;font-family:var(--fl);font-size:var(--type-size-caption);color:var(--txt2);}
+.rules-summary .power-meta span:not(:last-child)::after{content:'·';margin-left:10px;color:var(--bdr3);}
+.rules-summary .power-desc{margin:2px 0 0;font-family:var(--ft);font-style:italic;font-size:var(--type-size-body);color:var(--txt2);line-height:1.55;}
+
 /* Horizontal inset comes from #t-roll's own 20px padding, matching every
    other block in this tab (Again Rule, Rote/WP, Contested Roll, results,
    history) - deliberately NOT a left/right margin of its own. A prior
@@ -3057,7 +3127,6 @@ body.desktop-mode.sidebar-collapsed .sb-collapse-btn { width: 100%; justify-cont
 .rl-sec-hd,
 #btn-contested,
 .cr-type-btn,
-.gcp-collapse-btn,
 .hist-clr,
 .rv2-adj,
 .rv2-again-seg button,
@@ -3132,7 +3201,6 @@ body.desktop-mode.sidebar-collapsed .sb-collapse-btn { width: 100%; justify-cont
 .rl-sec-hd::after,
 #btn-contested::after,
 .cr-type-btn::after,
-.gcp-collapse-btn::after,
 .hist-clr::after,
 .rv2-adj::after,
 .rv2-again-seg button::after,

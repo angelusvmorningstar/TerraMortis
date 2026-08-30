@@ -238,3 +238,22 @@ describe('gdx.11 — parseResistance() resolves an unrecognised token as a disci
     expect(parsed.tokens[0]).toMatchObject({ key: 'Obfuscate', type: 'disc' });
   });
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// rcv.1 (Epic RCV) — "Riding the Wave" is no longer an unconditional
+// standalone roll in the Vampire Mechanics section.
+// ─────────────────────────────────────────────────────────────────────────────
+//
+// Source-contract test, not a render test: char-pools.js has no jsdom-free
+// unit coverage of its own string-building renderCharPools() (this repo's own
+// convention - Playwright is the real client-side coverage), so this pins the
+// one fact that matters at the source level - the wrongly-modelled tile is
+// gone, and the one real mechanic (Frenzy Resistance) is still there.
+describe('rcv.1 — Riding the Wave removed from VM_IMMEDIATE', () => {
+  it('char-pools.js no longer lists Riding the Wave as its own roll', async () => {
+    const fs = await import('node:fs');
+    const src = fs.readFileSync('../public/js/game/char-pools.js', 'utf8');
+    expect(src).not.toContain("'Riding the Wave'");
+    expect(src).toContain("'Frenzy Resistance'");
+  });
+});

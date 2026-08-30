@@ -1204,7 +1204,16 @@ function openPanel(mode) {
         body.querySelectorAll('.cow-their-chip').forEach(btn => btn.addEventListener('click', () => { theirDisc = btn.dataset.d; render(); }));
         document.getElementById('clash-load')?.addEventListener('click', () => {
           const abbr = Object.entries(DISC_ABBR).find(([, full]) => full === theirDisc)?.[0] || theirDisc;
-          const pi = { total, attr: 'Blood Potency', attrV: bp, skill: null, skillV: 0, discName: myDisc, discV: myDots, resistance: 'v ' + abbr + ' + BP', noWP: false };
+          const pi = {
+            total, attr: 'Blood Potency', attrV: bp, skill: null, skillV: 0,
+            discName: myDisc, discV: myDots, resistance: 'v ' + abbr + ' + BP', noWP: false,
+            // rcv.3c: ported from the mockup (app.js:1303-1310), edited — dropped
+            // "Toggle Contested Roll below" and the duration-bonus language, since
+            // this live panel has neither; describes the rule, not an instruction
+            // to a control that doesn't exist here.
+            effect: 'When two Disciplines directly oppose each other and neither power\'s own system resolves it, both sides pool Blood Potency + dots in the Discipline fuelling their side and roll off. The side with more successes wins outright; the others fail. Ties reroll until someone pulls ahead.\n\nWillpower may only bolster this roll if your character is physically present and aware powers are clashing (p.126).',
+            action: 'Instant · contested',
+          };
           loadPool(total, 'Clash of Wills', pi);
         });
       };
@@ -1247,6 +1256,64 @@ function openPanel(mode) {
         document.getElementById('bloodbond-load')?.addEventListener('click', () => {
           const { pi } = bloodBondPool(c, vitae, attempts);
           loadPool(pi.total, 'Blood Bond Resistance', pi);
+        });
+      };
+      render();
+    }
+  } else if (mode === 'bloodsympathy') {
+    // rcv.5: Detecting Blood Sympathy — two independent chip groups (Relation,
+    // Approach), both visible at once, following the `lashout` branch's exact
+    // structure rather than the recovered mockup's own two-screen-with-Back
+    // wizard (this app has no sequential-step panel anywhere; see the story's
+    // own Design source section). Pool = Wits + Blood Potency + tier mod.
+    title.textContent = 'Detecting Blood Sympathy';
+    if (!suiteState.rollChar) {
+      body.innerHTML = '<div class="hempty" style="padding:24px 16px;">Select a character first</div>';
+    } else {
+      const c = suiteState.rollChar;
+      // rcv.5: ported verbatim from the mockup (app.js:106-111).
+      const BLOOD_SYMPATHY_TIERS = [
+        { key: 'once', label: 'Once Removed', sub: 'Sire or childe', mod: 3 },
+        { key: 'twice', label: 'Twice Removed', sub: 'Sibling, grandsire, or grandchilde', mod: 2 },
+        { key: 'thrice', label: 'Thrice Removed', sub: "Cousin, sire's sibling, or great-grandsire/childe", mod: 1 },
+        { key: 'four', label: 'Four Times Removed', sub: 'Clanmate', mod: 0 },
+      ];
+      let tier = null, forced = null;
+      const render = () => {
+        const witsV = getAttrVal(c, 'Wits');
+        const bp = c.blood_potency || 0;
+        let html = '<div class="panel-section">Relation</div><div class="vm-chip-wrap">';
+        BLOOD_SYMPATHY_TIERS.forEach(t => {
+          html += `<button class="mchip bs-tier-chip${tier === t.key ? ' on' : ''}" data-t="${esc(t.key)}">${esc(t.label)}<br><span class="bs-tier-sub">${esc(t.sub)}</span></button>`;
+        });
+        html += '</div><div class="panel-section">Approach</div><div class="vm-chip-wrap">';
+        html += `<button class="mchip bs-force-chip${forced === false ? ' on' : ''}" data-f="0">Passive (free)</button>`;
+        html += `<button class="mchip bs-force-chip${forced === true ? ' on' : ''}" data-f="1">Forced (1 WP)</button>`;
+        html += '</div>';
+        if (tier && forced !== null) {
+          const t = BLOOD_SYMPATHY_TIERS.find(x => x.key === tier);
+          const total = witsV + bp + t.mod;
+          html += `<div class="panel-total">Wits <b>${witsV}</b> + Blood Potency <b>${bp}</b> + ${esc(t.label)} <b>${t.mod >= 0 ? '+' : ''}${t.mod}</b> = <b>${total}</b> dice</div>`;
+          html += '<button class="pnl-confirm-btn" id="bloodsym-load">Load Pool</button>';
+        }
+        body.innerHTML = html;
+        body.querySelectorAll('.bs-tier-chip').forEach(btn => btn.addEventListener('click', () => { tier = btn.dataset.t; render(); }));
+        body.querySelectorAll('.bs-force-chip').forEach(btn => btn.addEventListener('click', () => { forced = btn.dataset.f === '1'; render(); }));
+        document.getElementById('bloodsym-load')?.addEventListener('click', () => {
+          const t = BLOOD_SYMPATHY_TIERS.find(x => x.key === tier);
+          const total = witsV + bp + t.mod;
+          const pi = {
+            total, attr: 'Wits', attrV: witsV, skill: null, skillV: 0,
+            discName: null, discV: 0, resistance: null, noWP: false,
+            willpower_cost: forced ? 1 : 0,
+            // rcv.5: ported from the mockup's own rules-summary text
+            // (app.js:1256-1268), edited to describe all four tiers generally
+            // rather than the mockup's own dynamic per-selection text (this
+            // app's pi.effect is static per-tile, matching every other tile).
+            effect: 'Detects a blood relative within the same city: sire or childe (+3), sibling, grandsire, or grandchilde (+2), cousin, a sire\'s sibling, or great-grandsire/childe (+1), or a clanmate (+0). Passive detection is free and ambient; forcing a connection to a specific target costs 1 Willpower. This roll cannot dramatically fail, regardless of pool size.\n\nSuccess: a vague impression of the relative\'s mental state and general direction. Exceptional success: also their rough distance, whether they have reached torpor or Final Death, and a single short sentence through the blood tie.',
+            action: 'Instant action',
+          };
+          loadPool(total, 'Detecting Blood Sympathy', pi);
         });
       };
       render();

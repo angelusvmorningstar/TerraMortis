@@ -43,6 +43,13 @@ export function getPool(char, raw) {
       // "confirmed free" value) never collapses to null.
       vitae_cost: rule.vitae_cost ?? null,
       willpower_cost: rule.willpower_cost ?? null,
+      // rcv.3a review fix: cost_note was never threaded through, so
+      // fmtCostLine(pi) could never reach its own `note` fallback/suffix
+      // branch - a power costing "1 V per effect" rendered as a bare
+      // "1 Vitae" on the Roll tab while the Sheet tab (fmtCostLine called
+      // with the raw rule doc, which does carry cost_note) showed the
+      // qualifier correctly. Same `?? null` reasoning as vitae_cost above.
+      cost_note: rule.cost_note ?? null,
       info: { d: rule.parent, c: rule.cost, ac: rule.action, du: rule.duration, ef: rule.description },
       rules_text: rule.rules_text || null,
       rules_source: rule.rules_source || null,
@@ -63,6 +70,10 @@ export function getPool(char, raw) {
       // `?? null` reasoning applies here.
       vitae_cost: rule.vitae_cost ?? null,
       willpower_cost: rule.willpower_cost ?? null,
+      // rcv.3a review fix: see the noRoll branch's own comment above — same
+      // reasoning, this is the branch that actually feeds roll-v2.js's
+      // Rules-explanation cost chip.
+      cost_note: rule.cost_note ?? null,
       action: rule.action || null,
       duration: rule.duration || null,
       effect: rule.description || null,

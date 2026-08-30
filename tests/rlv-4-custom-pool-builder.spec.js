@@ -148,14 +148,12 @@ async function setupSuite(page, chars) {
 async function pickCharacter(page, char) {
   await page.evaluate((c) => window.pickChar(c), char);
   await expect(page.locator('#roll-char-pools')).toBeVisible({ timeout: 5000 });
-  // gdx-11 AC9 (brought in by the dev->main reconciliation, 2026-08-25): the
-  // Pools section (Skill/Discipline/Custom Pool grid, including the "+
-  // Custom Pool" tile these tests target) now defaults to COLLAPSED on
-  // first view — same shape rlv.7's own spec already learned for its
-  // collapsed-by-default add-mod disclosure. Expand it here so every test
-  // using this helper can find its tiles visible.
-  const collapseBtn = page.locator('#roll-char-pools .gcp-collapse-btn');
-  if (await collapseBtn.count()) await collapseBtn.click();
+  // rcv.2 (Epic RCV): gdx-11 AC9's single "Pools" collapse toggle is gone,
+  // replaced by three independent accordions (Skills / Disciplines /
+  // Special), and "+ Custom Pool" moved OUT of the tile grid entirely into a
+  // standalone `.gcp-freebuild-btn` below them — always visible regardless of
+  // any section's open/closed state. So this helper no longer has anything to
+  // expand: the button these tests target is unconditionally on screen.
 }
 
 test('rlv.4 — Select a character first, when no character is loaded', async ({ page }) => {
@@ -168,14 +166,14 @@ test('rlv.4 — Select a character first, when no character is loaded', async ({
 test('rlv.4 — "+ Custom Pool" tile renders even with zero skills and zero disciplines', async ({ page }) => {
   await setupSuite(page, [EMPTY_CHAR]);
   await pickCharacter(page, EMPTY_CHAR);
-  await expect(page.locator('#roll-char-pools .gcp-choice-wide')).toBeVisible();
-  await expect(page.locator('#roll-char-pools .gcp-choice-wide')).toContainText('Custom Pool');
+  await expect(page.locator('#roll-char-pools .gcp-freebuild-btn')).toBeVisible();
+  await expect(page.locator('#roll-char-pools .gcp-freebuild-btn')).toContainText('Custom Pool');
 });
 
 test('rlv.4 — tapping the tile opens the Custom Pool panel with three chip groups', async ({ page }) => {
   await setupSuite(page, [RICH_CHAR]);
   await pickCharacter(page, RICH_CHAR);
-  await page.locator('#roll-char-pools .gcp-choice-wide').click();
+  await page.locator('#roll-char-pools .gcp-freebuild-btn').click();
   await page.waitForSelector('#panel', { state: 'visible', timeout: 10000 });
   await expect(page.locator('#panel-title')).toHaveText('Custom Pool');
   await expect(page.locator('.cp-attr-chip')).toHaveCount(9);
@@ -189,7 +187,7 @@ test('rlv.4 — tapping the tile opens the Custom Pool panel with three chip gro
 test('rlv.4 — picking Attribute+Skill+Discipline computes the live total and loads the pool', async ({ page }) => {
   await setupSuite(page, [RICH_CHAR]);
   await pickCharacter(page, RICH_CHAR);
-  await page.locator('#roll-char-pools .gcp-choice-wide').click();
+  await page.locator('#roll-char-pools .gcp-freebuild-btn').click();
   await page.waitForSelector('#panel', { state: 'visible', timeout: 10000 });
 
   await page.locator('.cp-attr-chip[data-a="Intelligence"]').click();
@@ -218,7 +216,7 @@ test('rlv.4 — picking Attribute+Skill+Discipline computes the live total and l
 test('rlv.4 — a 0-dot skill applies unskilledPenalty and the total floors at 0', async ({ page }) => {
   await setupSuite(page, [RICH_CHAR]);
   await pickCharacter(page, RICH_CHAR);
-  await page.locator('#roll-char-pools .gcp-choice-wide').click();
+  await page.locator('#roll-char-pools .gcp-freebuild-btn').click();
   await page.waitForSelector('#panel', { state: 'visible', timeout: 10000 });
 
   // Investigation (Mental, 0 dots) is hidden by default — reveal via "show all".
@@ -240,7 +238,7 @@ test('rlv.4 — a 0-dot skill applies unskilledPenalty and the total floors at 0
 test('rlv.4 — chips deselect on a second tap', async ({ page }) => {
   await setupSuite(page, [RICH_CHAR]);
   await pickCharacter(page, RICH_CHAR);
-  await page.locator('#roll-char-pools .gcp-choice-wide').click();
+  await page.locator('#roll-char-pools .gcp-freebuild-btn').click();
   await page.waitForSelector('#panel', { state: 'visible', timeout: 10000 });
 
   const attrChip = page.locator('.cp-attr-chip[data-a="Intelligence"]');
@@ -316,7 +314,7 @@ test('rlv.4 — a pool button in one container is unaffected by a later render i
 test('rlv.4 — Rote eligibility (PT dot-5 asset skill) applies to a Custom Pool exactly as a named pool', async ({ page }) => {
   await setupSuite(page, [ROTE_CHAR]);
   await pickCharacter(page, ROTE_CHAR);
-  await page.locator('#roll-char-pools .gcp-choice-wide').click();
+  await page.locator('#roll-char-pools .gcp-freebuild-btn').click();
   await page.waitForSelector('#panel', { state: 'visible', timeout: 10000 });
 
   await page.locator('.cp-attr-chip[data-a="Intelligence"]').click();

@@ -59,15 +59,15 @@ as a content gap needing fresh authoring, when it was already fully drafted in `
 | ID | Story | Depends on | Roller-live source |
 |---|---|---|---|
 | rcv.0 | Close #1039; this doc is its replacement | — | — |
-| rcv.1 | Fix the Riding the Wave bug | — | `app.js:181-190` (comment), server.mjs's own "Special rolls" comment |
-| rcv.2 | Skills / Disciplines / Special as three independent accordions | — | `app.js:237` (`sectionOpen`), `app.js:1799-1822` (the three-section markup) |
-| rcv.3a | Rules-explanation box — Disciplines / Rites | rcv.2 | `app.js:1225-1240`-ish (generic power block), `pools.js`'s own `info` object |
-| rcv.3b | Rules-explanation box — Devotions, with a missing-duration fallback | rcv.3a | same as 3a; `purchasable_powers` devotion docs are 48/54 missing `duration` |
-| rcv.3c | Port the drafted Special-tile rules copy | rcv.2 | see the per-mechanic line list below |
-| rcv.4 | Surface the mod chips out of the buried disclosure | — | `power-mod-chips.js` (unchanged), `roll-v2.js:479-491` (current render site) |
-| rcv.5 | Build Detecting Blood Sympathy against `#panel`, not `.fb-modal` | rcv.2 | `app.js:684-735`, `app.js:101-111` (`BLOOD_SYMPATHY_TIERS`) |
-| rcv.6 | Build Surprise/Perception against `#panel`, not `.fb-modal` | rcv.2 | `server.mjs:226-247` (no-choice special, served straight from the server) |
-| rcv.7 | Humanity Breaking Point — surface the drafted rules text ST-side only | — | `app.js:1276-1294` |
+| rcv.1 | **done** — Remove the wrongly-modelled Riding the Wave tile | — | `app.js:181-190` (comment), server.mjs's own "Special rolls" comment |
+| rcv.2 | **done** — Skills / Disciplines / Special as three independent accordions | — | `app.js:237` (`sectionOpen`), `app.js:1799-1822` (the three-section markup) |
+| rcv.3a | **done** — Rules-explanation box — Disciplines / Rites | rcv.2 | `app.js:1225-1240`-ish (generic power block), `pools.js`'s own `info` object |
+| rcv.3b | **done** — verified Devotions already covered by rcv.3a, no fallback needed | rcv.3a | same as 3a; `purchasable_powers` devotion docs are 48/54 missing `duration` |
+| rcv.3c | **done** — Port the drafted Special-tile rules copy (Lash Out, Clash of Wills, Blood Bond Resistance) | rcv.2 | see the per-mechanic line list below |
+| rcv.4 | **done** — Surface the mod chips out of the buried disclosure | — | `power-mod-chips.js` (unchanged), `roll-v2.js:479-491` (current render site) |
+| rcv.5 | **done** — Build Detecting Blood Sympathy against `#panel`, not `.fb-modal` | rcv.2 | `app.js:684-735`, `app.js:101-111` (`BLOOD_SYMPATHY_TIERS`) |
+| rcv.6 | **done** — Surprise/Perception, an immediate-roll VM_IMMEDIATE tile (not a panel) | rcv.2 | `server.mjs:226-247` (no-choice special, served straight from the server) |
+| rcv.7 | **done** — Humanity Breaking Point — surface the drafted rules text ST-side only | — | `app.js:1276-1294` |
 
 ### rcv.0 — Close #1039
 
@@ -75,19 +75,28 @@ Close the issue with a comment pointing at this doc. Do not re-word #1039's own 
 moved on too far (four other epics already took bites out of it); a fresh doc is honester than an
 edited-in-place one.
 
-### rcv.1 — Fix the Riding the Wave bug (do this first, alone)
+### rcv.1 — Remove the wrongly-modelled Riding the Wave tile (do this first, alone)
 
-**The bug, live in production today:** `public/js/game/char-pools.js`'s `VM_IMMEDIATE` array lists
-"Riding the Wave" as its own independently-rollable Wits+Composure pool, alongside Frenzy Resistance.
-It isn't a real mechanic — per the actual rule (and confirmed against `roller-live/server.mjs`'s own
-comment, which only ever builds a single `resistfrenzy` special), Riding the Wave is a Willpower
-spend made **about a frenzy a failed Frenzy Resistance roll already triggered**, not a second dice
-pool. Every tap of the live tile today writes a `roll_log` row for a roll that shouldn't exist.
+**Rescoped 2026-08-30** after investigating what the real fix would need. `public/js/game/rules.js:52`
+turns out to carry a real, house-ruled mechanic — "Wits + Composure after triggering to direct the
+Frenzy. 1 WP/turn, 5 successes needed to RTW" — not the simple "no roll, just a WP spend" picture the
+epic's own scoping round first landed on. Building that mechanic properly needs state that doesn't
+exist anywhere in the app yet (no frenzy on/off flag, no turn-counter usable outside a formally-tracked
+combat scene, no cross-roll success accumulator) and turns out to be one gap in a five-mechanic system
+(`rules.js:44-56` — Trigger, Resistance Roll, Delay with WP, Riding the Wave, Touchstone Talk-Down),
+only one piece of which (the bare Resistance Roll) is built at all. That's a real epic of its own, not
+a line in this one — **see `specs/epic-frz-frenzy-system.md`**, pulled out 2026-08-30 on Angelus's own
+call rather than folded into `rcv.1`.
 
-**Fix:** delete the `Riding the Wave` entry from `VM_IMMEDIATE`. Frenzy Resistance's own tile gains a
-short note (subtitle or Rules-explanation line, once `rcv.3c` lands) naming Riding the Wave as the
-follow-up choice on a failed roll. Do not build it as its own launcher/modal — it is not a pool, it's
-a Willpower-spend decision layered onto an existing roll's outcome.
+**What `rcv.1` still needs to do, on its own:** `char-pools.js`'s `VM_IMMEDIATE` array lists "Riding
+the Wave" as its own independently-rollable Wits+Composure pool, presented exactly like Frenzy
+Resistance — a real, standalone, always-available roll. That's wrong regardless of which design the
+Frenzy epic eventually lands on: Riding the Wave is never a freestanding choice, it only ever makes
+sense once a frenzy is already underway. Every tap of the live tile today writes a `roll_log` row for
+a roll that shouldn't be offered in this shape. **Fix:** delete the `Riding the Wave` entry from
+`VM_IMMEDIATE`. Do not add a replacement note or subtitle referencing the real mechanic yet — that
+mechanic doesn't have a shipped home to point to until Epic FRZ lands, and a note pointing at nothing
+would be worse than no note. This is a pure removal, nothing else.
 
 **Scope note (Dana, party-mode):** no schema change. Nothing reads a stored "Riding the Wave" result
 downstream — verify this directly before shipping (grep `roll_log` consumers for the literal label),
@@ -96,6 +105,44 @@ but don't scrub historical bad rows; not worth the ceremony.
 **Sequencing (Winston, party-mode):** land this alone, first, before any of `rcv.2` onward touches the
 Special section — otherwise the fix is buried in a much bigger diff and harder to review/revert on
 its own.
+
+**Status: done (2026-08-30).**
+
+**Dev Agent Record.** Deleted the `{ label: 'Riding the Wave', a1: 'Wits', a2: 'Composure' }` entry
+from `VM_IMMEDIATE` in `public/js/game/char-pools.js`, leaving only `Frenzy Resistance`. Left a code
+comment pointing at `specs/epic-frz-frenzy-system.md` for why the tile is gone rather than replaced.
+Dana's scope note was verified directly: grepped `roll_log` consumers (`server/routes/`,
+`public/js/`) for the literal string `Riding the Wave` — zero matches outside the deleted tile
+definition and this epic's own docs, confirming nothing downstream reads a stored result by that
+label. No schema change, no historical row scrub (per Dana's own call — not worth the ceremony).
+
+**Verification.**
+- Added a source-contract regression test to `server/tests/gdx-11-vampire-mechanics-quick-actions.test.js`
+  pinning the fact at the source level (`VM_IMMEDIATE` no longer contains the string, `Frenzy
+  Resistance` still does). Prove-discriminated: `git stash` the fix → test correctly fails (23/24) →
+  `git stash pop` → 24/24 green again.
+- Broader regression: `gdx-7-apply-costs-on-roll.test.js` + `gdx-11...` + `gdx-12*.test.js` = 95/95
+  passed.
+- Playwright regression: `tests/rlv-4-custom-pool-builder.spec.js` (the suite closest to
+  `VM_IMMEDIATE`'s own rendering) — 12/12 passed, no index/count assumption broke.
+- Visual verification: throwaway Playwright script (reusing the auth/char-injection pattern from
+  `tests/rlv-4-custom-pool-builder.spec.js`) loaded the live Roll tab for a Kindred character and
+  screenshotted the Vampire Mechanics section. Confirmed by eye: `Frenzy Resistance`, `Lash Out`,
+  `Clash of Wills`, `Blood Bond Resistance`, `Humanity Check` render; no `Riding the Wave` tile.
+  Script and screenshot deleted after use (throwaway, not committed).
+
+**Senior Developer Review (self, inline per epic-loop Phase 3).** Three-lens pass against the diff:
+- *Blind Hunter (diff only):* single-line array-entry deletion plus a comment; no logic branch, no
+  new failure mode introduced. Nothing found.
+- *Edge Case Hunter (diff + project):* checked whether any other module indexes into `VM_IMMEDIATE`
+  by position rather than by label (would silently break on a shortened array) — `char-pools.js`'s
+  own render loop iterates by label/object, not index; no other file imports the array. Nothing
+  found.
+- *Acceptance Auditor (diff + spec):* the story's own acceptance line ("pure removal, nothing else,
+  no replacement note yet") matches exactly what shipped — no note, no subtitle, no schema touch.
+  Nothing found.
+
+No unresolved High/Med findings. Story closed `done`.
 
 ### rcv.2 — Three independent accordions
 
@@ -117,6 +164,13 @@ reset to default-collapsed — pick one and say so in the story, don't leave it 
 **Out of scope:** the Queue accordion (`secQueue` in the recovered build) is CRD's contested-roll
 inbox — a separate epic already covers it. Don't port it here.
 
+**Status: done (2026-08-30).** Full story spec, Dev Agent Record and Senior Developer Review:
+`specs/stories/rcv-2-three-independent-accordions.md`. Real finding beyond the scoping above: the
+mockup's Custom Pool entry point ("Free Build") is not one of the three accordions, it's a standalone
+button below them — relocated accordingly, keeping the "+ Custom Pool" label. Section labels use the
+mockup's own wording (Skills/Disciplines/Special), a deliberate copy call flagged in review, not a
+silent decision.
+
 ### rcv.3a / rcv.3b — Rules-explanation box, Disciplines/Rites/Devotions
 
 The data already exists and is already computed — `public/js/shared/pools.js`'s `getPool()` returns a
@@ -129,9 +183,31 @@ similarly solid.
 Devotions (54 docs) are thinner — 48/54 missing `duration` — so `rcv.3b`'s own AC needs an explicit
 "duration not specified" fallback rather than a blank field or a crash.
 
+**rcv.3b — rescoped 2026-08-30, before implementation.** Tracing `char-pools.js:203-228` found the
+Discipline/Rite/Devotion/Pact tile loop is fully shared — a Devotion tile runs through the exact same
+`getPool()`/`updRulesSummary()` path as a core Discipline, with no category-specific branch anywhere,
+and a missing `duration` already renders correctly, silently, matching the Sheet tab's own established
+`fmtRuleStats()` convention. The "needs an explicit fallback" premise above did not survive contact
+with the actual code — no such fallback pattern exists anywhere else in this app, and building a
+Devotion-only one would introduce a new inconsistency for a coverage gap that produces no visible
+defect. `rcv.3b` is now a verification story (two Devotion-category regression fixtures proving this
+by test, not by inference), not a construction one. Full detail:
+`specs/stories/rcv-3b-rules-explanation-devotions.md`.
+
 Reference the recovered build's own rendering shape at `app.js:1225-1240` (the generic power block) for
 exact structure — the box is a `<details class="rules-summary">`, open by default in the mockup for
 visibility, collapsed in the real shipped default state to match every other accordion in this epic.
+
+**rcv.3a status: done (2026-08-30).** Full story, Dev Agent Record and Senior Developer Review:
+`specs/stories/rcv-3a-rules-explanation-disciplines-rites.md`. Landed in `public/js/suite/roll-v2.js`
+(a sibling disclosure to `.rv2-breakdown`, resolved by tracing the actual "currently loaded pool" data
+flow — not `char-pools.js`, which only renders static tiles). Real finding beyond the epic doc's own
+scoping: this app already ships a shared `renderRulesExpander()` component (#994) reading real
+page-cited rules text, live today on the character Sheet tab — the epic never mentioned it. Review
+(3 independent internal layers, after two failed external Codex attempts) found and fixed two real
+bugs: `getPool()` never threaded `cost_note` through to the cost chip, and the box's own visibility
+gate could silently hide a power whose only content was its full rules text. `rcv.3b` inherits both
+fixes for free.
 
 ### rcv.3c — Port the drafted Special-tile rules copy
 
@@ -151,12 +227,27 @@ real app's version — quote it, don't paraphrase it:
 - **Surprise / Perception** — `app.js:1319-1320` (the ambush mechanic, the can't-act/can't-Defend
   consequence) — needed for `rcv.6`
 - **Resisting Frenzy** — `app.js:1332-1333` (the Willpower-holds-off-the-Beast mechanic — a stall, not
-  +3 dice — all four outcome tiers) — needed for `rcv.1`'s own Riding the Wave note
+  +3 dice — all four outcome tiers). Note: `rcv.1` no longer references this copy directly (its own
+  scope shrank to a pure tile removal, see that row); this porting still stands on its own merits for
+  the real Frenzy Resistance tile's own explanation once `rcv.2` gives it a home to render in.
 - **Defensive Reaction** — `app.js:1345-1347` (CRD's own contested-defence pool; likely out of this
   epic's scope, confirm against Epic CRD before porting)
 
 Land this after `rcv.2` (the Special section needs to exist to hold it), and note it directly unblocks
 part of `rcv.1`'s own "Riding the Wave" subtitle and all of `rcv.7`.
+
+**rcv.3c status: done (2026-08-30).** Full story, Dev Agent Record and Senior Developer Review:
+`specs/stories/rcv-3c-port-special-tile-rules-copy.md`. Scope narrowed at storying time to the 3
+mechanics that are both live tiles today and not already earmarked elsewhere: Lash Out, Clash of
+Wills, Blood Bond Resistance (Frenzy Resistance → Epic FRZ, Humanity Check → `rcv.7`, Detecting Blood
+Sympathy → `rcv.5`, Surprise/Perception → `rcv.6`, Defensive Reaction → likely Epic CRD, none of the
+latter three built live yet). No new UI — wired `effect`/`action` copy directly into the `pi` objects
+`rcv.3a`'s own already-shipped box already reads. Two of the three mechanics' mockup copy needed real
+editing, not verbatim porting: Clash of Wills' referenced a "Toggle Contested Roll" control and
+duration-bonus tracking that don't exist in the live panel; Blood Bond Resistance's "tracked below"
+is actually a manual chip picker above the Load Pool button. Self-caught review finding: the story's
+own first-draft copy contained em-dashes, violating this repo's hard rule — fixed in source, the
+story's own record, and the tests.
 
 ### rcv.4 — Surface the mod chips
 
@@ -173,6 +264,17 @@ move the real render call.
 leak bug once (since fixed, unescaped-separator collision). If this story touches how `powerName`
 strings get generated anywhere nearby, treat that as a regression class to test, not assume safe.
 
+**rcv.4 status: done (2026-08-30).** Full story, Dev Agent Record and Senior Developer Review:
+`specs/stories/rcv-4-surface-mod-chips.md`. Shipped with zero new CSS, confirmed feasible before
+implementation began — every reused class was already generic and container-agnostic. Both the
+read-only chip badges and the "+ Mod" add-row moved together into a new always-visible section, not
+just the badges alone. Real, necessary fix along the way: `rcv.2` had already broken every test in
+this spec by replacing the single Pools collapse toggle with three accordions and updating only its
+own sibling spec, not this one. Real finding, correctly deferred rather than fixed (would need new
+CSS, which this story forbids): the chip's own delete "×" is not actually pointer-reachable by a real
+click, in either its old or new location — a pre-existing `gdx-3` touch-target overlay issue,
+verified container-independent via `elementFromPoint`, logged to `deferred-work.md`.
+
 ### rcv.5 / rcv.6 — Detecting Blood Sympathy, Surprise/Perception
 
 Both net-new to the live app — confirmed zero pool math for either exists there today. Both exist
@@ -187,6 +289,22 @@ new modal component") so it can't slip through during the port.
 - Surprise/Perception: server-side only in the recovered build (`server.mjs:226-247`, "no-choice
   special... Wits+Composure") — no client wizard needed, it's an immediate-roll tile like Frenzy
   Resistance.
+
+**rcv.5 status: done (2026-08-30).** Full story, Dev Agent Record and Senior Developer Review:
+`specs/stories/rcv-5-detecting-blood-sympathy.md`. Real UI-flow finding beyond the epic doc's own
+scoping: the mockup's own two-screen wizard-with-Back UI has no precedent anywhere in this app's real
+panels (every one of the three existing live choice panels shows all its chip groups on one screen at
+once) — adapted to that same one-screen shape rather than porting the mockup's own sequential flow.
+The "cannot dramatically fail" rule is surfaced as rules text via the already-shipped Rules-explanation
+box, not built as new dice-engine logic (confirmed this app's dice engine has no such concept at all).
+
+**rcv.6 status: done (2026-08-30).** Full story, Dev Agent Record and Senior Developer Review:
+`specs/stories/rcv-6-surprise-perception.md`. Confirmed genuinely a no-choice, immediate-roll tile
+(a second `VM_IMMEDIATE` entry, not a panel) directly against the mockup's own server-side comment.
+Real architectural finding: this app's existing resist-target system already fully supports the exact
+"Dexterity + Stealth" contest with zero new code — `parseResistance()` already resolves a mixed
+attr+skill token combo the same way Clash of Wills' own discipline+BP combo already works live.
+Setting one `resistance` string was the entire implementation.
 
 **Not a shared data shape (Sally, party-mode):** the five choice-rolls are each hand-coded inline in
 `app.js` with their own option lists — no shared per-roll-type collection. Fine to keep doing this for
@@ -205,6 +323,16 @@ four outcome tiers) currently exists nowhere in the live app at all, ST or playe
 question for this story specifically, not assumed here: does it get surfaced in the admin Approval
 Queue (so the ST sees the formula/outcomes while picking the level), on the player's own submit
 screen (informational only, since they can't act on it), both, or neither? Ask before storying.
+
+**rcv.7 status: done (2026-08-30).** Full story, Dev Agent Record and Senior Developer Review:
+`specs/stories/rcv-7-humanity-breaking-point-st-only.md`. Asked the placement question directly via
+`AskUserQuestion` as instructed — Angelus chose ST Approval Queue only. Ships a STATIC reference (the
+formula, all four outcome tiers, and the full 10-level Sample Breaking Points table — real drafted
+content, ported not summarised), not a live-computed touchstone modifier, which would have needed a
+new character-data fetch outside this story's own locked scope. Reuses the same shared
+`renderRulesExpander()` component (#994) this whole epic has consistently reached for, per-row in the
+Approval Queue's own Humanity Check row, matching how that component is already used everywhere else
+it appears in this app. **This closes Epic RCV — all seven stories done.**
 
 ## What this epic is not
 

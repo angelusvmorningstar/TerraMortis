@@ -110,11 +110,40 @@ export function renderCharPools(el, char, onTap) {
   // rlv.2, so roll-v2.js is now the only player roller and this section is
   // unconditional. The choice tiles push {opensPanel}, routed by app.js's
   // onTap callback to openPanel(mode).
+  // rcv.2: `vmHtml`/`vmCount` are declared OUTSIDE this block now — the tiles
+  // are built here exactly as before, but they are no longer emitted straight
+  // into `h`; they become the Special accordion's body further down, after the
+  // Skills and Disciplines bodies have also been built.
+  let vmHtml = '';
+  let vmCount = 0;
   {
-    let vmHtml = '';
+    // rcv.1 (Epic RCV): "Riding the Wave" was wrongly modelled here as an
+    // unconditional standalone roll. Per the house-ruled frenzy system
+    // (public/js/game/rules.js:44-56), it is a Wits+Composure roll made
+    // AFTER a character has already triggered frenzy, to direct it - never
+    // a freestanding choice offered alongside Frenzy Resistance the way this
+    // array presented it. The real mechanic needs frenzy-episode state this
+    // app doesn't have yet (see specs/epic-frz-frenzy-system.md) - removed
+    // here rather than replaced, since there is nothing shipped yet for a
+    // note on this tile to point at.
     const VM_IMMEDIATE = [
       { label: 'Frenzy Resistance', a1: 'Resolve', a2: 'Composure' },
-      { label: 'Riding the Wave', a1: 'Wits', a2: 'Composure' },
+      // rcv.6: no branching choice (confirmed against the mockup's own
+      // server-side comment, roller-live/server.mjs:220-225) - an immediate
+      // roll like Frenzy Resistance, not a panel tile. `resistance` reuses
+      // the EXISTING resist-target system unchanged (shared/resist.js's
+      // parseResistance() already handles an attr+skill token combo,
+      // confirmed directly before writing this story).
+      {
+        label: 'Surprise / Perception', a1: 'Wits', a2: 'Composure',
+        resistance: 'v Dexterity + Stealth',
+        // rcv.6: ported from the mockup's own rules-summary text
+        // (app.js:1316-1320), edited to name the real resist-target dropdown
+        // rather than the mockup's own "Toggle Contested Roll below"
+        // control, which does not exist in this app.
+        effect: 'A character who does not realise they are about to be on the receiving end of violence rolls Wits + Composure to notice the ambush, contested by the attacker\'s Dexterity + Stealth. Pick the attacking character from the Resistance section below to compute their pool.\n\nFailure: your character cannot take an action in the first turn of combat, and cannot apply Defence that turn. Initiative for the second turn is determined as normal.',
+        action: 'Instant action',
+      },
     ];
     for (const m of VM_IMMEDIATE) {
       // getAttrEffective already includes bonus dots + discipline enhancement
@@ -131,19 +160,33 @@ export function renderCharPools(el, char, onTap) {
       // Composure/Wits/Resolve resolve against any real skill's specs or
       // equipment domain, so this is a safe, zero-side-effect reuse rather
       // than inventing a second bespoke pi shape for a two-attribute pool.
-      const pi = { total, attr: m.a1, attrV: v1, skill: m.a2, skillV: v2, discName: null, discV: 0, resistance: null, noWP: false };
-      pools.push({ total, label: m.label, attr: m.a1, attrV: v1, skill: m.a2, skillV: v2, nineAgain: false, resistance: null, pi });
+      // rcv.6: `resistance`/`effect`/`action` thread through from the entry
+      // when present - additive only, Frenzy Resistance's own entry carries
+      // none of these and stays byte-identical to before this story.
+      const pi = {
+        total, attr: m.a1, attrV: v1, skill: m.a2, skillV: v2, discName: null, discV: 0,
+        resistance: m.resistance || null, noWP: false,
+        ...(m.effect ? { effect: m.effect } : {}),
+        ...(m.action ? { action: m.action } : {}),
+      };
+      pools.push({ total, label: m.label, attr: m.a1, attrV: v1, skill: m.a2, skillV: v2, nineAgain: false, resistance: m.resistance || null, pi });
       vmHtml += poolBtn(m.label, total, ab(m.a1) + '+' + ab(m.a2), idx, false);
+      vmCount++;
     }
     const VM_CHOICE = [
       { label: 'Lash Out', mode: 'lashout' },
       { label: 'Clash of Wills', mode: 'clash' },
       { label: 'Blood Bond Resistance', mode: 'bloodbond' },
+      // rcv.5: fourth choice tile — opens app.js's own `bloodsympathy` panel
+      // mode (two chip groups: Relation, Approach), same {opensPanel} contract
+      // as the three above.
+      { label: 'Detecting Blood Sympathy', mode: 'bloodsympathy' },
     ];
     for (const m of VM_CHOICE) {
       const idx = pools.length;
       pools.push({ opensPanel: m.mode, label: m.label });
       vmHtml += choiceBtn(m.label, idx);
+      vmCount++;
     }
     // gdx.12: third tile kind — {submitAction}, routed by app.js's onTap to
     // submitHumanityCheck() instead of openPanel()/loadPool(). No panel, no
@@ -152,14 +195,14 @@ export function renderCharPools(el, char, onTap) {
       const idx = pools.length;
       pools.push({ submitAction: 'humanity_check', label: 'Humanity Check' });
       vmHtml += submitBtn('Humanity Check', idx);
+      vmCount++;
     }
-    h += '<div class="gcp-section-hd">Vampire Mechanics</div>';
-    h += `<div class="gcp-pool-grid">${vmHtml}</div>`;
   }
 
   // ── Skill pools (only non-zero skills) ──
   // Include PT dot-4 and MCI dot-3 bonus dots from applyDerivedMerits
   let skillHtml = '';
+  let skillCount = 0;
   for (const sk of SKILL_ORDER) {
     const skD = skTotal(char, sk);
     if (!skD) continue;
@@ -183,6 +226,7 @@ export function renderCharPools(el, char, onTap) {
     pools.push({ total: poolTotal, label: sk, attr, attrV, skill: sk, skillV: skD, nineAgain: !!na, roteEligible, meritBonus, meritLabel, resistance: null, pi: null });
     const sub = ab(attr) + '+' + ab(sk) + (meritBonus ? '+' + meritLabel + '(' + meritBonus + ')' : '');
     skillHtml += poolBtn(sk, poolTotal, sub, idx, na, roteEligible);
+    skillCount++;
   }
   // ── Discipline power pools (rollable only) ──
   const allRules = getRulesByCategory('discipline');
@@ -200,6 +244,7 @@ export function renderCharPools(el, char, onTap) {
     .forEach(p => derivedPowers.push(p));
 
   let discHtml = '';
+  let discCount = 0;
   for (const pw of derivedPowers) {
     const pi = getPool(char, pw.name);
     if (!pi || pi.noRoll || pi.total === undefined) continue;
@@ -208,6 +253,7 @@ export function renderCharPools(el, char, onTap) {
     pools.push({ total: pi.total, label: pw.name, attr: pi.attr, attrV: pi.attrV, skill: pi.skill, skillV: pi.skillV, nineAgain: !!discNa, resistance: pi.resistance || null, pi });
     const sub = ab(pi.attr) + '+' + ab(pi.skill) + (pi.resistance ? ' vs ' + pi.resistance : '');
     discHtml += poolBtn(pw.name, pi.total, sub, idx, discNa);
+    discCount++;
   }
 
   // rlv.4 (#1039, D5): "+ Custom Pool" tile — an ad-hoc entry path for rolls
@@ -218,33 +264,45 @@ export function renderCharPools(el, char, onTap) {
   // alone is reason enough to render the Pools section.
   const customIdx = pools.length;
   pools.push({ opensPanel: 'custom', label: '+ Custom Pool' });
-  const customHtml = choiceBtn('+ Custom Pool', customIdx, true);
 
-  // gdx-11 (#981, AC9): phone-density — first view after loading a
-  // character defaults to COLLAPSED (previously expanded-by-default).
-  // `stored === null` means the toggle has never been touched on this
-  // device; an explicit prior '0' (user un-collapsed manually) still wins.
-  if (skillHtml || discHtml || customHtml) {
-    const storedCollapsed = localStorage.getItem('tm_pools_collapsed');
-    const collapsed = storedCollapsed === null ? true : storedCollapsed === '1';
-    h += `<button class="gcp-collapse-btn">${collapsed ? '▸' : '▾'} Pools</button>`;
-    h += `<div class="gcp-pools-wrap${collapsed ? ' gcp-all-collapsed' : ''}">`;
-    if (skillHtml) {
-      h += '<div class="gcp-section-hd">Skill Pools</div>';
-      h += `<div class="gcp-pool-grid">${skillHtml}</div>`;
-    }
-    if (discHtml) {
-      h += '<div class="gcp-section-hd">Discipline Pools</div>';
-      h += `<div class="gcp-pool-grid">${discHtml}</div>`;
-    }
-    if (customHtml) h += `<div class="gcp-pool-grid">${customHtml}</div>`;
-    h += '</div>';
+  // rcv.2: Skills / Disciplines / Special as three INDEPENDENT accordions,
+  // replacing gdx-11's single "▸ Pools" collapse toggle (and its
+  // `tm_pools_collapsed` key, retired outright — see the story's AC6: no
+  // migration, a previously un-collapsed user simply gets the new
+  // default-closed state on next load). Order and default-closed state are
+  // ported from the recovered mockup's own `sectionOpen` shape
+  // (scratchpad/roller-live-recovered/public/app.js:237,1799-1822): secSkills,
+  // secDisc, secSpecial, all false. The mockup's fourth section (Queue) is
+  // Epic CRD's contested-roll inbox and is deliberately not ported here.
+  //
+  // Skills/Disciplines still render only when they have tiles — today's own
+  // `if (skillHtml)` / `if (discHtml)` behaviour, unchanged. Special always
+  // has tiles (Frenzy Resistance et al are unconditional), so it always
+  // renders.
+  h += '<div class="gcp-accordions">';
+  if (skillHtml) {
+    h += accordionSection('skills', 'Skills', skillCount, `<div class="gcp-pool-grid">${skillHtml}</div>`, 'tm_pools_open_skills');
   }
+  if (discHtml) {
+    h += accordionSection('disc', 'Disciplines', discCount, `<div class="gcp-pool-grid">${discHtml}</div>`, 'tm_pools_open_disc');
+  }
+  h += accordionSection('special', 'Special', vmCount, `<div class="gcp-pool-grid">${vmHtml}</div>`, 'tm_pools_open_special');
+  h += '</div>';
+
+  // rcv.2 (AC4): "+ Custom Pool" leaves the tile grid entirely and becomes a
+  // standalone full-width dashed button BELOW the accordion group, always
+  // visible regardless of any section's open/closed state — the mockup's own
+  // `freeBuildBtn` placement (app.js:1825, app.css:238). The label stays
+  // "+ Custom Pool" rather than the mockup's "Free Build" so it keeps
+  // matching the panel it opens, which is titled "Custom Pool" (rlv.4).
+  // Behaviour is untouched: same `pools[]` entry, same index, same
+  // `onTap({opensPanel:'custom'})` routing.
+  h += '<button class="gcp-freebuild-btn" data-idx="' + customIdx + '" type="button">+ Custom Pool</button>';
 
   h += '</div>';
   el.innerHTML = h;
 
-  el.querySelectorAll('.gcp-pool-btn').forEach(btn => {
+  el.querySelectorAll('.gcp-pool-btn, .gcp-freebuild-btn').forEach(btn => {
     const idx = Number(btn.dataset.idx);
     // gdx.12: second arg (the tapped button element) is new — existing
     // onTap callbacks that only declare one parameter are unaffected. Lets
@@ -253,13 +311,40 @@ export function renderCharPools(el, char, onTap) {
     btn.addEventListener('click', () => onTap(pools[idx], btn));
   });
 
-  el.querySelector('.gcp-collapse-btn')?.addEventListener('click', () => {
-    const wrap = el.querySelector('.gcp-pools-wrap');
-    const nowCollapsed = !wrap.classList.contains('gcp-all-collapsed');
-    wrap.classList.toggle('gcp-all-collapsed', nowCollapsed);
-    el.querySelector('.gcp-collapse-btn').textContent = (nowCollapsed ? '▸' : '▾') + ' Pools';
-    localStorage.setItem('tm_pools_collapsed', nowCollapsed ? '1' : '0');
+  // rcv.2: per-section toggle-in-place. Deliberately NOT a full
+  // renderCharPools() re-run (which the mockup's own cheap `render()` could
+  // afford but this one cannot — it recomputes every pool's dice math,
+  // rank-gate filter and tile markup, and re-attaches every handler). This
+  // extends the lightweight DOM-only toggle the retired `.gcp-collapse-btn`
+  // handler already used, just applied per-section instead of once globally.
+  el.querySelectorAll('[data-acc-toggle]').forEach(head => {
+    head.addEventListener('click', () => {
+      const section = head.closest('.gcp-acc-section');
+      const key = section.dataset.storageKey;
+      const nowOpen = section.dataset.open !== 'true';
+      section.dataset.open = String(nowOpen);
+      head.setAttribute('aria-expanded', String(nowOpen));
+      localStorage.setItem(key, nowOpen ? '1' : '0');
+    });
   });
+}
+
+/**
+ * rcv.2: one independent accordion section. Each reads and writes its OWN
+ * localStorage key, so opening one never touches another's state (AC2, AC5).
+ * `stored === null` (never touched on this device) means closed, matching
+ * gdx-11 AC9's own default-closed precedent for the single toggle this
+ * replaces; only an explicit prior '1' opens a section on first render.
+ */
+function accordionSection(id, label, count, bodyHtml, storageKey) {
+  const stored = localStorage.getItem(storageKey);
+  const open = stored === '1';
+  return `<div class="gcp-acc-section" data-open="${open}" data-storage-key="${storageKey}">` +
+    `<button class="gcp-acc-head" data-acc-toggle="${id}" type="button" aria-expanded="${open}">` +
+    `<span class="gcp-acc-label">${esc(label)} <span class="gcp-acc-count">${count}</span></span>` +
+    `<span class="gcp-chevron"></span></button>` +
+    `<div class="gcp-acc-body-wrap"><div class="gcp-acc-body"><div class="gcp-acc-body-inner">${bodyHtml}</div></div></div>` +
+    `</div>`;
 }
 
 function statChip(label, value) {

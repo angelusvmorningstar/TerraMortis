@@ -247,20 +247,46 @@
         <button class="mchip" id="spend-wp-btn" onclick="spendWillpower()">− WP</button>
       </div>
 
+      <!-- rcv.3a: static markup, populated once per loadPool()/resetRollPool()
+           call (not on every updPool() micro-repaint) so its own open/closed
+           state survives mod/chip toggles - same "outside the frequently
+           rewritten area" pattern rlv.7's own add-mod row above established.
+           Hidden when the loaded pool has no rules data (skills, Custom Pool,
+           Vampire Mechanics tiles - none of these set pi.effect/action/
+           duration/cost/rules_text; see updRulesSummary() in roll-v2.js). -->
+      <details class="rules-summary" id="rules-summary-box" style="display:none">
+        <summary class="rules-summary-head">
+          <span class="rules-summary-label">Rules explanation</span>
+          <span class="power-cost" id="rules-summary-cost"></span>
+          <span class="rules-chevron"></span>
+        </summary>
+        <div class="rules-summary-body" id="rules-summary-body"></div>
+      </details>
+
       <!-- Full breakdown lives inside a disclosure so it's available but
            not competing with the anchor for visual weight. -->
       <details class="rv2-breakdown">
         <summary>Pool breakdown</summary>
         <div id="effline" class="effline">Effective pool: <span>5 dice</span></div>
-        <!-- rlv.7 (#1039 item 2): static markup so updPool()'s own #effline
-             innerHTML rewrite never touches — and never wipes the focus or
-             value of — these live inputs. -->
+      </details>
+
+      <!-- rcv.4: the persistent per-power mod chips (rlv.7) and their add-row
+           live here, always visible, rather than buried inside the collapsed
+           "Pool breakdown" disclosure above. A mod is an active choice the
+           player made about the roll they are about to make, not dice-math
+           detail. Reuses .rv2-again-wrap/.rv2-again-lbl verbatim.
+           rlv.7 (#1039 item 2): the add-row stays static markup so updPool()'s
+           own #effline innerHTML rewrite never touches — and never wipes the
+           focus or value of — these live inputs. -->
+      <div class="rv2-again-wrap" id="rv2-mods-wrap">
+        <div class="rv2-again-lbl">Mods</div>
+        <div id="rv2-power-chips"></div>
         <div class="rv2-addmod-row" id="rv2-addmod-row">
           <input type="text" id="pmc-label" class="form-input rv2-addmod-label" placeholder="Mod label (e.g. Air of Menace)" maxlength="40" disabled>
           <input type="number" id="pmc-value" class="form-input rv2-addmod-value" placeholder="+/-" min="-10" max="10" disabled>
           <button type="button" id="pmc-add-btn" class="mchip rv2-addmod-btn" onclick="addPowerChip(document.getElementById('pmc-label').value, document.getElementById('pmc-value').value)" disabled>+ Mod</button>
         </div>
-      </details>
+      </div>
 
       <!-- Sticky bottom Roll button; label updates on every state change. -->
       <button id="roll-btn" class="rv2-roll-btn" onclick="doRoll()">&#10022; ROLL 5 DICE</button>
