@@ -17,6 +17,11 @@ import { SKILLS_MENTAL } from '../data/constants.js';
 import { isSTRole } from '../auth/discord.js';
 import { domMeritContrib, effectiveInvictusStatus, calcTotalInfluence } from '../editor/domain.js';
 import { trackerAdj, trackerRead, trackerReadRaw } from '../game/tracker.js';
+// dtlt.1: bonus successes (Stronger Than You). The local dice helpers below
+// stay — they carry this tab's configurable again-threshold, which the shared
+// engine reads from global roll state instead. Only the success RESOLUTION is
+// shared, and shared cntSuc reads the same per-die `s` flag these chains carry.
+import { resolveSuccesses, formatSuccessBreakdown } from '../shared/dice.js';
 
 // Dice math (configurable again threshold: 10 = standard, 9 = 9-again, 8 = 8-again)
 function d10() { return Math.floor(Math.random() * 10) + 1; }
@@ -42,6 +47,13 @@ let poolTotal = 0;
 let poolBreakdown = '';
 let stRote  = false; // rote flag confirmed by ST in downtime processing
 let stAgain = 10;   // again threshold (8/9/10) confirmed by ST
+// Review fix (Codex, external, dtlt.1): true only when poolTotal was actually
+// built from declaredMethod's own attrs/skills (buildPool() below). An
+// ST-confirmed pool (feeding_roll.params or a parsed pool_validated size)
+// carries no reliable trait names — declaredMethod may be a stale/different
+// method the player originally submitted, not what the ST actually
+// confirmed — so bonus-success predicates must not be evaluated against it.
+let poolTraitsTrusted = false;
 let rollResult = null;
 let vitaeAllocation = null; // array of ints after player confirms, or null
 let feedingRecord = null; // persisted feeding_rolls record from DB
@@ -88,6 +100,7 @@ export async function renderFeedingTab(el, char) {
   selectedMethodId = '';
   stRote  = false;
   stAgain = 10;
+  poolTraitsTrusted = false;
   responseSubId = null;
   publishedFeedingText = null;
   stRollResult = null;
@@ -273,12 +286,14 @@ export async function renderFeedingTab(el, char) {
       feedingState = 'ready';
     } else if (declaredMethod) {
       buildPool(declaredMethod, declaredDisc, declaredSpec);
+      poolTraitsTrusted = true;
       feedingState = 'ready';
     } else {
       feedingState = 'no_submission';
     }
   } else if (declaredMethod) {
     buildPool(declaredMethod, declaredDisc, declaredSpec);
+    poolTraitsTrusted = true;
     feedingState = 'ready';
   } else {
     feedingState = 'no_submission';
@@ -461,21 +476,37 @@ function renderStRollResult() {
   return h;
 }
 
+/**
+ * Which attribute and skill a feeding pool is actually built from: the best of
+ * each of the method's candidate lists.
+ *
+ * Extracted from buildPool (dtlt.1) because the roll needs the trait NAMES even
+ * on the two ST-confirmed paths, where the pool size comes straight off the
+ * submission and buildPool never runs. Bonus-success rules such as Stronger
+ * Than You are gated on the attribute in the pool, so without this the rule
+ * could not fire on an ST-confirmed feeding pool.
+ */
+function bestTraitsFor(c, method) {
+  const out = { attr: '', attrV: 0, skill: '', skillV: 0, specs: [] };
+  if (!c || !method) return out;
+  for (const a of method.attrs || []) {
+    const v = getAttrVal(c, a);
+    if (v > out.attrV) { out.attrV = v; out.attr = a; }
+  }
+  for (const s of method.skills || []) {
+    const v = skTotal(c, s);
+    if (v > out.skillV) { out.skillV = v; out.skill = s; out.specs = c.skills?.[s]?.specs || []; }
+  }
+  return out;
+}
+
 function buildPool(method, discName, specName) {
   const c = currentChar;
   if (!c || !method) { poolTotal = 0; poolBreakdown = ''; return; }
 
-  let bestA = '', bestAV = 0;
-  for (const a of method.attrs) {
-    const v = getAttrVal(c, a);
-    if (v > bestAV) { bestAV = v; bestA = a; }
-  }
-
-  let bestS = '', bestSV = 0, bestSpecs = [];
-  for (const s of method.skills) {
-    const v = skTotal(c, s);
-    if (v > bestSV) { bestSV = v; bestS = s; bestSpecs = c.skills?.[s]?.specs || []; }
-  }
+  const best = bestTraitsFor(c, method);
+  const bestA = best.attr, bestAV = best.attrV;
+  const bestS = best.skill, bestSV = best.skillV, bestSpecs = best.specs;
 
   const specBonus = specName && bestSpecs.includes(specName) ? (hasAoE(c, specName) ? 2 : 1) : 0;
   const discVal = (discName && c.disciplines?.[discName]?.dots) || 0;
@@ -688,7 +719,7 @@ function render() {
 
   // ── ROLLED ──
   if (feedingState === 'rolled' && rollResult) {
-    const { cols, successes, vessels, safeVitae, methodName, dramaticFailure } = rollResult;
+    const { cols, successes, vessels, safeVitae, methodName, dramaticFailure, successBreakdown } = rollResult;
 
     // Show ST-confirmed result if published
     if (publishedFeedingText) {
@@ -710,6 +741,11 @@ function render() {
     h += renderFeedingSummary();
     h += `<div class="feeding-suc">${successes}</div>`;
     h += `<div class="feeding-suc-label">success${successes !== 1 ? 'es' : ''}</div>`;
+    // dtlt.1: only rendered when a bonus-success rule actually fired. Rolls
+    // persisted before this story have no successBreakdown and are unchanged.
+    if (successBreakdown) {
+      h += `<span class="feeding-pool-breakdown">${esc(successBreakdown)}</span>`;
+    }
 
     h += '<div class="feeding-dice-row">';
     for (const col of cols) {
@@ -1052,21 +1088,46 @@ async function doFeedingRoll() {
   if (poolTotal <= 0) return;
 
   const cols = stRote ? rollDiceRote(poolTotal, stAgain) : rollDice(poolTotal, stAgain);
-  const successes = cntSuc(cols);
-  const methodName = declaredMethod?.name || FEED_METHODS.find(m => m.id === selectedMethodId)?.name || 'Unknown';
+  const method = declaredMethod || FEED_METHODS.find(m => m.id === selectedMethodId) || null;
+  // dtlt.1: the rote comparison inside rollDiceRote stays rolled-only (which
+  // pool's dice came up better); the bonus is added once, here, to the winner.
+  // Review fix (Codex, external, dtlt.1): only resolve real trait names when
+  // poolTotal was actually built from this method's own attrs/skills. On an
+  // ST-confirmed pool, declaredMethod may be a stale/different method than
+  // what the ST actually confirmed (feeding_roll.params carries no trait
+  // names at all; a parsed pool_validated size doesn't either) — passing it
+  // anyway could fire (or miss) a bonus-success rule on the wrong attribute.
+  // An empty context matches no roll_attr/roll_skill predicate, which is the
+  // safe default: no bonus, same as before this story, rather than a wrong one.
+  const traits = poolTraitsTrusted
+    ? bestTraitsFor(currentChar, method)
+    : { attr: '', skill: '' };
+  const outcome = resolveSuccesses(cols, currentChar, {
+    attr: traits.attr,
+    skill: traits.skill,
+    disc: poolTraitsTrusted ? (declaredDisc || selectedDisc || '') : '',
+    spec: poolTraitsTrusted ? (declaredSpec || selectedSpec || '') : '',
+  });
+  const successes = outcome.total;
+  const methodName = method?.name || 'Unknown';
   const usedDisc = !!(declaredDisc || selectedDisc);
 
   rollResult = {
     cols,
     successes,
+    // Kept apart so a future rule that must ignore bonus successes (Merits
+    // Errata:693) can read the rolled count off a persisted roll.
+    rolledSuccesses: outcome.rolled,
+    bonusSuccesses: outcome.bonus,
     vessels: successes,
     safeVitae: successes * 2,
     methodName,
     pool: poolTotal,
     again: stAgain,
     breakdown: poolBreakdown,
+    successBreakdown: formatSuccessBreakdown(outcome),
     rolledAt: new Date().toISOString(),
-    dramaticFailure: usedDisc && successes === 0,
+    dramaticFailure: usedDisc && outcome.rolled === 0,
   };
 
   feedingState = 'rolled';

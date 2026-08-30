@@ -31,6 +31,7 @@ import praxisSessionsRouter from './routes/praxis-sessions.js';
 import {
   grantRouter, specialityGrantRouter, skillBonusRouter, nineAgainRouter, rulesAggregateRouter,
   discAttrRouter, derivedStatModRouter, tierBudgetRouter, statusFloorRouter,
+  bonusSuccessRouter,
 } from './routes/rules-engine.js';
 import adminMigrationsRouter from './routes/admin-migrations.js';
 import contestedRollsRouter from './routes/contested-rolls.js';
@@ -176,6 +177,9 @@ app.use('/api/rules/disc_attr',              ...RE_ST, CACHE_5MIN, discAttrRoute
 app.use('/api/rules/derived_stat_modifier',  ...RE_ST, CACHE_5MIN, derivedStatModRouter);
 app.use('/api/rules/tier_budget',            ...RE_ST, CACHE_5MIN, tierBudgetRouter);
 app.use('/api/rules/status_floor',           ...RE_ST, CACHE_5MIN, statusFloorRouter);
+// dtlt.1: roll-time bonus successes (Stronger Than You and any future
+// "+N successes when X" house rule).
+app.use('/api/rules/bonus_success',          ...RE_ST, CACHE_5MIN, bonusSuccessRouter);
 // Issue #256 (perf): aggregated rules-engine endpoint — coalesces the
 // 7 per-category endpoints into a single round-trip for `preloadRules`.
 // Mounted before `/api/rules` (purchasable powers) so Express routes

@@ -28,6 +28,7 @@ beforeAll(async () => {
   insertedIds.derived_stat_mod   = [];
   insertedIds.tier_budget        = [];
   insertedIds.status_floor       = [];
+  insertedIds.bonus_success      = [];
 });
 
 afterAll(async () => {
@@ -40,6 +41,7 @@ afterAll(async () => {
     ['rule_derived_stat_modifier',insertedIds.derived_stat_mod],
     ['rule_tier_budget',          insertedIds.tier_budget],
     ['rule_status_floor',         insertedIds.status_floor],
+    ['rule_bonus_success',        insertedIds.bonus_success],
   ];
   for (const [coll, ids] of cleanup) {
     if (ids.length) {
@@ -351,6 +353,84 @@ describe('rule_disc_attr', () => {
     const c = await request(app)
       .post(BASE).set('X-Test-User', st())
       .send({ discipline: 'Resilience', target_kind: 'attribute', target_name: 'Stamina', amount_basis: 'rating' });
+    const del = await request(app).delete(`${BASE}/${c.body._id}`).set('X-Test-User', st());
+    expect(del.status).toBe(204);
+  });
+});
+
+// ── rule_bonus_success (dtlt.1) ───────────────────────────────────────────────
+
+describe('rule_bonus_success', () => {
+  const BASE = '/api/rules/bonus_success';
+
+  const STY = {
+    source: 'Stronger Than You',
+    predicate: { kind: 'manoeuvre_present', name: 'Stronger Than You' },
+    also_requires: [{ kind: 'roll_attr', name: 'Strength' }],
+    count_basis: 'flat',
+    flat_amount: 1,
+  };
+
+  it('unauthenticated returns 401', async () => {
+    expect((await request(app).get(BASE)).status).toBe(401);
+  });
+
+  it('player blocked → 403', async () => {
+    expect((await request(app).get(BASE).set('X-Test-User', player())).status).toBe(403);
+  });
+
+  it('ST creates the Stronger Than You doc → 201', async () => {
+    const r = await request(app).post(BASE).set('X-Test-User', st()).send(STY);
+    expect(r.status).toBe(201);
+    expect(r.body.source).toBe('Stronger Than You');
+    insertedIds.bonus_success.push(new ObjectId(r.body._id));
+  });
+
+  it('extra field → 400', async () => {
+    const r = await request(app).post(BASE).set('X-Test-User', st()).send({ ...STY, extra: 1 });
+    expect(r.status).toBe(400);
+  });
+
+  it('unknown predicate kind → 400', async () => {
+    const r = await request(app).post(BASE).set('X-Test-User', st())
+      .send({ ...STY, predicate: { kind: 'roll_vibes', name: 'Strength' } });
+    expect(r.status).toBe(400);
+  });
+
+  it('min_rating on a manoeuvre_present predicate → 400 (no rating to gate on)', async () => {
+    const r = await request(app).post(BASE).set('X-Test-User', st())
+      .send({ ...STY, predicate: { kind: 'manoeuvre_present', name: 'Stronger Than You', min_rating: 2 } });
+    expect(r.status).toBe(400);
+    expect(r.body.message).toMatch(/min_rating/);
+  });
+
+  it("count_basis 'rating' without a merit_present predicate → 400", async () => {
+    const r = await request(app).post(BASE).set('X-Test-User', st())
+      .send({ source: 'X', predicate: { kind: 'roll_attr', name: 'Strength' }, count_basis: 'rating' });
+    expect(r.status).toBe(400);
+  });
+
+  it("count_basis 'flat' without flat_amount → 400", async () => {
+    const r = await request(app).post(BASE).set('X-Test-User', st())
+      .send({ source: 'X', predicate: { kind: 'roll_attr', name: 'Strength' }, count_basis: 'flat' });
+    expect(r.status).toBe(400);
+  });
+
+  it('a self-referencing source/predicate pair is ACCEPTED (ADR-001 allows it; STY needs it)', async () => {
+    const r = await request(app).post(BASE).set('X-Test-User', st())
+      .send({ ...STY, source: 'Stronger Than You' });
+    expect(r.status).toBe(201);
+    insertedIds.bonus_success.push(new ObjectId(r.body._id));
+  });
+
+  it('update non-existent → 404', async () => {
+    const r = await request(app).put(`${BASE}/${BOGUS_ID}`).set('X-Test-User', st()).send(STY);
+    expect(r.status).toBe(404);
+  });
+
+  it('delete existing → 204', async () => {
+    const c = await request(app).post(BASE).set('X-Test-User', st())
+      .send({ source: 'Scratch', predicate: { kind: 'roll_skill', name: 'Brawl' }, count_basis: 'flat', flat_amount: 1 });
     const del = await request(app).delete(`${BASE}/${c.body._id}`).set('X-Test-User', st());
     expect(del.status).toBe(204);
   });

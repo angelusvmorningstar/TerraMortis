@@ -24,7 +24,7 @@
 
 import state from './data.js';
 
-import { d10, mkDie, mkChain, rollPool, cntSuc } from '../shared/dice.js';
+import { d10, mkDie, mkChain, rollPool, cntSuc, addBonusSuccesses, formatSuccessBreakdown } from '../shared/dice.js';
 import { skSpecs, skNineAgain } from '../data/accessors.js';
 import { hasAoE, esc } from '../data/helpers.js';
 // rcv.3a: the already-shipped, XSS-safe rules_text renderer (#994) — the same
@@ -987,6 +987,15 @@ export async function doRoll() {
   // character happens to be loaded when the roll finishes, not the one that
   // was actually rolled. This is the exact character the roll below is FOR.
   const _rollChar = state.rollChar;
+  // dtlt.1: the pool's own trait names, captured at the same moment and for
+  // the same reason as _rollChar above — a character or power switch during
+  // the awaits below must not change which bonus-success rules are tested.
+  const _bonusCtx = {
+    attr:  state.POOL_INFO?.attr || '',
+    skill: state.POOL_INFO?.skill || '',
+    disc:  state.POOL_INFO?.discName || '',
+    spec:  state.POOL_INFO?.spec || '',
+  };
   if (state.rollChar) await ensureTrackerLoaded(state.rollChar);
   const spend = _currentSpendDecision();
   // gdx.8 (#989): what was ACTUALLY spent this roll, for roll_log — not
@@ -1021,19 +1030,27 @@ export async function doRoll() {
     const v = d10();
     const suc = v === 10;
     const dram = v === 1;
+    // dtlt.1: a chance die showing 10 is a rolled success, so bonus-success
+    // rules apply to it exactly as they do to a full pool.
+    const chance = addBonusSuccesses(suc ? 1 : 0, _rollChar, _bonusCtx);
+    // Review fix (Codex, external, dtlt.1): rule `source` is ST-authored free
+    // text, not trusted markup — escape before it reaches innerHTML below (and
+    // the persisted history render, which reuses this same string).
+    const chanceBreakdown = dram ? '' : esc(formatSuccessBreakdown(chance));
     const cls = dram ? 'd' : suc ? 'e' : 'f';
     const lbl = dram ? 'Dramatic Failure' : suc ? 'Success (Chance)' : 'Failure (Chance)';
-    const cnt = dram ? '\u2014' : suc ? '1' : '0';
-    hdr.innerHTML = `<div><span class="rcnt ${cls}">${cnt}</span><span class="rlbl ${cls}">${lbl}</span></div><div class="rverd">Chance die</div>`;
+    const cnt = dram ? '\u2014' : String(chance.total);
+    const chanceVerd = chanceBreakdown ? `Chance die \u00b7 ${chanceBreakdown}` : 'Chance die';
+    hdr.innerHTML = `<div><span class="rcnt ${cls}">${cnt}</span><span class="rlbl ${cls}">${lbl}</span></div><div class="rverd">${chanceVerd}</div>`;
     hdr.classList.add('on');
     const del = document.createElement('div');
     del.className = 'die cd';
     del.textContent = v;
     area.appendChild(del);
-    addHist('Chance', cls, lbl, cnt, 'Chance die');
+    addHist('Chance', cls, lbl, cnt, chanceVerd);
     if (_rollChar && getGlobalSettings()?.game_in_progress) {
       _logRoll(_rollChar._id, buildRollLogPayload({
-        pool: 'Chance', label: lbl, successes: dram ? 0 : suc ? 1 : 0, results: [v],
+        pool: 'Chance', label: lbl, successes: dram ? 0 : chance.total, results: [v],
         againRule: state.AGAIN, rote: state.ROTE, wpBonus: state.WP,
         vitaeSpent: _loggedVitaeSpent, willpowerSpent: _loggedWillpowerSpent,
       }));
@@ -1054,6 +1071,16 @@ export async function doRoll() {
     if (state.ROTE) { lC = cB; lS = sB; }
   }
 
+  // dtlt.1: the rote comparison above is rolled-only on purpose — it asks
+  // which pool's DICE came up better. Bonus successes are added once, to the
+  // winner, only after that choice is made. wS stays the rolled count (it
+  // labels the dice actually shown); wTotal is what the roll is worth.
+  const bonusRes = addBonusSuccesses(wS, _rollChar, _bonusCtx);
+  const wTotal = bonusRes.total;
+  // Review fix (Codex, external, dtlt.1): same escaping as chanceBreakdown
+  // above — rule `source` is ST-authored free text, not trusted markup.
+  const bonusLine = esc(formatSuccessBreakdown(bonusRes));
+
   const mods = [];
   if (state.WP) mods.push('WP +3');
   if (state.ROTE) mods.push('rote');
@@ -1069,13 +1096,13 @@ export async function doRoll() {
   }
   const poolStr = verdParts.length ? verdParts.join(' + ') : eff + 'd10';
   const ag = state.AGAIN;
-  const verd = `${poolStr} \u00B7 ${ag}-again${mods.length ? ' \u00B7 ' + mods.join(', ') : ''}`;
+  const verd = `${poolStr} \u00B7 ${ag}-again${mods.length ? ' \u00B7 ' + mods.join(', ') : ''}${bonusLine ? ' \u00B7 ' + bonusLine : ''}`;
 
   // Contested roll
   if (state.RESIST_MODE === 'v' && state.RESIST_CHAR && state.RESIST_VAL > 0) {
     const cR = rollPool(state.RESIST_VAL);
     const sR = cntSuc(cR);
-    const net = wS - sR;
+    const net = wTotal - sR;
     const won = net > 0;
     const draw = net === 0;
     const cls = won ? (net >= 5 ? 'e' : 's') : 'f';
@@ -1084,7 +1111,14 @@ export async function doRoll() {
     const resistName = state.RESIST_CHAR.name.split(' ')[0];
     const resistLabel = pi ? pi.resistance : '';
 
-    hdr.innerHTML = `<div><span class="rcnt ${cls}">${won ? net : wS}</span><span class="rlbl ${cls}">${outcome}</span></div><div class="rverd">${poolStr} vs ${resistName} ${resistLabel} \u00B7 ${wS} vs ${sR}</div>`;
+    // dtlt.1: the contested comparison uses the attacker's TOTAL (rolled plus
+    // any bonus successes) against the resistance roll. The resistance roll
+    // itself stays rolled-only \u2014 resolving bonus rules for the resisting
+    // character would need that character's own pool context, which this
+    // surface does not have. Noted in the story's Dev Agent Record.
+    const contestVerd = `${poolStr} vs ${resistName} ${resistLabel} \u00B7 ${wTotal} vs ${sR}`
+      + (bonusLine ? ` \u00B7 ${bonusLine}` : '');
+    hdr.innerHTML = `<div><span class="rcnt ${cls}">${won ? net : wTotal}</span><span class="rlbl ${cls}">${outcome}</span></div><div class="rverd">${contestVerd}</div>`;
     hdr.classList.add('on');
 
     const wb = document.createElement('div');
@@ -1108,7 +1142,7 @@ export async function doRoll() {
     const stakeNoteC = _stakeNote(won ? net : 0);
     if (stakeNoteC) area.appendChild(stakeNoteC);
 
-    addHist(eff + 'd10', cls, outcome, won ? net : wS, verd);
+    addHist(eff + 'd10', cls, outcome, won ? net : wTotal, verd);
     if (_rollChar && getGlobalSettings()?.game_in_progress) {
       // Review fix (Codex, external): addHist() above (pre-existing,
       // untouched, out of this story's scope) uses `won ? net : wS` — on a
@@ -1128,11 +1162,13 @@ export async function doRoll() {
     return;
   }
 
-  // Standard roll result
-  const exc = wS >= 5;
-  const cls = wS === 0 ? 'f' : exc ? 'e' : 's';
-  const lbl = wS === 0 ? 'Failure' : exc ? 'Exceptional Success' : 'Success';
-  hdr.innerHTML = `<div><span class="rcnt ${cls}">${wS}</span><span class="rlbl ${cls}">${lbl}</span></div><div class="rverd">${verd}</div>`;
+  // Standard roll result. dtlt.1: the headline count, the exceptional-success
+  // threshold and the stake note all read the TOTAL. wTotal === wS whenever no
+  // bonus-success rule fires, so a normal roll displays exactly as before.
+  const exc = wTotal >= 5;
+  const cls = wTotal === 0 ? 'f' : exc ? 'e' : 's';
+  const lbl = wTotal === 0 ? 'Failure' : exc ? 'Exceptional Success' : 'Success';
+  hdr.innerHTML = `<div><span class="rcnt ${cls}">${wTotal}</span><span class="rlbl ${cls}">${lbl}</span></div><div class="rverd">${verd}</div>`;
   hdr.classList.add('on');
 
   if (state.ROTE) {
@@ -1151,13 +1187,13 @@ export async function doRoll() {
     area.appendChild(mkColsEl(wC, 0));
   }
 
-  const stakeNote = _stakeNote(wS);
+  const stakeNote = _stakeNote(wTotal);
   if (stakeNote) area.appendChild(stakeNote);
 
-  addHist(eff + 'd10', cls, lbl, wS, verd);
+  addHist(eff + 'd10', cls, lbl, wTotal, verd);
   if (_rollChar && getGlobalSettings()?.game_in_progress) {
     _logRoll(_rollChar._id, buildRollLogPayload({
-      pool: eff + 'd10', label: lbl, successes: wS, results: flattenDiceChainResults(wC),
+      pool: eff + 'd10', label: lbl, successes: wTotal, results: flattenDiceChainResults(wC),
       againRule: state.AGAIN, rote: state.ROTE, wpBonus: state.WP,
       vitaeSpent: _loggedVitaeSpent, willpowerSpent: _loggedWillpowerSpent,
     }));
