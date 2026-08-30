@@ -27,14 +27,24 @@
  */
 
 /**
+ * prax.0: `category` is optional and strictly additive. `char.court_category`
+ * is only the HEADLINE office, and a character may now hold two seats at once
+ * (Head of State plus Primogen), so "the seat this character holds" is no
+ * longer a single question. A caller browsing a SPECIFIC office names it and
+ * asks whether this character holds a seat there; a caller omitting it gets the
+ * previous behaviour exactly, the headline office as the implicit default.
+ *
  * @param {{_id: string, court_category?: string|null}} char
  * @param {Array<{_id: string, office_category: string, holder_id: string|null}>} seats
+ * @param {string|null} [category] the office category to look in. Defaults to
+ *   `char.court_category`.
  * @returns {object|null} the confirmed seat, or null if this character does
- *   not hold one right now (no court_category, no seats array, or no seat's
- *   holder_id matches this character in their own court_category).
+ *   not hold one right now (no category to look in, no seats array, or no
+ *   seat's holder_id matches this character in that category).
  */
-export function resolveHeldSeat(char, seats) {
-  if (!char || !char.court_category || !Array.isArray(seats)) return null;
-  const forCategory = seats.filter(s => s && s.office_category === char.court_category);
+export function resolveHeldSeat(char, seats, category) {
+  const target = category == null ? (char && char.court_category) : category;
+  if (!char || !target || !Array.isArray(seats)) return null;
+  const forCategory = seats.filter(s => s && s.office_category === target);
   return forCategory.find(s => s.holder_id != null && String(s.holder_id) === String(char._id)) || null;
 }

@@ -176,8 +176,55 @@ export function manoeuvreRankHtml(rank, count, isST, reasons) {
   return html;
 }
 
+/**
+ * prax.4b: the last render's own arguments, so a `praxis_resolved` WS frame can
+ * repaint this tab without the caller having to hold them.
+ *
+ * Module-level rather than anchored to `el` (unlike `_officeManoeuvreGen`
+ * below): a WS callback arrives with no element in hand at all, so there is
+ * nothing to read it off. Only the MOST RECENT render is remembered, which is
+ * correct - this tab has exactly one live mount in the app, and a stale entry
+ * from an unmounted one is discarded by the `isConnected` check in
+ * `onPraxisResolved`.
+ */
+let _lastRender = null;
+
+/**
+ * prax.4b (AC16): a Praxis resolution just mass-cleared several office seats.
+ *
+ * Wired into `app.js`'s own single `initWS({...})` call, the same shape
+ * `roll-feed.js`'s `onRollLogged` and `praxis-tab.js`'s `onPraxisUpdate` use -
+ * this module does not open a socket of its own. It no-ops until the tab has
+ * been rendered at least once this session, for the same reason those two guard
+ * on their own `_initialized` flags: before the first render there is nothing to
+ * paint into.
+ *
+ * REFETCH, NOT PATCH. `renderOfficeTab` bumps the render generation, which
+ * invalidates `_seatsForRender`'s memoised `/api/office_seats` promise, so the
+ * repaint genuinely re-reads the seats rather than serving the pre-resolve
+ * answer. That is the whole point: after a mass-clear this tab's holder
+ * resolution, purchase controls and budget preview are all reading a seat that
+ * may no longer have a holder.
+ *
+ * The frame's `affected_*` arrays are deliberately NOT consulted to decide
+ * whether to repaint. A resolution also rewrites the WINNER's headline, and this
+ * tab's own "is this my office" test spans both collections; filtering on the
+ * ids would be a second, subtly different implementation of that test.
+ * Repainting unconditionally costs one small fetch on a rare ST-only event.
+ */
+export function onPraxisResolved() {
+  const last = _lastRender;
+  if (!last || !last.el) return;
+  // A tab that has since been unmounted (the More menu rebuilds its panes) has
+  // nothing to paint into, and painting into a detached node would leave the
+  // memoised seat promise pointing at a dead element.
+  if (typeof last.el.isConnected === 'boolean' && !last.el.isConnected) return;
+  renderOfficeTab(last.el, last.char, last.chars, last.viewCategory);
+}
+
 export function renderOfficeTab(el, char, chars = [], viewCategory) {
   if (!el || !char) { if (el) el.innerHTML = '<div class="dtl-empty">No character loaded.</div>'; return; }
+  _lastRender = { el, char, chars, viewCategory };
 
   // oxp.3 render generation. Every render replaces el.innerHTML wholesale, so
   // every render invalidates the DOM nodes any in-flight async wiring captured.
@@ -307,10 +354,16 @@ const SEATS_FAILED_MSG = 'Could not load office seats.';
 /**
  * The single async entry point for an office's purchase state.
  *
- * `GET /api/office_seats` is fetched ONCE here, per render pass, and the seat
- * it resolves is handed to both wiring functions. Neither of them fetches seats
+ * `GET /api/office_seats` is fetched ONCE per render pass, and the seat it
+ * resolves is handed to both wiring functions. Neither of them fetches seats
  * for itself: two independent fetches could resolve two different seats for the
  * same view if a write landed between them.
+ *
+ * prax.0: that single fetch now lives in `_seatsForRender`, memoised against
+ * the render generation, because `_wireHosActions` needs the same list to sum a
+ * dual-seat holder's Status Action budget. Sharing it keeps the request count
+ * unchanged AND keeps the two functions reading one consistent snapshot, which
+ * a second independent fetch would not.
  *
  * The render-generation counter is captured here, before this function's first
  * await, and passed down. That is deliberate: the seat fetch is now the first
@@ -322,9 +375,16 @@ async function _wirePurchaseState(el, char, category, data, isOwnOffice) {
 
   const gen = el._officeManoeuvreGen;
 
-  let seats = null;
-  try { seats = await apiGet('/api/office_seats'); } catch { seats = null; }
+  const seats = await _seatsForRender(el, gen);
   if (gen !== el._officeManoeuvreGen) return;
+
+  // prax.0: whether the viewer really holds a seat in the office ON SCREEN,
+  // rather than only whether this office happens to be their headline one. A
+  // dual-seat holder (Head of State plus Primogen) browsing their SECOND office
+  // has `isOwnOffice === false`, because that flag compares against the single
+  // `court_category` field, and would otherwise lose every purchase control on
+  // a seat that is genuinely theirs.
+  let ownOffice = isOwnOffice;
 
   let outcome;
   if (!Array.isArray(seats)) {
@@ -340,13 +400,18 @@ async function _wirePurchaseState(el, char, category, data, isOwnOffice) {
       //
       // oxp.7: this is now the SAME shared `resolveHeldSeat` the new sheet
       // section calls, not a second copy. Passed the FULL `seats` array (not
-      // `forCategory`) — `resolveHeldSeat` does its own category filtering by
-      // `char.court_category`, which equals `category` exactly when
-      // `isOwnOffice` is true, so this is equivalent to the previous inline
-      // filter, not a behaviour change. Still gated on `isOwnOffice`: a
-      // reference viewer (browsing an office that is not their own) must never
-      // resolve to THEIR OWN seat just because `resolveHeldSeat` found one.
-      const held = isOwnOffice ? resolveHeldSeat(char, seats) : null;
+      // `forCategory`), because `resolveHeldSeat` does its own filtering.
+      //
+      // prax.0: called UNCONDITIONALLY, with the category ON SCREEN as its third
+      // argument, instead of being gated behind the pre-fetch `isOwnOffice`
+      // flag. The old gate existed to stop a reference viewer resolving to THEIR
+      // OWN seat in a different office, which the untargeted two-argument call
+      // could genuinely do. Naming the category removes that risk at the source:
+      // a seat comes back only when this viewer holds a seat in THIS office, so
+      // a reference viewer still gets null, and a dual-seat holder browsing
+      // their own second office finally gets their real seat.
+      const held = resolveHeldSeat(char, seats, category);
+      if (held) ownOffice = true;
       const seat = held || _fallbackSeat(forCategory);
       // Codex review, oxp.11: a single-seat category has exactly one candidate,
       // so the fallback is provably that seat regardless of whether holder_id
@@ -367,12 +432,40 @@ async function _wirePurchaseState(el, char, category, data, isOwnOffice) {
         // a single-seat office the fallback cannot be wrong, so a label would
         // be noise; for a multi-seat one it is the difference between an ST
         // knowing which Primogen they are editing and not.
-        note: forCategory.length > 1 ? _seatNote(seat, isOwnOffice && !confirmed) : null,
+        note: forCategory.length > 1 ? _seatNote(seat, ownOffice && !confirmed) : null,
       };
     }
   }
 
-  await _refreshPurchaseState(el, outcome, data, isOwnOffice, gen);
+  // prax.0: `ownOffice`, not `isOwnOffice`. Everything downstream (the merit
+  // steppers, the manoeuvre ladder's affordability markers, the request
+  // buttons) is gated on this, and a confirmed holder of the office on screen
+  // is entitled to all of it whichever of their two seats it is. The
+  // synchronous first paint above (title, reference banner) still uses the
+  // cheap headline comparison and so lags by one render for that edge case,
+  // which is banner copy rather than lost controls.
+  await _refreshPurchaseState(el, outcome, data, ownOffice, gen);
+}
+
+/**
+ * prax.0: ONE fetch of `/api/office_seats` per render pass, shared by
+ * `_wirePurchaseState` and `_wireHosActions`.
+ *
+ * Both need the seat list, and both are launched fire-and-forget from the same
+ * render, so two independent fetches would cost an extra request and could
+ * resolve to two DIFFERENT seat lists if a handover committed in between. The
+ * promise is memoised against the render generation, so a re-render genuinely
+ * re-fetches rather than serving the previous category's stale answer.
+ *
+ * A failure resolves to `null`, never rejects: every caller already treats "no
+ * usable seat array" as a first-class state.
+ */
+function _seatsForRender(el, gen) {
+  if (el._officeSeatsGen !== gen || !el._officeSeatsPromise) {
+    el._officeSeatsGen = gen;
+    el._officeSeatsPromise = apiGet('/api/office_seats').catch(() => null);
+  }
+  return el._officeSeatsPromise;
 }
 
 /**
@@ -897,7 +990,23 @@ async function _wireHosActions(el, char, chars) {
     } catch { /* ignore */ }
   }
 
-  const budget = calcCityStatus(char);
+  // prax.0: the budget sums the title bonus of EVERY office this character
+  // holds a seat in, not just the headline `court_category`. A Praxis winner who
+  // kept their Primogen seat holds two, and the single field under-reports what
+  // `server/routes/office-actions.js` will actually allow them, which would show
+  // as a preview that disagrees with the server.
+  //
+  // `_seatsForRender` shares `_wirePurchaseState`'s own fetch for this render
+  // pass, so this costs no extra request. Categories are read back through the
+  // shared `resolveHeldSeat`, which is the one place a seat's `holder_id` is
+  // compared against a character; office-tab.js does not do that comparison
+  // itself anywhere. A failed fetch yields an empty list and
+  // `calcCityStatus` falls back to the headline office, exactly as before.
+  const seats = await _seatsForRender(el, el._officeManoeuvreGen);
+  const heldCategories = Array.isArray(seats)
+    ? OFFICE_CATEGORIES.filter(cat => resolveHeldSeat(char, seats, cat) != null)
+    : [];
+  const budget = calcCityStatus(char, heldCategories);
 
   function paidUsed() {
     return priorActions.filter(a => a.action_type === 'raise' || a.action_type === 'lower').length;

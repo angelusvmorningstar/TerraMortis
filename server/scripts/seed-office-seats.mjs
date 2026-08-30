@@ -114,7 +114,14 @@ export const OFFICE_SEATS = [
   { office_category: 'Primogen',      holder: 'Yusuf Kalusicj',     holder_id: '69d720427fdd1b1f9498b0d4', seat_label: null,             created_at: '2026-02-21' },
   { office_category: 'Primogen',      holder: 'Rene St. Dominique', holder_id: '69d73ea49162ece35897a496', seat_label: null,             created_at: null },
   { office_category: 'Enforcer',      holder: 'Einar Solveig',      holder_id: '69d73ea49162ece35897a487', seat_label: null,             created_at: '2026-02-21' },
-  { office_category: 'Socialite',     holder: 'Brandy LaRoux',      holder_id: '69d73ea49162ece35897a47e', seat_label: 'Harpy',          created_at: '2026-02-21' },
+  // prax.4b: 'Harpy' -> 'City Harpy'. The Praxis mass-clear matches this seat
+  // by `seat_label` and must never reach the popular seat below, so the two
+  // labels have to be unambiguous rather than one being a prefix of the other.
+  // This literal is the source of truth for a FRESH seed ONLY - the upsert
+  // below is `$setOnInsert`, so it writes nothing on the match branch and can
+  // never relabel an existing document. The live document is renamed by
+  // scripts/rename-city-harpy-seat.mjs, which Angelus runs by hand.
+  { office_category: 'Socialite',     holder: 'Brandy LaRoux',      holder_id: '69d73ea49162ece35897a47e', seat_label: 'City Harpy',     created_at: '2026-02-21' },
   { office_category: 'Socialite',     holder: 'Carver',             holder_id: '69d73ea49162ece35897a47f', seat_label: "People's Harpy", created_at: '2026-07-18' },
   { office_category: 'Administrator', holder: 'Ivana Horvat',       holder_id: '69d73ea49162ece35897a48b', seat_label: null,             created_at: '2026-06-20' },
 ];

@@ -30,8 +30,15 @@ import { vmUsed, lorekeeperUsed, ohmUsed, investedUsed } from './editor/domain.j
 import { isLoggedIn, validateToken, login, logout, getUser, getPlayerInfo, localTestLogin } from './auth/discord.js';
 import { initSessionLog } from './admin/session-log.js';
 import { initPlayersView } from './admin/players-view.js';
-import { initCityView } from './admin/city-views.js';
+// prax.4b: `onPraxisResolved` is aliased the same way `onPraxisUpdate` is
+// below, so the initWS({...}) entry reads as a wiring line rather than a bare
+// imported name.
+import { initCityView, onPraxisResolved as _onCityPraxisResolved } from './admin/city-views.js';
 import { initSpheresView } from './admin/spheres-view.js';
+// prax.2 (Epic PRAX): the Praxis Claim board. `onPraxisUpdate` is aliased the
+// same way roll-feed.js's own WS callback is, so the initWS({...}) entry below
+// reads as a wiring line rather than a bare imported name.
+import { initPraxisView, onPraxisUpdate as _onPraxisUpdateFeed } from './admin/praxis-tab.js';
 // 2026-08-29 (Angelus, via cross-session relay): Downtime removed entirely
 // from the admin app, moved to TM Story, not just gated. initDowntimeView /
 // renderCityOverview import removed (zero remaining callers in this file);
@@ -274,6 +281,22 @@ async function boot() {
         // module, which no-ops until the Engine domain has been opened at
         // least once this session (nothing to paint into before then).
         onRollLogged: (doc) => { _onRollLoggedFeed(doc); },
+        // prax.2 (Epic PRAX): a praxis_sessions write from another ST's tab
+        // (or this ST's own second tab) refetches and re-renders the open
+        // claim board. Passed straight to the praxis-tab module, which no-ops
+        // until the Praxis domain has been opened at least once this session
+        // - same guard onRollLogged uses above, for the same reason (nothing
+        // to paint into before the domain first renders).
+        onPraxisUpdate: (sessionId) => { _onPraxisUpdateFeed(sessionId); },
+        // prax.4b (Epic PRAX, AC16): a Praxis resolution mass-clears every
+        // Enforcer, Administrator and City Harpy seat in one commit, so the City
+        // domain's Court panel and every court title it renders are stale the
+        // instant it lands. Passed straight to the city-views module, which
+        // no-ops until the City domain has been opened at least once this
+        // session AND declines to act while its own edit panel is open (see that
+        // function's own note - refreshing the baseline underneath an open panel
+        // would make the next save fire handovers nobody asked for).
+        onPraxisResolved: () => { _onCityPraxisResolved(); },
         // gdx.8 review fix (Codex + Edge Case Hunter, independently): a WS
         // drop-and-reconnect while Engine is open has no live catch-up
         // otherwise — rolls broadcast during the outage are simply never
@@ -349,6 +372,7 @@ function switchDomain(domain) {
   if (domain === 'players') initPlayersView(chars);
   if (domain === 'city') initCityView();
   if (domain === 'spheres') initSpheresView();
+  if (domain === 'praxis') initPraxisView(chars);
   // Downtime + Ordeals domain dispatch removed 2026-08-29 (Angelus): moved to
   // TM Story. initDowntimeView/initOrdealsAdminView are no longer imported.
   if (domain === 'cycle') initCycleView(chars);

@@ -7,6 +7,19 @@ import { isStRole, requireRole } from '../middleware/auth.js';
 // `resolveOfficeSeat()` itself is not, and must not become, this route's seat
 // lookup.
 import { SEAT_ID_PATTERN } from '../lib/office-seat-resolve.js';
+// prax.4a AC1: the manoeuvre reset moved OUT of this file, verbatim, when it
+// gained its second caller (praxis-sessions.js's People's Harpy resolve, which
+// performs the same handover steps inline inside its own transaction). Nothing
+// about the function changed; only its home did. See that module's header for
+// why this one was worth lifting while `RouteResponse` below deliberately was
+// not.
+import { resetManoeuvreRank } from '../lib/reset-manoeuvre-rank.js';
+// prax.0: the exclusivity matrix (which offices one character may hold at the
+// same time) and the headline derivation that keeps `court_category` /
+// `court_title` correct once they hold two. Both live outside this file so the
+// rule is stated once and unit-testable on its own.
+import { mayHoldBothOffices } from '../schemas/office_seat.schema.js';
+import { deriveCourtHeadlineForHolder } from '../lib/court-category.js';
 
 const router = Router();
 const col = () => getCollection('office_seats');
@@ -286,6 +299,13 @@ router.put('/:seatId/holder', requireRole('st'), async (req, res) => {
         // harmless: an unconditional $set would churn `updated_at` on every
         // save and make "nothing happened" indistinguishable from "something
         // did" for anyone reading the character document afterwards.
+        //
+        // prax.0: the repair now runs against the holder's TRUE derived
+        // headline across EVERY seat they hold, not this one seat's category in
+        // isolation. For the single-seat case (every holder live today) the
+        // derivation returns exactly what the old one-seat logic returned. For a
+        // Head-of-State-plus-Primogen holder, editing the JUNIOR seat's row must
+        // not drag their headline down to Primogen.
         let title_updated = false;
         let category_repaired = false;
         if (currentHolderId != null) {
@@ -295,11 +315,18 @@ router.put('/:seatId/holder', requireRole('st'), async (req, res) => {
             // Not supplied leaves the sitting holder's own title alone, falling
             // back to the category only where they have none at all. A blank
             // title is a deliberate reset and resolves to the category, exactly
-            // as it does on the handover path.
-            const nextTitle = resolvedTitle !== null ? resolvedTitle : (holder.court_title || category);
+            // as it does on the handover path. Either way it is only ever
+            // APPLIED when this seat is the one the headline names.
+            const seatTitle = resolvedTitle !== null ? resolvedTitle : (holder.court_title || category);
+            const derived = await deriveCourtHeadlineForHolder(holderOid, dbSession, {
+              seatCategory: category,
+              seatTitle,
+              currentCategory: holder.court_category ?? null,
+              currentTitle: holder.court_title ?? null,
+            });
             const set = {};
-            if (holder.court_category !== category) { set.court_category = category; category_repaired = true; }
-            if (holder.court_title !== nextTitle) { set.court_title = nextTitle; title_updated = true; }
+            if (holder.court_category !== derived.court_category) { set.court_category = derived.court_category; category_repaired = true; }
+            if (holder.court_title !== derived.court_title) { set.court_title = derived.court_title; title_updated = true; }
             if (Object.keys(set).length) {
               await getCollection('characters').updateOne(
                 { _id: holderOid },
@@ -323,36 +350,53 @@ router.put('/:seatId/holder', requireRole('st'), async (req, res) => {
       }
 
       // ── 2. Read the incoming holder, inside the session. ───────────────
+      // prax.0: the document itself is kept (`targetChar`) rather than only
+      // proved to exist. Step 6's headline derivation needs the holder's
+      // existing `court_category`/`court_title` to decide whether a junior seat
+      // is allowed to rewrite them, and re-reading the same document a second
+      // time inside the same transaction would be a pure duplicate: nothing
+      // between here and there writes to it.
       let targetOid = null;
+      let targetChar = null;
       if (requestedHolderId !== null) {
         targetOid = new ObjectId(requestedHolderId);
-        const target = await getCollection('characters').findOne({ _id: targetOid }, { session: dbSession });
+        targetChar = await getCollection('characters').findOne({ _id: targetOid }, { session: dbSession });
         // Names the CHARACTER, not the seat: the seat was found, so a 404 that
         // read "no office seat with that id" would send the ST looking in the
         // wrong place.
-        if (!target) throw new RouteResponse(404, { error: 'NOT_FOUND', message: 'No character with that id' });
+        if (!targetChar) throw new RouteResponse(404, { error: 'NOT_FOUND', message: 'No character with that id' });
 
-        // ── AC2. A target who already holds a DIFFERENT seat is refused. ──
+        // ── AC2. A target who already holds an INCOMPATIBLE seat is refused. ──
         // Never cascaded, and this is the only correct option rather than mere
-        // defensiveness. `court_category` is a single field, so a character can
-        // only ever display one office. Silently assigning someone into a
-        // second seat would either overwrite their existing `court_category`
-        // while leaving the FIRST seat's `holder_id` stale — precisely the
-        // class of staleness bug oxp.11 just fixed, relocated rather than
-        // solved — or force this route to silently modify a THIRD document the
-        // caller never named.
+        // defensiveness. Silently assigning someone into a second, incompatible
+        // seat would either overwrite their existing `court_category` while
+        // leaving the FIRST seat's `holder_id` stale (precisely the class of
+        // staleness bug oxp.11 just fixed, relocated rather than solved), or
+        // force this route to silently modify a THIRD document the caller never
+        // named.
         //
         // Same refuse-rather-than-guess posture as oxp.1's seed script (which
         // refuses an unconfirmed date) and oxp.11's migration (which refuses
         // both the zero-seat and the ambiguous multi-seat case).
         //
+        // prax.0: the test used to be "holds ANY other seat". It is now the
+        // exclusivity matrix in office_seat.schema.js, which carves out exactly
+        // one compatible pairing (Head of State + Primogen) because Praxis
+        // creates it by game rule: a Praxis winner who already holds Primogen
+        // KEEPS that seat and only their headline flips. Every other pairing,
+        // two seats of the same category included, still 409s exactly as before.
+        // A compatible second seat does NOT overwrite the holder's headline
+        // blindly either: step 6 below derives it, so a senior title is never
+        // clobbered by a junior seat.
+        //
         // NOT a conflict: a character whose `court_category` is set but who
         // holds no seat at all. The seat is authoritative and this route
         // overwrites that stale value. Stated as a decision, not an oversight.
-        const conflicting = await col().findOne(
+        const otherSeats = await col().find(
           { holder_id: targetOid, _id: { $ne: seatOid } },
           { session: dbSession },
-        );
+        ).toArray();
+        const conflicting = otherSeats.find(s => !mayHoldBothOffices(category, s.office_category)) || null;
         if (conflicting) {
           const which = conflicting.seat_label
             ? `${conflicting.office_category} (${conflicting.seat_label})`
@@ -400,11 +444,32 @@ router.put('/:seatId/holder', requireRole('st'), async (req, res) => {
       //
       // Skipped entirely when there was no departing holder. (The same-holder
       // case never reaches here — AC4 returned above.)
+      //
+      // prax.0: "clear" is now "RE-DERIVE from whatever they still hold".
+      // Unconditionally nulling both fields was correct only while nobody could
+      // hold two seats: a departing Head of State who kept their Primogen seat
+      // would have been left with no office at all. Step 4 above has already
+      // moved `holder_id` off them, so this derivation reads their REMAINING
+      // seats and lands on `{null, null}` for the ordinary single-seat case,
+      // exactly as before.
+      //
+      // The CAS filter on `court_category: category` is unchanged and still
+      // load-bearing twice over. It keeps the pre-existing guarantee (a holder
+      // whose category legitimately moved on by another route is left alone,
+      // reported as `departing_holder_cleared: false`), and it also makes the
+      // dual-hold case right for free: vacating a Head of State's PRIMOGEN seat
+      // does not match a holder whose headline reads "Head of State", so their
+      // senior headline is never touched by a junior seat's vacate. Because the
+      // filter guarantees their stored category IS this seat's, and this seat is
+      // no longer theirs, the derived winner can never be this category, so no
+      // read of their current title is needed to protect it.
       let departingCleared = false;
       if (currentHolderId !== null) {
+        const departingOid = new ObjectId(currentHolderId);
+        const derived = await deriveCourtHeadlineForHolder(departingOid, dbSession);
         const cleared = await getCollection('characters').updateOne(
-          { _id: new ObjectId(currentHolderId), court_category: category },
-          { $set: { court_category: null, court_title: null, updated_at: timestamp } },
+          { _id: departingOid, court_category: category },
+          { $set: { court_category: derived.court_category, court_title: derived.court_title, updated_at: timestamp } },
           { session: dbSession },
         );
         departingCleared = cleared.matchedCount > 0;
@@ -422,10 +487,25 @@ router.put('/:seatId/holder', requireRole('st'), async (req, res) => {
       // look similar and are not equivalents: rewriting a seat's label during a
       // handover would destroy the one thing telling Socialite's two seats
       // apart. This route never writes seat_label. (oxp.5 Finding 3.)
+      //
+      // prax.0: the headline is DERIVED across every seat the incoming holder
+      // now has, this new one included, rather than assumed to be this seat's.
+      // For a holder taking their only seat the derivation returns exactly the
+      // old `{category, resolvedTitle ?? category}` pair. For someone who
+      // already holds a MORE SENIOR seat, the junior seat neither moves their
+      // category nor overwrites their title: `court_category` and `court_title`
+      // must always describe the SAME seat, and the request's title belongs to
+      // the seat being assigned, not to the one that keeps the headline.
       if (targetOid !== null) {
+        const derived = await deriveCourtHeadlineForHolder(targetOid, dbSession, {
+          seatCategory: category,
+          seatTitle: resolvedTitle ?? category,
+          currentCategory: targetChar?.court_category ?? null,
+          currentTitle: targetChar?.court_title ?? null,
+        });
         await getCollection('characters').updateOne(
           { _id: targetOid },
-          { $set: { court_category: category, court_title: resolvedTitle ?? category, updated_at: timestamp } },
+          { $set: { court_category: derived.court_category, court_title: derived.court_title, updated_at: timestamp } },
           { session: dbSession },
         );
       }
@@ -454,107 +534,5 @@ router.put('/:seatId/holder', requireRole('st'), async (req, res) => {
 
   res.status(statusCode).json(body);
 });
-
-/**
- * oxp.5 AC5 + AC6: zero this seat's manoeuvre rank and RECORD the XP that zeroing
- * destroys. Called on every real handover, replacement and vacate alike.
- *
- * Vacating IS a handover. The ruling's wording is "on handover" / "when the
- * office changes hands", and a departing holder's investment dies with their
- * tenure whether or not a successor is named — the office-powers ruling's own
- * consequence 2 ("a holder near the end of their tenure has no reason to buy
- * manoeuvres") depends on this being true. Vacate is not reset-exempt.
- *
- * ═══ WHY THE DESTROYED-XP COUNTER EXISTS (oxp.5 Finding 1 — read this before
- * changing anything here) ═══
- *
- * Office spend is DERIVED, never stored. `officeXpSpentForCategory` in
- * public/js/data/office-xp.js (oxp.2) computes it as the sum of the seat's
- * current merit dots plus its current manoeuvre `rank`. So the instant this
- * function sets `rank` to 0, the derived spend DROPS by the old rank and the
- * office's balance RISES by exactly the amount office-powers.md says must be
- * destroyed. The obvious implementation delivers the precise OPPOSITE of the
- * rule: a refund.
- *
- * The ruling anticipated it: "The running balance is total accrued since
- * creation, minus everything ever spent, INCLUDING THE SPEND THAT HAS SINCE
- * BEEN LOST." Lost spend cannot be recovered from current state after the fact
- * — it is destroyed by definition, and nothing else in the system records the
- * rank a seat used to have. This function is the only place the information
- * exists, so it is captured HERE or it is gone forever.
- *
- * ═══ HANDED FORWARD, DELIBERATELY (oxp.6 / oxp.7) ═══
- *
- * oxp.5 STORES this counter and does not consume it. `officeXpSpentForCategory`
- * MUST eventually add `manoeuvre_xp_destroyed` to its total, or every balance
- * it renders over-reports by the destroyed amount — which IS the refund the
- * ruling forbids. Nothing renders that number today (office-xp.js has no
- * consumer yet), so nothing is wrong on screen, and wiring it here would
- * rewrite oxp.2's AC8 from inside this story. Whoever builds the first real
- * consumer owns that arithmetic. Recorded here, in oxp.5's Dev Notes and in
- * oxp.6's sprint-status entry, the same way oxp.11 recorded `holder_id` into
- * oxp.5 rather than leaving it to be rediscovered.
- *
- * @returns {Promise<{seat_id:string, rank_before:number, xp_destroyed:number,
- *   manoeuvre_xp_destroyed_total:number}|null>} null when the seat has no rank
- *   document at all (nothing was purchased, so nothing was destroyed).
- */
-async function resetManoeuvreRank(seatId, category, timestamp, dbSession) {
-  const ranks = getCollection('office_manoeuvre_ranks');
-  // `findOneAndUpdate` rather than `updateOne`: it is the SAME single atomic
-  // aggregation-pipeline update (the same idiom office-manoeuvre-rank.js's step
-  // route uses), and it additionally hands back the pre-image, which is the only
-  // way to report the rank that was actually destroyed without adding a second
-  // read. A plain updateOne would leave the caller with `matchedCount` and no
-  // way to tell an ST what the operation cost them.
-  const result = await ranks.findOneAndUpdate(
-    { _id: seatId },
-    [
-      // STAGE ORDER IS LOAD-BEARING. Aggregation-pipeline stages run in
-      // sequence, so THIS stage reads the ORIGINAL `$rank` — before stage 2
-      // below zeroes it. Swap these two and the counter silently records 0
-      // destroyed on every handover, forever, with no error and no visible
-      // symptom until a balance is finally rendered. A test pins that exact
-      // inversion.
-      //
-      // The rate is 1 XP per rank (office-powers.md's flat "standard merit
-      // rate"), so the increment is exactly the pre-reset rank. The counter is
-      // CUMULATIVE across every handover this seat ever sees.
-      { $set: { manoeuvre_xp_destroyed: { $add: [{ $ifNull: ['$manoeuvre_xp_destroyed', 0] }, { $ifNull: ['$rank', 0] }] } } },
-      // `$set rank: 0`, NOT delete-the-document. Both read identically to
-      // clients (GET / does `out[doc._id] = doc.rank || 0`, and the client
-      // treats a missing key as 0), so the choice is purely about what evidence
-      // survives. Zeroing keeps `updated_at` and the destroyed counter as a
-      // legible record that a reset happened; deleting throws away the only
-      // trace, the counter included.
-      //
-      // `office_category` rides along as a $literal, keeping oxp.11's
-      // denormalised copy self-healing. Never a bare string: in an
-      // aggregation-pipeline update a string beginning with '$' would be read
-      // as a field path. Same idiom as office-manoeuvre-rank.js's step route.
-      { $set: { rank: 0, office_category: { $literal: category }, updated_at: timestamp } },
-    ],
-    {
-      session: dbSession,
-      // upsert: false, DELIBERATELY. A seat that never purchased a rank has no
-      // document, nothing to destroy, and needs no document minted saying so.
-      // No match is a correct, silent success. It also keeps the collection's
-      // "no document = 0" convention intact instead of filling it with
-      // meaningless rank-0 rows.
-      upsert: false,
-      // 'before' so the caller can report the rank that was actually
-      // destroyed; the post-image is fully determined (rank 0) anyway.
-      returnDocument: 'before',
-    },
-  );
-  if (!result) return null;
-  const rankBefore = result.rank || 0;
-  return {
-    seat_id: seatId,
-    rank_before: rankBefore,
-    xp_destroyed: rankBefore,
-    manoeuvre_xp_destroyed_total: (result.manoeuvre_xp_destroyed || 0) + rankBefore,
-  };
-}
 
 export default router;

@@ -1,0 +1,236 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>prax-3 — Harpy board + segmented control (design-lock mockup)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700&family=Lato:wght@400;600;700&family=Libre+Baskerville:ital@0;1&display=swap" rel="stylesheet">
+<style>
+/* Tokens lifted verbatim from public/css/theme.css (Parchment / default) — same base prax-2's locked mockup used. */
+:root{
+  --bg:#F4EFE4;--surf:#EDE7D8;--surf1:#E9E2D1;--surf2:#E5DEC9;--surf3:#DBD3BC;
+  --bdr:rgba(120,90,40,.20);--bdr2:rgba(120,90,40,.38);--bdr3:rgba(120,90,40,.55);
+  --gold:#8B6010;--gold2:#7A5208;--gdim:#A07A20;
+  --gold-a8:rgba(120,90,40,.08);--gold-a15:rgba(120,90,40,.15);
+  --crim:#7A0000;--crim2:#8B1010;--accent:var(--crim);--accent-a8:rgba(122,0,0,.08);--accent-a25:rgba(122,0,0,.25);
+  --txt:#1C1410;--txt2:#4A3A28;--txt3:#6A5238;--txt-on-dark:#F4EFE4;
+  --fh:'Cinzel',serif;--fl:'Lato',sans-serif;--ft:'Libre Baskerville',serif;
+  --radius-sm:4px;--radius-md:8px;--radius-lg:12px;--radius-pill:999px;
+  --warn-orange:#8b3d00;
+  --control-height-sm:36px;--control-height-md:44px;
+}
+*{box-sizing:border-box;}
+body{margin:0;background:var(--bg);color:var(--txt);font-family:var(--ft);font-size:13px;}
+
+.wrap{max-width:720px;margin:0 auto;padding:20px 16px 80px;}
+.variant-label{font-family:var(--fl);font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--txt3);margin:40px 0 10px;padding-top:24px;border-top:1px dashed var(--bdr2);}
+.variant-label:first-child{margin-top:0;padding-top:0;border-top:none;}
+.variant-note{font-family:var(--fl);font-size:12px;color:var(--txt3);margin:-4px 0 16px;line-height:1.5;}
+
+/* ── Reused verbatim from the live praxis-board CSS (admin-layout.css) ── */
+.praxis-board{background:var(--surf);border:1px solid var(--bdr);border-radius:var(--radius-lg);padding:16px;position:relative;max-width:720px;}
+.pb-head{display:flex;align-items:baseline;justify-content:space-between;gap:8px;margin-bottom:14px;}
+.pb-title{font-family:var(--fl);font-size:16px;font-weight:700;color:var(--txt);}
+.pb-chapter{font-family:var(--fl);font-size:11px;color:var(--txt3);margin-left:8px;font-weight:400;}
+.pb-live{display:inline-flex;align-items:center;gap:5px;font-family:var(--fl);font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--txt3);white-space:nowrap;}
+.pb-live .dot{width:6px;height:6px;border-radius:50%;background:var(--gold);box-shadow:0 0 0 3px var(--gold-a15);}
+.pool-label{font-family:var(--fl);font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--txt3);margin:0 0 8px;}
+.pool-strip{display:flex;flex-wrap:wrap;gap:8px;padding-bottom:16px;margin-bottom:16px;border-bottom:1px solid var(--bdr);}
+.char-chip{background:var(--surf2);border:1px solid var(--bdr);border-radius:var(--radius-md);padding:8px 14px;min-height:40px;font-family:var(--fl);font-size:.8125rem;font-weight:600;letter-spacing:.02em;color:var(--txt);cursor:pointer;display:inline-flex;align-items:center;gap:6px;text-align:left;}
+.char-chip:hover{border-color:var(--bdr2);background:var(--surf3);color:var(--accent);}
+.claimants-label{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;}
+.claimants{display:flex;flex-direction:column;gap:10px;}
+.claim-card{background:var(--surf1);border:1px solid var(--bdr);border-radius:var(--radius-md);padding:12px 14px;}
+.claim-head{display:flex;align-items:baseline;justify-content:space-between;gap:8px;}
+.claim-name{font-family:var(--fl);font-size:14px;font-weight:700;color:var(--txt);}
+.claim-tally{font-family:var(--fl);font-size:18px;font-weight:700;color:var(--gold2);white-space:nowrap;}
+.claim-tally .lbl{font-size:10px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--txt3);margin-left:5px;}
+.claim-badge{font-family:var(--fl);font-size:10.5px;font-weight:600;margin-top:3px;display:inline-block;}
+.claim-badge.neutral{color:var(--txt3);}
+.claim-badge.amber{color:var(--warn-orange);}
+.claim-supporters{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px;}
+.claim-empty-supporters{font-family:var(--fl);font-size:11px;font-style:italic;color:var(--txt3);margin-top:10px;}
+.support-chip{background:var(--bg);border:1px solid var(--bdr);border-radius:var(--radius-pill);padding:5px 10px 5px 12px;font-family:var(--fl);font-size:11.5px;font-weight:600;color:var(--txt2);display:inline-flex;align-items:center;gap:6px;}
+.withdraw-x{background:none;border:none;color:var(--txt3);font-family:var(--fl);font-size:11px;font-weight:700;cursor:pointer;padding:2px 4px;border-radius:var(--radius-sm);line-height:1;}
+.claim-actions{margin-top:10px;}
+.claim-withdraw{background:none;border:none;padding:2px 0;font-family:var(--fl);font-size:11px;font-weight:700;letter-spacing:.04em;color:var(--txt3);cursor:pointer;}
+
+/* ── NEW for prax-3 ── */
+
+/* Segmented Praxis/Harpy control. */
+.tally-switch{display:inline-flex;border:1px solid var(--bdr2);border-radius:var(--radius-pill);padding:3px;gap:2px;background:var(--surf1);}
+.tally-switch-btn{border:none;background:none;font-family:var(--fl);font-size:12px;font-weight:700;letter-spacing:.02em;color:var(--txt3);padding:7px 16px;border-radius:var(--radius-pill);cursor:pointer;}
+.tally-switch-btn.active{background:var(--accent);color:var(--txt-on-dark);}
+.tally-switch-btn:not(.active):hover{color:var(--accent);}
+
+/* Sticky summary row — always visible, both contests, regardless of active tab. */
+.tally-summary{display:grid;grid-template-columns:1fr 1fr;gap:10px;background:var(--gold-a8);border:1px solid var(--bdr2);border-radius:var(--radius-md);padding:10px 12px;margin-bottom:16px;}
+.tally-summary-item{display:flex;flex-direction:column;gap:2px;}
+.tally-summary-item + .tally-summary-item{border-left:1px solid var(--bdr);padding-left:10px;}
+.tally-summary-label{font-family:var(--fl);font-size:9.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--txt3);}
+.tally-summary-leader{font-family:var(--fl);font-size:13px;font-weight:700;color:var(--txt);}
+.tally-summary-leader .n{color:var(--gold2);font-weight:700;margin-left:4px;}
+.tally-summary-empty{font-family:var(--fl);font-size:12px;font-style:italic;color:var(--txt3);}
+
+/* Dual-dot pool-chip indicator: which tally(s) this attendee has an assignment in, independent of the active tab. */
+.chip-dots{display:inline-flex;gap:3px;margin-left:2px;}
+.chip-dot{width:6px;height:6px;border-radius:50%;background:var(--bdr3);}
+.chip-dot.on-praxis{background:var(--crim);}
+.chip-dot.on-harpy{background:var(--gold2);}
+
+.callout{background:var(--gold-a8);border:1px dashed var(--bdr2);border-radius:var(--radius-md);padding:10px 12px;font-family:var(--fl);font-size:11.5px;color:var(--txt2);line-height:1.5;margin-top:14px;}
+.callout b{color:var(--gold2);}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="variant-label">1 — Praxis tab active (reuses prax-2's own locked card/pool/chip components verbatim)</div>
+  <div class="variant-note">
+    New: the segmented control (top right, replaces the plain "Live" pill's position — Live moves into the summary row instead),
+    the sticky summary row underneath the header showing BOTH contests' current leaders at once, and dual-dot indicators on
+    every pool chip. Everything below the summary row is prax-2's own claim-board component, untouched — same classes, same markup shape.
+  </div>
+  <div class="praxis-board">
+    <div class="pb-head">
+      <div><span class="pb-title">Praxis Claim</span><span class="pb-chapter">Chapter 14 &middot; 12 Aug session</span></div>
+      <div class="tally-switch">
+        <button class="tally-switch-btn active">Praxis</button>
+        <button class="tally-switch-btn">People&rsquo;s Harpy</button>
+      </div>
+    </div>
+
+    <div class="tally-summary">
+      <div class="tally-summary-item">
+        <span class="tally-summary-label"><span class="pb-live" style="display:inline"><span class="dot"></span></span> Praxis leader</span>
+        <span class="tally-summary-leader">Brandy LaRoux<span class="n">19</span></span>
+      </div>
+      <div class="tally-summary-item">
+        <span class="tally-summary-label">Harpy leader</span>
+        <span class="tally-summary-leader">Mikael Thorne<span class="n">3</span></span>
+      </div>
+    </div>
+
+    <div class="pool-label">Not yet assigned (tap to support or open a claim)</div>
+    <div class="pool-strip">
+      <button class="char-chip">Wren Halloway<span class="chip-dots"><span class="chip-dot"></span><span class="chip-dot on-harpy"></span></span></button>
+      <button class="char-chip">Desmond Okafor<span class="chip-dots"><span class="chip-dot"></span><span class="chip-dot"></span></span></button>
+    </div>
+
+    <div class="claimants-label"><span class="pool-label" style="margin:0">Claimants</span></div>
+    <div class="claimants">
+      <div class="claim-card">
+        <div class="claim-head">
+          <div>
+            <div class="claim-name">Brandy LaRoux</div>
+            <div class="claim-badge amber">People&rsquo;s Harpy &middot; vacates on win</div>
+          </div>
+          <div class="claim-tally">19<span class="lbl">status</span></div>
+        </div>
+        <div class="claim-supporters">
+          <span class="support-chip">Petra Voss <span class="withdraw-x">&times;</span></span>
+          <span class="support-chip">Sarah Kessler <span class="withdraw-x">&times;</span></span>
+        </div>
+        <div class="claim-actions"><button class="claim-withdraw">Withdraw claim</button></div>
+      </div>
+      <div class="claim-card">
+        <div class="claim-head">
+          <div><div class="claim-name">Mikael Thorne</div><div class="claim-badge neutral">Primogen &middot; keeps seat</div></div>
+          <div class="claim-tally">14<span class="lbl">status</span></div>
+        </div>
+        <div class="claim-supporters"><span class="support-chip">Ana&iuml;s Duclos <span class="withdraw-x">&times;</span></span></div>
+        <div class="claim-actions"><button class="claim-withdraw">Withdraw claim</button></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="variant-label">2 — Harpy tab active</div>
+  <div class="variant-note">
+    Same board, same summary row (unchanged — both leaders always show regardless of tab), same components — only the
+    active tally switches. Tally label reads &ldquo;votes&rdquo; not &ldquo;status&rdquo; (unweighted headcount, no
+    City-Status maths). No Primogen/Harpy badges here — those are Praxis-specific special-case call-outs, meaningless
+    on the Harpy tally itself (a Harpy claimant does not "keep a seat" by winning Harpy).
+  </div>
+  <div class="praxis-board">
+    <div class="pb-head">
+      <div><span class="pb-title">People&rsquo;s Harpy Vote</span><span class="pb-chapter">Chapter 14 &middot; 12 Aug session</span></div>
+      <div class="tally-switch">
+        <button class="tally-switch-btn">Praxis</button>
+        <button class="tally-switch-btn active">People&rsquo;s Harpy</button>
+      </div>
+    </div>
+
+    <div class="tally-summary">
+      <div class="tally-summary-item">
+        <span class="tally-summary-label">Praxis leader</span>
+        <span class="tally-summary-leader">Brandy LaRoux<span class="n">19</span></span>
+      </div>
+      <div class="tally-summary-item">
+        <span class="tally-summary-label"><span class="pb-live" style="display:inline"><span class="dot"></span></span> Harpy leader</span>
+        <span class="tally-summary-leader">Mikael Thorne<span class="n">3</span></span>
+      </div>
+    </div>
+
+    <div class="pool-label">Not yet assigned (tap to support or open a claim)</div>
+    <div class="pool-strip">
+      <button class="char-chip">Brandy LaRoux<span class="chip-dots"><span class="chip-dot on-praxis"></span><span class="chip-dot"></span></span></button>
+      <button class="char-chip">Desmond Okafor<span class="chip-dots"><span class="chip-dot"></span><span class="chip-dot"></span></span></button>
+    </div>
+
+    <div class="claimants-label"><span class="pool-label" style="margin:0">Claimants</span></div>
+    <div class="claimants">
+      <div class="claim-card">
+        <div class="claim-head">
+          <div><div class="claim-name">Mikael Thorne</div></div>
+          <div class="claim-tally">3<span class="lbl">votes</span></div>
+        </div>
+        <div class="claim-supporters">
+          <span class="support-chip">Petra Voss <span class="withdraw-x">&times;</span></span>
+          <span class="support-chip">Wren Halloway <span class="withdraw-x">&times;</span></span>
+          <span class="support-chip">Sarah Kessler <span class="withdraw-x">&times;</span></span>
+        </div>
+        <div class="claim-actions"><button class="claim-withdraw">Withdraw claim</button></div>
+      </div>
+      <div class="claim-card">
+        <div class="claim-head">
+          <div><div class="claim-name">Corvin Adeyemi</div></div>
+          <div class="claim-tally">0<span class="lbl">votes</span></div>
+        </div>
+        <div class="claim-empty-supporters">No supporters yet.</div>
+        <div class="claim-actions"><button class="claim-withdraw">Withdraw claim</button></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="variant-label">3 — Sticky summary row + dual-dot legend (isolated for detail review)</div>
+  <div class="variant-note">A crimson dot = has a Praxis assignment (claim or support). A gold dot = has a Harpy assignment. Both dim grey when absent. Independent of which tab is currently open.</div>
+  <div class="praxis-board" style="max-width:420px;">
+    <div class="tally-summary">
+      <div class="tally-summary-item">
+        <span class="tally-summary-label">Praxis leader</span>
+        <span class="tally-summary-leader">Brandy LaRoux<span class="n">19</span></span>
+      </div>
+      <div class="tally-summary-item">
+        <span class="tally-summary-label">Harpy leader</span>
+        <span class="tally-summary-leader">Mikael Thorne<span class="n">3</span></span>
+      </div>
+    </div>
+    <div class="pool-strip" style="border:none;margin:0;padding:0;">
+      <button class="char-chip">On both<span class="chip-dots"><span class="chip-dot on-praxis"></span><span class="chip-dot on-harpy"></span></button>
+      <button class="char-chip">Praxis only<span class="chip-dots"><span class="chip-dot on-praxis"></span><span class="chip-dot"></span></button>
+      <button class="char-chip">Harpy only<span class="chip-dots"><span class="chip-dot"></span><span class="chip-dot on-harpy"></span></button>
+      <button class="char-chip">Neither<span class="chip-dots"><span class="chip-dot"></span><span class="chip-dot"></span></button>
+    </div>
+  </div>
+
+  <div class="callout">
+    <b>Open questions for lock:</b>
+    <br>1. When BOTH leaders tie (or a tally has zero claimants), what does the summary row say? Mockup doesn't show this state.
+    <br>2. Empty-board state (no board opened yet) — does the segmented control show before or only after a board exists? Prax-2's own empty state has no tabs to switch between.
+    <br>3. Tally label for Harpy: I used "votes" (plain word, not "status") — confirm that's the right term, not e.g. "supporters" or "voice".
+  </div>
+
+</div>
+</body>
+</html>

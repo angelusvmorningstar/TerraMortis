@@ -448,8 +448,15 @@ describe('oxp.4 client wiring: no character id reaches the office_merit_dots API
     const sharedResolver = readFile('public/js/data/office-seat-resolve.js');
     expect(sharedResolver).toMatch(/String\(s\.holder_id\)\s*===\s*String\(char\._id\)/);
 
+    // prax.0 legitimately WIDENED that shared signature to
+    // resolveHeldSeat(char, seats, category), so office-tab.js can ask "does
+    // this viewer hold a seat in the office ON SCREEN" rather than only "in
+    // their headline office" - a character may now hold two seats at once. The
+    // guarantee this test asserts is unchanged (office-tab.js delegates the
+    // holder match rather than comparing inline); only the literal it pins
+    // moved, the same shape of update gdx.12 made to oaq-3's assertions.
     const block = seatResolutionBlock();
-    expect(block).toMatch(/resolveHeldSeat\(char,\s*seats\)/);
+    expect(block).toMatch(/resolveHeldSeat\(char,\s*seats,\s*category\)/);
     // What leaves this block is a seat id, never the seat, holder, or character.
     expect(block).toMatch(/seatId:\s*String\(seat\._id\)/);
     // Only ever a read of office_seats — this block writes to no API at all.

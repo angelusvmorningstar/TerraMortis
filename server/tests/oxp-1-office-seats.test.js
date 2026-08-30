@@ -360,7 +360,12 @@ describe('oxp.1 seed script, the seven real seats (AC3)', () => {
     const socialite = docs.filter(d => d.office_category === 'Socialite');
     const primogen = docs.filter(d => d.office_category === 'Primogen');
 
-    expect(socialite.map(d => d.seat_label).sort()).toEqual(['Harpy', "People's Harpy"]);
+    // prax.4b renamed the APPOINTED seat's label from plain 'Harpy' to
+    // 'City Harpy'. The two labels being DISTINCT is what this test has always
+    // been about, and still is; the rename made them distinct enough for the
+    // Praxis mass-clear to match one and never the other, which a label that is
+    // a prefix of the other one is not. The popular seat is unchanged.
+    expect(socialite.map(d => d.seat_label).sort()).toEqual(['City Harpy', "People's Harpy"]);
     expect(primogen.every(d => d.seat_label === null)).toBe(true);
   });
 

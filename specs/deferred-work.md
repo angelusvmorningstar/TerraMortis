@@ -1148,6 +1148,41 @@ defender-resolution fields). The three below were **not** patched and each wants
   `office_actions` is already logged as a caller-supplied, unvalidated, spoofable string — this epic
   should not reproduce that shape.
 
+## Deferred from: independent review of prax-4a-peoples-harpy-resolve (2026-08-30, bmad-epic-loop)
+
+- **`server/routes/praxis-sessions.js`'s `POST /:id/claims`, `DELETE /:id/claims/:characterId` and
+  `PUT /:id/support` have no guard against `resolved.<tally>` being non-null** (Medium). Once
+  prax.4a's `POST /:id/resolve-harpy` sets `resolved.harpy`, the client hides the pool/claimants UI
+  for that tally (structurally, not just disabled controls), but nothing server-side stops a stale ST
+  browser tab, or a direct API call, from still opening a new Harpy claim, withdrawing one, or
+  reassigning Harpy support afterwards. The frozen snapshot itself (`resolved.harpy.winner_character_id`
+  / `final_tally`) is untouched by this either way — only the live `harpy.claims`/`harpy.support`
+  arrays underneath it can silently drift from what was true at resolve time. That cuts against the
+  "frozen historical record, kept forever" framing prax.4a's own code comments use throughout (AC7:
+  "the board keeps its full historical claim/support data forever, alongside the frozen snapshot").
+  Real-world exposure is low — it needs two concurrent ST sessions, one of them stale, on an ST-only
+  tool with no player visibility — but it is real. Not fixed in prax.4a: that story's own "What this
+  story is NOT" section explicitly scoped out touching prax-1's claim/support routes, and the natural
+  fix (gate all three routes on `resolved[tally] === null`, mirroring the CAS discipline
+  `resolve-harpy` itself already uses) touches exactly those routes. Prax.4b's own resolve route for
+  the Praxis tally will want the identical guard for `resolved.praxis`, so this is a natural candidate
+  to fix once, for both tallies, alongside that story rather than as two separate patches.
+- **`resetManoeuvreRank` fires unconditionally on `resolve-harpy`'s resolve path, including when the
+  declared winner is the SITTING People's Harpy being re-elected** (Low - a genuine game-rules
+  question, not a defect). `office-seats.js`'s own `PUT /:seatId/holder` treats a same-holder request
+  as NOT a handover (AC4 there) and explicitly skips the reset, on the reasoning that re-saving an
+  unchanged assignment must never be able to wipe a ladder. Prax.4a's resolve-harpy route has no
+  equivalent same-holder branch — AC5's own literal text lists the manoeuvre reset as an unconditional
+  step of the resolve path, and the shipped code does exactly that (confirmed: the "sitting Harpy
+  re-winning is not a conflict" test asserts the handover succeeds and the office is kept, but does
+  not assert on the manoeuvre rank one way or the other). **NEEDS ANGELUS'S OWN RULING, deliberately
+  not resolved:** is a People's Harpy re-election a fresh tenure (reset is correct - a new term earned
+  by a new vote) or a continuation of the same one (reset is an unwanted surprise)? The design-lock
+  never posed this question because "the sitting holder wins again" was not one of the states it
+  mocked. Whichever way this is ruled, it is a one-line conditional in `resolve-harpy`'s resolve
+  branch (skip the `resetManoeuvreRank` call when `currentHolderId === claimantId`, mirroring the
+  clear-departing-holder skip already there for the same case) - trivial to build once decided.
+
 ## Deferred from: code review of crd-2-player-facing-pending-queue (2026-08-22, external Codex review)
 
 External Codex review (3-pass blinded adversarial protocol) of the Epic CRD player-facing pending
@@ -1527,3 +1562,56 @@ two below were judged real but out of proportion to fix in this pass, or not thi
   would need) would make the second click a silent no-op instead. Not done here: the patch round was
   scoped to correctness findings and this touches a client render path with its own generation-guard
   invariants, so it wants its own story rather than a drive-by edit inside a review round.
+
+## Deferred from: independent review of prax-1-schema-scaffold (2026-08-29, bmad-epic-loop)
+
+- **`PUT /api/praxis_sessions/:id/support`'s claimant-still-open check is not atomically race-closed**
+  (Low - `server/routes/praxis-sessions.js`, the support-assignment route). AC5's own duplicate-claim
+  guard and AC6's own withdraw route both close their equivalent race with an atomic filter inside the
+  write itself; this one instead reads the board snapshot at the top of the request and checks the
+  claimant is still open against THAT read, not a filter re-checked at write time. A support
+  assignment made in the same instant as a concurrent withdrawal of that same claimant could
+  theoretically land after the claim is already gone. Real-world exposure is negligible - this is a
+  single-ST, sequential-tap admin tool with no UI that could even attempt two concurrent writes today
+  - and any resulting orphaned support entry self-heals the next time that claimant is withdrawn
+  again (AC6's own cascade filters on current support values every time it runs, not just once).
+  Not fixed: not required by any AC as written, and prax-1 was independently re-verified and marked
+  done on the strength of every AC it DID promise. Flagged here so prax-4a/prax-4b (both resolve
+  paths, both reading claim/support state as a resolve-time source of truth) know the theoretical gap
+  exists if either ever needs a stronger guarantee than "correct barring a same-instant race."
+
+## Deferred from: independent review of prax-2/prax-3 (2026-08-29, bmad-epic-loop)
+
+- **`server/tests/gdx-4-css-standards-grep.test.js`'s "leaves the compliant var() fallbacks in place"
+  assertion fails at base, on `main`, with no PRAX changes present** (Low - pre-existing, confirmed via
+  `git stash` A/B during both prax-2's and prax-3's own independent reviews, run again independently
+  each time with the same result). The assertion checks `public/css/suite.css` only, a file no PRAX
+  story touches (all PRAX CSS lives in `admin-layout.css`), so it is unrelated to this epic's own
+  work - but it is also not in root `CLAUDE.md`'s own "Known pre-existing failures" list, so anyone
+  who hits it cold will spend time re-diagnosing something already known. Not fixed here (out of
+  scope for a UI-board epic to go patch an unrelated CSS-standards test), but worth its own line in
+  `CLAUDE.md`'s known-failures list the next time that file gets a maintenance pass.
+
+## Deferred from: independent review of prax-4b-head-of-state-resolve (2026-08-30, bmad-epic-loop)
+
+- **`office-tab.js`'s new `praxis_resolved` WS wiring can never reach the player it is for**
+  (Medium - `public/js/tabs/office-tab.js`'s `onPraxisResolved`, wired via `public/js/app.js`).
+  `server/ws.js`'s `broadcastPraxisResolved` fans out to `['st', 'dev']` roles only (the same,
+  correct scope every other route in `praxis-sessions.js` uses, since Praxis tally/vote data must
+  never reach a player socket) - but `office-tab.js` is loaded by `app.js`, the PLAYER Suite app
+  (`public/index.html`), not the ST admin app, and the actual audience for a post-resolve office-tab
+  refresh is the affected PLAYER themselves: the new Head of State, or whoever just lost
+  Enforcer/Administrator/City Harpy/People's Harpy/the old Head of State seat. A real player's own
+  Office tab will show stale purchase controls and budget preview - a seat they no longer hold, or one
+  they now do but the tab does not yet know it - until they manually reload the page or switch domains
+  away and back. `city-views.js`'s own wiring (via `admin.js`, correctly ST-only) has no equivalent
+  problem. Bounded impact, not a security gap: `server/routes/office-purchase.js` independently
+  re-validates `holder_id` server-side before any purchase commits, so a stale client can never let a
+  wrongful purchase actually go through - this is UX staleness, not data integrity. Root cause: the
+  story's own spec (written by the orchestrator, before this session confirmed the real file layout)
+  assumed `office-tab.js` lived under `public/js/admin/`, an ST-only surface; it does not. **Not fixed
+  here** - the real fix (broadening `broadcastPraxisResolved` to reach the affected player
+  specifically, or to all roles outright - arguably safe, since `court_category`/`court_title` are
+  already ordinary player-visible character-sheet fields and only the tally/vote *process* itself is
+  meant to stay ST-only) is a genuine scope/architecture call that deserves its own decision, not a
+  drive-by patch inside this story's own review pass.

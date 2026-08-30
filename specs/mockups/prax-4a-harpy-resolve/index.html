@@ -1,0 +1,230 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>prax-4a — People's Harpy resolve (design-lock mockup)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700&family=Lato:wght@400;600;700&family=Libre+Baskerville:ital@0;1&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#F4EFE4;--surf:#EDE7D8;--surf1:#E9E2D1;--surf2:#E5DEC9;--surf3:#DBD3BC;
+  --bdr:rgba(120,90,40,.20);--bdr2:rgba(120,90,40,.38);--bdr3:rgba(120,90,40,.55);
+  --gold:#8B6010;--gold2:#7A5208;--gdim:#A07A20;
+  --gold-a8:rgba(120,90,40,.08);--gold-a15:rgba(120,90,40,.15);
+  --crim:#7A0000;--crim2:#8B1010;--accent:var(--crim);--accent-a8:rgba(122,0,0,.08);--accent-a25:rgba(122,0,0,.25);
+  --txt:#1C1410;--txt2:#4A3A28;--txt3:#6A5238;--txt-on-dark:#F4EFE4;
+  --fh:'Cinzel',serif;--fl:'Lato',sans-serif;--ft:'Libre Baskerville',serif;
+  --radius-sm:4px;--radius-md:8px;--radius-lg:12px;--radius-pill:999px;
+  --warn-orange:#8b3d00;
+  --green3:#1A5A30;--green3-a15:rgba(26,90,48,.15);
+  --control-height-sm:36px;--control-height-md:44px;
+}
+*{box-sizing:border-box;}
+body{margin:0;background:var(--bg);color:var(--txt);font-family:var(--ft);font-size:13px;min-height:100vh;position:relative;}
+
+.wrap{max-width:720px;margin:0 auto;padding:20px 16px 140px;}
+.variant-label{font-family:var(--fl);font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--txt3);margin:40px 0 10px;padding-top:24px;border-top:1px dashed var(--bdr2);}
+.variant-label:first-child{margin-top:0;padding-top:0;border-top:none;}
+.variant-note{font-family:var(--fl);font-size:12px;color:var(--txt3);margin:-4px 0 16px;line-height:1.5;}
+
+/* Reused verbatim from the live praxis-board CSS. */
+.praxis-board{background:var(--surf);border:1px solid var(--bdr);border-radius:var(--radius-lg);padding:16px;position:relative;max-width:720px;}
+.pb-head{display:flex;align-items:baseline;justify-content:space-between;gap:8px;margin-bottom:14px;}
+.pb-title{font-family:var(--fl);font-size:16px;font-weight:700;color:var(--txt);}
+.pb-chapter{font-family:var(--fl);font-size:11px;color:var(--txt3);margin-left:8px;font-weight:400;}
+.tally-switch{display:inline-flex;border:1px solid var(--bdr2);border-radius:var(--radius-pill);padding:3px;gap:2px;background:var(--surf1);}
+.tally-switch-btn{border:none;background:none;font-family:var(--fl);font-size:12px;font-weight:700;letter-spacing:.02em;color:var(--txt3);padding:7px 16px;border-radius:var(--radius-pill);cursor:pointer;}
+.tally-switch-btn.active{background:var(--accent);color:var(--txt-on-dark);}
+.tally-summary{display:grid;grid-template-columns:1fr 1fr;gap:10px;background:var(--gold-a8);border:1px solid var(--bdr2);border-radius:var(--radius-md);padding:10px 12px;margin-bottom:16px;}
+.tally-summary-item{display:flex;flex-direction:column;gap:2px;}
+.tally-summary-item + .tally-summary-item{border-left:1px solid var(--bdr);padding-left:10px;}
+.tally-summary-label{font-family:var(--fl);font-size:9.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--txt3);}
+.tally-summary-leader{font-family:var(--fl);font-size:13px;font-weight:700;color:var(--txt);}
+.tally-summary-leader .n{color:var(--gold2);font-weight:700;margin-left:4px;}
+.pool-label{font-family:var(--fl);font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--txt3);margin:0 0 8px;}
+.pool-strip{display:flex;flex-wrap:wrap;gap:8px;padding-bottom:16px;margin-bottom:16px;border-bottom:1px solid var(--bdr);}
+.char-chip{background:var(--surf2);border:1px solid var(--bdr);border-radius:var(--radius-md);padding:8px 14px;min-height:40px;font-family:var(--fl);font-size:.8125rem;font-weight:600;color:var(--txt);display:inline-flex;align-items:center;}
+.claimants-label{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;}
+.claimants{display:flex;flex-direction:column;gap:10px;}
+.claim-card{background:var(--surf1);border:1px solid var(--bdr);border-radius:var(--radius-md);padding:12px 14px;}
+.claim-head{display:flex;align-items:baseline;justify-content:space-between;gap:8px;}
+.claim-name{font-family:var(--fl);font-size:14px;font-weight:700;color:var(--txt);}
+.claim-tally{font-family:var(--fl);font-size:18px;font-weight:700;color:var(--gold2);white-space:nowrap;}
+.claim-tally .lbl{font-size:10px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--txt3);margin-left:5px;}
+.claim-supporters{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px;}
+.support-chip{background:var(--bg);border:1px solid var(--bdr);border-radius:var(--radius-pill);padding:5px 10px 5px 12px;font-family:var(--fl);font-size:11.5px;font-weight:600;color:var(--txt2);display:inline-flex;align-items:center;gap:6px;}
+.claim-actions{margin-top:10px;display:flex;align-items:center;gap:14px;}
+.claim-withdraw{background:none;border:none;padding:2px 0;font-family:var(--fl);font-size:11px;font-weight:700;letter-spacing:.04em;color:var(--txt3);cursor:pointer;}
+
+/* ── NEW for prax-4a ── */
+
+/* Per-claimant "Declare Winner" action — visually distinct from the neutral
+   "Withdraw claim" text action, since this one has a real consequence. */
+.claim-resolve{background:var(--gold-a8);border:1px solid var(--bdr2);border-radius:var(--radius-sm);padding:5px 12px;font-family:var(--fl);font-size:11px;font-weight:700;letter-spacing:.02em;color:var(--gold2);cursor:pointer;}
+.claim-resolve:hover{background:var(--gold-a15);}
+
+/* Board-level "Dismiss vote" — sits with the Harpy claimants label, not per-claimant. */
+.dismiss-vote{background:none;border:none;font-family:var(--fl);font-size:10.5px;font-weight:700;letter-spacing:.04em;color:var(--txt3);cursor:pointer;text-decoration:underline;text-decoration-style:dotted;text-underline-offset:2px;}
+.dismiss-vote:hover{color:var(--crim);}
+
+/* Resolved-tally summary card, replacing the live pool/claimants section on
+   whichever tally is resolved. The other tally (Praxis, until prax-4b) stays
+   fully live and untouched. */
+.resolved-summary{background:var(--surf1);border:1px solid var(--bdr2);border-radius:var(--radius-md);padding:18px 16px;text-align:center;}
+.resolved-summary.won{border-color:var(--green3-a15);}
+.resolved-summary .icon{font-family:var(--fl);font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--green3);margin-bottom:8px;}
+.resolved-summary.abandoned .icon{color:var(--txt3);}
+.resolved-summary .winner-name{font-family:var(--fl);font-size:18px;font-weight:700;color:var(--txt);}
+.resolved-summary .winner-tally{font-family:var(--fl);font-size:12px;color:var(--txt3);margin-top:4px;}
+.resolved-summary .resolved-note{font-family:var(--fl);font-size:11px;color:var(--txt3);margin-top:10px;font-style:italic;}
+
+/* Undo-toast — fixed to the viewport bottom, not scoped to .praxis-board (it
+   must survive a re-render of the board content underneath it). */
+.undo-toast{position:fixed;left:50%;bottom:28px;transform:translateX(-50%);
+  background:var(--txt);color:var(--txt-on-dark);border-radius:var(--radius-md);
+  padding:12px 14px 12px 16px;display:flex;align-items:center;gap:16px;
+  box-shadow:0 8px 24px rgba(0,0,0,.25);max-width:calc(100vw - 32px);}
+.undo-toast .msg{font-family:var(--fl);font-size:12.5px;line-height:1.4;}
+.undo-toast .undo-btn{background:none;border:1px solid rgba(244,239,228,.4);border-radius:var(--radius-sm);
+  color:var(--txt-on-dark);font-family:var(--fl);font-size:11px;font-weight:700;letter-spacing:.04em;
+  text-transform:uppercase;padding:6px 12px;cursor:pointer;white-space:nowrap;}
+.undo-toast .undo-btn:hover{background:rgba(244,239,228,.12);}
+
+.callout{background:var(--gold-a8);border:1px dashed var(--bdr2);border-radius:var(--radius-md);padding:10px 12px;font-family:var(--fl);font-size:11.5px;color:var(--txt2);line-height:1.5;margin-top:14px;}
+.callout b{color:var(--gold2);}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="variant-label">1 — Live Harpy board with the new "Declare Winner" action</div>
+  <div class="variant-note">
+    Every existing prax-2/3 component is untouched. The only addition is a second action
+    alongside "Withdraw claim" on each card, plus a small "Dismiss vote" text action next to the
+    Claimants label (board-level, not per-claimant — it abandons the WHOLE tally, not one claim).
+  </div>
+  <div class="praxis-board">
+    <div class="pb-head">
+      <div><span class="pb-title">People&rsquo;s Harpy Vote</span><span class="pb-chapter">Chapter 14 &middot; 12 Aug session</span></div>
+      <div class="tally-switch">
+        <button class="tally-switch-btn">Praxis</button>
+        <button class="tally-switch-btn active">People&rsquo;s Harpy</button>
+      </div>
+    </div>
+    <div class="tally-summary">
+      <div class="tally-summary-item"><span class="tally-summary-label">Praxis leader</span><span class="tally-summary-leader">Brandy LaRoux<span class="n">7</span></span></div>
+      <div class="tally-summary-item"><span class="tally-summary-label">Harpy leader</span><span class="tally-summary-leader">Petra Voss<span class="n">3</span></span></div>
+    </div>
+    <div class="pool-label">Not yet assigned (tap to support or open a claim)</div>
+    <div class="pool-strip">
+      <button class="char-chip">Corvin Adeyemi</button>
+      <button class="char-chip">Desmond Okafor</button>
+    </div>
+    <div class="claimants-label">
+      <span class="pool-label" style="margin:0">Claimants</span>
+      <button class="dismiss-vote">Dismiss vote (no winner)</button>
+    </div>
+    <div class="claimants">
+      <div class="claim-card">
+        <div class="claim-head">
+          <div class="claim-name">Petra Voss</div>
+          <div class="claim-tally">3<span class="lbl">votes</span></div>
+        </div>
+        <div class="claim-supporters">
+          <span class="support-chip">Wren Halloway</span>
+          <span class="support-chip">Sarah Kessler</span>
+          <span class="support-chip">Mikael Thorne</span>
+        </div>
+        <div class="claim-actions">
+          <button class="claim-resolve">Declare Winner</button>
+          <button class="claim-withdraw">Withdraw claim</button>
+        </div>
+      </div>
+      <div class="claim-card">
+        <div class="claim-head">
+          <div class="claim-name">Brandy LaRoux</div>
+          <div class="claim-tally">1<span class="lbl">votes</span></div>
+        </div>
+        <div class="claim-supporters"><span class="support-chip">Corvin Adeyemi</span></div>
+        <div class="claim-actions">
+          <button class="claim-resolve">Declare Winner</button>
+          <button class="claim-withdraw">Withdraw claim</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="variant-label">2 — Just after "Declare Winner" — the undo-toast</div>
+  <div class="variant-note">
+    No confirm modal. The tap resolves immediately (seat handover + snapshot, one transaction) and
+    the toast is the ONLY safety net — it names who was outgoing, since that is the fact the ST is
+    most likely to want to double-check. Fixed to the viewport, not the board, so it survives
+    whatever the board re-renders into underneath it.
+  </div>
+  <div class="praxis-board">
+    <div class="resolved-summary won">
+      <div class="icon">Resolved</div>
+      <div class="winner-name">Petra Voss</div>
+      <div class="winner-tally">People&rsquo;s Harpy &middot; 3 votes</div>
+      <div class="resolved-note">Brandy LaRoux&rsquo;s own claim stands withdrawn, not resolved &mdash; only the winner&rsquo;s own claim becomes real.</div>
+    </div>
+  </div>
+  <div class="undo-toast">
+    <span class="msg">Petra Voss is now People&rsquo;s Harpy.<br>Sarah Kessler vacated.</span>
+    <button class="undo-btn">Undo</button>
+  </div>
+
+  <div class="variant-label">3 — Resolved state, no toast (after it has auto-dismissed or been dismissed)</div>
+  <div class="variant-note">
+    The Harpy tab's own pool/claimant section is replaced entirely by this summary once resolved.
+    The Praxis tab (prax-4b's own job to resolve) is completely unaffected &mdash; switching back to
+    it still shows the full live board, untouched.
+  </div>
+  <div class="praxis-board">
+    <div class="pb-head">
+      <div><span class="pb-title">People&rsquo;s Harpy Vote</span><span class="pb-chapter">Chapter 14 &middot; 12 Aug session</span></div>
+      <div class="tally-switch">
+        <button class="tally-switch-btn">Praxis</button>
+        <button class="tally-switch-btn active">People&rsquo;s Harpy</button>
+      </div>
+    </div>
+    <div class="tally-summary">
+      <div class="tally-summary-item"><span class="tally-summary-label">Praxis leader</span><span class="tally-summary-leader">Brandy LaRoux<span class="n">7</span></span></div>
+      <div class="tally-summary-item"><span class="tally-summary-label">Harpy leader</span><span class="tally-summary-leader">Petra Voss<span class="n">3</span></span></div>
+    </div>
+    <div class="resolved-summary won">
+      <div class="icon">Resolved</div>
+      <div class="winner-name">Petra Voss</div>
+      <div class="winner-tally">People&rsquo;s Harpy &middot; 3 votes &middot; 12 Aug 2026</div>
+    </div>
+  </div>
+
+  <div class="variant-label">4 — Dismissed (abandoned, no winner)</div>
+  <div class="variant-note">A different resolved sub-state: the ST chose "Dismiss vote" instead of declaring anyone. No seat handover happens at all, but the tally is still formally closed (a permanent, frozen `resolved.harpy` record) so it does not sit "still open" forever.</div>
+  <div class="praxis-board">
+    <div class="pb-head">
+      <div><span class="pb-title">People&rsquo;s Harpy Vote</span><span class="pb-chapter">Chapter 14 &middot; 12 Aug session</span></div>
+      <div class="tally-switch">
+        <button class="tally-switch-btn">Praxis</button>
+        <button class="tally-switch-btn active">People&rsquo;s Harpy</button>
+      </div>
+    </div>
+    <div class="resolved-summary abandoned">
+      <div class="icon">Dismissed</div>
+      <div class="winner-name" style="color:var(--txt3);font-style:italic;">No winner declared</div>
+      <div class="winner-tally">People&rsquo;s Harpy &middot; 12 Aug 2026</div>
+    </div>
+  </div>
+
+  <div class="callout">
+    <b>Open questions for lock:</b>
+    <br>1. "Declare Winner" wording &mdash; confirm, or prefer something else (e.g. "Resolve", "Confirm as Harpy")?
+    <br>2. Dismiss confirmation &mdash; epic doc says no confirm MODAL for resolve, but says nothing about Dismiss. Given dismiss is less consequential (no seat handover, fully reversible by just opening a new claim), I've treated it the same way (no modal) &mdash; confirm that's right.
+    <br>3. Toast duration/dismissal &mdash; how long before it auto-dismisses, and does tapping elsewhere on the page dismiss it early, or only Undo / timeout?
+    <br>4. Does Undo un-wind BOTH writes (seat handover AND the resolved snapshot), fully re-opening the tally as if nothing happened? Assumed yes &mdash; a partial undo (snapshot cleared but seat handover kept, or vice versa) would be worse than not offering undo at all.
+  </div>
+
+</div>
+</body>
+</html>
