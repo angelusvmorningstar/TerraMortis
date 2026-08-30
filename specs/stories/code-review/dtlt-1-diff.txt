@@ -1,0 +1,1438 @@
+diff --git a/public/js/editor/rule_engine/load-rules.js b/public/js/editor/rule_engine/load-rules.js
+index 9fe400ae..ecc95c39 100644
+--- a/public/js/editor/rule_engine/load-rules.js
++++ b/public/js/editor/rule_engine/load-rules.js
+@@ -25,6 +25,10 @@ const RULE_CATEGORIES = [
+   'tier_budget',
+   'disc_attr',
+   'derived_stat_modifier',
++  // dtlt.1: roll-time bonus successes. Unlike the families above this one is
++  // read by the dice engine (shared/dice.js), not by applyDerivedMerits — it
++  // rides the same aggregate round-trip because the cache is already here.
++  'bonus_success',
+ ];
+ 
+ export async function preloadRules() {
+@@ -41,6 +45,7 @@ export async function preloadRules() {
+     rule_tier_budget:           Array.isArray(data?.rule_tier_budget)           ? data.rule_tier_budget           : [],
+     rule_disc_attr:             Array.isArray(data?.rule_disc_attr)             ? data.rule_disc_attr             : [],
+     rule_derived_stat_modifier: Array.isArray(data?.rule_derived_stat_modifier) ? data.rule_derived_stat_modifier : [],
++    rule_bonus_success:         Array.isArray(data?.rule_bonus_success)         ? data.rule_bonus_success         : [],
+   };
+   return _cache;
+ }
+diff --git a/public/js/shared/dice.js b/public/js/shared/dice.js
+index 8d99a2cd..99e726a6 100644
+--- a/public/js/shared/dice.js
++++ b/public/js/shared/dice.js
+@@ -1,6 +1,12 @@
+ /* Shared dice rolling engine — pure functions for WoD d10 mechanics */
+ 
+ import state from '../suite/data.js';
++// dtlt.1: roll-time bonus successes. The evaluator is pure and import-free;
++// the cache lookup lives here so every dice surface gets it for free.
++import { getRulesCache } from '../editor/rule_engine/load-rules.js';
++import { combineSuccesses, formatSuccessBreakdown } from '../editor/rule_engine/bonus-success-evaluator.js';
++
++export { formatSuccessBreakdown };
+ 
+ /** Roll a single d10 (1-10). */
+ export function d10() { return Math.floor(Math.random() * 10) + 1; }
+@@ -37,3 +43,39 @@ export function cntSuc(cols) {
+   });
+   return s;
+ }
++
++// ── Bonus successes (dtlt.1) ─────────────────────────────────────────────────
++//
++// cntSuc stays exactly as it was: the rolled-only primitive. Callers that
++// genuinely want rolled-only counts (picking the better of two rote pools, for
++// instance) keep using it. Everything that reports a final result should use
++// resolveSuccesses / addBonusSuccesses instead, so that a rule like Stronger
++// Than You is actually enforced and the breakdown can be shown.
++
++/** The rule_bonus_success docs currently cached, or [] if the cache is cold. */
++function _bonusRules() {
++  return getRulesCache()?.rule_bonus_success || [];
++}
++
++/**
++ * Count a pool AND apply any bonus-success rules that fire for this character
++ * on this roll.
++ *
++ * @param {Array}  cols        dice chains, as returned by rollPool
++ * @param {object} character   the rolling character (may be null)
++ * @param {object} rollContext { attr, skill, disc, spec } describing the pool
++ * @returns {{rolled: number, bonus: Array<{source,count}>, total: number}}
++ */
++export function resolveSuccesses(cols, character, rollContext = {}) {
++  return addBonusSuccesses(cntSuc(cols), character, rollContext);
++}
++
++/**
++ * Same as resolveSuccesses, but starting from an already-counted number of
++ * ROLLED successes. Used by the rote path, where the better of two pools is
++ * chosen on rolled successes alone and the bonus is then added once, to the
++ * winner — never to each candidate.
++ */
++export function addBonusSuccesses(rolled, character, rollContext = {}) {
++  return combineSuccesses(rolled, character, rollContext, _bonusRules());
++}
+diff --git a/public/js/suite/roll-v2.js b/public/js/suite/roll-v2.js
+index 9b181640..5dfb1b23 100644
+--- a/public/js/suite/roll-v2.js
++++ b/public/js/suite/roll-v2.js
+@@ -24,7 +24,7 @@
+ 
+ import state from './data.js';
+ 
+-import { d10, mkDie, mkChain, rollPool, cntSuc } from '../shared/dice.js';
++import { d10, mkDie, mkChain, rollPool, cntSuc, addBonusSuccesses, formatSuccessBreakdown } from '../shared/dice.js';
+ import { skSpecs, skNineAgain } from '../data/accessors.js';
+ import { hasAoE, esc } from '../data/helpers.js';
+ // rcv.3a: the already-shipped, XSS-safe rules_text renderer (#994) — the same
+@@ -987,6 +987,15 @@ export async function doRoll() {
+   // character happens to be loaded when the roll finishes, not the one that
+   // was actually rolled. This is the exact character the roll below is FOR.
+   const _rollChar = state.rollChar;
++  // dtlt.1: the pool's own trait names, captured at the same moment and for
++  // the same reason as _rollChar above — a character or power switch during
++  // the awaits below must not change which bonus-success rules are tested.
++  const _bonusCtx = {
++    attr:  state.POOL_INFO?.attr || '',
++    skill: state.POOL_INFO?.skill || '',
++    disc:  state.POOL_INFO?.discName || '',
++    spec:  state.POOL_INFO?.spec || '',
++  };
+   if (state.rollChar) await ensureTrackerLoaded(state.rollChar);
+   const spend = _currentSpendDecision();
+   // gdx.8 (#989): what was ACTUALLY spent this roll, for roll_log — not
+@@ -1021,19 +1030,24 @@ export async function doRoll() {
+     const v = d10();
+     const suc = v === 10;
+     const dram = v === 1;
++    // dtlt.1: a chance die showing 10 is a rolled success, so bonus-success
++    // rules apply to it exactly as they do to a full pool.
++    const chance = addBonusSuccesses(suc ? 1 : 0, _rollChar, _bonusCtx);
++    const chanceBreakdown = dram ? '' : formatSuccessBreakdown(chance);
+     const cls = dram ? 'd' : suc ? 'e' : 'f';
+     const lbl = dram ? 'Dramatic Failure' : suc ? 'Success (Chance)' : 'Failure (Chance)';
+-    const cnt = dram ? '\u2014' : suc ? '1' : '0';
+-    hdr.innerHTML = `<div><span class="rcnt ${cls}">${cnt}</span><span class="rlbl ${cls}">${lbl}</span></div><div class="rverd">Chance die</div>`;
++    const cnt = dram ? '\u2014' : String(chance.total);
++    const chanceVerd = chanceBreakdown ? `Chance die \u00b7 ${chanceBreakdown}` : 'Chance die';
++    hdr.innerHTML = `<div><span class="rcnt ${cls}">${cnt}</span><span class="rlbl ${cls}">${lbl}</span></div><div class="rverd">${chanceVerd}</div>`;
+     hdr.classList.add('on');
+     const del = document.createElement('div');
+     del.className = 'die cd';
+     del.textContent = v;
+     area.appendChild(del);
+-    addHist('Chance', cls, lbl, cnt, 'Chance die');
++    addHist('Chance', cls, lbl, cnt, chanceVerd);
+     if (_rollChar && getGlobalSettings()?.game_in_progress) {
+       _logRoll(_rollChar._id, buildRollLogPayload({
+-        pool: 'Chance', label: lbl, successes: dram ? 0 : suc ? 1 : 0, results: [v],
++        pool: 'Chance', label: lbl, successes: dram ? 0 : chance.total, results: [v],
+         againRule: state.AGAIN, rote: state.ROTE, wpBonus: state.WP,
+         vitaeSpent: _loggedVitaeSpent, willpowerSpent: _loggedWillpowerSpent,
+       }));
+@@ -1054,6 +1068,14 @@ export async function doRoll() {
+     if (state.ROTE) { lC = cB; lS = sB; }
+   }
+ 
++  // dtlt.1: the rote comparison above is rolled-only on purpose — it asks
++  // which pool's DICE came up better. Bonus successes are added once, to the
++  // winner, only after that choice is made. wS stays the rolled count (it
++  // labels the dice actually shown); wTotal is what the roll is worth.
++  const bonusRes = addBonusSuccesses(wS, _rollChar, _bonusCtx);
++  const wTotal = bonusRes.total;
++  const bonusLine = formatSuccessBreakdown(bonusRes);
++
+   const mods = [];
+   if (state.WP) mods.push('WP +3');
+   if (state.ROTE) mods.push('rote');
+@@ -1069,13 +1091,13 @@ export async function doRoll() {
+   }
+   const poolStr = verdParts.length ? verdParts.join(' + ') : eff + 'd10';
+   const ag = state.AGAIN;
+-  const verd = `${poolStr} \u00B7 ${ag}-again${mods.length ? ' \u00B7 ' + mods.join(', ') : ''}`;
++  const verd = `${poolStr} \u00B7 ${ag}-again${mods.length ? ' \u00B7 ' + mods.join(', ') : ''}${bonusLine ? ' \u00B7 ' + bonusLine : ''}`;
+ 
+   // Contested roll
+   if (state.RESIST_MODE === 'v' && state.RESIST_CHAR && state.RESIST_VAL > 0) {
+     const cR = rollPool(state.RESIST_VAL);
+     const sR = cntSuc(cR);
+-    const net = wS - sR;
++    const net = wTotal - sR;
+     const won = net > 0;
+     const draw = net === 0;
+     const cls = won ? (net >= 5 ? 'e' : 's') : 'f';
+@@ -1084,7 +1106,14 @@ export async function doRoll() {
+     const resistName = state.RESIST_CHAR.name.split(' ')[0];
+     const resistLabel = pi ? pi.resistance : '';
+ 
+-    hdr.innerHTML = `<div><span class="rcnt ${cls}">${won ? net : wS}</span><span class="rlbl ${cls}">${outcome}</span></div><div class="rverd">${poolStr} vs ${resistName} ${resistLabel} \u00B7 ${wS} vs ${sR}</div>`;
++    // dtlt.1: the contested comparison uses the attacker's TOTAL (rolled plus
++    // any bonus successes) against the resistance roll. The resistance roll
++    // itself stays rolled-only \u2014 resolving bonus rules for the resisting
++    // character would need that character's own pool context, which this
++    // surface does not have. Noted in the story's Dev Agent Record.
++    const contestVerd = `${poolStr} vs ${resistName} ${resistLabel} \u00B7 ${wTotal} vs ${sR}`
++      + (bonusLine ? ` \u00B7 ${bonusLine}` : '');
++    hdr.innerHTML = `<div><span class="rcnt ${cls}">${won ? net : wTotal}</span><span class="rlbl ${cls}">${outcome}</span></div><div class="rverd">${contestVerd}</div>`;
+     hdr.classList.add('on');
+ 
+     const wb = document.createElement('div');
+@@ -1108,7 +1137,7 @@ export async function doRoll() {
+     const stakeNoteC = _stakeNote(won ? net : 0);
+     if (stakeNoteC) area.appendChild(stakeNoteC);
+ 
+-    addHist(eff + 'd10', cls, outcome, won ? net : wS, verd);
++    addHist(eff + 'd10', cls, outcome, won ? net : wTotal, verd);
+     if (_rollChar && getGlobalSettings()?.game_in_progress) {
+       // Review fix (Codex, external): addHist() above (pre-existing,
+       // untouched, out of this story's scope) uses `won ? net : wS` — on a
+@@ -1128,11 +1157,13 @@ export async function doRoll() {
+     return;
+   }
+ 
+-  // Standard roll result
+-  const exc = wS >= 5;
+-  const cls = wS === 0 ? 'f' : exc ? 'e' : 's';
+-  const lbl = wS === 0 ? 'Failure' : exc ? 'Exceptional Success' : 'Success';
+-  hdr.innerHTML = `<div><span class="rcnt ${cls}">${wS}</span><span class="rlbl ${cls}">${lbl}</span></div><div class="rverd">${verd}</div>`;
++  // Standard roll result. dtlt.1: the headline count, the exceptional-success
++  // threshold and the stake note all read the TOTAL. wTotal === wS whenever no
++  // bonus-success rule fires, so a normal roll displays exactly as before.
++  const exc = wTotal >= 5;
++  const cls = wTotal === 0 ? 'f' : exc ? 'e' : 's';
++  const lbl = wTotal === 0 ? 'Failure' : exc ? 'Exceptional Success' : 'Success';
++  hdr.innerHTML = `<div><span class="rcnt ${cls}">${wTotal}</span><span class="rlbl ${cls}">${lbl}</span></div><div class="rverd">${verd}</div>`;
+   hdr.classList.add('on');
+ 
+   if (state.ROTE) {
+@@ -1151,13 +1182,13 @@ export async function doRoll() {
+     area.appendChild(mkColsEl(wC, 0));
+   }
+ 
+-  const stakeNote = _stakeNote(wS);
++  const stakeNote = _stakeNote(wTotal);
+   if (stakeNote) area.appendChild(stakeNote);
+ 
+-  addHist(eff + 'd10', cls, lbl, wS, verd);
++  addHist(eff + 'd10', cls, lbl, wTotal, verd);
+   if (_rollChar && getGlobalSettings()?.game_in_progress) {
+     _logRoll(_rollChar._id, buildRollLogPayload({
+-      pool: eff + 'd10', label: lbl, successes: wS, results: flattenDiceChainResults(wC),
++      pool: eff + 'd10', label: lbl, successes: wTotal, results: flattenDiceChainResults(wC),
+       againRule: state.AGAIN, rote: state.ROTE, wpBonus: state.WP,
+       vitaeSpent: _loggedVitaeSpent, willpowerSpent: _loggedWillpowerSpent,
+     }));
+diff --git a/public/js/tabs/feeding-tab.js b/public/js/tabs/feeding-tab.js
+index 7bf7d346..2ccabe2e 100644
+--- a/public/js/tabs/feeding-tab.js
++++ b/public/js/tabs/feeding-tab.js
+@@ -17,6 +17,11 @@ import { SKILLS_MENTAL } from '../data/constants.js';
+ import { isSTRole } from '../auth/discord.js';
+ import { domMeritContrib, effectiveInvictusStatus, calcTotalInfluence } from '../editor/domain.js';
+ import { trackerAdj, trackerRead, trackerReadRaw } from '../game/tracker.js';
++// dtlt.1: bonus successes (Stronger Than You). The local dice helpers below
++// stay — they carry this tab's configurable again-threshold, which the shared
++// engine reads from global roll state instead. Only the success RESOLUTION is
++// shared, and shared cntSuc reads the same per-die `s` flag these chains carry.
++import { resolveSuccesses, formatSuccessBreakdown } from '../shared/dice.js';
+ 
+ // Dice math (configurable again threshold: 10 = standard, 9 = 9-again, 8 = 8-again)
+ function d10() { return Math.floor(Math.random() * 10) + 1; }
+@@ -461,21 +466,37 @@ function renderStRollResult() {
+   return h;
+ }
+ 
+-function buildPool(method, discName, specName) {
+-  const c = currentChar;
+-  if (!c || !method) { poolTotal = 0; poolBreakdown = ''; return; }
+-
+-  let bestA = '', bestAV = 0;
+-  for (const a of method.attrs) {
++/**
++ * Which attribute and skill a feeding pool is actually built from: the best of
++ * each of the method's candidate lists.
++ *
++ * Extracted from buildPool (dtlt.1) because the roll needs the trait NAMES even
++ * on the two ST-confirmed paths, where the pool size comes straight off the
++ * submission and buildPool never runs. Bonus-success rules such as Stronger
++ * Than You are gated on the attribute in the pool, so without this the rule
++ * could not fire on an ST-confirmed feeding pool.
++ */
++function bestTraitsFor(c, method) {
++  const out = { attr: '', attrV: 0, skill: '', skillV: 0, specs: [] };
++  if (!c || !method) return out;
++  for (const a of method.attrs || []) {
+     const v = getAttrVal(c, a);
+-    if (v > bestAV) { bestAV = v; bestA = a; }
++    if (v > out.attrV) { out.attrV = v; out.attr = a; }
+   }
+-
+-  let bestS = '', bestSV = 0, bestSpecs = [];
+-  for (const s of method.skills) {
++  for (const s of method.skills || []) {
+     const v = skTotal(c, s);
+-    if (v > bestSV) { bestSV = v; bestS = s; bestSpecs = c.skills?.[s]?.specs || []; }
++    if (v > out.skillV) { out.skillV = v; out.skill = s; out.specs = c.skills?.[s]?.specs || []; }
+   }
++  return out;
++}
++
++function buildPool(method, discName, specName) {
++  const c = currentChar;
++  if (!c || !method) { poolTotal = 0; poolBreakdown = ''; return; }
++
++  const best = bestTraitsFor(c, method);
++  const bestA = best.attr, bestAV = best.attrV;
++  const bestS = best.skill, bestSV = best.skillV, bestSpecs = best.specs;
+ 
+   const specBonus = specName && bestSpecs.includes(specName) ? (hasAoE(c, specName) ? 2 : 1) : 0;
+   const discVal = (discName && c.disciplines?.[discName]?.dots) || 0;
+@@ -688,7 +709,7 @@ function render() {
+ 
+   // ── ROLLED ──
+   if (feedingState === 'rolled' && rollResult) {
+-    const { cols, successes, vessels, safeVitae, methodName, dramaticFailure } = rollResult;
++    const { cols, successes, vessels, safeVitae, methodName, dramaticFailure, successBreakdown } = rollResult;
+ 
+     // Show ST-confirmed result if published
+     if (publishedFeedingText) {
+@@ -710,6 +731,11 @@ function render() {
+     h += renderFeedingSummary();
+     h += `<div class="feeding-suc">${successes}</div>`;
+     h += `<div class="feeding-suc-label">success${successes !== 1 ? 'es' : ''}</div>`;
++    // dtlt.1: only rendered when a bonus-success rule actually fired. Rolls
++    // persisted before this story have no successBreakdown and are unchanged.
++    if (successBreakdown) {
++      h += `<span class="feeding-pool-breakdown">${esc(successBreakdown)}</span>`;
++    }
+ 
+     h += '<div class="feeding-dice-row">';
+     for (const col of cols) {
+@@ -1052,21 +1078,36 @@ async function doFeedingRoll() {
+   if (poolTotal <= 0) return;
+ 
+   const cols = stRote ? rollDiceRote(poolTotal, stAgain) : rollDice(poolTotal, stAgain);
+-  const successes = cntSuc(cols);
+-  const methodName = declaredMethod?.name || FEED_METHODS.find(m => m.id === selectedMethodId)?.name || 'Unknown';
++  const method = declaredMethod || FEED_METHODS.find(m => m.id === selectedMethodId) || null;
++  // dtlt.1: the rote comparison inside rollDiceRote stays rolled-only (which
++  // pool's dice came up better); the bonus is added once, here, to the winner.
++  const traits = bestTraitsFor(currentChar, method);
++  const outcome = resolveSuccesses(cols, currentChar, {
++    attr: traits.attr,
++    skill: traits.skill,
++    disc: declaredDisc || selectedDisc || '',
++    spec: declaredSpec || selectedSpec || '',
++  });
++  const successes = outcome.total;
++  const methodName = method?.name || 'Unknown';
+   const usedDisc = !!(declaredDisc || selectedDisc);
+ 
+   rollResult = {
+     cols,
+     successes,
++    // Kept apart so a future rule that must ignore bonus successes (Merits
++    // Errata:693) can read the rolled count off a persisted roll.
++    rolledSuccesses: outcome.rolled,
++    bonusSuccesses: outcome.bonus,
+     vessels: successes,
+     safeVitae: successes * 2,
+     methodName,
+     pool: poolTotal,
+     again: stAgain,
+     breakdown: poolBreakdown,
++    successBreakdown: formatSuccessBreakdown(outcome),
+     rolledAt: new Date().toISOString(),
+-    dramaticFailure: usedDisc && successes === 0,
++    dramaticFailure: usedDisc && outcome.rolled === 0,
+   };
+ 
+   feedingState = 'rolled';
+diff --git a/server/index.js b/server/index.js
+index efcfe506..60f16ba3 100644
+--- a/server/index.js
++++ b/server/index.js
+@@ -31,6 +31,7 @@ import praxisSessionsRouter from './routes/praxis-sessions.js';
+ import {
+   grantRouter, specialityGrantRouter, skillBonusRouter, nineAgainRouter, rulesAggregateRouter,
+   discAttrRouter, derivedStatModRouter, tierBudgetRouter, statusFloorRouter,
++  bonusSuccessRouter,
+ } from './routes/rules-engine.js';
+ import adminMigrationsRouter from './routes/admin-migrations.js';
+ import contestedRollsRouter from './routes/contested-rolls.js';
+@@ -176,6 +177,9 @@ app.use('/api/rules/disc_attr',              ...RE_ST, CACHE_5MIN, discAttrRoute
+ app.use('/api/rules/derived_stat_modifier',  ...RE_ST, CACHE_5MIN, derivedStatModRouter);
+ app.use('/api/rules/tier_budget',            ...RE_ST, CACHE_5MIN, tierBudgetRouter);
+ app.use('/api/rules/status_floor',           ...RE_ST, CACHE_5MIN, statusFloorRouter);
++// dtlt.1: roll-time bonus successes (Stronger Than You and any future
++// "+N successes when X" house rule).
++app.use('/api/rules/bonus_success',          ...RE_ST, CACHE_5MIN, bonusSuccessRouter);
+ // Issue #256 (perf): aggregated rules-engine endpoint — coalesces the
+ // 7 per-category endpoints into a single round-trip for `preloadRules`.
+ // Mounted before `/api/rules` (purchasable powers) so Express routes
+diff --git a/server/routes/rules-engine.js b/server/routes/rules-engine.js
+index 2be990a3..f45aad4c 100644
+--- a/server/routes/rules-engine.js
++++ b/server/routes/rules-engine.js
+@@ -10,6 +10,7 @@ import { ruleDiscAttrSchema } from '../schemas/rules/rule-disc-attr.schema.js';
+ import { ruleDerivedStatModifierSchema } from '../schemas/rules/rule-derived-stat-modifier.schema.js';
+ import { ruleTierBudgetSchema } from '../schemas/rules/rule-tier-budget.schema.js';
+ import { ruleStatusFloorSchema } from '../schemas/rules/rule-status-floor.schema.js';
++import { ruleBonusSuccessSchema, checkBonusSuccessDoc } from '../schemas/rules/rule-bonus-success.schema.js';
+ 
+ function makeRulesRouter(collectionName, schema, { postCheck } = {}) {
+   const router = Router();
+@@ -85,6 +86,16 @@ export const derivedStatModRouter  = makeRulesRouter('rule_derived_stat_modifier
+ export const tierBudgetRouter      = makeRulesRouter('rule_tier_budget',       ruleTierBudgetSchema);
+ export const statusFloorRouter     = makeRulesRouter('rule_status_floor',      ruleStatusFloorSchema);
+ 
++// dtlt.1: the ninth family — roll-time "+N successes when X" rules. The
++// postCheck carries the structural guards the JSON Schema cannot state
++// readably (min_rating is merit_present-only; a 'rating' count needs a merit
++// to read the rating from). See the schema file for why there is no
++// source-vs-predicate cyclic check: this collection has no target trait, so no
++// cycle is constructible, and the v1 seed is legitimately self-referencing.
++export const bonusSuccessRouter    = makeRulesRouter('rule_bonus_success',     ruleBonusSuccessSchema, {
++  postCheck: checkBonusSuccessDoc,
++});
++
+ /**
+  * Issue #256 (perf): coalesce 7 rule-engine endpoints into a single
+  * round-trip used by `preloadRules` on the client. Cuts boot latency
+@@ -109,6 +120,9 @@ const ALLOWED_RULE_CATEGORIES = new Set([
+   'disc_attr',
+   'derived_stat_modifier',
+   'status_floor',
++  // dtlt.1 — roll-time bonus successes. Included here so the client's single
++  // aggregate round-trip picks it up alongside the render-time families.
++  'bonus_success',
+ ]);
+ 
+ export const rulesAggregateRouter = Router();
+diff --git a/server/tests/api-rules-aggregate.test.js b/server/tests/api-rules-aggregate.test.js
+index 7562ee8c..21dda434 100644
+--- a/server/tests/api-rules-aggregate.test.js
++++ b/server/tests/api-rules-aggregate.test.js
+@@ -96,18 +96,28 @@ describe('GET /api/rules/aggregate', () => {
+     expect(Object.keys(res.body)).toEqual(['rule_skill_bonus']);
+   });
+ 
+-  it('supports all 7 production rule categories at once', async () => {
++  it('supports all 8 production rule categories at once', async () => {
+     const res = await request(app)
+-      .get('/api/rules/aggregate?categories=grant,nine_again,skill_bonus,speciality_grant,tier_budget,disc_attr,derived_stat_modifier')
++      .get('/api/rules/aggregate?categories=grant,nine_again,skill_bonus,speciality_grant,tier_budget,disc_attr,derived_stat_modifier,bonus_success')
+       .set('X-Test-User', stUser());
+     expect(res.status).toBe(200);
+     expect(Object.keys(res.body)).toEqual(expect.arrayContaining([
+       'rule_grant', 'rule_nine_again', 'rule_skill_bonus',
+       'rule_speciality_grant', 'rule_tier_budget',
+       'rule_disc_attr', 'rule_derived_stat_modifier',
++      // dtlt.1 — the client's preloadRules() now requests this one too.
++      'rule_bonus_success',
+     ]));
+   });
+ 
++  it('bonus_success is an allowed category (dtlt.1)', async () => {
++    const res = await request(app)
++      .get('/api/rules/aggregate?categories=bonus_success')
++      .set('X-Test-User', stUser());
++    expect(res.status).toBe(200);
++    expect(Array.isArray(res.body.rule_bonus_success)).toBe(true);
++  });
++
+   it('player role gets 403 (matches ST-only auth on individual rules-engine endpoints)', async () => {
+     const res = await request(app)
+       .get('/api/rules/aggregate?categories=grant')
+diff --git a/server/tests/api-rules-engine.test.js b/server/tests/api-rules-engine.test.js
+index 71be2624..ad9f5abb 100644
+--- a/server/tests/api-rules-engine.test.js
++++ b/server/tests/api-rules-engine.test.js
+@@ -28,6 +28,7 @@ beforeAll(async () => {
+   insertedIds.derived_stat_mod   = [];
+   insertedIds.tier_budget        = [];
+   insertedIds.status_floor       = [];
++  insertedIds.bonus_success      = [];
+ });
+ 
+ afterAll(async () => {
+@@ -40,6 +41,7 @@ afterAll(async () => {
+     ['rule_derived_stat_modifier',insertedIds.derived_stat_mod],
+     ['rule_tier_budget',          insertedIds.tier_budget],
+     ['rule_status_floor',         insertedIds.status_floor],
++    ['rule_bonus_success',        insertedIds.bonus_success],
+   ];
+   for (const [coll, ids] of cleanup) {
+     if (ids.length) {
+@@ -356,6 +358,84 @@ describe('rule_disc_attr', () => {
+   });
+ });
+ 
++// ── rule_bonus_success (dtlt.1) ───────────────────────────────────────────────
++
++describe('rule_bonus_success', () => {
++  const BASE = '/api/rules/bonus_success';
++
++  const STY = {
++    source: 'Stronger Than You',
++    predicate: { kind: 'manoeuvre_present', name: 'Stronger Than You' },
++    also_requires: [{ kind: 'roll_attr', name: 'Strength' }],
++    count_basis: 'flat',
++    flat_amount: 1,
++  };
++
++  it('unauthenticated returns 401', async () => {
++    expect((await request(app).get(BASE)).status).toBe(401);
++  });
++
++  it('player blocked → 403', async () => {
++    expect((await request(app).get(BASE).set('X-Test-User', player())).status).toBe(403);
++  });
++
++  it('ST creates the Stronger Than You doc → 201', async () => {
++    const r = await request(app).post(BASE).set('X-Test-User', st()).send(STY);
++    expect(r.status).toBe(201);
++    expect(r.body.source).toBe('Stronger Than You');
++    insertedIds.bonus_success.push(new ObjectId(r.body._id));
++  });
++
++  it('extra field → 400', async () => {
++    const r = await request(app).post(BASE).set('X-Test-User', st()).send({ ...STY, extra: 1 });
++    expect(r.status).toBe(400);
++  });
++
++  it('unknown predicate kind → 400', async () => {
++    const r = await request(app).post(BASE).set('X-Test-User', st())
++      .send({ ...STY, predicate: { kind: 'roll_vibes', name: 'Strength' } });
++    expect(r.status).toBe(400);
++  });
++
++  it('min_rating on a manoeuvre_present predicate → 400 (no rating to gate on)', async () => {
++    const r = await request(app).post(BASE).set('X-Test-User', st())
++      .send({ ...STY, predicate: { kind: 'manoeuvre_present', name: 'Stronger Than You', min_rating: 2 } });
++    expect(r.status).toBe(400);
++    expect(r.body.message).toMatch(/min_rating/);
++  });
++
++  it("count_basis 'rating' without a merit_present predicate → 400", async () => {
++    const r = await request(app).post(BASE).set('X-Test-User', st())
++      .send({ source: 'X', predicate: { kind: 'roll_attr', name: 'Strength' }, count_basis: 'rating' });
++    expect(r.status).toBe(400);
++  });
++
++  it("count_basis 'flat' without flat_amount → 400", async () => {
++    const r = await request(app).post(BASE).set('X-Test-User', st())
++      .send({ source: 'X', predicate: { kind: 'roll_attr', name: 'Strength' }, count_basis: 'flat' });
++    expect(r.status).toBe(400);
++  });
++
++  it('a self-referencing source/predicate pair is ACCEPTED (ADR-001 allows it; STY needs it)', async () => {
++    const r = await request(app).post(BASE).set('X-Test-User', st())
++      .send({ ...STY, source: 'Stronger Than You' });
++    expect(r.status).toBe(201);
++    insertedIds.bonus_success.push(new ObjectId(r.body._id));
++  });
++
++  it('update non-existent → 404', async () => {
++    const r = await request(app).put(`${BASE}/${BOGUS_ID}`).set('X-Test-User', st()).send(STY);
++    expect(r.status).toBe(404);
++  });
++
++  it('delete existing → 204', async () => {
++    const c = await request(app).post(BASE).set('X-Test-User', st())
++      .send({ source: 'Scratch', predicate: { kind: 'roll_skill', name: 'Brawl' }, count_basis: 'flat', flat_amount: 1 });
++    const del = await request(app).delete(`${BASE}/${c.body._id}`).set('X-Test-User', st());
++    expect(del.status).toBe(204);
++  });
++});
++
+ // ── rule_derived_stat_modifier ────────────────────────────────────────────────
+ 
+ describe('rule_derived_stat_modifier', () => {
+diff --git a/server/tests/helpers/test-app.js b/server/tests/helpers/test-app.js
+index b90eb76c..11808dab 100644
+--- a/server/tests/helpers/test-app.js
++++ b/server/tests/helpers/test-app.js
+@@ -24,6 +24,7 @@ import rulesRouter from '../../routes/rules.js';
+ import {
+   grantRouter, specialityGrantRouter, skillBonusRouter, nineAgainRouter, rulesAggregateRouter,
+   discAttrRouter, derivedStatModRouter, tierBudgetRouter, statusFloorRouter,
++  bonusSuccessRouter,
+ } from '../../routes/rules-engine.js';
+ import relationshipsRouter from '../../routes/relationships.js';
+ import npcFlagsRouter from '../../routes/npc-flags.js';
+@@ -124,6 +125,8 @@ export function createTestApp() {
+   app.use('/api/rules/derived_stat_modifier', mockAuth, reRoleST, CACHE_5MIN, derivedStatModRouter);
+   app.use('/api/rules/tier_budget',           mockAuth, reRoleST, CACHE_5MIN, tierBudgetRouter);
+   app.use('/api/rules/status_floor',          mockAuth, reRoleST, CACHE_5MIN, statusFloorRouter);
++  // dtlt.1: roll-time bonus successes.
++  app.use('/api/rules/bonus_success',         mockAuth, reRoleST, CACHE_5MIN, bonusSuccessRouter);
+   // Issue #265 (rebase): aggregate endpoint same content as per-category
+   // routes — mounted with the same CACHE_5MIN wiring.
+   app.use('/api/rules/aggregate',             mockAuth, reRoleST, CACHE_5MIN, rulesAggregateRouter);
+diff --git a/server/tests/rule_engine_effective_contract.test.js b/server/tests/rule_engine_effective_contract.test.js
+index 9bee41b8..59dc95ec 100644
+--- a/server/tests/rule_engine_effective_contract.test.js
++++ b/server/tests/rule_engine_effective_contract.test.js
+@@ -11,6 +11,7 @@
+ 
+ import { describe, it, expect } from 'vitest';
+ import { applyPTRulesFromDb } from '../../public/js/editor/rule_engine/pt-evaluator.js';
++import { combineSuccesses } from '../../public/js/editor/rule_engine/bonus-success-evaluator.js';
+ 
+ // ── Minimal phase-1 clear ─────────────────────────────────────────────────────
+ 
+@@ -106,3 +107,60 @@ describe('PT effective-rating positive contract', () => {
+     expect([...c._pt_dot4_bonus_skills]).toContain('Stealth');
+   });
+ });
++
++// ── rule_bonus_success (dtlt.1) ───────────────────────────────────────────────
++//
++// The v1 seed rule (Stronger Than You) has no rating to resolve at all —
++// manoeuvre possession is boolean fighting_picks membership. The rating-bearing
++// predicate kind this family introduces is `merit_present` with `min_rating`,
++// which per ADR-001 reads m.rating (the post-sync effective sum), never
++// inherent purchased dots. These are the paired contract assertions for it.
++
++const CTX = { attr: 'Resolve', skill: 'Composure' };
++
++function makeMeritChar(merit) {
++  return { name: 'Contract Test', merits: [merit], fighting_picks: [], skills: {} };
++}
++
++const MIN_RATING_RULE = {
++  source: 'Contract Merit',
++  predicate: { kind: 'merit_present', name: 'Contract Merit', min_rating: 3 },
++  count_basis: 'flat',
++  flat_amount: 1,
++};
++
++describe('bonus-success effective-rating positive contract', () => {
++  it('min_rating fires on effective rating built from cp + free, not cp alone', () => {
++    // Purchased dots are 1; the other 2 arrive via a grant. Effective = 3.
++    const c = makeMeritChar({ name: 'Contract Merit', cp: 1, free_pt: 2, rating: 3 });
++    expect(combineSuccesses(2, c, CTX, [MIN_RATING_RULE]).total).toBe(3);
++  });
++
++  it('min_rating fires on effective rating built from cp + xp, not cp alone', () => {
++    const c = makeMeritChar({ name: 'Contract Merit', cp: 1, xp: 2, rating: 3 });
++    expect(combineSuccesses(2, c, CTX, [MIN_RATING_RULE]).total).toBe(3);
++  });
++
++  it('min_rating does NOT fire below the effective threshold', () => {
++    const c = makeMeritChar({ name: 'Contract Merit', cp: 2, rating: 2 });
++    expect(combineSuccesses(2, c, CTX, [MIN_RATING_RULE]).total).toBe(2);
++  });
++
++  it('a high inherent cp with a lower effective rating does not fire (suspension case)', () => {
++    // OATH-B style suspension: purchased dots 4, effective rating 1. Reading
++    // inherent-only would wrongly fire here.
++    const c = makeMeritChar({ name: 'Contract Merit', cp: 4, rating: 1 });
++    expect(combineSuccesses(2, c, CTX, [MIN_RATING_RULE]).total).toBe(2);
++  });
++
++  it("count_basis 'rating' scales on the effective rating, not purchased dots", () => {
++    const rule = {
++      source: 'Contract Merit',
++      predicate: { kind: 'merit_present', name: 'Contract Merit' },
++      count_basis: 'rating',
++    };
++    const c = makeMeritChar({ name: 'Contract Merit', cp: 1, free_pt: 2, rating: 3 });
++    expect(combineSuccesses(1, c, CTX, [rule]).bonus)
++      .toEqual([{ source: 'Contract Merit', count: 3 }]);
++  });
++});
+diff --git a/public/js/editor/rule_engine/bonus-success-evaluator.js b/public/js/editor/rule_engine/bonus-success-evaluator.js
+new file mode 100644
+index 00000000..bcf02b6f
+--- /dev/null
++++ b/public/js/editor/rule_engine/bonus-success-evaluator.js
+@@ -0,0 +1,166 @@
++/**
++ * Bonus-success evaluator — processes rule_bonus_success docs at ROLL time.
++ *
++ * Every other evaluator in this directory runs during a character render and
++ * produces dots. This one runs once per dice roll, after the dice have been
++ * counted, and produces successes. It is deliberately NOT wired into
++ * applyDerivedMerits: a bonus success is a property of a roll, not of a sheet.
++ *
++ * The first rule to use it is Stronger Than You (Strength Performance rank 4):
++ * "Successful Strength rolls add an additional free success." Defined in
++ * public/data/man_db.json since project inception, never enforced until now.
++ *
++ * No external imports — pure functions, safe in Node.js test contexts, same
++ * contract as every sibling evaluator here.
++ *
++ * Contract notes:
++ *   - Bonus successes apply only when the roll ALREADY scored at least one
++ *     rolled success. A failed roll stays failed; nothing rescues it.
++ *   - A chance die showing 10 is a rolled success, so it qualifies.
++ *   - Rolled and bonus counts are kept apart in the result so a future rule
++ *     that must ignore bonus successes (Street Fighting "Kick 'Em While
++ *     They're Down", Merits Errata:693) can read `rolled` on its own.
++ *   - Multiple matching rules stack additively, including two rules that
++ *     share a `source`.
++ */
++
++// ── Public API ───────────────────────────────────────────────────────────────
++
++/**
++ * Which bonus-success rules fire for this character on this roll.
++ *
++ * @param {object}  c            character document (never mutated)
++ * @param {object}  rollContext  { attr, skill, disc, spec, rolledSuccesses }
++ * @param {Array}   rules        rule_bonus_success docs (the whole collection)
++ * @returns {Array<{source: string, count: number}>} empty when nothing fires
++ */
++export function resolveBonusSuccesses(c, rollContext = {}, rules = []) {
++  if (!c || !Array.isArray(rules) || rules.length === 0) return [];
++
++  // Failed-roll gate. Also covers the "no count supplied" case, which must
++  // never silently grant successes.
++  const rolled = _int(rollContext?.rolledSuccesses);
++  if (rolled < 1) return [];
++
++  const out = [];
++  for (const rule of rules) {
++    if (!rule || typeof rule !== 'object') continue;
++    if (!rule.source) continue;
++    if (!_matches(c, rollContext, rule.predicate)) continue;
++
++    const extra = Array.isArray(rule.also_requires) ? rule.also_requires : [];
++    if (!extra.every(p => _matches(c, rollContext, p))) continue;
++
++    const count = _count(c, rule);
++    if (count > 0) out.push({ source: String(rule.source), count });
++  }
++  return out;
++}
++
++/**
++ * Fold a rolled-success count together with whatever bonus successes apply.
++ *
++ * Kept separate from resolveSuccesses(cols, ...) in shared/dice.js because the
++ * rote path has already reduced two dice pools to one winning ROLLED count by
++ * the time the bonus is added — the bonus is added once, to the winner, never
++ * to each candidate roll.
++ *
++ * @returns {{rolled: number, bonus: Array, total: number}}
++ */
++export function combineSuccesses(rolled, c, rollContext = {}, rules = []) {
++  const r = _int(rolled);
++  const bonus = resolveBonusSuccesses(c, { ...rollContext, rolledSuccesses: r }, rules || []);
++  const total = r + bonus.reduce((sum, b) => sum + b.count, 0);
++  return { rolled: r, bonus, total };
++}
++
++/**
++ * The verdict-line breakdown, e.g.
++ *   "4 rolled + 1 (Stronger Than You) = 5 successes"
++ *
++ * Returns '' when no bonus applies, so every display surface can append it
++ * unconditionally and leave the existing line untouched on a normal roll.
++ */
++export function formatSuccessBreakdown(result) {
++  if (!result || !Array.isArray(result.bonus) || result.bonus.length === 0) return '';
++  const parts = result.bonus.map(b => `+ ${b.count} (${b.source})`).join(' ');
++  const total = _int(result.total);
++  return `${_int(result.rolled)} rolled ${parts} = ${total} success${total === 1 ? '' : 'es'}`;
++}
++
++// ── Predicates ───────────────────────────────────────────────────────────────
++
++function _matches(c, ctx, pred) {
++  if (!pred || typeof pred !== 'object' || !pred.kind || !pred.name) return false;
++  const name = String(pred.name);
++
++  switch (pred.kind) {
++    case 'roll_attr':
++      return _sameName(ctx?.attr, name);
++
++    case 'roll_skill':
++      return _sameName(ctx?.skill, name);
++
++    case 'merit_present': {
++      const min = Number.isInteger(pred.min_rating) && pred.min_rating > 0 ? pred.min_rating : 1;
++      return (c.merits || []).some(m => _sameName(m?.name, name) && _meritRating(m) >= min);
++    }
++
++    // Manoeuvre possession is flat fighting_picks[] membership by name, not a
++    // style-rating threshold — a character has picked the manoeuvre or has
++    // not. Mirrors the existing check in public/js/admin/rules-view.js:99-102.
++    // Style dots alone never grant it.
++    case 'manoeuvre_present':
++      return (c.fighting_picks || []).some(pk =>
++        _sameName(typeof pk === 'string' ? pk : pk?.manoeuvre, name)
++      );
++
++    default:
++      return false;
++  }
++}
++
++// ── Amounts ──────────────────────────────────────────────────────────────────
++
++function _count(c, rule) {
++  switch (rule.count_basis) {
++    case 'flat':
++      return _int(rule.flat_amount ?? 1);
++
++    // Only meaningful against a merit_present predicate; the route rejects any
++    // other pairing, and this returns 0 rather than throwing if one slips in.
++    case 'rating': {
++      if (rule.predicate?.kind !== 'merit_present') return 0;
++      const name = String(rule.predicate.name);
++      const m = (c.merits || []).find(x => _sameName(x?.name, name));
++      return m ? _meritRating(m) : 0;
++    }
++
++    default:
++      return 0;
++  }
++}
++
++/**
++ * ADR-001 trait-reference primitive: a rule referencing a merit's rating reads
++ * `m.rating`, which is already the effective sum (inherent dots plus every
++ * free_* channel) after the render's phase-5 rating sync. There is deliberately
++ * no inherent-only fallback here — reading purchased dots would reintroduce the
++ * exact bug class the effective-rating contract exists to prevent.
++ */
++function _meritRating(m) {
++  const n = Number(m?.rating);
++  return Number.isFinite(n) && n > 0 ? Math.floor(n) : 0;
++}
++
++// ── Small helpers ────────────────────────────────────────────────────────────
++
++function _sameName(a, b) {
++  if (typeof a !== 'string' || typeof b !== 'string') return false;
++  return a.trim().toLowerCase() === b.trim().toLowerCase();
++}
++
++function _int(v) {
++  const n = Number(v);
++  return Number.isFinite(n) && n > 0 ? Math.floor(n) : 0;
++}
+diff --git a/server/schemas/rules/rule-bonus-success.schema.js b/server/schemas/rules/rule-bonus-success.schema.js
+new file mode 100644
+index 00000000..bd607ba4
+--- /dev/null
++++ b/server/schemas/rules/rule-bonus-success.schema.js
+@@ -0,0 +1,98 @@
++/**
++ * rule_bonus_success — roll-time "+N automatic successes when X" rules.
++ *
++ * The ninth typed-per-family rules-engine collection (ADR-001 Option B).
++ * Unlike every other family in the catalogue this one is NOT evaluated during
++ * a character render: it runs once per dice roll, after the dice are counted,
++ * and produces successes rather than dots. See
++ * public/js/editor/rule_engine/bonus-success-evaluator.js.
++ *
++ * Predicate vocabulary (dtlt.1, deliberately small — add kinds as real rules
++ * need them, never speculatively):
++ *   roll_attr          the named attribute is the attribute leg of the pool
++ *   roll_skill         the named skill is the skill leg of the pool
++ *   merit_present      the character holds the named merit, optionally at
++ *                      min_rating or better (effective rating, ADR-001)
++ *   manoeuvre_present  the character has picked the named fighting-style
++ *                      manoeuvre (flat fighting_picks[] membership). Boolean
++ *                      presence only: a manoeuvre has no rating, so min_rating
++ *                      is rejected on this kind by the route's postCheck.
++ *
++ * `also_requires` is an AND list: every predicate in it must match as well as
++ * `predicate` itself. Stronger Than You uses it to pin the manoeuvre to
++ * Strength-based pools.
++ *
++ * `excludes_from_threshold` is captured-but-not-enforced errata metadata (see
++ * docs/merits/Merits Errata.md:693, Street Fighting "Kick 'Em While They're
++ * Down"). dtlt.1 only guarantees the roll result carries rolled and bonus
++ * counts separately so a downstream rule can read rolled-only.
++ */
++
++const predicate = {
++  type: 'object',
++  required: ['kind', 'name'],
++  additionalProperties: false,
++  properties: {
++    kind: {
++      type: 'string',
++      enum: ['roll_attr', 'roll_skill', 'merit_present', 'manoeuvre_present'],
++    },
++    name: { type: 'string', minLength: 1 },
++    // merit_present only. Enforced in server/routes/rules-engine.js's postCheck
++    // rather than with an if/then/else so the failure message names the reason.
++    min_rating: { type: 'integer', minimum: 1 },
++  },
++};
++
++export const ruleBonusSuccessSchema = {
++  $schema: 'http://json-schema.org/draft-07/schema#',
++  title: 'TM Rule Bonus Success',
++  type: 'object',
++  required: ['source', 'predicate', 'count_basis'],
++  additionalProperties: false,
++
++  properties: {
++    source:        { type: 'string', minLength: 1 },
++    predicate,
++    also_requires: { type: 'array', items: predicate },
++    count_basis:   { type: 'string', enum: ['flat', 'rating'] },
++    flat_amount:   { type: 'integer', minimum: 1 },
++    excludes_from_threshold: { type: 'array', items: { type: 'string', minLength: 1 } },
++    notes:         { type: 'string' },
++    created_at:    { type: 'string' },
++    updated_at:    { type: 'string' },
++  },
++};
++
++/**
++ * Structural checks the JSON Schema cannot express readably. Returns an error
++ * string, or null when the doc is fine.
++ *
++ * NOTE on the story's "cyclic-reference check": ADR-001 explicitly permits a
++ * rule whose predicate references its own source ("PT references its own
++ * rating"); what it forbids is a grant whose *target* is its own source. This
++ * collection has no target — the output is successes, not a trait — so no
++ * cycle is constructible, and the v1 seed itself is source ===
++ * predicate.name ('Stronger Than You' gated on holding Stronger Than You).
++ * The genuinely useful structural guards are the two below.
++ */
++export function checkBonusSuccessDoc(body) {
++  if (!body || typeof body !== 'object') return 'body must be an object';
++
++  const preds = [body.predicate, ...(Array.isArray(body.also_requires) ? body.also_requires : [])];
++  for (const p of preds) {
++    if (p && p.kind !== 'merit_present' && p.min_rating !== undefined) {
++      return `min_rating is only valid on a merit_present predicate (got kind '${p.kind}')`;
++    }
++  }
++
++  if (body.count_basis === 'rating' && body.predicate?.kind !== 'merit_present') {
++    return "count_basis 'rating' requires a merit_present predicate — there is no rating to read otherwise";
++  }
++
++  if (body.count_basis === 'flat' && body.flat_amount === undefined) {
++    return "count_basis 'flat' requires flat_amount";
++  }
++
++  return null;
++}
+diff --git a/server/scripts/seed-rules-bonus-successes.js b/server/scripts/seed-rules-bonus-successes.js
+new file mode 100644
+index 00000000..4620fe37
+--- /dev/null
++++ b/server/scripts/seed-rules-bonus-successes.js
+@@ -0,0 +1,97 @@
++/**
++ * Seed script — inserts the rule_bonus_success docs (dtlt.1).
++ * Idempotent: replaceOne/upsert on a stable composite key.
++ *
++ * One doc in v1 (scope confirmed by Angelus, 2026-08-31):
++ *   Stronger Than You — Strength Performance rank 4. A successful Strength
++ *   roll gains one free success. Gated on having actually PICKED the
++ *   manoeuvre (fighting_picks[]), not on Strength Performance style dots.
++ *
++ * Any further "+N successes when X" house rule is a Mongo doc edit through the
++ * admin Engine panel, not a code change — that is the whole point of the
++ * collection. Add new docs here only when they should ship as defaults.
++ *
++ * Usage:
++ *   node server/scripts/seed-rules-bonus-successes.js --dry-run   (default)
++ *   node server/scripts/seed-rules-bonus-successes.js --apply
++ *
++ * Target DB is the MONGODB_DB env var (default: tm_game).
++ * Use MONGODB_DB=tm_game_test for test-DB seeding.
++ */
++
++import { pathToFileURL } from 'url';
++
++// ── Rule docs ─────────────────────────────────────────────────────────────────
++
++export const BONUS_SUCCESS_DOCS = [
++  {
++    doc: {
++      source: 'Stronger Than You',
++      predicate: { kind: 'manoeuvre_present', name: 'Stronger Than You' },
++      also_requires: [{ kind: 'roll_attr', name: 'Strength' }],
++      count_basis: 'flat',
++      flat_amount: 1,
++      notes:
++        'Strength Performance rank 4 (public/data/man_db.json): a successful Strength roll adds '
++        + 'one free success. Applies only when the roll already scored at least one rolled success. '
++        + 'Requires an explicit fighting_picks entry — Strength Performance style dots alone do not '
++        + 'grant it.',
++    },
++    filter: { source: 'Stronger Than You', 'predicate.name': 'Stronger Than You' },
++  },
++];
++
++// ── Main ─────────────────────────────────────────────────────────────────────
++
++async function run() {
++  await import('dotenv/config');
++  const { MongoClient } = await import('mongodb');
++
++  const DRY_RUN = !process.argv.includes('--apply');
++  const MONGODB_URI = process.env.MONGODB_URI;
++  const DB_NAME = process.env.MONGODB_DB || 'tm_game';
++
++  if (!MONGODB_URI) {
++    console.error('MONGODB_URI not set — ensure server/.env is present.');
++    process.exit(1);
++  }
++
++  const strip = (uri) => uri.replace(/[&?]ssl=[^&]*/g, '');
++  const client = new MongoClient(strip(MONGODB_URI), { serverSelectionTimeoutMS: 5000, tls: true });
++  await client.connect();
++  const db = client.db(DB_NAME);
++  const now = new Date().toISOString();
++
++  console.log(`[seed-rules-bonus-successes] ${DRY_RUN ? 'DRY RUN' : 'APPLY'} → ${DB_NAME}`);
++
++  for (const { doc, filter } of BONUS_SUCCESS_DOCS) {
++    const existing = await db.collection('rule_bonus_success').findOne(filter);
++    console.log(`  [rule_bonus_success] ${existing ? 'EXISTS (upsert will refresh)' : 'INSERT'} — ${doc.source}`);
++    console.log(`    doc:   `, JSON.stringify({ ...doc, created_at: now, updated_at: now }));
++
++    if (!DRY_RUN) {
++      await db.collection('rule_bonus_success').replaceOne(
++        filter,
++        { ...doc, created_at: existing?.created_at || now, updated_at: now },
++        { upsert: true },
++      );
++      console.log(`    → written`);
++    }
++  }
++
++  console.log(`\n[seed-rules-bonus-successes] ${DRY_RUN ? 'Dry run complete — pass --apply to write.' : 'Done.'}`);
++  await client.close();
++}
++
++// Only connect when invoked directly. Importing this module (tests read
++// BONUS_SUCCESS_DOCS as the single source of truth for the seed) must never
++// open a Mongo connection or load dotenv over the test harness's env.
++const _invokedDirectly = process.argv[1]
++  && import.meta.url === pathToFileURL(process.argv[1]).href;
++
++if (_invokedDirectly) {
++  run().catch(err => {
++    console.error('[seed-rules-bonus-successes] Error:', err.message);
++    process.exit(1);
++  });
++}
+diff --git a/server/tests/bonus-success.test.js b/server/tests/bonus-success.test.js
+new file mode 100644
+index 00000000..009c49c6
+--- /dev/null
++++ b/server/tests/bonus-success.test.js
+@@ -0,0 +1,402 @@
++/**
++ * dtlt.1 — bonus-success mechanic (Stronger Than You).
++ *
++ * Walks every row of the story's own I/O & Edge-Case Matrix through the new
++ * roll-time evaluator, plus the schema/seed contract that backs it.
++ *
++ * The evaluator is a pure, import-free function (same shape as every other
++ * module in public/js/editor/rule_engine/), so it runs here with no DB and no
++ * browser. Nothing in this file touches live data.
++ */
++
++import { describe, it, expect } from 'vitest';
++import Ajv from 'ajv';
++import { readFileSync } from 'fs';
++import { join, resolve } from 'path';
++
++import {
++  resolveBonusSuccesses,
++  combineSuccesses,
++  formatSuccessBreakdown,
++} from '../../public/js/editor/rule_engine/bonus-success-evaluator.js';
++import { ruleBonusSuccessSchema } from '../schemas/rules/rule-bonus-success.schema.js';
++import { BONUS_SUCCESS_DOCS } from '../scripts/seed-rules-bonus-successes.js';
++
++// ── Fixtures ─────────────────────────────────────────────────────────────────
++
++/** The v1 seed rule, as the evaluator will see it once loaded from Mongo. */
++const STY_RULE = {
++  source: 'Stronger Than You',
++  predicate: { kind: 'manoeuvre_present', name: 'Stronger Than You' },
++  also_requires: [{ kind: 'roll_attr', name: 'Strength' }],
++  count_basis: 'flat',
++  flat_amount: 1,
++};
++
++/** Character who has actually picked the manoeuvre. */
++function charWithSTY() {
++  return {
++    name: 'Test Brute',
++    merits: [],
++    fighting_styles: [{ name: 'Strength Performance', type: 'style', cp: 4, rating: 4 }],
++    fighting_picks: [
++      { manoeuvre: 'Strength Tricks' },
++      { manoeuvre: 'Stronger Than You' },
++    ],
++  };
++}
++
++/** Character with the style dots but no explicit pick — must NOT get the bonus. */
++function charWithStyleOnly() {
++  return {
++    name: 'Test Lifter',
++    merits: [],
++    fighting_styles: [{ name: 'Strength Performance', type: 'style', cp: 4, rating: 4 }],
++    fighting_picks: [
++      { manoeuvre: 'Strength Tricks' },
++      { manoeuvre: 'Lifting' },
++    ],
++  };
++}
++
++const STRENGTH_CRAFTS = { attr: 'Strength', skill: 'Crafts' };
++const STRENGTH_BRAWL  = { attr: 'Strength', skill: 'Brawl' };
++const DEX_ATHLETICS   = { attr: 'Dexterity', skill: 'Athletics' };
++
++// ── I/O & Edge-Case Matrix ───────────────────────────────────────────────────
++
++describe('resolveBonusSuccesses — story I/O matrix', () => {
++  it('row 1: STY picked, Strength + Crafts, 4 rolled → +1 (Stronger Than You)', () => {
++    const res = combineSuccesses(4, charWithSTY(), STRENGTH_CRAFTS, [STY_RULE]);
++    expect(res.rolled).toBe(4);
++    expect(res.bonus).toEqual([{ source: 'Stronger Than You', count: 1 }]);
++    expect(res.total).toBe(5);
++  });
++
++  it('row 2: STY picked, Strength + Brawl, 0 rolled → failed-roll gate, no bonus', () => {
++    const res = combineSuccesses(0, charWithSTY(), STRENGTH_BRAWL, [STY_RULE]);
++    expect(res.rolled).toBe(0);
++    expect(res.bonus).toEqual([]);
++    expect(res.total).toBe(0);
++  });
++
++  it('row 3: STY picked, Dexterity + Athletics, 5 rolled → predicate does not match', () => {
++    const res = combineSuccesses(5, charWithSTY(), DEX_ATHLETICS, [STY_RULE]);
++    expect(res.bonus).toEqual([]);
++    expect(res.total).toBe(5);
++  });
++
++  it('row 4: Strength Performance style dots but no pick → no bonus', () => {
++    const res = combineSuccesses(4, charWithStyleOnly(), STRENGTH_BRAWL, [STY_RULE]);
++    expect(res.bonus).toEqual([]);
++    expect(res.total).toBe(4);
++  });
++
++  it('row 5: chance die showing 10 counts as a rolled success, so the bonus applies', () => {
++    const res = combineSuccesses(1, charWithSTY(), STRENGTH_BRAWL, [STY_RULE]);
++    expect(res.rolled).toBe(1);
++    expect(res.total).toBe(2);
++  });
++
++  it('row 6: rote — better ROLLED count is chosen first, then the bonus is added once', () => {
++    const rolledA = 0, rolledB = 4;
++    const better = Math.max(rolledA, rolledB);
++    const res = combineSuccesses(better, charWithSTY(), STRENGTH_CRAFTS, [STY_RULE]);
++    expect(res.rolled).toBe(4);
++    expect(res.bonus).toHaveLength(1);
++    expect(res.total).toBe(5);
++  });
++
++  it('row 7: two rules with the same source and overlapping predicate both apply (additive)', () => {
++    const dup = { ...STY_RULE, notes: 'ST homebrew duplicate' };
++    const res = combineSuccesses(3, charWithSTY(), STRENGTH_CRAFTS, [STY_RULE, dup]);
++    expect(res.bonus).toHaveLength(2);
++    expect(res.total).toBe(5);
++  });
++
++  it('row 8: a pick added mid-session is picked up on the very next roll (no cache to invalidate)', () => {
++    const c = charWithStyleOnly();
++    expect(combineSuccesses(3, c, STRENGTH_CRAFTS, [STY_RULE]).total).toBe(3);
++    c.fighting_picks.push({ manoeuvre: 'Stronger Than You' });
++    expect(combineSuccesses(3, c, STRENGTH_CRAFTS, [STY_RULE]).total).toBe(4);
++  });
++
++  it('row 9: chance die that fails yields 0 rolled and 0 bonus', () => {
++    const res = combineSuccesses(0, charWithSTY(), STRENGTH_CRAFTS, [STY_RULE]);
++    expect(res.total).toBe(0);
++  });
++
++  it('row 10: a Vigour character gets no bonus successes from this story (rule_disc_attr untouched)', () => {
++    // Vigour contributes Strength DOTS via rule_disc_attr; it is not a
++    // bonus-success source and must not appear in the bonus list.
++    const c = charWithStyleOnly();
++    c.disciplines = { Vigour: { dots: 2 } };
++    const res = combineSuccesses(4, c, STRENGTH_BRAWL, [STY_RULE]);
++    expect(res.bonus).toEqual([]);
++    expect(res.total).toBe(4);
++  });
++});
++
++// ── Acceptance criteria not covered by a matrix row ──────────────────────────
++
++describe('resolveBonusSuccesses — defensive and vocabulary contract', () => {
++  it('an empty rules collection leaves the roll untouched (total === rolled)', () => {
++    const res = combineSuccesses(4, charWithSTY(), STRENGTH_CRAFTS, []);
++    expect(res.bonus).toEqual([]);
++    expect(res.total).toBe(4);
++  });
++
++  it('a null/undefined rules argument is tolerated', () => {
++    expect(combineSuccesses(4, charWithSTY(), STRENGTH_CRAFTS, null).total).toBe(4);
++    expect(combineSuccesses(4, charWithSTY(), STRENGTH_CRAFTS).total).toBe(4);
++  });
++
++  it('a null character is tolerated', () => {
++    expect(combineSuccesses(4, null, STRENGTH_CRAFTS, [STY_RULE]).total).toBe(4);
++  });
++
++  it('an ST homebrew roll_attr rule fires with no code change', () => {
++    const homebrew = {
++      source: 'Iron Stamina',
++      predicate: { kind: 'roll_attr', name: 'Stamina' },
++      count_basis: 'flat',
++      flat_amount: 1,
++    };
++    const c = charWithStyleOnly();
++    const res = combineSuccesses(2, c, { attr: 'Stamina', skill: 'Survival' }, [homebrew]);
++    expect(res.bonus).toEqual([{ source: 'Iron Stamina', count: 1 }]);
++    expect(res.total).toBe(3);
++  });
++
++  it('a roll_skill predicate matches on the skill leg of the pool', () => {
++    const rule = {
++      source: 'Bookish',
++      predicate: { kind: 'roll_skill', name: 'Academics' },
++      count_basis: 'flat',
++      flat_amount: 2,
++    };
++    const res = combineSuccesses(1, charWithSTY(), { attr: 'Intelligence', skill: 'Academics' }, [rule]);
++    expect(res.total).toBe(3);
++  });
++
++  it('a merit_present predicate reads the EFFECTIVE rating, not inherent dots', () => {
++    const rule = {
++      source: 'Iron Will',
++      predicate: { kind: 'merit_present', name: 'Iron Will', min_rating: 3 },
++      count_basis: 'flat',
++      flat_amount: 1,
++    };
++    // Inherent purchased dots are 1; the other 2 come from a free_* grant, so
++    // the persisted effective rating is 3. Reading inherent-only would miss it.
++    const c = charWithStyleOnly();
++    c.merits = [{ name: 'Iron Will', category: 'general', cp: 1, free_pt: 2, rating: 3 }];
++    expect(combineSuccesses(2, c, STRENGTH_CRAFTS, [rule]).total).toBe(3);
++
++    const below = JSON.parse(JSON.stringify(c));
++    below.merits[0].rating = 2;
++    expect(combineSuccesses(2, below, STRENGTH_CRAFTS, [rule]).total).toBe(2);
++  });
++
++  it('count_basis "rating" scales the bonus with the merit rating', () => {
++    const rule = {
++      source: 'Scaling Merit',
++      predicate: { kind: 'merit_present', name: 'Scaling Merit' },
++      count_basis: 'rating',
++    };
++    const c = charWithStyleOnly();
++    c.merits = [{ name: 'Scaling Merit', category: 'general', cp: 2, rating: 2 }];
++    expect(combineSuccesses(1, c, STRENGTH_CRAFTS, [rule]).bonus)
++      .toEqual([{ source: 'Scaling Merit', count: 2 }]);
++  });
++
++  it('a legacy string-form fighting_picks entry still matches', () => {
++    const c = charWithSTY();
++    c.fighting_picks = ['Strength Tricks', 'Stronger Than You'];
++    expect(combineSuccesses(2, c, STRENGTH_CRAFTS, [STY_RULE]).total).toBe(3);
++  });
++
++  it('never mutates the character or the rule docs', () => {
++    const c = charWithSTY();
++    const rules = [STY_RULE];
++    const cBefore = JSON.stringify(c);
++    const rBefore = JSON.stringify(rules);
++    combineSuccesses(4, c, STRENGTH_CRAFTS, rules);
++    expect(JSON.stringify(c)).toBe(cBefore);
++    expect(JSON.stringify(rules)).toBe(rBefore);
++  });
++
++  it('bonus successes never rescue a failure, whatever the rule says', () => {
++    const greedy = {
++      source: 'Greedy',
++      predicate: { kind: 'roll_attr', name: 'Strength' },
++      count_basis: 'flat',
++      flat_amount: 5,
++    };
++    expect(combineSuccesses(0, charWithSTY(), STRENGTH_CRAFTS, [greedy]).total).toBe(0);
++  });
++
++  it('malformed rule docs are skipped rather than thrown on', () => {
++    const junk = [null, {}, { source: 'X' }, { predicate: { kind: 'roll_attr', name: 'Strength' } },
++      { source: 'Y', predicate: { kind: 'nonsense', name: 'Strength' }, count_basis: 'flat' }];
++    expect(() => combineSuccesses(3, charWithSTY(), STRENGTH_CRAFTS, junk)).not.toThrow();
++    expect(combineSuccesses(3, charWithSTY(), STRENGTH_CRAFTS, junk).total).toBe(3);
++  });
++
++  it('resolveBonusSuccesses returns [] when rolledSuccesses is absent from the context', () => {
++    expect(resolveBonusSuccesses(charWithSTY(), STRENGTH_CRAFTS, [STY_RULE])).toEqual([]);
++  });
++});
++
++// ── Display breakdown ────────────────────────────────────────────────────────
++
++describe('formatSuccessBreakdown', () => {
++  it('renders the exact breakdown shape the story specifies', () => {
++    const res = combineSuccesses(4, charWithSTY(), STRENGTH_CRAFTS, [STY_RULE]);
++    expect(formatSuccessBreakdown(res)).toBe('4 rolled + 1 (Stronger Than You) = 5 successes');
++  });
++
++  it('renders each source when several stack', () => {
++    const second = {
++      source: 'Iron Stamina',
++      predicate: { kind: 'roll_attr', name: 'Strength' },
++      count_basis: 'flat',
++      flat_amount: 2,
++    };
++    const res = combineSuccesses(3, charWithSTY(), STRENGTH_CRAFTS, [STY_RULE, second]);
++    expect(formatSuccessBreakdown(res))
++      .toBe('3 rolled + 1 (Stronger Than You) + 2 (Iron Stamina) = 6 successes');
++  });
++
++  it('returns an empty string when there is no bonus, so the display is unchanged', () => {
++    const res = combineSuccesses(4, charWithSTY(), DEX_ATHLETICS, [STY_RULE]);
++    expect(formatSuccessBreakdown(res)).toBe('');
++  });
++
++  it('uses the singular for a one-success total', () => {
++    const res = combineSuccesses(0, charWithSTY(), STRENGTH_CRAFTS, [STY_RULE]);
++    expect(formatSuccessBreakdown(res)).toBe('');
++    const one = { rolled: 0, bonus: [{ source: 'X', count: 1 }], total: 1 };
++    expect(formatSuccessBreakdown(one)).toBe('0 rolled + 1 (X) = 1 success');
++  });
++});
++
++// ── Schema + seed contract ───────────────────────────────────────────────────
++
++describe('rule_bonus_success schema', () => {
++  const ajv = new Ajv({ allErrors: true });
++  const validate = ajv.compile(ruleBonusSuccessSchema);
++
++  it('accepts the v1 seed doc', () => {
++    for (const doc of BONUS_SUCCESS_DOCS) {
++      const ok = validate(doc.doc);
++      if (!ok) console.error(validate.errors);
++      expect(ok).toBe(true);
++    }
++  });
++
++  it('seeds exactly one rule — Stronger Than You (v1 scope, resolved 2026-08-31)', () => {
++    expect(BONUS_SUCCESS_DOCS).toHaveLength(1);
++    expect(BONUS_SUCCESS_DOCS[0].doc.source).toBe('Stronger Than You');
++    expect(BONUS_SUCCESS_DOCS[0].doc.predicate.kind).toBe('manoeuvre_present');
++  });
++
++  it('the seed doc, run through the evaluator, satisfies AC-1', () => {
++    const res = combineSuccesses(4, charWithSTY(), STRENGTH_CRAFTS, [BONUS_SUCCESS_DOCS[0].doc]);
++    expect(res.bonus).toEqual([{ source: 'Stronger Than You', count: 1 }]);
++  });
++
++  it('rejects an unknown predicate kind', () => {
++    expect(validate({
++      source: 'X', count_basis: 'flat', flat_amount: 1,
++      predicate: { kind: 'roll_vibes', name: 'Strength' },
++    })).toBe(false);
++  });
++
++  it('rejects a predicate with no name', () => {
++    expect(validate({
++      source: 'X', count_basis: 'flat', flat_amount: 1,
++      predicate: { kind: 'roll_attr' },
++    })).toBe(false);
++  });
++
++  it('rejects unknown top-level properties', () => {
++    expect(validate({
++      source: 'X', count_basis: 'flat', flat_amount: 1,
++      predicate: { kind: 'roll_attr', name: 'Strength' },
++      sneaky: true,
++    })).toBe(false);
++  });
++
++  it('accepts also_requires and excludes_from_threshold metadata (errata capture)', () => {
++    const ok = validate({
++      source: 'X',
++      predicate: { kind: 'roll_attr', name: 'Strength' },
++      also_requires: [{ kind: 'roll_skill', name: 'Brawl' }],
++      count_basis: 'flat',
++      flat_amount: 1,
++      excludes_from_threshold: ['knocked_down'],
++      notes: 'Errata capture only; enforcement is downstream.',
++    });
++    if (!ok) console.error(validate.errors);
++    expect(ok).toBe(true);
++  });
++});
++
++// ── Boundary guards (story "Never" list) ─────────────────────────────────────
++//
++// Source-level assertions, in the same style as this repo's other structural
++// guards (rlv-6-dice-engine-removed, issue-836-legacy-tracker-cache-removed).
++// They exist so a later refactor cannot quietly undo the story's constraints.
++
++const REPO_ROOT = resolve(import.meta.dirname, '../../');
++const read = (p) => readFileSync(join(REPO_ROOT, p), 'utf8');
++
++describe('dtlt.1 boundary guards', () => {
++  it('cntSuc is untouched — still the rolled-only primitive', () => {
++    const src = read('public/js/shared/dice.js');
++    expect(src).toContain('export function cntSuc(cols) {');
++    // The body must not consult rules, characters or bonus successes.
++    const body = src.slice(src.indexOf('export function cntSuc'), src.indexOf('// ── Bonus successes'));
++    expect(body).not.toMatch(/bonus|rule|character/i);
++  });
++
++  it('shared/dice.js adds resolveSuccesses alongside cntSuc, not in place of it', () => {
++    const src = read('public/js/shared/dice.js');
++    expect(src).toContain('export function resolveSuccesses(');
++    expect(src).toContain('export function addBonusSuccesses(');
++  });
++
++  it('feeding-tab keeps cntSuc for the rote comparison and resolves the final roll', () => {
++    const src = read('public/js/tabs/feeding-tab.js');
++    expect(src).toMatch(/return cntSuc\(r1\) >= cntSuc\(r2\) \? r1 : r2;/);
++    expect(src).toContain('resolveSuccesses(cols, currentChar');
++  });
++
++  it('roll-v2 still picks the rote winner on ROLLED successes only', () => {
++    const src = read('public/js/suite/roll-v2.js');
++    expect(src).toContain('const sA = cntSuc(cA);');
++    expect(src).toContain('const sB = state.ROTE ? cntSuc(cB) : 0;');
++    // ...and adds the bonus once, after that choice.
++    expect(src).toContain('const bonusRes = addBonusSuccesses(wS,');
++  });
++
++  it('the evaluator is not wired into applyDerivedMerits (roll-time, not render-time)', () => {
++    const src = read('public/js/editor/mci.js');
++    expect(src).not.toMatch(/bonus-success-evaluator|resolveBonusSuccesses/);
++  });
++
++  it('Vigour and Resilience stay in rule_disc_attr — nothing migrated out', () => {
++    const src = read('server/scripts/archive/seed-rules-disc-attr.js');
++    expect(src).toContain("discipline: 'Vigour'");
++    expect(src).toContain("discipline: 'Resilience'");
++    const seed = read('server/scripts/seed-rules-bonus-successes.js');
++    expect(seed).not.toMatch(/Vigour|Resilience/);
++  });
++
++  it('bonus-success rules live in their own collection, not an existing one', () => {
++    const routes = read('server/routes/rules-engine.js');
++    expect(routes).toContain("makeRulesRouter('rule_bonus_success'");
++    const evaluator = read('public/js/editor/rule_engine/bonus-success-evaluator.js');
++    expect(evaluator).not.toMatch(/rule_grant|rule_skill_bonus/);
++  });
++});

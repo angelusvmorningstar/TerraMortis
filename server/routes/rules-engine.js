@@ -10,6 +10,7 @@ import { ruleDiscAttrSchema } from '../schemas/rules/rule-disc-attr.schema.js';
 import { ruleDerivedStatModifierSchema } from '../schemas/rules/rule-derived-stat-modifier.schema.js';
 import { ruleTierBudgetSchema } from '../schemas/rules/rule-tier-budget.schema.js';
 import { ruleStatusFloorSchema } from '../schemas/rules/rule-status-floor.schema.js';
+import { ruleBonusSuccessSchema, checkBonusSuccessDoc } from '../schemas/rules/rule-bonus-success.schema.js';
 
 function makeRulesRouter(collectionName, schema, { postCheck } = {}) {
   const router = Router();
@@ -85,6 +86,16 @@ export const derivedStatModRouter  = makeRulesRouter('rule_derived_stat_modifier
 export const tierBudgetRouter      = makeRulesRouter('rule_tier_budget',       ruleTierBudgetSchema);
 export const statusFloorRouter     = makeRulesRouter('rule_status_floor',      ruleStatusFloorSchema);
 
+// dtlt.1: the ninth family — roll-time "+N successes when X" rules. The
+// postCheck carries the structural guards the JSON Schema cannot state
+// readably (min_rating is merit_present-only; a 'rating' count needs a merit
+// to read the rating from). See the schema file for why there is no
+// source-vs-predicate cyclic check: this collection has no target trait, so no
+// cycle is constructible, and the v1 seed is legitimately self-referencing.
+export const bonusSuccessRouter    = makeRulesRouter('rule_bonus_success',     ruleBonusSuccessSchema, {
+  postCheck: checkBonusSuccessDoc,
+});
+
 /**
  * Issue #256 (perf): coalesce 7 rule-engine endpoints into a single
  * round-trip used by `preloadRules` on the client. Cuts boot latency
@@ -109,6 +120,9 @@ const ALLOWED_RULE_CATEGORIES = new Set([
   'disc_attr',
   'derived_stat_modifier',
   'status_floor',
+  // dtlt.1 — roll-time bonus successes. Included here so the client's single
+  // aggregate round-trip picks it up alongside the render-time families.
+  'bonus_success',
 ]);
 
 export const rulesAggregateRouter = Router();

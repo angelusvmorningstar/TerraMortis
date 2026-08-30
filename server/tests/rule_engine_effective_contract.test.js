@@ -11,6 +11,7 @@
 
 import { describe, it, expect } from 'vitest';
 import { applyPTRulesFromDb } from '../../public/js/editor/rule_engine/pt-evaluator.js';
+import { combineSuccesses } from '../../public/js/editor/rule_engine/bonus-success-evaluator.js';
 
 // ── Minimal phase-1 clear ─────────────────────────────────────────────────────
 
@@ -104,5 +105,62 @@ describe('PT effective-rating positive contract', () => {
     clearEphemerals(c);
     applyPTRulesFromDb(c, PT_RULES);
     expect([...c._pt_dot4_bonus_skills]).toContain('Stealth');
+  });
+});
+
+// ── rule_bonus_success (dtlt.1) ───────────────────────────────────────────────
+//
+// The v1 seed rule (Stronger Than You) has no rating to resolve at all —
+// manoeuvre possession is boolean fighting_picks membership. The rating-bearing
+// predicate kind this family introduces is `merit_present` with `min_rating`,
+// which per ADR-001 reads m.rating (the post-sync effective sum), never
+// inherent purchased dots. These are the paired contract assertions for it.
+
+const CTX = { attr: 'Resolve', skill: 'Composure' };
+
+function makeMeritChar(merit) {
+  return { name: 'Contract Test', merits: [merit], fighting_picks: [], skills: {} };
+}
+
+const MIN_RATING_RULE = {
+  source: 'Contract Merit',
+  predicate: { kind: 'merit_present', name: 'Contract Merit', min_rating: 3 },
+  count_basis: 'flat',
+  flat_amount: 1,
+};
+
+describe('bonus-success effective-rating positive contract', () => {
+  it('min_rating fires on effective rating built from cp + free, not cp alone', () => {
+    // Purchased dots are 1; the other 2 arrive via a grant. Effective = 3.
+    const c = makeMeritChar({ name: 'Contract Merit', cp: 1, free_pt: 2, rating: 3 });
+    expect(combineSuccesses(2, c, CTX, [MIN_RATING_RULE]).total).toBe(3);
+  });
+
+  it('min_rating fires on effective rating built from cp + xp, not cp alone', () => {
+    const c = makeMeritChar({ name: 'Contract Merit', cp: 1, xp: 2, rating: 3 });
+    expect(combineSuccesses(2, c, CTX, [MIN_RATING_RULE]).total).toBe(3);
+  });
+
+  it('min_rating does NOT fire below the effective threshold', () => {
+    const c = makeMeritChar({ name: 'Contract Merit', cp: 2, rating: 2 });
+    expect(combineSuccesses(2, c, CTX, [MIN_RATING_RULE]).total).toBe(2);
+  });
+
+  it('a high inherent cp with a lower effective rating does not fire (suspension case)', () => {
+    // OATH-B style suspension: purchased dots 4, effective rating 1. Reading
+    // inherent-only would wrongly fire here.
+    const c = makeMeritChar({ name: 'Contract Merit', cp: 4, rating: 1 });
+    expect(combineSuccesses(2, c, CTX, [MIN_RATING_RULE]).total).toBe(2);
+  });
+
+  it("count_basis 'rating' scales on the effective rating, not purchased dots", () => {
+    const rule = {
+      source: 'Contract Merit',
+      predicate: { kind: 'merit_present', name: 'Contract Merit' },
+      count_basis: 'rating',
+    };
+    const c = makeMeritChar({ name: 'Contract Merit', cp: 1, free_pt: 2, rating: 3 });
+    expect(combineSuccesses(1, c, CTX, [rule]).bonus)
+      .toEqual([{ source: 'Contract Merit', count: 3 }]);
   });
 });

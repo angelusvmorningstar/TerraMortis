@@ -96,16 +96,26 @@ describe('GET /api/rules/aggregate', () => {
     expect(Object.keys(res.body)).toEqual(['rule_skill_bonus']);
   });
 
-  it('supports all 7 production rule categories at once', async () => {
+  it('supports all 8 production rule categories at once', async () => {
     const res = await request(app)
-      .get('/api/rules/aggregate?categories=grant,nine_again,skill_bonus,speciality_grant,tier_budget,disc_attr,derived_stat_modifier')
+      .get('/api/rules/aggregate?categories=grant,nine_again,skill_bonus,speciality_grant,tier_budget,disc_attr,derived_stat_modifier,bonus_success')
       .set('X-Test-User', stUser());
     expect(res.status).toBe(200);
     expect(Object.keys(res.body)).toEqual(expect.arrayContaining([
       'rule_grant', 'rule_nine_again', 'rule_skill_bonus',
       'rule_speciality_grant', 'rule_tier_budget',
       'rule_disc_attr', 'rule_derived_stat_modifier',
+      // dtlt.1 — the client's preloadRules() now requests this one too.
+      'rule_bonus_success',
     ]));
+  });
+
+  it('bonus_success is an allowed category (dtlt.1)', async () => {
+    const res = await request(app)
+      .get('/api/rules/aggregate?categories=bonus_success')
+      .set('X-Test-User', stUser());
+    expect(res.status).toBe(200);
+    expect(Array.isArray(res.body.rule_bonus_success)).toBe(true);
   });
 
   it('player role gets 403 (matches ST-only auth on individual rules-engine endpoints)', async () => {

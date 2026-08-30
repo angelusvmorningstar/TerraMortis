@@ -24,6 +24,7 @@ import rulesRouter from '../../routes/rules.js';
 import {
   grantRouter, specialityGrantRouter, skillBonusRouter, nineAgainRouter, rulesAggregateRouter,
   discAttrRouter, derivedStatModRouter, tierBudgetRouter, statusFloorRouter,
+  bonusSuccessRouter,
 } from '../../routes/rules-engine.js';
 import relationshipsRouter from '../../routes/relationships.js';
 import npcFlagsRouter from '../../routes/npc-flags.js';
@@ -124,6 +125,8 @@ export function createTestApp() {
   app.use('/api/rules/derived_stat_modifier', mockAuth, reRoleST, CACHE_5MIN, derivedStatModRouter);
   app.use('/api/rules/tier_budget',           mockAuth, reRoleST, CACHE_5MIN, tierBudgetRouter);
   app.use('/api/rules/status_floor',          mockAuth, reRoleST, CACHE_5MIN, statusFloorRouter);
+  // dtlt.1: roll-time bonus successes.
+  app.use('/api/rules/bonus_success',         mockAuth, reRoleST, CACHE_5MIN, bonusSuccessRouter);
   // Issue #265 (rebase): aggregate endpoint same content as per-category
   // routes — mounted with the same CACHE_5MIN wiring.
   app.use('/api/rules/aggregate',             mockAuth, reRoleST, CACHE_5MIN, rulesAggregateRouter);

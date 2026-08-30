@@ -1689,3 +1689,67 @@ story and out of its own scope to fix (it explicitly forbids adding new CSS):
   context, or a z-index/positioning adjustment so the delete child sits above the touch-target overlay)
   - a small, real, standalone fix, not urgent enough to justify a dedicated story on its own but worth
   picking up alongside the next real touch-target-adjacent piece of work.
+
+## Deferred from: dtlt-1-bonus-success-mechanic code review (2026-08-31)
+
+External Codex review, three isolated passes (Blind Hunter, Edge Case Hunter, Acceptance Auditor —
+Pass 3 hit a ChatGPT usage limit after completing only its blind sub-pass, 3a). Both fully-completed
+passes independently converged on the same stored-XSS defect and the same "players can't reach it"
+architectural fact from different angles - real signal, not noise. Four findings were patched (XSS
+escaping in `roll-v2.js`, the Feeding ST-confirmed-pool stale-trait-context bug, the repeatable-merit
+rating-undercount in `_count()`, and a `getRulesBySource` consistency gap) - see the story's own Senior
+Developer Review for the full triage and prove-discrimination detail. The remainder, judged real but
+not worth blocking on:
+
+- **RULED ON by Angelus, 2026-08-31: ship dtlt-1 as-is.** The entire rules-engine (all nine families,
+  including the new `rule_bonus_success`) is mounted behind `requireRole('st')`, so a normal player's
+  client can never populate the rules cache at all - confirmed pre-existing (issue #249's
+  `applyDerivedMerits` null-cache guard and the issue #256 comment in `app.js` both already document
+  and gracefully degrade around exactly this), not introduced by dtlt-1. Both Codex passes independently
+  rated this High and both made the same sharper point worth surfacing: an ST/dev tester will see
+  Stronger Than You fire correctly and reasonably conclude the feature works, while no actual player's
+  own session ever receives it - the ST-authorized path masks the gap rather than exposing it.
+  **Investigated further before the ruling** (correcting this entry's own first-draft framing): unlike
+  what "every rule family already no-ops for players" implies, only `rule_bonus_success` is genuinely
+  stuck - Vigour/Resilience (`discAttrBonus()`, `accessors.js:122`) has a deliberate legacy hardcoded
+  fallback that still works with no cache at all, and MCI/PT/K-9/Falconry grants affect persisted merit
+  dots, so a player's own already-saved rating is unaffected by their client's inability to recompute
+  the grant live. A bonus success has no persisted equivalent - it only exists at roll time - so this is
+  the first rule family with no possible escape hatch, not just another instance of an old, already-
+  worked-around gap. Angelus's decision: ship now, correct for ST-run/ST-confirmed rolls and downtime
+  processing, degraded only for a player's own direct live roll; open a separate future story if the
+  rules-engine's player-auth boundary itself should change. Not blocking, not revisited here.
+- **[Low] Whitespace-only predicate `name` (e.g. `'   '`) passes both the JSON Schema and
+  `checkBonusSuccessDoc`'s `minLength: 1`, and matches a live roll surface's own empty-string trait
+  normalisation** (`roll-v2.js` sets `attr: ''`/`skill: ''` on a contextless chance roll; `_sameName`
+  trims both sides, so `''` matches `'   '`). Requires an ST to author a malformed rule with a
+  whitespace-only name - an authoring-discipline gap, not a reachable player-facing bug. Fix is cheap
+  (trim before the `minLength` check, or reject an all-whitespace name explicitly in `checkBonusSuccessDoc`)
+  whenever the admin editor UI for this collection is built (already a deferred follow-up per this
+  story's own "Final consequence").
+- **[Low] A `rule_bonus_success` document that reaches the aggregate read path with `count_basis: 'flat'`
+  and no `flat_amount` (only reachable by bypassing POST/PUT - a direct DB write or corrupt import)
+  defaults to `+1` via `rule.flat_amount ?? 1` rather than being skipped**, which is inconsistent with
+  the evaluator's own stated "malformed docs are skipped" posture. The normal write route already
+  rejects this shape (`checkBonusSuccessDoc`), so operational likelihood is low. Worth a defensive
+  `_int(rule.flat_amount)` (treating a missing amount as 0, not 1) if this collection ever gets a bulk
+  import/migration path.
+- **[Low] `_int()` (the private numeric-coercion helper in `bonus-success-evaluator.js`) throws a
+  `TypeError` on a `Symbol` or null-prototype-object input to `Number(...)`**, rather than returning 0
+  like every other malformed input. No current call site can reach this (all real callers pass numbers
+  or plain falsy/string values), so it's a latent hardening gap, not a live defect.
+- **[Low, test-coverage only] The Vigour-2 "regression" row in `bonus-success.test.js` proves Stronger
+  Than You does not fire for a Vigour character; it does not build an actual Strength+Brawl pool and
+  assert the pool size still includes Vigour's own `rule_disc_attr` dot contribution.** The production
+  Vigour code itself is untouched by this diff (confirmed directly - no changes anywhere near
+  `rule_disc_attr`, its evaluator, or `seed-rules-disc-attr.js`), so the claim the test's own comment
+  makes ("Vigour and Resilience stay in `rule_disc_attr`") is true - it's just proven by inspection of
+  the diff, not by this specific test. A real pool-building integration test would need to pull in the
+  character-render pipeline this evaluator's test file deliberately avoids importing (part of what
+  keeps it pure/import-free per its own docblock) - out of proportion for this story's own scope.
+- **[Low, dismissed - fixture-realism only, not a defect] `bonus-success.test.js`'s fighting-style
+  fixtures carry a `rating` field the real `fightingStyle` schema definition doesn't have**
+  (`character.schema.js`'s definition has `cp`/`xp`/`free`/`free_mci`/`free_ots`/`up`/`picks`/`rule_key`,
+  no `rating`). Harmless: the evaluator's `manoeuvre_present` predicate only ever reads
+  `fighting_picks`, never `fighting_styles`, so the extra field is inert. Already disclosed in the
+  story's own Dev Agent Record before external review ran.

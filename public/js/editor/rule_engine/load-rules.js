@@ -25,6 +25,10 @@ const RULE_CATEGORIES = [
   'tier_budget',
   'disc_attr',
   'derived_stat_modifier',
+  // dtlt.1: roll-time bonus successes. Unlike the families above this one is
+  // read by the dice engine (shared/dice.js), not by applyDerivedMerits — it
+  // rides the same aggregate round-trip because the cache is already here.
+  'bonus_success',
 ];
 
 export async function preloadRules() {
@@ -41,6 +45,7 @@ export async function preloadRules() {
     rule_tier_budget:           Array.isArray(data?.rule_tier_budget)           ? data.rule_tier_budget           : [],
     rule_disc_attr:             Array.isArray(data?.rule_disc_attr)             ? data.rule_disc_attr             : [],
     rule_derived_stat_modifier: Array.isArray(data?.rule_derived_stat_modifier) ? data.rule_derived_stat_modifier : [],
+    rule_bonus_success:         Array.isArray(data?.rule_bonus_success)         ? data.rule_bonus_success         : [],
   };
   return _cache;
 }
@@ -50,13 +55,24 @@ export async function preloadRules() {
  * collection. Returns empty arrays/null if the cache has not been preloaded yet.
  */
 export function getRulesBySource(source) {
-  if (!_cache) return { grants: [], nineAgain: [], skillBonus: [], specialityGrants: [], tierBudget: null };
+  if (!_cache) {
+    return {
+      grants: [], nineAgain: [], skillBonus: [], specialityGrants: [], tierBudget: null,
+      bonusSuccess: [],
+    };
+  }
   return {
     grants:          (_cache.rule_grant            || []).filter(r => r.source === source),
     nineAgain:       (_cache.rule_nine_again       || []).filter(r => r.source === source),
     skillBonus:      (_cache.rule_skill_bonus      || []).filter(r => r.source === source),
     specialityGrants:(_cache.rule_speciality_grant || []).filter(r => r.source === source),
     tierBudget:      (_cache.rule_tier_budget      || []).find(r => r.source === source) || null,
+    // Review fix (Codex, external, dtlt.1): the current evaluator deliberately
+    // bypasses this and reads getRulesCache().rule_bonus_success directly to
+    // stay pure/import-free, but the Code Map named this function as one to
+    // extend — this closes that gap for any future consumer that expects
+    // rule_bonus_success to behave like every other family here.
+    bonusSuccess:    (_cache.rule_bonus_success    || []).filter(r => r.source === source),
   };
 }
 
