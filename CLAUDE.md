@@ -73,6 +73,18 @@ running the affected suites because a change "looks safe".
     Confirmed via `git stash` isolation during rlv.2 (2026-08-24) against unmodified base code —
     same failures, same line numbers, before that story touched anything. Looks like incomplete
     mocking/fixtures for the ST/Player nav describe blocks; not investigated further.
+  - `tests/flight-check-retired-notice.spec.js` (4) — written 2026-08-27 against
+    `public/js/tabs/downtime-tab.js`'s player-facing retired-notice UI (`window.goTab('downtime')`
+    still dispatched to `initDowntimeTab` at the time). Two days later, the 2026-08-29 Downtime +
+    Ordeals full removal (PR #1227) deleted the 'downtime' tab-body dispatch and nav entry from
+    `app.js` entirely for players and STs alike — this test's own target surface is now
+    unreachable from the live app, so `window.goTab('downtime')` no-ops and `.dt-retired-notice`
+    never renders. The underlying copy fix it covers (naming TM Story, a real CTA link) is still
+    correct and harmless dead code, same as `form-retirement.js`/`downtime-tab.js` themselves
+    (kept unrouted as reference per the removal's own scope boundary); only the test is stale.
+    Found landing this branch (cut before the removal, merged after) during the 2026-09-01
+    stranded-branch consolidation. Same "premise moved out from under it" shape as
+    `cycle-phase-controls.spec.js` above, not a regression.
 - Angelus **cannot run the app locally** to smoke-test. Anything needing a human look must be on a
   deployed environment first.
 
