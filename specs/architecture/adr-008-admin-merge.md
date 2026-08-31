@@ -1,11 +1,12 @@
 ---
 id: ADR-008
 title: 'Admin merge: one app, shell first, code-split behind the role gate'
-status: approved
+status: superseded (2026-07-29 approved; superseded 2026-08-25 — the merge-into-one-app plan was never executed past the Tickets pilot, later deleted entirely by #1135; TM Admin, a separate sibling app founded 2026-08-16, is the direction actually taken)
 date: 2026-07-29
-revision: 16
+revision: 18
 author: Imhotep (Architect)
 supersedes: ADR-007 D9 through D15 (Rev 2 addendum and the Phase 1 shard plan)
+superseded_by: TM Admin (D:\Terra Mortis\TM Admin — separate repo, not an ADR; see Rev 18 below)
 related:
   - issue #1047 (Epic USF, re-scoped and closed by this ADR)
   - specs/architecture/adr-007-unified-suite-topology.md (D1-D8 retained and load-bearing here)
@@ -15,17 +16,46 @@ related:
   - specs/qa/harness/admin-leak-gate.py (D4 attributability gate, Rev 6)
   - specs/qa/harness/write-path-inventory.py (D10 display-only check; ADR-007 D7 generator)
   - specs/qa/harness/css-overlap.py (retained as a one-number regression check)
-  - public/admin.html (the entry this epic retires)
+  - public/admin.html (the entry this epic retires — still exists; see Rev 18)
   - public/js/app.js:150-152 (effectiveRole), :1483-1524 (applyRoleRestrictions)
   - memory: feedback_count_is_not_reachability, feedback_decomposition_into_nondelivering_parts
 ---
 
 # ADR-008: Admin merge
 
+> **READ THIS FIRST — this ADR is superseded.**
+>
+> **The done-condition (D1) was never reached: `public/admin.html` still exists (10,372 lines
+> as of 2026-08-25).** The only slice this epic actually shipped, the Tickets pilot (D5), was
+> later deleted outright by #1135 — the ticket system was scrapped, not merged. No other surface
+> ever moved. P1 stalled after its own pilot.
+>
+> **The direction of travel changed underneath it.** TM Admin (founded 2026-08-16, a separate
+> sibling repo) is now absorbing admin-side functionality piece by piece — bloodlines, devlog,
+> ordeals review, rules/rules-engine, ST Mods, city/spheres, chapters/stories, attendance/XP, and
+> an in-progress character editor — as a **second app**, not by merging into `index.html`. This is
+> the opposite topology from D1's stated done-condition ("`admin.html` no longer exists,
+> `index.html` serves both roles"). TM Admin's own Epic 6 retro (2026-08-24) names this directly:
+> *"the real next body of work in spirit is TM Game's own side of admin-retirement — stripping the
+> now-redundant functions from `admin.html` — but that's unscoped and lives in a different repo."*
+>
+> **Do not plan work from this ADR's phase structure (P1/P2, the Tickets-first sequencing, D9's
+> scope-separation mechanics for a merged document).** None of it applies to a two-app topology.
+> **D7's invariants** (the frozen write-path inventory; `effectiveRole()` is presentation-only,
+> never a read/write/load-path gate) and **D8's measurement-discipline rules** (count vs.
+> reachability, scope vs. granularity, provenance) are general engineering lessons this project
+> keeps re-deriving — they may still be worth citing elsewhere, but citing them does not revive
+> this epic's plan. If TM Game's own admin.js modules are retired to match what TM Admin has
+> already absorbed, that is new, unscoped work (flagged during the 2026-08-25 cross-repo
+> redundancy review, `specs/deferred-work.md`) — not a resumption of P1/P2 below.
+>
+> Everything below is retained as history — the reasoning trail, not a plan to execute.
+
 ## Revision history
 
 | Rev | Date | Change | Author |
 |---|---|---|---|
+| 18 | 2026-08-25 | **Superseded.** Found during a cross-repo redundancy review (TM Admin + TM Story liaison) that the merge-into-one-app plan was never executed past its own Tickets pilot, which #1135 later deleted entirely, and that TM Admin — a separate sibling app founded 2026-08-16, not foreseen by this ADR's Rev 17 — is absorbing admin functionality as a second app instead. TM Admin's own Epic 6 retro names TM Game's side of admin-retirement as real, unscoped, future work in a different repo. Status changed to superseded; D1-D6/D9's merge mechanics do not apply to the topology actually taken. D7/D8 left standing as general engineering discipline, not as a live plan. No decision text below is edited, only this banner and row, so the reasoning trail stays legible. | Claude (dev) |
 | 17 | 2026-08-11 | **The ADM-1 pilot surface no longer exists: #1135 deleted the Tickets tab and scrapped the ticket system entirely** (server route + schema + mount, admin view + sidebar + stylesheet, and the player Settings submit form). **Spheres (#1096) is now the reference implementation** of the D4/D9 loading pattern — it is live at `app.js` on the identical shape, and the "Same shape as Tickets" comment beside it records the one structural difference. Every Tickets citation below is therefore **historical**, and is deliberately left standing: D5/D5a record why the pilot was chosen and how the dead player-side copy was retired first, and Revs 4, 5 and 13 record findings that generalise past Tickets (D9's emitter-exclusivity precondition, the correlated-checks preamble, and the CSS-coverage failure that produced D4). Read them as the reasoning trail that produced the decisions, not as a description of a surface you can still open. | Claude (dev) |
 | 16 | 2026-07-31 | Corrects Rev 15's attribution: the 56/77 was Khepri's own measurement, not Ma'at's, and she produced no competing figure — so I corrected Khepri, and the misattribution was relayed to the person it was about. Names the failure: **a number passed on without its provenance checked**. Adds the rule 7 corollary — **suspect an instrument before a convention** — and anchors it to `.sph`/`.sphere` rather than to 56/55, because that incident had no competing derivation and therefore does not demonstrate the rule. Records that **independence of execution is not independence of method**: the tokeniser defect netted to zero across the baseline while changing its membership, which no number of re-runs could have caught. | Imhotep (Architect) |
 | 15 | 2026-07-31 | Adds **D8 rule 7: prefer syntax-aware extraction; parse or declare**, from Ma'at, diagnosing four boundary failures as one defect — a measurement whose tokeniser disagreed with the language it was reading. Applying it to this ADR's own instruments found the same defect in every emitter scan: a naive class-attribute regex truncates on `${...}` interpolation, both missing real classes and inventing phantom ones, across 385 interpolated attributes in 53 files. Corrects merge exposure **~118 → ~89** and player adoption **900 → 922**; the D9 baseline stays at 55 with changed membership and was re-blessed from scratch. | Imhotep (Architect) |
