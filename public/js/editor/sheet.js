@@ -3263,15 +3263,15 @@ export function renderSheet(c, target = null) {
   if (isDesktop) h += '<div class="sh-desktop' + (editMode ? ' sh-editing' : '') + '"><div class="sh-dcol sh-dcol-left">';
   // Header
   const _rd = editMode && isRedactMode();
-  h += '<div class="sh-char-hdr"><div class="sh-namerow"><div class="sh-char-name">' + (editMode ? (_rd ? '<input class="sh-edit-input" value="' + esc(redactCharName(c.name)) + '" disabled>' : '<input class="sh-edit-input" value="' + esc(c.name) + '" onchange="shEdit(\'name\',this.value);document.getElementById(\'edit-charname\').textContent=this.value">') : esc(cardName(c))) + '</div>' + _auditBadge(c);
+  h += '<div class="sh-char-hdr"><div class="sh-namerow"><div class="sh-char-name">' + (editMode ? (_rd ? '<input class="sh-edit-input redact-input" value="' + esc(redactCharName(c.name)) + '" disabled>' : '<input class="sh-edit-input" value="' + esc(c.name) + '" onchange="shEdit(\'name\',this.value);document.getElementById(\'edit-charname\').textContent=this.value">') : esc(cardName(c))) + '</div>' + _auditBadge(c);
   if (editMode) {
     if (_rd) {
-      h += '<div style="display:flex;gap:8px;margin-top:2px"><div style="flex:1"><input class="sh-edit-input" value="' + esc(redactCharName(c.honorific || '')) + '" disabled style="font-size:12px"></div><div style="flex:1"><input class="sh-edit-input" value="' + esc(redactCharName(c.moniker || '')) + '" disabled style="font-size:12px"></div></div>';
+      h += '<div style="display:flex;gap:8px;margin-top:2px"><div style="flex:1"><input class="sh-edit-input redact-input" value="' + esc(redactCharName(c.honorific || '')) + '" disabled style="font-size:12px"></div><div style="flex:1"><input class="sh-edit-input redact-input" value="' + esc(redactCharName(c.moniker || '')) + '" disabled style="font-size:12px"></div></div>';
     } else {
       h += '<div style="display:flex;gap:8px;margin-top:2px"><div style="flex:1"><input class="sh-edit-input" value="' + esc(c.honorific || '') + '" onchange="shEdit(\'honorific\',this.value||null)" placeholder="Honorific (e.g. Lord, Lady)" style="font-size:12px"></div><div style="flex:1"><input class="sh-edit-input" value="' + esc(c.moniker || '') + '" onchange="shEdit(\'moniker\',this.value||null)" placeholder="Moniker (overrides display name)" style="font-size:12px"></div></div>';
     }
   }
-  h += '<div class="sh-player-row"><span class="sh-char-player">' + (editMode ? (_rd ? '<input class="sh-edit-input" value="' + esc(redactPlayer(c.player || '')) + '" disabled placeholder="Player">' : '<input class="sh-edit-input" value="' + esc(c.player || '') + '" onchange="shEdit(\'player\',this.value)" placeholder="Player">') : esc(redactPlayer(c.player || ''))) + '</span><span class="sh-xp-badge' + (xpLeft(c) < 0 ? ' xp-over' : xpLeft(c) > 0 ? ' xp-under' : '') + '">XP ' + xpLeft(c) + '/' + xpEarned(c) + '</span></div></div>';
+  h += '<div class="sh-player-row"><span class="sh-char-player">' + (editMode ? (_rd ? '<input class="sh-edit-input redact-input" value="' + esc(redactPlayer(c.player || '')) + '" disabled placeholder="Player">' : '<input class="sh-edit-input" value="' + esc(c.player || '') + '" onchange="shEdit(\'player\',this.value)" placeholder="Player">') : esc(redactPlayer(c.player || ''))) + '</span><span class="sh-xp-badge' + (xpLeft(c) < 0 ? ' xp-over' : xpLeft(c) > 0 ? ' xp-under' : '') + '">XP ' + xpLeft(c) + '/' + xpEarned(c) + '</span></div></div>';
   if (editMode) {
     const eT = xpEarned(c), sT = xpSpent(c);
     const _pt5 = xpPT5(c);
