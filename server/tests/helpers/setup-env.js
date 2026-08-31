@@ -15,3 +15,13 @@ import 'dotenv/config';
 // Hard override — never let a test run touch tm_game, even if a developer
 // sets MONGODB_DB=tm_game in their local env. Tests always use tm_game_test.
 process.env.MONGODB_DB = 'tm_game_test';
+
+// #1117's infrastructure precondition (mongod reachable + markdown/ corpus
+// present) lives in ./global-setup.js, wired via vitest.config.js's
+// `globalSetup` — NOT here. `setupFiles` (this file) re-runs once per test
+// FILE even with maxWorkers: 1 (confirmed empirically — fileParallelism only
+// controls concurrency, not per-file re-execution), so a check here fires
+// repeatedly and each file still gets its own "no tests" abort rather than
+// the run genuinely refusing to start. `globalSetup` runs exactly once,
+// before any worker spins up, which is what "zero test results, one
+// message" actually requires.

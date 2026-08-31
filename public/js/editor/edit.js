@@ -672,7 +672,12 @@ export function shEditDiscPt(disc, field, val) {
   }
   c.disciplines[disc][field] = val;
   const cr = c.disciplines[disc];
-  const discBase = cr.cp || 0;
+  // CODE REVIEW FIX (2026-08-31): discBase omitted cr.free entirely, so any discipline
+  // with rules-granted free dots (a bloodline grant, etc.) had them silently dropped from
+  // dots on every edit - confirmed live against 2 real characters (Charlie Ballsack's
+  // Resilience, René Meyer's Majesty). free is now included in the base the same way it
+  // already is for the CP/XP cap arithmetic above.
+  const discBase = (cr.cp || 0) + (cr.free || 0);
   const discCostMult = isInClanDisc(c, disc) ? 3 : 4;
   cr.dots = discBase + xpToDots(cr.xp || 0, discBase, discCostMult);
   // Recalculate XP spent on disciplines
@@ -758,6 +763,13 @@ export function shEditSkillPt(skill, field, val) {
     }
   }
   so[field] = val;
+  // REVERTED 2026-08-31 (code review): a prior pass here added `so.free` to skBase, on the
+  // assumption skill free-dots follow the same "silently dropped" pattern disciplines have.
+  // Confirmed wrong before shipping: unlike disciplines' `free` (genuinely read and displayed
+  // by discBonusSources/discCard), skill `.free` is read NOWHERE in this app's live code -
+  // grepped both repos, zero matches outside this now-reverted edit. Charlie Ballsack's
+  // Weaponry `free:1` (the case that looked like a dropped grant) turned out to be stale/
+  // unused data, confirmed directly by Angelus - not a real grant this formula should sum.
   const skBase = so.cp || 0;
   so.dots = skBase + xpToDots(so.xp || 0, skBase, 2);
   // Recalculate XP spent on skills

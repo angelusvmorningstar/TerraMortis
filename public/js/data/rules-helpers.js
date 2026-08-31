@@ -207,22 +207,6 @@ export function resolveSharingScope(scope, c, chars, rule) {
 // ── N-7 (MNEC, issue #760) — Necropolis allocator helpers ──────────────────
 
 /**
- * True if the character owns Necropolis Sepulcher with ≥ 1 purchased dot.
- * Purchased = cp + xp (matches the membership semantics in N-1's
- * synthesiseCollectiveOwners — grants from the collective itself don't count
- * toward membership / pool eligibility).
- *
- * @param {object} c
- * @returns {boolean}
- */
-export function hasNecropolisSepulcher(c) {
-  if (!c || !Array.isArray(c.merits)) return false;
-  return c.merits.some(m =>
-    m && m.name === 'Necropolis Sepulcher' && ((m.cp || 0) + (m.xp || 0)) >= 1
-  );
-}
-
-/**
  * Remaining pool capacity for an allocator slug on this character.
  *
  *   pool capacity = sum of `_grant_pools[*].amount` where category === slug
@@ -344,9 +328,9 @@ export function getCollectiveCompounds(ruleCache) {
  * True if `c` is a member of `compound` — owns its gate merit at
  * `minDots` purchased dots (cp + xp).
  *
- * Purchased-only matches `hasNecropolisSepulcher` and the pool-evaluator
- * membership semantics: a grant the collective itself confers must not
- * feed back into eligibility for that collective.
+ * Purchased-only, matching the pool-evaluator membership semantics: a grant
+ * the collective itself confers must not feed back into eligibility for
+ * that collective.
  *
  * @param {object} c
  * @param {{gateMerit: string, minDots: number}} compound

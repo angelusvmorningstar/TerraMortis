@@ -60,12 +60,11 @@ const STATIC_WHITELIST = new Set([
 // only, which works for `c.merits[]` (an array) but NOT for `c.disciplines`
 // — that's an object keyed by discipline NAME on the v2 schema (see
 // `public/js/data/accessors.js#discDots` which reads `c.disciplines[name].dots`).
-// Splitting the regex per kind: merits stay numeric (array path); disciplines
-// accept an ASCII-letter name key to match the actual document shape.
+// Splitting the regex per kind: disciplines accept an ASCII-letter name key
+// to match the actual document shape.
 //
-// TM Admin Story tm-admin.10.1b AC1: `merits.N.bonus` added alongside the
-// pre-existing `merits.N.dots`. Evidence for choosing `.bonus` over
-// repointing at `.dots` (per the story's own open question) — traced, not
+// TM Admin Story tm-admin.10.1b AC1: `merits.N.bonus` accepted (not `.dots`
+// — see #1119 below for why). Evidence for choosing `.bonus` — traced, not
 // assumed:
 //   - `meritEffectiveRating` (public/js/editor/domain.js:363) never reads
 //     `m.dots` at all (v2 schema merits have no `dots` field; the array-form
@@ -80,12 +79,25 @@ const STATIC_WHITELIST = new Set([
 //     `merits.N.bonus` reuses that exact same read path with zero further
 //     glue — the same shape as the attribute/skill static-whitelist entries
 //     (`attributes.${a}.bonus`/`skills.${s}.bonus`, STM-14) applied to a
-//     per-character-indexed field via the dynamic regex merits already uses
-//     for `.dots` (STM-1/STM-5).
-//   - `merits.N.dots` itself stays exactly as it already was (unrelated to
-//     this change) — still accepted for whatever pre-existing use composes
-//     onto it; this AC only adds a sibling suffix, it does not remove one.
-const DYNAMIC_PATH_RE = /^(merits\.[0-9]+\.(dots|bonus)|disciplines\.[A-Za-z][A-Za-z0-9]*\.dots)$/;
+//     per-character-indexed field via the dynamic regex merits already uses.
+//
+// #1119: `merits.<N>.dots` was accepted here but no merit reader ever
+// consults a `dots` field — the merit shape is cp/xp/free_grants/rating,
+// not dots. The path validated, saved, and showed in the overlay breakdown
+// while silently affecting nothing displayed or rolled (same bug class as
+// ADR-006 D4's `derived.defence` instance). Rejected outright rather than
+// routed to a real leaf: merit dot arithmetic is forked across at least
+// five helpers that already disagree with each other (see the issue's own
+// scope note), so picking one now risks drifting from the other four. Only
+// `merits.N.bonus` is a supported merit dynamic path — see
+// MERIT_DOTS_REJECTED_RE's own rejection message below for what an ST-mod
+// against a merit's dots should do instead.
+const DYNAMIC_PATH_RE = /^(merits\.[0-9]+\.bonus|disciplines\.[A-Za-z][A-Za-z0-9]*\.dots)$/;
+
+// #1119: recognise the specific dead shape so the 400 can name the reason,
+// rather than lump it in with a generic "invalid stat_path" a caller has to
+// guess at.
+const MERIT_DOTS_REJECTED_RE = /^merits\.[0-9]+\.dots$/;
 
 function isValidStatPath(p) {
   return typeof p === 'string' && (STATIC_WHITELIST.has(p) || DYNAMIC_PATH_RE.test(p));
@@ -147,6 +159,18 @@ router.post('/', requireRole('st'), async (req, res) => {
     return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'reason is required' });
   }
   if (!isValidStatPath(stat_path)) {
+    // #1119: name the specific reason for the one dead shape this used to
+    // silently accept, rather than a bare "invalid stat_path" a caller has
+    // to guess at.
+    if (typeof stat_path === 'string' && MERIT_DOTS_REJECTED_RE.test(stat_path)) {
+      return res.status(400).json({
+        error: 'VALIDATION_ERROR',
+        message: 'merit dot mods are not supported — no merit reader consults a dots field '
+          + '(the merit shape is cp/xp/free_grants/rating, not dots); this would validate, save '
+          + 'and show in the overlay while affecting nothing displayed or rolled',
+        stat_path,
+      });
+    }
     return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'invalid stat_path', stat_path });
   }
 

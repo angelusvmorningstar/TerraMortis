@@ -2,13 +2,14 @@
 
 Status: done
 
-> **Blocked on one decision, 2026-08-20.** The external code review is complete and every patch is
-> applied and prove-discriminated, but one item genuinely needs Angelus's call before this can go to
-> `done`: thirteen Technique T2 selectors now expand horizontally only, because a full 44px vertical
-> expansion demonstrably reached into their own stacked or wrapped siblings and stole their taps.
-> Accepting that as AC2's evidenced exception list closes the story; reaching a genuine 44px means a
-> visible phone-tier row growth (Technique T3) on all thirteen, which AC4 requires signing off by
-> name. See "Review Findings (AI)" below and `specs/deferred-work.md`.
+> **RESOLVED 2026-08-31 (GDX-3 follow-up, issue #1192).** The thirteen-selector AC2 exception below
+> is closed out: each now has real Technique T3 phone-tier row growth (`@media (max-width:599px)`,
+> `public/css/suite.css`) instead of the box-only overlay cap, reaching a genuine 44px hit area with
+> no sibling overlap. Verified against the real sibling-run Playwright fixtures (`css-audit — every
+> in-scope control has a >=44px effective hit area at 360px`, `... no two sibling hit areas overlap`)
+> — both pass for all thirteen now; a `git stash` A/B confirmed the six unrelated pre-existing
+> failures elsewhere in that spec file are untouched by this change. Desktop (>=600px) unchanged by
+> construction (media-query-scoped). See `specs/deferred-work.md`'s own note for the same update.
 
 ## Story
 

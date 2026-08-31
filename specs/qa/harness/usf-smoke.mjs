@@ -65,7 +65,7 @@ const authUser = {
   id: 'local-test-' + role, username: 'local_' + role,
   global_name: role === 'st' ? 'Dev ST' : 'Dev Player', avatar: null, role,
   player_id: role === 'st' ? null : 'p-dev-001',
-  character_ids: role === 'st' ? [] : ['600000000000000000000006'],
+  character_ids: role === 'st' ? [] : ['69d720427fdd1b1f9498b0d4'],
   is_dual_role: false,
 };
 

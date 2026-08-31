@@ -997,11 +997,13 @@ than gdx-3 work:
 External Codex adversarial review plus independent verification. Everything below was measured in
 headless Chromium against the real served page, not reasoned from the diff.
 
-- **[RESOLVED 2026-08-20 - Angelus, filed as [GitHub issue #1192](https://github.com/angelusvmorningstar/TerraMortis/issues/1192)] Thirteen Technique T2 selectors now expand horizontally only,
+- **[RESOLVED 2026-08-31 - issue #1192 fixed, exception removed.] Thirteen Technique T2 selectors now expand horizontally only,
   because a full 44px vertical expansion reaches into their own stacked or wrapped siblings.**
   Angelus authorised the follow-up (option b below) rather than accepting the capped state
-  permanently - gdx-3 itself still ships `done` with the capped state as AC2's evidenced exception,
-  and issue #1192 tracks removing that exception via the Technique T3 fix described below.
+  permanently - #1192 landed Technique T3 (phone-tier row growth) on all thirteen, verified against
+  the real sibling-run Playwright fixtures (`css-audit — every in-scope control has a >=44px
+  effective hit area at 360px`, `... no two sibling hit areas overlap`, both pass now), and
+  `GDX3_AC2_EXCEPTIONS` in `tests/desktop-and-css.spec.js` no longer lists any of the thirteen.
   `.effpool-spec`, `.trk-chip-rm`, `.trk-card-hd`, `.trk-adj.sm`, `.sh-tracker-info-btn`,
   `.rl-sec-hd`, `.status-chip-st`, `.rank-pill`, `.settings-btn`, `.settings-checkbox-row`,
   `.rules-expander-toggle`, `.qf-checkbox-label`, `.char-picker__chip-remove`. Measured overlaps

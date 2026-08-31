@@ -8,8 +8,7 @@
  * lands atomically with the MCI read-side fix that depends on it.
  *
  * Test layout:
- *   - N-7 pure-function: hasNecropolisSepulcher, getCompoundTargets,
- *     poolAvailableFor.
+ *   - N-7 pure-function: getCompoundTargets, poolAvailableFor.
  *   - N-9 pure-function: getMCIPoolUsed + getOTSPoolUsed union-read; getPoolUsed
  *     map+legacy coverage.
  *   - N-7+N-9 static-analysis on the meritBdRow + shEditMeritPt + sheet.js
@@ -23,7 +22,6 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
-  hasNecropolisSepulcher,
   getCompoundTargets,
   poolAvailableFor,
   freeOf,
@@ -34,33 +32,41 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, '..', '..');
 function read(rel) { return fs.readFileSync(path.join(REPO_ROOT, rel), 'utf8'); }
 
+// #1115 (2026-08-31): brace-matched function-body slice, replacing the
+// fixed-character-distance proximity regexes this file used to pin its
+// source-contract assertions with. A fixed window degrades every time the
+// file is edited (buildMeritOptions outgrew its own 600-char window through
+// unrelated growth, with no change to whether it actually calls the helper
+// it's meant to). This slices the REAL function body by brace matching, so
+// the assertion is immune to unrelated source growth or comment placement
+// anywhere else in the file.
+function sliceFunctionBody(src, fnName) {
+  const declRe = new RegExp(`export function ${fnName}\\([^)]*\\)\\s*\\{`);
+  const m = declRe.exec(src);
+  if (!m) throw new Error(`declaration not found: ${fnName}`);
+  // Scan starts at the opening brace the regex itself already matched (end
+  // of the match, minus 1), NOT the start of the declaration — a param
+  // default like `opts = {}` has its own balanced brace pair earlier in the
+  // signature, which would otherwise be mistaken for the function's real
+  // opening/closing brace and cut the slice off almost immediately.
+  const scanStart = m.index + m[0].length - 1;
+  let depth = 0;
+  let bodyStart = -1;
+  for (let i = scanStart; i < src.length; i++) {
+    if (src[i] === '{') {
+      if (depth === 0) bodyStart = i + 1;
+      depth++;
+    } else if (src[i] === '}') {
+      depth--;
+      if (depth === 0) return src.slice(bodyStart, i);
+    }
+  }
+  throw new Error(`unbalanced braces scanning ${fnName}`);
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // N-7 helpers
 // ─────────────────────────────────────────────────────────────────────────────
-
-describe('N-7 — hasNecropolisSepulcher', () => {
-  it('true when Sepulcher with cp+xp >= 1 is present', () => {
-    expect(hasNecropolisSepulcher({
-      merits: [{ name: 'Necropolis Sepulcher', cp: 2, xp: 0 }],
-    })).toBe(true);
-    expect(hasNecropolisSepulcher({
-      merits: [{ name: 'Necropolis Sepulcher', cp: 0, xp: 1 }],
-    })).toBe(true);
-  });
-
-  it('false when Sepulcher has 0 purchased dots (grants don\'t count toward membership)', () => {
-    expect(hasNecropolisSepulcher({
-      merits: [{ name: 'Necropolis Sepulcher', cp: 0, xp: 0, free_grants: { necro: 5 } }],
-    })).toBe(false);
-  });
-
-  it('false / defensive on missing input', () => {
-    expect(hasNecropolisSepulcher(null)).toBe(false);
-    expect(hasNecropolisSepulcher({})).toBe(false);
-    expect(hasNecropolisSepulcher({ merits: [] })).toBe(false);
-    expect(hasNecropolisSepulcher({ merits: [{ name: 'Other', cp: 5 }] })).toBe(false);
-  });
-});
 
 describe('N-7 — getCompoundTargets', () => {
   it('reads pool_targets from the named compound rule_grant', () => {
@@ -213,11 +219,14 @@ describe('N-9 — readers consume freeOf / map writes / hideBonus', () => {
   });
 
   it("meritBdRow's MCI input writes free_grants.mci (post-N-1 map shape)", () => {
+    // #1115 (2026-08-31): same distance-proxy fragility as the dropdown-
+    // builder assertion above (flagged in that issue's own scope note as a
+    // sibling instance) — replaced with a brace-matched body slice instead
+    // of a fixed 400-char window from `showMCI`.
     const src = read('public/js/editor/xp.js');
-    // Catches the regression where the MCI input reverts to writing free_mci.
-    // (Onchange string is backslash-escaped inside a JS literal; just match
-    // the slug fragment within a small window of `showMCI`.)
-    expect(src).toMatch(/showMCI[\s\S]{0,400}free_grants\.mci/);
+    const body = sliceFunctionBody(src, 'meritBdRow');
+    expect(body).toMatch(/showMCI/);
+    expect(body).toContain('free_grants.mci');
   });
 
   it('meritBdRow honours opts.hideBonus to suppress the Bonus row', () => {
@@ -240,14 +249,19 @@ describe('N-9 — meritPrereqOK dropdown filter + current-row passthrough warn',
     expect(src).toMatch(/export function meritPrereqOK\(c, rule\)/);
   });
 
-  it('all three dropdown builders consume meritPrereqOK (not _meetsPrereq directly)', () => {
+  // #1115 (2026-08-31): the three fixed-character-distance windows below
+  // were a proxy for "the builder calls the helper" that degrades every time
+  // the file is edited — buildMeritOptions outgrew its own 600-char window
+  // through unrelated growth (Carthian Law hotfix, fighting styles) with no
+  // change to whether it actually calls meritPrereqOK. Replaced with a real
+  // brace-matched function-body slice (sliceFunctionBody, module scope
+  // above): the call must appear WITHIN that builder's own body, independent
+  // of how long the body happens to be.
+  it('all three dropdown builders consume meritPrereqOK (not _meetsPrereq directly), call within the builder\'s own body', () => {
     const src = read('public/js/editor/merits.js');
-    // buildMeritOptions
-    expect(src).toMatch(/buildMeritOptions[\s\S]{0,600}meritPrereqOK\(c, rule\)/);
-    // buildSubCategoryMeritOptions
-    expect(src).toMatch(/buildSubCategoryMeritOptions[\s\S]{0,800}meritPrereqOK\(c, rule\)/);
-    // buildMCIGrantOptions
-    expect(src).toMatch(/buildMCIGrantOptions[\s\S]{0,600}meritPrereqOK\(c, rule\)/);
+    expect(sliceFunctionBody(src, 'buildMeritOptions')).toContain('meritPrereqOK(c, rule)');
+    expect(sliceFunctionBody(src, 'buildSubCategoryMeritOptions')).toContain('meritPrereqOK(c, rule)');
+    expect(sliceFunctionBody(src, 'buildMCIGrantOptions')).toContain('meritPrereqOK(c, rule)');
   });
 
   it('buildSubCategoryMeritOptions warns on failing-prereq current-row passthrough', () => {

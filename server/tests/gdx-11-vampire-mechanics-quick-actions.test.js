@@ -146,6 +146,20 @@ describe('gdx.11 — lashOutPool() Kindred/Mortal toggle vs. actual WP delta cha
     expect(mortal.total).toBe(2 + 3);
   });
 
+  // CODE REVIEW FIX (2026-08-31): lashOutPool used to read the attribute via
+  // getAttrEffective (raw dots + bonus + discipline enhancement, e.g. Vigour boosting
+  // Strength) - Angelus confirmed directly that Lash Out is the SOLE mechanic that pools off
+  // the raw attribute alone, excluding permanent discipline-derived enhancement as well as any
+  // bonus/live ST-mod. Every other resist/pool mechanic keeps using the full effective value;
+  // this carve-out is Lash Out's own.
+  it('AC3 [code review]: excludes a discipline\'s own permanent attribute enhancement (Vigour → Strength), unlike every other resist mechanic', () => {
+    const withVigour = { blood_potency: 3, attributes: { Strength: { dots: 2, bonus: 0 } }, disciplines: { Vigour: { dots: 3 } } };
+    const { total, pi } = lashOutPool(withVigour, 'Strength', true);
+    // Raw Strength dots (2) + Blood Potency (3) = 5 - NOT 2 + 3(Vigour) + 3(BP) = 8.
+    expect(total).toBe(5);
+    expect(pi.attrV).toBe(2);
+  });
+
   it('resistance string is "v " + the same attribute + " BP", regardless of the toggle', () => {
     const { pi } = lashOutPool(char, 'Strength', true);
     expect(pi.resistance).toBe('v Strength + BP');

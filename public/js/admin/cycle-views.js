@@ -440,6 +440,16 @@ export async function writePhase(cy, phaseOrNull) {
   return true;
 }
 
+// #1002: the game-phase flip specifically is the one the 2026-07-16 incident
+// was about — make what it means unmistakable in the affordance itself,
+// rather than relying on the cycle label span above to be read first.
+function phaseButtonTitle(phase) {
+  if (phase === 'game') {
+    return 'Open session play for the downtimes submitted in this cycle';
+  }
+  return `Set ${PHASE_LABELS[phase]} phase`;
+}
+
 function buildPhaseCell(cy) {
   const td = document.createElement('td');
   td.className = 'cy-phase-cell';
@@ -460,7 +470,7 @@ function buildPhaseCell(cy) {
     btn.className = 'cy-phase-btn' + (isActive ? ' is-active' : '');
     btn.textContent = PHASE_LABELS[phase];
     btn.dataset.phase = phase;
-    btn.title = isActive ? 'Click to clear this phase' : `Set ${PHASE_LABELS[phase]} phase`;
+    btn.title = isActive ? 'Click to clear this phase' : phaseButtonTitle(phase);
 
     btn.addEventListener('click', async () => {
       errEl.classList.remove('is-visible');
@@ -472,7 +482,7 @@ function buildPhaseCell(cy) {
         group.querySelectorAll('.cy-phase-btn').forEach(b => {
           const active = b.dataset.phase === declaredPhase(cy);
           b.classList.toggle('is-active', active);
-          b.title = active ? 'Click to clear this phase' : `Set ${PHASE_LABELS[b.dataset.phase]} phase`;
+          b.title = active ? 'Click to clear this phase' : phaseButtonTitle(b.dataset.phase);
         });
         renderRibbon();
       } catch (err) {
@@ -741,6 +751,16 @@ function buildLabelCell(cy) {
     inner.appendChild(span);
     inner.appendChild(editBtn);
     td.appendChild(inner);
+    // #1002: the cycle label alone invites the wrong flip (downtimes are
+    // collected AFTER game N and consumed AT session N+1 — the humanly
+    // obvious "Game N feeds Game N" reading is backwards). Derived from
+    // game_number, never stored, shown only when it's known.
+    if (cy.game_number != null) {
+      const span2 = document.createElement('div');
+      span2.className = 'cy-label-span';
+      span2.textContent = `DT after Game ${cy.game_number} · feeds Game ${cy.game_number + 1}`;
+      td.appendChild(span2);
+    }
   }
 
   function renderEdit() {

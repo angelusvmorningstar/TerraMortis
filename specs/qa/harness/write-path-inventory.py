@@ -218,6 +218,13 @@ def render(rows):
     L.append('**Contract (D7, unchanged):** any PR that adds, removes or reshapes an entry here')
     L.append('is a red-flag review, escalated to the Architect, regardless of diff size.')
     L.append('')
+    L.append('**Covered collections: `characters` and `downtime_submissions` only — the two D7')
+    L.append('names as sacrosanct.** Every other collection (`equipment_catalogue`, `players`,')
+    L.append('`rules`, `st_mods`, `relationships`, `game_sessions`, `session_logs`, `npcs`, and')
+    L.append('anything else) is invisible to this gate. A `--touches` DISPLAY-ONLY certification')
+    L.append('proves the diff cannot mutate characters or downtime submissions — it proves')
+    L.append('nothing about any other collection, even one the moved surface writes to (#1109).')
+    L.append('')
     for coll, title in (('characters', 'Characters'),
                         ('downtime_submissions', 'Downtime submissions')):
         sub = [r for r in rows if r['collection'] == coll]
@@ -307,6 +314,9 @@ def touched(ref):
         print('  Shipping ahead of the gate is within D10.')
         print('  This establishes only that what is PERSISTED cannot change.')
         print('  What is DISPLAYED still needs its gate.')
+        print()
+        print('  COVERED: characters, downtime_submissions only (#1109). This certification')
+        print('  says nothing about any other collection the diff may write to.')
         return 0
 
     print('  NOT CERTIFIED. Full gate required.')

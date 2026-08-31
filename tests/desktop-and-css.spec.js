@@ -1311,23 +1311,16 @@ test('css-audit — the touch-target token is declared in theme.css :root as 44p
 // hard-coded pixel height that would drift with the type scale. `.edit-tab`'s
 // documented 28-vs-30px surprise is why these are not literals.
 const GDX3_AC2_EXCEPTIONS = {
-  '.effpool-spec': { minW: 44, minH: 'box' },
-  '.trk-chip-rm': { minW: 44, minH: 'box' },
-  '.trk-card-hd': { minW: 44, minH: 'box' },
-  '.trk-adj.sm': { minW: 44, minH: 'box' },
-  '.sh-tracker-info-btn': { minW: 44, minH: 'box' },
-  '.rl-sec-hd': { minW: 44, minH: 'box' },
-  '.status-chip-st': { minW: 44, minH: 'box' },
-  '.rank-pill': { minW: 44, minH: 'box' },
-  '.settings-btn': { minW: 44, minH: 'box' },
-  '.settings-checkbox-row': { minW: 44, minH: 'box' },
-  '.rules-expander-toggle': { minW: 44, minH: 'box' },
-  '.qf-checkbox-label': { minW: 44, minH: 'box' },
-  '.char-picker__chip-remove': { minW: 44, minH: 'box' },
-  // The one case with a pitch that is declared in CSS rather than derived from
-  // content height, so AC2's midpoint rule gives an exact answer:
-  // 26px button + 6px stepper gap = 32 across, 26px + 4+4 row padding + 6px list
-  // gap = 40 down.
+  // #1192 (2026-08-31): the 13 selectors that used to be here got real T3
+  // phone-tier box growth instead of the box-only exception — each now
+  // meets the full 44px AC1 requirement like everything else, verified by
+  // the sibling-overlap test below (which is exactly the test that proved
+  // the exception necessary in the first place). Removed, not widened.
+  //
+  // The one remaining case has a pitch that is declared in CSS rather than
+  // derived from content height, so AC2's midpoint rule gives an exact
+  // answer: 26px button + 6px stepper gap = 32 across, 26px + 4+4 row
+  // padding + 6px list gap = 40 down.
   '.office-merit-stepper .cs-step-btn': { minW: 32, minH: 40 },
 };
 

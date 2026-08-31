@@ -32,15 +32,15 @@ export { _meetsPrereq as meetsPrereq, _prereqLabel as prereqLabel };
  * Verified against live `tm_suite` 2026-08-14; see
  * `specs/stories/dbo-3-xp-spend-standing-filter-bug.md`.
  *
- * Placed here, ahead of the dropdown-builder functions below, so it does
- * not sit between any of their own name references (including in other
- * comments earlier in this file) and their own prereq-check calls —
- * `server/tests/n7-n9-allocator-readers.test.js` pins a source-contract
- * regex over a fixed character window between those two points for two of
- * them, and this function's own name/prose must not appear inside that
- * window either (a first draft of this comment did, by naming both
- * functions literally, and produced a false pass — caught by actually
- * running the suite rather than assumed safe).
+ * Placed here, ahead of the dropdown-builder functions below.
+ *
+ * (Historical note, resolved 2026-08-31 by #1115: this function's placement
+ * used to matter because `server/tests/n7-n9-allocator-readers.test.js`
+ * pinned its dropdown-builder contract with a fixed-character-distance
+ * regex, which this comment's own prose could silently widen past. That
+ * assertion is now a real brace-matched function-body slice instead —
+ * immune to unrelated source growth or comment placement anywhere in this
+ * file. Placement here is no longer load-bearing; kept for readability.)
  */
 export function isMeritEventGranted(rule) {
   return !!rule && rule.special === 'standing';
