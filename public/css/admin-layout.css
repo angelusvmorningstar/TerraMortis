@@ -9868,7 +9868,7 @@ html:not([data-theme="dark"]) .rules-tbl tbody tr:hover            { background:
 .ec-btn-sm:hover:not([disabled]) { background: var(--surf2); border-color: var(--bdr3); }
 .ec-btn-sm[disabled] { opacity: 0.4; cursor: not-allowed; }
 .ec-btn-danger { color: var(--crim); border-color: var(--crim2); }
-.ec-btn-danger:hover:not([disabled]) { background: var(--crim-a1); }
+.ec-btn-danger:hover:not([disabled]) { background: var(--crim-a15); }
 
 .ec-btn-primary {
   padding: 6px 14px;

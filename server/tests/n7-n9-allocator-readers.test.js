@@ -8,8 +8,7 @@
  * lands atomically with the MCI read-side fix that depends on it.
  *
  * Test layout:
- *   - N-7 pure-function: hasNecropolisSepulcher, getCompoundTargets,
- *     poolAvailableFor.
+ *   - N-7 pure-function: getCompoundTargets, poolAvailableFor.
  *   - N-9 pure-function: getMCIPoolUsed + getOTSPoolUsed union-read; getPoolUsed
  *     map+legacy coverage.
  *   - N-7+N-9 static-analysis on the meritBdRow + shEditMeritPt + sheet.js
@@ -23,7 +22,6 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
-  hasNecropolisSepulcher,
   getCompoundTargets,
   poolAvailableFor,
   freeOf,
@@ -37,30 +35,6 @@ function read(rel) { return fs.readFileSync(path.join(REPO_ROOT, rel), 'utf8'); 
 // ─────────────────────────────────────────────────────────────────────────────
 // N-7 helpers
 // ─────────────────────────────────────────────────────────────────────────────
-
-describe('N-7 — hasNecropolisSepulcher', () => {
-  it('true when Sepulcher with cp+xp >= 1 is present', () => {
-    expect(hasNecropolisSepulcher({
-      merits: [{ name: 'Necropolis Sepulcher', cp: 2, xp: 0 }],
-    })).toBe(true);
-    expect(hasNecropolisSepulcher({
-      merits: [{ name: 'Necropolis Sepulcher', cp: 0, xp: 1 }],
-    })).toBe(true);
-  });
-
-  it('false when Sepulcher has 0 purchased dots (grants don\'t count toward membership)', () => {
-    expect(hasNecropolisSepulcher({
-      merits: [{ name: 'Necropolis Sepulcher', cp: 0, xp: 0, free_grants: { necro: 5 } }],
-    })).toBe(false);
-  });
-
-  it('false / defensive on missing input', () => {
-    expect(hasNecropolisSepulcher(null)).toBe(false);
-    expect(hasNecropolisSepulcher({})).toBe(false);
-    expect(hasNecropolisSepulcher({ merits: [] })).toBe(false);
-    expect(hasNecropolisSepulcher({ merits: [{ name: 'Other', cp: 5 }] })).toBe(false);
-  });
-});
 
 describe('N-7 — getCompoundTargets', () => {
   it('reads pool_targets from the named compound rule_grant', () => {

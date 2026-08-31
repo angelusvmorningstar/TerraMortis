@@ -1665,7 +1665,7 @@ html:not([data-theme="dark"]) .more-app-icon-svg svg {
 /* Tabs not otherwise specified: flex column, scrollable, 16px padding, 80px bottom */
 #t-status.active,#t-downtime.active,#t-feeding.active,
 #t-ordeals.active,
-#t-regency.active,#t-office.active,#t-map.active,
+#t-regency.active,#t-office.active,
 #t-emergency.active,#t-archive.active {
   display: flex;
   flex-direction: column;
