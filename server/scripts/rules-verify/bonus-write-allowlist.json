@@ -1,0 +1,30 @@
+{
+  "$comment": "SSOT manifest for verify-no-bonus-writes.js — TM Admin Story tm-admin.10.1 (one true rating, Stage 1, Phase A). `bonus` (attrObj/skillObj/discObj/merit, server/schemas/character.schema.js) is write-frozen: no new TM Game code may write a changed value into it. `allowlist` originally named the two audit-confirmed exceptions from TM Admin/specs/audits/rules-engine-and-mods-audit.md (AC2 'raw bonus field's remaining live write paths'), both TM-Admin-side files that do not exist inside THIS repo's own tree. A THIRD, TM-Game-side entry was added 2026-08-31 with explicit sign-off (Angelus, via the coordinating session) for shAdjMeritBonus (public/js/editor/edit.js) — a real, live, pre-existing write site the original two-item list missed (see Story tm-admin.10.1's Dev Agent Record). It is TEMPORARY, not a durable exception like the other two: it is pending TM Admin Story 10.1b, which retires the write path entirely. Do not add a further entry without the same explicit sign-off — see AC3's own 'not a general carve-out' instruction.",
+  "scan_roots": ["server", "public/js"],
+  "exclude_globs": [
+    "server/tests/**",
+    "server/scripts/**",
+    "**/*.test.js"
+  ],
+  "exclude_rationale": "server/tests/** seeds fixture data (not a production write path); server/scripts/** holds one-off, operator-run migration/recovery scripts (migrate-legacy-bonus-stmods.mjs, patch-presence-cp-recovery.js, archive/ingest-excel.js) already covered by their own dry-run/--live discipline, not the deployed app's request/render path this guard is scoped to.",
+  "allowlist": [
+    {
+      "path": "TM Admin/cockpit/scripts/apply-mantle-presence-bonus-2026-08.mjs",
+      "repo": "TM Admin",
+      "status": "live",
+      "reason": "One-off script writing attributes.Presence.bonus directly for the Mantle of Amorous Fire's drifted holders (Jack Fallow, Charles Mercer-Willows) — a live-rule relationship (Presence bonus must continuously track current Cruac dots) a one-time fold cannot represent. Named in rules-engine-and-mods-audit.md AC2."
+    },
+    {
+      "path": "TM Admin/cockpit/scripts/apply-faith-militant-<reserved>.mjs",
+      "repo": "TM Admin",
+      "status": "not yet built — 0 live holders (rules-engine-and-mods-audit.md AC4 table)",
+      "reason": "Reserved name for the Faith Militant equivalent of the Mantle script above, pre-authorised by AC3 of TM Admin Story tm-admin.10.1 as the second named exception. Faith Militant ('Gain Resources equal to dots in Herd') is the second confirmed live-rule relationship in the audit's Bucket 1; no live character currently holds it, so no real write site exists yet. When one is built its real file path replaces this placeholder — do not treat the placeholder itself as a live exception."
+    },
+    {
+      "path": "public/js/editor/edit.js",
+      "repo": "TM Game",
+      "status": "TEMPORARY — live, shipped, currently unresolved. Added 2026-08-31 with Angelus's explicit sign-off, NOT a durable exception like the two above.",
+      "reason": "shAdjMeritBonus (edit.js:599-608, `m.bonus = Math.max(0, (m.bonus || 0) + delta)`) is the shipped, live, ST-facing merit-bonus stepper (feature.333/feature.335) — wired via an onclick in public/js/editor/xp.js:272 and exposed on `window` in both admin.js and app.js. It writes merits[].bonus directly and unaudited, deliberately carved out of STM-14's own scope at the time (specs/qa/gates/1034.1-stm-14-audited-adhoc-bonus.yml:106: 'MERIT channel, out of scope'). Discovered by this guard, not by the original two-exception audit. This entry is a TEMPORARY allowlisting pending TM Admin Story 10.1b (not yet built), which retires this write path in favour of the audited 'Add ST Mod' flow. Story tm-admin.10.2's own drop step (removing `bonus` from the schema entirely) has a new precondition because of this entry: it cannot run until 10.1b lands, or it would either break this still-live stepper or silently reintroduce the dots/bonus split it writes to."
+    }
+  ]
+}

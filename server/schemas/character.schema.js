@@ -453,11 +453,37 @@ export const characterSchema = {
 
   definitions: {
 
+    // ── "One true rating" Stage 1, Phase A (TM Admin Story tm-admin.10.1,
+    // 2026-08-31) — `bonus` is WRITE-FROZEN across all four definitions
+    // below (attrObj, skillObj, discObj, merit). It still holds whatever
+    // value it already carried before this freeze (real, nonzero values
+    // genuinely exist live today — e.g. Jack Fallow's and Charles
+    // Mercer-Willows's Presence, per
+    // `TM Admin/specs/audits/rules-engine-and-mods-audit.md`), and every
+    // existing read path (`getAttrEffective`, `skTotal`, `discDots`,
+    // `meritEffectiveRating`) still sums `dots`/`rating` + `bonus` exactly
+    // as before — this freeze is write-side only, nothing here changes what
+    // renders. No NEW code path may write a changed value into `bonus`,
+    // full stop. This is the interim step before Story 10.2 folds every
+    // existing `bonus` value into `dots`/`rating` and drops the field
+    // entirely; `bonus` is not removed here, only frozen.
+    //
+    // The only two audit-confirmed exceptions (both live-rule relationships
+    // that must keep tracking another trait's *current* dots, which a
+    // one-time fold cannot represent) are named in
+    // `server/scripts/rules-verify/bonus-write-allowlist.json` and enforced
+    // by `server/scripts/rules-verify/verify-no-bonus-writes.js` — both
+    // exceptions are TM-Admin-side (Mantle of Amorous Fire's raw-write
+    // script; Faith Militant's currently-unbuilt equivalent), not TM
+    // Game's own code, so a clean TM Game repo has zero write sites to any
+    // of the four `bonus` fields below.
     attrObj: {
       type: 'object',
       required: ['dots', 'bonus'],
       properties: {
         dots:     { type: 'integer', minimum: 0, maximum: 10 },
+        // WRITE-FROZEN (see the block above `attrObj`). Holds whatever
+        // value it already carried; no new code may change it.
         bonus:    { type: 'integer', minimum: 0 },
         cp:       { type: 'integer', minimum: 0 },
         xp:       { type: 'integer', minimum: 0 },
@@ -472,6 +498,8 @@ export const characterSchema = {
       required: ['dots'],
       properties: {
         dots:       { type: 'integer', minimum: 0, maximum: 5 },
+        // WRITE-FROZEN (see the block above `attrObj`). Holds whatever
+        // value it already carried; no new code may change it.
         bonus:      { type: 'integer', minimum: 0 },
         specs:      { type: 'array',   items: { type: 'string' } },
         nine_again: { type: 'boolean' },
@@ -494,6 +522,14 @@ export const characterSchema = {
         // are not a purchase channel, so they are not summed into it. No
         // `maximum` on purpose — `dots` is capped at 5 because five is the rating
         // ceiling, and a bonus is what takes a trait past its own cap.
+        //
+        // WRITE-FROZEN (see the block above `attrObj`) as of Story
+        // tm-admin.10.1. TM Game's own `accessors.discDots()` still doesn't
+        // read this field at all (audit gap #7, left as-is — see
+        // `TM Admin/specs/stories/tm-admin.10.1.tm-game-schema-freeze-bonus.story.md`
+        // AC5) — that divergence is unrelated to the freeze and closes by
+        // supersession once Story 10.2 drops the field entirely, not fixed
+        // here.
         bonus:    { type: 'integer', minimum: 0 },
         cp:       { type: 'integer', minimum: 0 },
         xp:       { type: 'integer', minimum: 0 },
@@ -731,6 +767,21 @@ export const characterSchema = {
         // server validation accepts it but the save path keeps it from leaking.
         _collective_shared_with: { type: 'array', items: { type: 'string' } },
         rule_key: { type: ['string', 'null'] },
+        // WRITE-FROZEN (see the block above `attrObj`) as of Story
+        // tm-admin.10.1. UNLIKE the attribute/skill channels, this freeze is
+        // NOT yet mechanically enforced for merits: `shAdjMeritBonus`
+        // (`public/js/editor/edit.js:599-608`) is a real, live, currently
+        // wired write path (the merit-bonus stepper, `feature.333`/
+        // `feature.335`, deliberately out of STM-14's own scope per
+        // `specs/qa/gates/1034.1-stm-14-audited-adhoc-bonus.yml:106`) that
+        // still writes a changed value into this field. Story tm-admin.10.1
+        // found this and, with Angelus's explicit sign-off (2026-08-31),
+        // added it as a THIRD, TEMPORARY entry in
+        // `server/scripts/rules-verify/bonus-write-allowlist.json` — a known,
+        // temporarily-allowlisted gap, not a resolved one. TM Admin Story
+        // 10.1b (not yet built) retires this write path; Story 10.2's own
+        // drop step cannot run until 10.1b lands. See tm-admin.10.1's Dev
+        // Agent Record for the full account.
         bonus:    { type: 'integer', minimum: 0 }
       },
       additionalProperties: false
