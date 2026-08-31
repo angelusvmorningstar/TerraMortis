@@ -2,13 +2,24 @@
  * Contract tests — CYCLE epic #708, story 3: Phase controls
  * Static-grep assertions over server/routes/tracker.js and
  * public/js/admin/cycle-views.js.
+ *
+ * #1116 (2026-08-31): three assertions re-pointed at their current location.
+ * CM-1 (#1028) moved the canonical phase-write into a shared module, so
+ * `setGamePhase`/the `apiPut`+`game_phase` pairing no longer live in
+ * cycle-views.js itself — they moved to downtime/db.js + cycle-phase.js.
+ * `gold2` never lived in the JS; the active-phase highlight is a CSS rule in
+ * admin-layout.css (this project's own convention: no bare hex, --gold2
+ * token only). All three behaviours are confirmed still live, just relocated
+ * — re-pointed rather than deleted, per this issue's own instruction.
  */
 
 import { describe, it, expect } from 'vitest';
 import fs from 'fs';
 
-const TRACKER     = fs.readFileSync('../server/routes/tracker.js', 'utf8');
-const CYCLE_VIEWS = fs.readFileSync('../public/js/admin/cycle-views.js', 'utf8');
+const TRACKER      = fs.readFileSync('../server/routes/tracker.js', 'utf8');
+const CYCLE_VIEWS  = fs.readFileSync('../public/js/admin/cycle-views.js', 'utf8');
+const DOWNTIME_DB  = fs.readFileSync('../public/js/downtime/db.js', 'utf8');
+const ADMIN_LAYOUT = fs.readFileSync('../public/css/admin-layout.css', 'utf8');
 
 describe('epic.708.3 — tracker.js: DELETE /api/tracker_state', () => {
   it('has router.delete route', () => {
@@ -38,8 +49,11 @@ describe('epic.708.3 — cycle-views.js: phase control UI', () => {
     expect(CYCLE_VIEWS).toMatch(/import[^;]*apiPut[^;]*from/);
   });
 
-  it('exports setGamePhase function', () => {
-    expect(CYCLE_VIEWS).toContain('setGamePhase');
+  it('CM-1 (#1028): the canonical phase-writer setCyclePhase exists in downtime/db.js, not cycle-views.js', () => {
+    // Relocated from cycle-views.js's own (since-removed) setGamePhase so
+    // every API caller is bound by the same writer, not just this button.
+    expect(DOWNTIME_DB).toContain('export async function setCyclePhase');
+    expect(CYCLE_VIEWS).toContain('setCyclePhase');
   });
 
   // INVERTED BY CM-4a (2026-08-16), kept rather than deleted so the intent
@@ -57,17 +71,23 @@ describe('epic.708.3 — cycle-views.js: phase control UI', () => {
     expect(CYCLE_VIEWS).toContain('confirm(');
   });
 
-  it('uses data-phase attribute on phase buttons', () => {
-    expect(CYCLE_VIEWS).toContain('data-phase');
+  it('uses data-phase attribute on phase buttons (dataset.phase, same contract)', () => {
+    // Same DOM attribute (`.dataset.phase` renders as `data-phase="..."`),
+    // just spelled the JS-property way rather than the literal string.
+    expect(CYCLE_VIEWS).toContain('dataset.phase');
   });
 
-  it('calls apiPut with game_phase on cycle update', () => {
-    expect(CYCLE_VIEWS).toContain('game_phase');
-    expect(CYCLE_VIEWS).toContain('apiPut');
+  it('the relocated phase-writer calls apiPut with game_phase on cycle update', () => {
+    // apiPut + the game_phase field are still paired, just in db.js/
+    // cycle-phase.js now (CM-1's single-writer discipline) rather than here.
+    expect(DOWNTIME_DB).toContain('apiPut');
+    expect(DOWNTIME_DB).toContain('game_phase');
   });
 
-  it('highlights active phase with gold2 colour', () => {
-    expect(CYCLE_VIEWS).toContain('gold2');
+  it('highlights active phase with gold2 colour (CSS token, not JS)', () => {
+    // No bare hex per this project's own convention — the highlight is the
+    // --gold2 custom property on .cy-phase-btn.is-active in admin-layout.css.
+    expect(ADMIN_LAYOUT).toMatch(/\.cy-phase-btn\.is-active\s*\{[^}]*--gold2/);
   });
 
   it('shows inline error on phase change failure', () => {

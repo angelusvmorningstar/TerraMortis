@@ -149,6 +149,49 @@ describe('#879 — Concern #9 (single-floor invariant)', () => {
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
+// #900 — c.derived stripped from both save paths (follow-up from hotfix #898,
+// same pattern as Concern #9 above: static-analysis on source, not a
+// behavioural test). ADR-006's c.derived is a render-time materialised
+// cache, never stored — the #898 hotfix shipped without tests for urgency.
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('#900 — c.derived stripped in both save paths (ADR-006, hotfix #898 follow-up)', () => {
+  // Brace-matched function-body slice, not a fixed-character-distance
+  // window — see #1115 (n7-n9-allocator-readers.test.js) for why a fixed
+  // window degrades every time the file is edited and is the wrong pattern
+  // to introduce in a new test.
+  function sliceFunctionBody(src, declRe) {
+    const m = declRe.exec(src);
+    if (!m) throw new Error(`declaration not found: ${declRe}`);
+    const scanStart = m.index + m[0].length - 1;
+    let depth = 0;
+    let bodyStart = -1;
+    for (let i = scanStart; i < src.length; i++) {
+      if (src[i] === '{') {
+        if (depth === 0) bodyStart = i + 1;
+        depth++;
+      } else if (src[i] === '}') {
+        depth--;
+        if (depth === 0) return src.slice(bodyStart, i);
+      }
+    }
+    throw new Error(`unbalanced braces scanning ${declRe}`);
+  }
+
+  it('admin.js buildSaveBody\'s skip predicate includes k === \'derived\'', () => {
+    const src = read('public/js/admin.js');
+    const body = sliceFunctionBody(src, /function buildSaveBody\(c\)\s*\{/);
+    expect(body).toContain("k === 'derived'");
+  });
+
+  it('editor/export.js charsForSave deletes copy.derived after stripOverlay(copy)', () => {
+    const src = read('public/js/editor/export.js');
+    const body = sliceFunctionBody(src, /export function charsForSave\(\)\s*\{/);
+    expect(body).toMatch(/stripOverlay\(copy\)[\s\S]*delete copy\.derived/);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Concern #8 (editor hint wording verbatim)
 // ─────────────────────────────────────────────────────────────────────────────
 
