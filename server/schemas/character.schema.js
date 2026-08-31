@@ -453,6 +453,14 @@ export const characterSchema = {
 
   definitions: {
 
+    // `free` REMOVED 2026-08-31 (code review, "one true rating" investigation): confirmed
+    // vestigial for BOTH attributes and skills - grepped every render/mechanical code path in
+    // both this repo and TM Admin's own port, zero live reads of attrObj.free or skillObj.free
+    // anywhere. Unlike discObj.free (below), which IS genuinely read/displayed
+    // (discBonusSources/discCard, TM Admin's characters.js) and stays. All 391 real attribute
+    // instances and 630 real skill instances carrying the field were stripped from live data
+    // in the same pass (dots untouched throughout - confirmed live, e.g. Charlie Ballsack's
+    // Weaponry stays dots:5).
     attrObj: {
       type: 'object',
       required: ['dots', 'bonus'],
@@ -461,7 +469,6 @@ export const characterSchema = {
         bonus:    { type: 'integer', minimum: 0 },
         cp:       { type: 'integer', minimum: 0 },
         xp:       { type: 'integer', minimum: 0 },
-        free:     { type: 'integer', minimum: 0 },
         rule_key: { type: ['string', 'null'] }
       },
       additionalProperties: false
@@ -477,7 +484,6 @@ export const characterSchema = {
         nine_again: { type: 'boolean' },
         cp:         { type: 'integer', minimum: 0 },
         xp:         { type: 'integer', minimum: 0 },
-        free:       { type: 'integer', minimum: 0 },
         rule_key:   { type: ['string', 'null'] }
       },
       additionalProperties: false

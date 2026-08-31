@@ -767,7 +767,9 @@ export function shRenderDisciplines(c, editMode) {
     return '<div class="disc-tap-row" id="disc-row-' + id + '" onclick="toggleDisc(\'' + id + '\')">' + _trInner + '</div><div class="disc-drawer" id="disc-drawer-' + id + '">' + dr + '</div>';
   }
   function renderDiscEditRow(d, r, isIC, nameClass) {
-    const dObj = (c.disciplines || {})[d] || {}, dE = d.replace(/'/g, "\\'"), cm = isIC ? 3 : 4, db2 = dObj.cp || 0, xd = xpToDots(dObj.xp || 0, db2, cm), dt = db2 + xd;
+    // CODE REVIEW FIX (2026-08-31): db2 omitted dObj.free, understating the CP+XP subtotal
+    // box by any rules-granted free dots (matches the shEditDiscPt fix in editor/edit.js).
+    const dObj = (c.disciplines || {})[d] || {}, dE = d.replace(/'/g, "\\'"), cm = isIC ? 3 : 4, db2 = (dObj.cp || 0) + (dObj.free || 0), xd = xpToDots(dObj.xp || 0, db2, cm), dt = db2 + xd;
     const id = 'disc-' + c.name.replace(/[^a-z]/gi, '') + d.replace(/[^a-z]/gi, '');
     // Derive powers from rules cache (same as view mode)
     const dp = _discPowers(d, dt);
@@ -2094,7 +2096,10 @@ function _renderPT(c, m, si, rIdx, mc, dd, editMode, mciPool = 0) {
     }
     if (eDots >= 4) {
       const dot4 = m.dot4_skill || '', validAs = as.filter(Boolean);
-      const _skEffDots = sk => { const so = (c.skills || {})[sk] || {}; return (so.cp || 0) + xpToDots(so.xp || 0, so.cp || 0, 2); };
+      // CODE REVIEW FIX (2026-08-31): this re-derived cp+xpToDots from scratch, omitting
+      // so.free (same class of bug as shEditSkillPt) - read the already-correct stored
+      // dots directly instead of a second, independent (and incomplete) recompute.
+      const _skEffDots = sk => (c.skills || {})[sk]?.dots || 0;
       const eligibleAs = validAs.filter(sk => _skEffDots(sk) < 5);
       const _pt4Missing = !dot4 || !validAs.includes(dot4);
       h += '<div class="mci-benefit-row"><span class="mci-dot-lbl">\u25CF\u25CF\u25CF\u25CF</span><div><span class="mci-benefit-text">On the Job Training: +1 dot in an Asset Skill</span><div class="pt-skill-pick' + (_pt4Missing ? ' has-unfilled' : '') + '" style="display:flex;gap:4px;margin-top:4px"><select class="pt-skill-sel" onchange="shEditStandMerit(' + si + ',\'dot4_skill\',this.value)"><option value="">' + (dot4 || '\u2014 choose \u2014') + '</option>' + eligibleAs.map(sk => '<option' + (dot4 === sk ? ' selected' : '') + '>' + esc(sk) + '</option>').join('') + '</select></div></div></div>';
