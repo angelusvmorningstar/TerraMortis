@@ -1,0 +1,1378 @@
+diff --git a/public/css/suite.css b/public/css/suite.css
+index 85e3063b..f46e1015 100644
+--- a/public/css/suite.css
++++ b/public/css/suite.css
+@@ -534,6 +534,7 @@ body.desktop-mode .sh-powers-grid > .sh-sec{break-inside:avoid;}
+ #t-territory .adj{width:44px;height:44px;background:var(--surf);border:1px solid var(--bdr);color:var(--txt2);cursor:pointer;font-size:1.125rem;display:flex;align-items:center;justify-content:center;-webkit-tap-highlight-color:transparent;}
+ #t-territory .adj:active{border-color:var(--gold);}
+ #t-territory .adj-val{font-family:var(--fl);font-size:0.875rem;font-weight:600;min-width:30px;text-align:center;}
++#t-territory .ruler-row .btn-sm{padding:3px 8px;margin-left:4px;}
+ #t-territory .av-pos{color:var(--gold);}
+ #t-territory .av-neg{color:var(--err2);}
+ #t-territory .av-zero{color:var(--txt3);}
+@@ -543,7 +544,32 @@ body.desktop-mode .sh-powers-grid > .sh-sec{break-inside:avoid;}
+ 
+ /* Card footer */
+ #t-territory .tc-foot{padding:10px 14px;border-top:1px solid var(--bdr);background:var(--bg);display:flex;gap:8px;}
++#t-territory .tc-foot button{flex:1;}
+ #t-territory .res-bar{display:flex;align-items:center;justify-content:space-between;padding:10px 16px;background:var(--gold-a5);border-top:1px solid var(--bdr2);font-family:var(--fl);font-size:var(--fs-floor-micro);letter-spacing:.14em;text-transform:uppercase;color:var(--gold);}
++#t-territory .res-bar .btn-sm{color:var(--txt3);border-color:var(--txt3);}
++
++/* Empty board (TBID.1) */
++#t-territory .terr-empty{border:1px dashed var(--bdr2);background:var(--surf);padding:28px 16px;text-align:center;}
++#t-territory .terr-empty-msg{font-family:var(--ft);font-size:0.75rem;color:var(--txt3);font-style:italic;}
++
++/* Resolved, collapsed (TBID.1) */
++#t-territory .trr{border-color:var(--bdr2);}
++#t-territory .trr .res-bar{border-top:none;gap:10px;}
++#t-territory .trr-id{display:flex;flex-direction:column;gap:2px;min-width:0;}
++#t-territory .trr-name{font-family:var(--fl);font-size:0.8125rem;font-weight:700;letter-spacing:.04em;text-transform:none;color:var(--txt);}
++#t-territory .trr-holder{font-family:var(--fl);font-size:var(--fs-floor-micro);letter-spacing:.12em;color:var(--gold);}
++#t-territory .trr-acts{display:flex;align-items:center;gap:8px;flex-shrink:0;}
++#t-territory .trr-tag{font-family:var(--fl);font-size:var(--fs-floor-micro);letter-spacing:.18em;color:var(--txt3);border:1px solid var(--bdr2);padding:3px 8px;}
++
++/* Territory picker, step 1 (TBID.1) */
++#t-territory .pick-grid{display:grid;grid-template-columns:1fr;gap:8px;margin-bottom:4px;}
++#t-territory .pick-tile{display:flex;flex-direction:column;align-items:flex-start;gap:4px;width:100%;text-align:left;text-transform:none;letter-spacing:.02em;padding:12px 14px;background:var(--surf2);border:1px solid var(--bdr);}
++#t-territory .pick-tile:not(:disabled):active{background:var(--gold-a8);border-color:var(--bdr3);}
++#t-territory .pick-tile.pick-taken{opacity:.45;cursor:not-allowed;}
++#t-territory .pick-name{font-family:var(--fl);font-size:0.875rem;font-weight:700;color:var(--txt);}
++#t-territory .pick-amb{display:flex;align-items:center;gap:8px;font-family:var(--fl);font-size:var(--fs-floor-body);color:var(--txt3);}
++#t-territory .pick-amb .amb-mod{font-size:0.875rem;}
++#t-territory .pick-tag{font-family:var(--fl);font-size:var(--fs-floor-micro);letter-spacing:.18em;color:var(--txt3);border:1px solid var(--bdr2);padding:2px 8px;}
+ 
+ /* Modal */
+ #t-territory .overlay{position:fixed;inset:0;background:var(--overlay2);display:flex;align-items:center;justify-content:center;z-index:200;padding:16px;}
+@@ -555,6 +581,7 @@ body.desktop-mode .sh-powers-grid > .sh-sec{break-inside:avoid;}
+ #t-territory .field input{width:100%;background:var(--surf2);border:1px solid var(--bdr);color:var(--txt);font-family:var(--fl);font-size:0.875rem;padding:11px 12px;outline:none;}
+ #t-territory .field input:focus{border-color:var(--bdr3);}
+ #t-territory .field input::placeholder{color:var(--txt3);}
++#t-territory .field .form-select,#t-territory .field .form-input{width:100%;}
+ #t-territory .modal-err{font-family:var(--ft);font-size:var(--fs-floor-body);color:var(--err2);margin-top:6px;}
+ #t-territory .modal-btns{display:flex;gap:8px;justify-content:flex-end;margin-top:18px;}
+ 
+diff --git a/public/js/suite/territory.js b/public/js/suite/territory.js
+index 3d9fb620..0ae5560c 100644
+--- a/public/js/suite/territory.js
++++ b/public/js/suite/territory.js
+@@ -1,8 +1,15 @@
+ /**
+  * territory.js — Territory Bids tab (vanilla JS).
+  *
+- * Manages territory bidding, influence allocation, and resolution
+- * for the five city territories. No framework dependencies.
++ * Manages territory bidding, influence allocation, and resolution at the table.
++ * No framework dependencies, no server: state lives in localStorage under
++ * `tm_bids_v2`.
++ *
++ * The board starts EMPTY (TBID.1). TERRS is the static five-entry catalogue the
++ * "Open Territory Bid" picker draws from; a territory only reaches
++ * `state.territories` once its Regent has been confirmed. Resolved territories
++ * stay on the board as a collapsed row, reopened through the same
++ * Regent-confirm step.
+  */
+ 
+ // ══════════════════════════════════════════════
+@@ -18,6 +25,16 @@ const TERRS = [
+ ];
+ 
+ const KEY = 'tm_bids_v2';
++
++/**
++ * Persisted-payload version. Version 1 is the empty-startable board introduced
++ * by TBID.1. A saved payload with NO schemaVersion but a populated
++ * `territories` array predates that story: it is kept exactly as saved and
++ * stamped on the next write, so shipping this change never wipes a board that
++ * is mid-session on somebody's browser.
++ */
++const SCHEMA_VERSION = 1;
++
+ let _id = Date.now();
+ const uid = () => String(++_id);
+ 
+@@ -34,25 +51,41 @@ function dflt() {
+   return {
+     phase: 'open',
+     peek: false,
+-    territories: TERRS.map(t => ({ ...t, regent: '', regentInput: '', bids: [], resolved: false, winnerId: null })),
++    territories: [],
+   };
+ }
+ 
+ function load() {
+   try {
+     const s = JSON.parse(localStorage.getItem(KEY) || 'null');
+-    if (s && s.territories) return s;
++    if (s && Array.isArray(s.territories)) {
++      // Already on the current model: use it as saved.
++      if (s.schemaVersion != null) return { ...dflt(), ...s };
++      // Pre-TBID.1 save with a live board: grandfather it in, version stamped
++      // on the next persist() rather than reseeding the old always-five shape.
++      if (s.territories.length) return { ...dflt(), ...s, schemaVersion: SCHEMA_VERSION };
++      // Pre-TBID.1 save with nothing on the board: nothing to preserve.
++    }
+   } catch (e) { /* ignore */ }
+   return dflt();
+ }
+ 
++function payload() {
++  return {
++    schemaVersion: SCHEMA_VERSION,
++    phase: state.phase,
++    peek: state.peek,
++    territories: state.territories,
++  };
++}
++
+ function persist() {
+   clearTimeout(_saveTimer);
+   saving = true;
+   render();
+   _saveTimer = setTimeout(() => {
+     try {
+-      localStorage.setItem(KEY, JSON.stringify({ phase: state.phase, peek: state.peek, territories: state.territories }));
++      localStorage.setItem(KEY, JSON.stringify(payload()));
+     } catch (e) { /* ignore */ }
+     saving = false;
+     render();
+@@ -86,6 +119,19 @@ function nameOpts(sel) {
+   return names.map(n => `<option value="${esc(n)}"${n === sel ? ' selected' : ''}>${esc(n)}</option>`).join('');
+ }
+ 
++/**
++ * Options for the open-flow Regent confirm. A territory's defaultRegent (and a
++ * previous winner on a reopen) is not guaranteed to be in the loaded character
++ * list, so it is carried as its own option rather than silently losing the
++ * pre-fill.
++ */
++function regentOpts(sel) {
++  const names = window._charNames || [];
++  const extra = sel && !names.includes(sel)
++    ? `<option value="${esc(sel)}" selected>${esc(sel)}</option>` : '';
++  return `<option value="">(none)</option>${extra}${nameOpts(sel)}`;
++}
++
+ function ut(tid, fn) {
+   state.territories = state.territories.map(t => t.id === tid ? fn(t) : t);
+   persist();
+@@ -112,17 +158,13 @@ window.terrTogglePeek = function () {
+   persist(); render();
+ };
+ 
+-window.terrResetAll = function () {
+-  const cur = state.territories;
+-  const ns = dflt();
+-  ns.territories = ns.territories.map(t => {
+-    const existing = cur.find(c => c.id === t.id);
+-    return existing ? { ...t, regent: existing.regent, regentInput: existing.regentInput } : t;
+-  });
+-  state = ns;
++window.terrWipeBoard = function () {
++  if (!confirm('Wipe the entire board? This removes all territories and bids.')) return;
++  clearTimeout(_saveTimer);
++  state = dflt();
+   modal = null;
+   saving = false;
+-  try { localStorage.setItem(KEY, JSON.stringify(ns)); } catch (e) { /* ignore */ }
++  try { localStorage.setItem(KEY, JSON.stringify(payload())); } catch (e) { /* ignore */ }
+   render();
+ };
+ 
+@@ -130,6 +172,52 @@ window.terrSetRegent = function (tid, val) {
+   ut(tid, t => ({ ...t, regent: val, regentInput: val }));
+ };
+ 
++// ── Open flow: pick a territory, then confirm its Regent ──
++//
++// Deliberately NOT named terrOpenBidModal: that is the existing per-card
++// "add a claimant's bid" modal for an already-open territory, and reusing the
++// name would shadow it.
++
++window.terrOpenTerritoryPicker = function () {
++  modal = { type: 'pick' };
++  render();
++};
++
++window.terrPickTerritory = function (tid) {
++  if (state.territories.some(t => t.id === tid)) return;   // already in contest
++  const def = TERRS.find(t => t.id === tid);
++  if (!def) return;
++  modal = { type: 'regent', tid, mode: 'open', regent: def.defaultRegent || '' };
++  render();
++};
++
++window.terrReopen = function (tid) {
++  const t = state.territories.find(x => x.id === tid);
++  if (!t) return;
++  const winner = t.bids.find(b => b.id === t.winnerId);
++  modal = { type: 'regent', tid, mode: 'reopen', regent: (winner && winner.claimant) || t.regent || '' };
++  render();
++};
++
++window.terrConfirmRegent = function (tid, regentName) {
++  const name = (regentName || '').trim();
++  if (!name) return;
++  if (state.territories.some(t => t.id === tid)) {
++    // Reopen: same entry, same position, bids cleared.
++    state.territories = state.territories.map(t => t.id === tid
++      ? { ...t, regent: name, regentInput: name, bids: [], resolved: false, winnerId: null }
++      : t);
++  } else {
++    const def = TERRS.find(t => t.id === tid);
++    if (!def) return;
++    state.territories = [...state.territories,
++      { ...def, regent: name, regentInput: name, bids: [], resolved: false, winnerId: null }];
++  }
++  modal = null;
++  persist();
++  render();
++};
++
+ window.terrOpenBidModal = function (tid, tname) {
+   modal = { type: 'bid', tid, tname };
+   render();
+@@ -186,10 +274,6 @@ window.terrResolve = function (tid) {
+   });
+ };
+ 
+-window.terrUnres = function (tid) {
+-  ut(tid, t => ({ ...t, resolved: false, winnerId: null }));
+-};
+-
+ window.terrCloseModal = function () {
+   modal = null;
+   render();
+@@ -198,6 +282,12 @@ window.terrCloseModal = function () {
+ window.terrModalSubmit = function () {
+   const m = modal;
+   if (!m) return;
++  if (m.type === 'regent') {
++    const rg = (document.getElementById('modal-regent')?.value || '').trim();
++    if (!rg) { document.getElementById('modal-err').textContent = 'Regent required.'; return; }
++    window.terrConfirmRegent(m.tid, rg);
++    return;
++  }
+   if (m.type === 'bid') {
+     const cl = document.getElementById('modal-cl')?.value;
+     const sc = document.getElementById('modal-sc')?.value;
+@@ -255,7 +345,7 @@ function renderBid(t, bid, i, scores, maxScore) {
+     const valDisp = state.peek ? '\u00b7' : (bid.rulerAdjust >= 0 ? '+' : '') + bid.rulerAdjust;
+     const valCls = state.peek ? 'av-zero' : avCls;
+     const resetBtn = !state.peek && bid.rulerAdjust !== 0
+-      ? `<button class="btn-sm" style="padding:3px 8px;margin-left:4px" onclick="terrAdjReset('${t.id}','${bid.id}')">Reset</button>` : '';
++      ? `<button class="btn-sm" onclick="terrAdjReset('${t.id}','${bid.id}')">Reset</button>` : '';
+     rulerHtml = `<div class="ruler-row">
+       <span class="ruler-lbl">Ruler's adj.</span>
+       <button class="adj" onclick="terrAdj('${t.id}','${bid.id}',-1)">\u2212</button>
+@@ -302,7 +392,6 @@ function renderCard(t) {
+     return total(b) + (def ? 3 : 0);
+   });
+   const maxScore = Math.max(0, ...scores);
+-  const winner = t.resolved ? t.bids.find(b => b.id === t.winnerId) : null;
+ 
+   const ambCls = 'amb-mod ' + (t.ambienceMod > 0 ? 'amb-pos' : t.ambienceMod < 0 ? 'amb-neg' : 'amb-zero');
+   const ambVal = t.ambienceMod > 0 ? '+' + t.ambienceMod : String(t.ambienceMod);
+@@ -317,22 +406,14 @@ function renderCard(t) {
+   let footHtml = '';
+   if (!t.resolved) {
+     const resolveBtn = t.bids.length >= 1
+-      ? `<button class="btn-primary" style="flex:1" onclick="terrResolve('${t.id}')">${t.bids.length === 1 ? 'Resolve (uncontested)' : 'Resolve'}</button>` : '';
++      ? `<button class="btn-primary" onclick="terrResolve('${t.id}')">${t.bids.length === 1 ? 'Resolve (uncontested)' : 'Resolve'}</button>` : '';
+     footHtml = `<div class="tc-foot">
+-      <button style="flex:1" onclick="terrOpenBidModal('${t.id}','${esc(t.name)}')">+ Open Bid</button>
++      <button onclick="terrOpenBidModal('${t.id}','${esc(t.name)}')">+ Open Bid</button>
+       ${resolveBtn}
+     </div>`;
+   }
+ 
+-  let resHtml = '';
+-  if (t.resolved) {
+-    resHtml = `<div class="res-bar">
+-      <span>${winner ? esc(winner.claimant) + ' seizes the territory' : 'No winner'}</span>
+-      <button class="btn-sm" style="color:var(--text3);border-color:var(--text3)" onclick="terrUnres('${t.id}')">Reopen</button>
+-    </div>`;
+-  }
+-
+-  return `<div class="tc${t.resolved ? ' tc-resolved' : ''}">
++  return `<div class="tc">
+     <div class="tc-head">
+       <span class="tc-name">${esc(t.name)}</span>
+       ${t.regent ? `<span class="regent-tag">Regent: ${esc(t.regent)}</span>` : ''}
+@@ -352,37 +433,111 @@ function renderCard(t) {
+     </div>
+     <div class="tc-body">${bidsHtml}</div>
+     ${footHtml}
+-    ${resHtml}
++  </div>`;
++}
++
++/**
++ * A resolved territory stays on the board, but collapsed: name, the Regent who
++ * took it, a Resolved tag and a low-emphasis Reopen. No bid amounts, no
++ * challenger list. Reopen goes back through the Regent-confirm step rather
++ * than blindly re-arming, because a reopened territory may be contested by a
++ * different Regent this time.
++ */
++function renderResolvedRow(t) {
++  const winner = t.bids.find(b => b.id === t.winnerId);
++  const holder = (winner && winner.claimant) || t.regent || '';
++  return `<div class="tc tc-resolved trr">
++    <div class="res-bar">
++      <div class="trr-id">
++        <span class="trr-name">${esc(t.name)}</span>
++        <span class="trr-holder">${holder ? esc(holder) : 'No winner'}</span>
++      </div>
++      <div class="trr-acts">
++        <span class="trr-tag">Resolved</span>
++        <button class="btn-sm" onclick="terrReopen('${t.id}')">Reopen</button>
++      </div>
++    </div>
++  </div>`;
++}
++
++/** Step 1 of the open flow: which territory is being contested. */
++function renderPicker() {
++  const tiles = TERRS.map(def => {
++    const taken = state.territories.some(t => t.id === def.id);
++    const modCls = 'amb-mod ' + (def.ambienceMod > 0 ? 'amb-pos' : def.ambienceMod < 0 ? 'amb-neg' : 'amb-zero');
++    const modVal = def.ambienceMod > 0 ? '+' + def.ambienceMod : String(def.ambienceMod);
++    return `<button type="button" class="pick-tile${taken ? ' pick-taken' : ''}"${taken ? ' disabled' : ''} onclick="terrPickTerritory('${def.id}')">
++      <span class="pick-name">${esc(def.name)}</span>
++      <span class="pick-amb">
++        <span class="pick-amb-name">${esc(def.ambience || '')}</span>
++        <span class="${modCls}">${modVal}</span>
++      </span>
++      ${taken ? '<span class="pick-tag">In Contest</span>' : ''}
++    </button>`;
++  }).join('');
++
++  return `<div class="overlay" onclick="terrOverlayClick(event)">
++    <div class="modal">
++      <div class="modal-title">Open Territory Bid</div>
++      <div class="modal-sub">Choose the territory now being contested.</div>
++      <div class="pick-grid">${tiles}</div>
++      <div class="modal-btns">
++        <button onclick="terrCloseModal()">Cancel</button>
++      </div>
++    </div>
++  </div>`;
++}
++
++/** Step 2 of the open flow, shared with Reopen: confirm or override the Regent. */
++function renderRegentStep(m) {
++  const def = TERRS.find(t => t.id === m.tid) || state.territories.find(t => t.id === m.tid);
++  const reopening = m.mode === 'reopen';
++  return `<div class="overlay" onclick="terrOverlayClick(event)">
++    <div class="modal">
++      <div class="modal-title">${reopening ? 'Reopen' : 'Confirm Regent'}: ${esc(def ? def.name : '')}</div>
++      <div class="modal-sub">${reopening
++        ? 'Reopening clears the recorded bids and puts this territory back into contest.'
++        : 'Confirm who holds this territory. The Regent gets an automatic defence bid.'}</div>
++      <div class="field"><label>Regent</label>
++        <select id="modal-regent" class="form-select">${regentOpts(m.regent || '')}</select>
++      </div>
++      <div id="modal-err" class="modal-err"></div>
++      <div class="modal-btns">
++        <button onclick="terrCloseModal()">Cancel</button>
++        <button class="btn-primary btn-sm" onclick="terrModalSubmit()">${reopening ? 'Reopen Bidding' : 'Open Bid'}</button>
++      </div>
++    </div>
+   </div>`;
+ }
+ 
+ function renderModal() {
+   if (!modal) return '';
+   const m = modal;
++  if (m.type === 'pick') return renderPicker();
++  if (m.type === 'regent') return renderRegentStep(m);
+   const terr = state.territories.find(t => t.id === m.tid);
+   const bid = m.type === 'back' ? terr?.bids.find(b => b.id === m.bid) : null;
+   const title = m.type === 'bid' ? 'New Bid \u2014 ' + esc(m.tname) : 'Add Influence \u2014 ' + esc(bid?.claimant || '');
+   const sub = m.type === 'bid'
+     ? 'Claimant and seconder must hold City Status 2 or higher.'
+     : 'Enter the player committing influence to this bid.';
+-  const selStyle = 'width:100%;background:var(--surf2);border:1px solid var(--bdr);border-radius:4px;color:var(--txt2);font-family:var(--fh);font-size:12px;padding:6px 8px;outline:none';
+ 
+   let fieldsHtml;
+   if (m.type === 'bid') {
+     fieldsHtml = `
+       <div class="field"><label>Claimant</label>
+-        <select id="modal-cl" style="${selStyle}"><option value="">\u2014 select \u2014</option>${nameOpts('')}</select>
++        <select id="modal-cl" class="form-select"><option value="">\u2014 select \u2014</option>${nameOpts('')}</select>
+       </div>
+       <div class="field"><label>Seconder</label>
+-        <select id="modal-sc" style="${selStyle}"><option value="">\u2014 select \u2014</option>${nameOpts('')}</select>
++        <select id="modal-sc" class="form-select"><option value="">\u2014 select \u2014</option>${nameOpts('')}</select>
+       </div>`;
+   } else {
+     fieldsHtml = `
+       <div class="field"><label>Player / Character</label>
+-        <select id="modal-pl" style="${selStyle}"><option value="">\u2014 select \u2014</option>${nameOpts('')}</select>
++        <select id="modal-pl" class="form-select"><option value="">\u2014 select \u2014</option>${nameOpts('')}</select>
+       </div>
+       <div class="field"><label>Influence Amount</label>
+-        <input id="modal-am" type="number" min="1" placeholder="0" style="${selStyle};box-sizing:border-box">
++        <input id="modal-am" class="form-input" type="number" min="1" placeholder="0">
+       </div>`;
+   }
+ 
+@@ -422,6 +577,14 @@ function render() {
+   if (phase === 'reveal') backBtns = `<button class="btn-sm" onclick="terrBack('final')">Back to Final Commitments</button>`;
+   if (phase === 'final') backBtns = `<button class="btn-sm" onclick="terrBack('open')">Re-open Bidding</button>`;
+ 
++  // Wipe Board is only offered once there is a board to wipe.
++  const wipeBtn = territories.length
++    ? `<button class="btn-danger btn-sm" onclick="terrWipeBoard()">Wipe Board</button>` : '';
++
++  const boardHtml = territories.length
++    ? territories.map(t => (t.resolved ? renderResolvedRow(t) : renderCard(t))).join('')
++    : `<div class="terr-empty"><div class="terr-empty-msg">No territories are in contest. Open a territory bid to put one on the board.</div></div>`;
++
+   root.innerHTML = `
+     <div>
+       <div class="toolbar">
+@@ -430,9 +593,10 @@ function render() {
+           <span class="save-dot ${saveCls}">${saveLbl}</span>
+         </div>
+         <div class="toolbar-r">
++          <button class="btn-primary btn-sm" onclick="terrOpenTerritoryPicker()">Open Territory Bid</button>
+           ${advBtn}
+           ${backBtns}
+-          <button class="btn-danger btn-sm" onclick="terrResetAll()">Reset All</button>
++          ${wipeBtn}
+         </div>
+       </div>
+       <div class="summary">
+@@ -448,7 +612,7 @@ function render() {
+         </label>
+       </div>
+       <div class="terr-grid">
+-        ${territories.map(t => renderCard(t)).join('')}
++        ${boardHtml}
+       </div>
+     </div>
+     ${renderModal()}`;
+diff --git a/server/tests/tbid-1-territory-bid-open-flow.test.js b/server/tests/tbid-1-territory-bid-open-flow.test.js
+new file mode 100644
+index 00000000..86c0e91c
+--- /dev/null
++++ b/server/tests/tbid-1-territory-bid-open-flow.test.js
+@@ -0,0 +1,655 @@
++/**
++ * TBID.1 — Territory Bids: open-flow board, resolved-collapse, wipe, CSS/token cleanup.
++ *
++ * Covers AC1-AC13 of specs/stories/tbid-1-territory-bid-open-flow.md.
++ *
++ * ──────────────────────────────────────────────────────────────────────────
++ *   Why the harness looks like this
++ * ──────────────────────────────────────────────────────────────────────────
++ *
++ * `public/js/suite/territory.js` is a browser-only, no-build-step module: it
++ * assigns its handlers onto `window` at import time, reads/writes
++ * `localStorage`, and rebuilds `#terr-root`'s innerHTML on every change. There
++ * is no jsdom in this runner (BL-2/BL-4/BL-5's own suites already record that,
++ * and adding one is a dependency this story did not budget for either).
++ *
++ * So rather than fall back to pure source-text assertions — the pattern that
++ * has already rotted three suites in this repo (see CLAUDE.md's known-failures
++ * list) — this file installs a two-method `document` stand-in:
++ *
++ *   - `createElement` returns an object whose `innerHTML` getter escapes its
++ *     `textContent`, which is precisely and only what `esc()` uses it for;
++ *   - `getElementById` hands back a fake `#terr-root` whose `innerHTML` we can
++ *     read, plus fake modal fields for the submit handler.
++ *
++ * That is enough to drive the REAL functions and assert on the REAL rendered
++ * markup and the REAL persisted payload. Only the CSS-file assertions at the
++ * bottom are static, because a stylesheet has no behaviour to exercise.
++ */
++
++import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
++import fs from 'node:fs';
++import path from 'node:path';
++import { fileURLToPath } from 'node:url';
++
++const __dirname = path.dirname(fileURLToPath(import.meta.url));
++const REPO_ROOT = path.resolve(__dirname, '..', '..');
++const read = rel => fs.readFileSync(path.join(REPO_ROOT, rel), 'utf8');
++
++const KEY = 'tm_bids_v2';
++
++const CHAR_NAMES = ['Alice Vunder', 'Brandy LaRoux', 'Eve Lockridge', 'Reed Justice'];
++
++// ═════════════════════════════════════════════════════════════════════════════
++//  Harness
++// ═════════════════════════════════════════════════════════════════════════════
++
++const escapeText = s => String(s)
++  .replace(/&/g, '&amp;')
++  .replace(/</g, '&lt;')
++  .replace(/>/g, '&gt;');
++
++let store;   // localStorage backing map
++let root;    // fake #terr-root
++let fields;  // fake modal inputs, by id
++
++function installGlobals() {
++  store = new Map();
++  root = { innerHTML: '' };
++  fields = new Map();
++  fields.set('modal-err', { textContent: '' });
++
++  globalThis.localStorage = {
++    getItem: k => (store.has(k) ? store.get(k) : null),
++    setItem: (k, v) => { store.set(k, String(v)); },
++    removeItem: k => { store.delete(k); },
++  };
++
++  globalThis.document = {
++    createElement: () => ({
++      _t: '',
++      set textContent(v) { this._t = String(v); },
++      get textContent() { return this._t; },
++      get innerHTML() { return escapeText(this._t); },
++    }),
++    getElementById: id => (id === 'terr-root' ? root : (fields.get(id) || null)),
++  };
++
++  globalThis.window = globalThis;
++  globalThis._charNames = CHAR_NAMES.slice();
++  globalThis.confirm = vi.fn(() => true);
++}
++
++async function boot(saved) {
++  vi.resetModules();
++  installGlobals();
++  if (saved !== undefined) store.set(KEY, JSON.stringify(saved));
++  const mod = await import('../../public/js/suite/territory.js');
++  mod.mountTerr();
++  return mod;
++}
++
++/** Let persist()'s 500ms debounce fire so localStorage holds the new payload. */
++function flush() {
++  vi.advanceTimersByTime(600);
++}
++
++function saved() {
++  const raw = store.get(KEY);
++  return raw == null ? null : JSON.parse(raw);
++}
++
++function html() {
++  return root.innerHTML;
++}
++
++/** Drive the Regent-confirm modal's submit with a chosen name. */
++function submitRegent(name) {
++  fields.set('modal-regent', { value: name });
++  fields.set('modal-err', { textContent: '' });
++  window.terrModalSubmit();
++}
++
++const territoriesNow = () => (saved() || {}).territories || [];
++
++const PRE_TBID_SAVE = {
++  phase: 'final',
++  peek: false,
++  territories: [
++    {
++      id: 'academy',
++      name: 'The Academy',
++      defaultRegent: 'Jack Fallow',
++      ambience: 'Curated',
++      ambienceMod: 3,
++      regent: 'Alice Vunder',
++      regentInput: 'Alice Vunder',
++      bids: [{ id: '1', claimant: 'Brandy LaRoux', seconder: 'Eve Lockridge', backing: [{ id: '2', player: 'Eve Lockridge', amount: 4 }], rulerAdjust: 0 }],
++      resolved: false,
++      winnerId: null,
++    },
++  ],
++};
++
++beforeEach(() => {
++  vi.useFakeTimers();
++});
++
++afterEach(() => {
++  vi.useRealTimers();
++});
++
++// ═════════════════════════════════════════════════════════════════════════════
++//  AC1, AC2 — the board starts empty, the open control is always there
++// ═════════════════════════════════════════════════════════════════════════════
++
++describe('TBID.1 AC2 — state.territories defaults to []', () => {
++  it('renders zero territory cards on a fresh tm_bids_v2', async () => {
++    await boot();
++    expect(html()).not.toMatch(/class="tc[ "]/);
++    expect(html()).not.toContain('The Academy');
++    expect(html()).not.toContain('The Dockyards');
++  });
++
++  it('persists an empty territories array, not the old always-five seed', async () => {
++    await boot();
++    window.terrTogglePeek();
++    flush();
++    expect(saved().territories).toEqual([]);
++  });
++
++  it('keeps TERRS as the static five-entry catalogue, consumed by the picker', async () => {
++    await boot();
++    window.terrOpenTerritoryPicker();
++    for (const n of ['The Academy', 'The Dockyards', 'The Harbour', 'The North Shore', 'The Second City']) {
++      expect(html()).toContain(n);
++    }
++  });
++
++  it('shows an empty-board hint instead of a bare grid', async () => {
++    await boot();
++    expect(html()).toMatch(/terr-empty/);
++  });
++});
++
++describe('TBID.1 AC1 — the Open Territory Bid control is unconditional', () => {
++  it('is in the toolbar when the board is empty', async () => {
++    await boot();
++    expect(html()).toContain('Open Territory Bid');
++    expect(html()).toContain('terrOpenTerritoryPicker()');
++  });
++
++  it('is still in the toolbar once a territory is on the board', async () => {
++    await boot();
++    window.terrOpenTerritoryPicker();
++    window.terrPickTerritory('harbour');
++    submitRegent('Reed Justice');
++    flush();
++    expect(territoriesNow()).toHaveLength(1);
++    expect(html()).toContain('terrOpenTerritoryPicker()');
++  });
++});
++
++// ═════════════════════════════════════════════════════════════════════════════
++//  AC5, AC6 — schemaVersion, and the grandfather path
++// ═════════════════════════════════════════════════════════════════════════════
++
++describe('TBID.1 AC5 — a pre-existing populated save is not wiped by this deploy', () => {
++  it('keeps an unversioned populated board exactly as saved', async () => {
++    await boot(PRE_TBID_SAVE);
++    expect(html()).toContain('The Academy');
++    expect(html()).toContain('Brandy LaRoux');
++  });
++
++  it('stamps schemaVersion 1 into it on the next persist', async () => {
++    await boot(PRE_TBID_SAVE);
++    window.terrTogglePeek();
++    flush();
++    expect(saved().schemaVersion).toBe(1);
++    expect(saved().territories).toHaveLength(1);
++    expect(saved().territories[0].bids).toHaveLength(1);
++  });
++
++  it('preserves the saved phase across the migration', async () => {
++    await boot(PRE_TBID_SAVE);
++    window.terrTogglePeek();
++    flush();
++    expect(saved().phase).toBe('final');
++  });
++
++  it('does NOT grandfather an unversioned save whose board is empty', async () => {
++    await boot({ phase: 'open', peek: false, territories: [] });
++    expect(html()).toMatch(/terr-empty/);
++    window.terrTogglePeek();
++    flush();
++    expect(saved().territories).toEqual([]);
++  });
++
++  it('round-trips an already-versioned save without dropping its territories', async () => {
++    await boot({ schemaVersion: 1, ...PRE_TBID_SAVE });
++    expect(html()).toContain('The Academy');
++    window.terrTogglePeek();
++    flush();
++    expect(saved().territories).toHaveLength(1);
++  });
++});
++
++describe('TBID.1 AC6 — persist() always writes schemaVersion', () => {
++  it('writes it alongside phase/peek/territories', async () => {
++    await boot();
++    window.terrTogglePeek();
++    flush();
++    const payload = saved();
++    expect(payload.schemaVersion).toBe(1);
++    expect(payload).toHaveProperty('phase');
++    expect(payload).toHaveProperty('peek');
++    expect(payload).toHaveProperty('territories');
++  });
++});
++
++// ═════════════════════════════════════════════════════════════════════════════
++//  AC3, AC4 — the two-step picker
++// ═════════════════════════════════════════════════════════════════════════════
++
++describe('TBID.1 AC3 — picker step 1 lists all five, disabling the ones in contest', () => {
++  it('renders five selectable tiles when the board is empty', async () => {
++    await boot();
++    window.terrOpenTerritoryPicker();
++    const tiles = html().match(/class="pick-tile[^"]*"/g) || [];
++    expect(tiles).toHaveLength(5);
++    expect(html()).not.toContain('In Contest');
++    expect(html()).not.toContain('disabled');
++  });
++
++  it('shows an already-open territory disabled and labelled In Contest, not hidden', async () => {
++    await boot();
++    window.terrOpenTerritoryPicker();
++    window.terrPickTerritory('harbour');
++    submitRegent('Reed Justice');
++    flush();
++
++    window.terrOpenTerritoryPicker();
++    const markup = html();
++    expect(markup).toContain('The Harbour');           // present, not removed
++    expect(markup).toContain('In Contest');
++    expect(markup).toMatch(/pick-taken/);
++    expect(markup).toMatch(/disabled/);
++    expect((markup.match(/class="pick-tile[^"]*"/g) || [])).toHaveLength(5);
++  });
++
++  it('disables a RESOLVED territory in the picker too', async () => {
++    await boot();
++    window.terrOpenTerritoryPicker();
++    window.terrPickTerritory('academy');
++    submitRegent('Alice Vunder');
++    window.terrAddBid('academy', 'Brandy LaRoux', 'Eve Lockridge');
++    window.terrResolve('academy');
++    flush();
++    expect(territoriesNow()[0].resolved).toBe(true);
++
++    window.terrOpenTerritoryPicker();
++    expect(html()).toContain('In Contest');
++    expect(html()).toMatch(/pick-taken/);
++  });
++
++  it('refuses to advance on a territory already on the board', async () => {
++    await boot();
++    window.terrOpenTerritoryPicker();
++    window.terrPickTerritory('harbour');
++    submitRegent('Reed Justice');
++    flush();
++
++    window.terrOpenTerritoryPicker();
++    window.terrPickTerritory('harbour');
++    expect(html()).not.toContain('modal-regent');   // still on step 1
++  });
++});
++
++describe('TBID.1 AC4 — picker step 2 confirms the Regent, and only that adds the card', () => {
++  it('advances to a Regent field pre-selected to the defaultRegent', async () => {
++    await boot();
++    window.terrOpenTerritoryPicker();
++    window.terrPickTerritory('harbour');
++    const markup = html();
++    expect(markup).toContain('modal-regent');
++    expect(markup).toContain('The Harbour');
++    expect(markup).toMatch(/<option value="Reed Justice" selected>/);
++  });
++
++  it('pre-fills a defaultRegent that is not in the character list', async () => {
++    await boot();
++    window.terrOpenTerritoryPicker();
++    window.terrPickTerritory('academy');   // Jack Fallow is not in CHAR_NAMES
++    expect(html()).toMatch(/<option value="Jack Fallow" selected>/);
++  });
++
++  it('picking a territory alone does NOT add it to the board', async () => {
++    await boot();
++    window.terrOpenTerritoryPicker();
++    window.terrPickTerritory('harbour');
++    flush();
++    expect(territoriesNow()).toEqual([]);
++  });
++
++  it('confirming pushes a correctly-shaped entry, closes the modal and persists', async () => {
++    await boot();
++    window.terrOpenTerritoryPicker();
++    window.terrPickTerritory('harbour');
++    submitRegent('Alice Vunder');
++    flush();
++
++    const ts = territoriesNow();
++    expect(ts).toHaveLength(1);
++    expect(ts[0]).toMatchObject({
++      id: 'harbour',
++      name: 'The Harbour',
++      defaultRegent: 'Reed Justice',
++      ambience: 'Untended',
++      ambienceMod: -2,
++      regent: 'Alice Vunder',
++      regentInput: 'Alice Vunder',
++      bids: [],
++      resolved: false,
++      winnerId: null,
++    });
++    expect(html()).not.toContain('class="overlay"');
++    expect(html()).toContain('The Harbour');
++  });
++
++  it('rejects an empty Regent rather than creating a regent-less card', async () => {
++    await boot();
++    window.terrOpenTerritoryPicker();
++    window.terrPickTerritory('harbour');
++    submitRegent('');
++    flush();
++    expect(territoriesNow()).toEqual([]);
++    expect(fields.get('modal-err').textContent).toMatch(/regent/i);
++  });
++
++  it('the confirmed Regent still drives terrAddBid\'s automatic +3 defence bid', async () => {
++    await boot();
++    window.terrOpenTerritoryPicker();
++    window.terrPickTerritory('harbour');
++    submitRegent('Alice Vunder');
++    window.terrAddBid('harbour', 'Brandy LaRoux', 'Eve Lockridge');
++    flush();
++    const bids = territoriesNow()[0].bids;
++    expect(bids).toHaveLength(2);
++    expect(bids[1].claimant).toBe('Alice Vunder');
++  });
++});
++
++// ═════════════════════════════════════════════════════════════════════════════
++//  AC7, AC8 — resolved collapse and Reopen
++// ═════════════════════════════════════════════════════════════════════════════
++
++async function bootWithResolved() {
++  await boot();
++  window.terrOpenTerritoryPicker();
++  window.terrPickTerritory('harbour');
++  submitRegent('Alice Vunder');
++  window.terrAddBid('harbour', 'Brandy LaRoux', 'Eve Lockridge');
++  flush();
++  const bidId = territoriesNow()[0].bids[0].id;
++  window.terrAddBack('harbour', bidId, 'Eve Lockridge', 7);
++  window.terrResolve('harbour');
++  flush();
++  return territoriesNow()[0];
++}
++
++describe('TBID.1 AC7 — a resolved territory stays on the board as a compact row', () => {
++  it('stays in state.territories', async () => {
++    const t = await bootWithResolved();
++    expect(t.resolved).toBe(true);
++    expect(territoriesNow()).toHaveLength(1);
++  });
++
++  it('renders the collapsed row, not the full bid card', async () => {
++    await bootWithResolved();
++    const markup = html();
++    expect(markup).toMatch(/trr/);
++    expect(markup).toContain('Resolved');
++    expect(markup).toContain('The Harbour');
++    expect(markup).toContain('Reopen');
++  });
++
++  it('does not show bid amounts or the challenger list', async () => {
++    await bootWithResolved();
++    const markup = html();
++    expect(markup).not.toContain('back-list');
++    expect(markup).not.toContain('bid-score');
++    expect(markup).not.toContain('bid-claimant');
++    expect(markup).not.toContain('bid-seconder');
++    // Eve Lockridge is the seconder and the backer, never the winner: if she
++    // shows up, the challenger/backing detail leaked into the collapsed row.
++    expect(markup).not.toContain('Eve Lockridge');
++    expect(markup).not.toContain('+7');
++  });
++
++  it('names the winning Regent on the row', async () => {
++    const t = await bootWithResolved();
++    const winner = t.bids.find(b => b.id === t.winnerId);
++    expect(html()).toContain(winner.claimant);
++  });
++});
++
++describe('TBID.1 AC8 — Reopen re-enters the Regent-confirm step', () => {
++  it('opens the Regent-confirm modal pre-filled with the previous winner', async () => {
++    const t = await bootWithResolved();
++    const winner = t.bids.find(b => b.id === t.winnerId);
++    window.terrReopen('harbour');
++    expect(html()).toContain('modal-regent');
++    expect(html()).toMatch(new RegExp(`<option value="${winner.claimant}" selected>`));
++  });
++
++  it('does not change any state until the confirm is submitted', async () => {
++    await bootWithResolved();
++    window.terrReopen('harbour');
++    flush();
++    expect(territoriesNow()[0].resolved).toBe(true);
++  });
++
++  it('resets bids/resolved/winnerId on the SAME entry, in place', async () => {
++    await bootWithResolved();
++    const before = territoriesNow();
++    window.terrReopen('harbour');
++    submitRegent('Eve Lockridge');
++    flush();
++
++    const after = territoriesNow();
++    expect(after).toHaveLength(before.length);
++    expect(after[0].id).toBe('harbour');
++    expect(after[0].resolved).toBe(false);
++    expect(after[0].winnerId).toBeNull();
++    expect(after[0].bids).toEqual([]);
++    expect(after[0].regent).toBe('Eve Lockridge');
++    expect(after[0].regentInput).toBe('Eve Lockridge');
++  });
++
++  it('keeps position when other territories sit around it', async () => {
++    await boot();
++    for (const [tid, regent] of [['academy', 'Alice Vunder'], ['harbour', 'Reed Justice'], ['northshore', 'Eve Lockridge']]) {
++      window.terrOpenTerritoryPicker();
++      window.terrPickTerritory(tid);
++      submitRegent(regent);
++    }
++    window.terrAddBid('harbour', 'Brandy LaRoux', 'Eve Lockridge');
++    window.terrResolve('harbour');
++    flush();
++    expect(territoriesNow().map(t => t.id)).toEqual(['academy', 'harbour', 'northshore']);
++
++    window.terrReopen('harbour');
++    submitRegent('Brandy LaRoux');
++    flush();
++    expect(territoriesNow().map(t => t.id)).toEqual(['academy', 'harbour', 'northshore']);
++    expect(territoriesNow()[1].resolved).toBe(false);
++  });
++});
++
++// ═════════════════════════════════════════════════════════════════════════════
++//  AC9 — Wipe Board
++// ═════════════════════════════════════════════════════════════════════════════
++
++describe('TBID.1 AC9 — Wipe Board replaces Reset All, gated behind a confirm', () => {
++  it('is not rendered while the board is empty', async () => {
++    await boot();
++    expect(html()).not.toContain('Wipe Board');
++    expect(html()).not.toContain('terrWipeBoard()');
++  });
++
++  it('appears once the board has something on it', async () => {
++    await boot();
++    window.terrOpenTerritoryPicker();
++    window.terrPickTerritory('harbour');
++    submitRegent('Reed Justice');
++    flush();
++    expect(html()).toContain('Wipe Board');
++    expect(html()).toContain('terrWipeBoard()');
++  });
++
++  it('the old Reset All label and handler are gone', async () => {
++    await boot();
++    window.terrOpenTerritoryPicker();
++    window.terrPickTerritory('harbour');
++    submitRegent('Reed Justice');
++    flush();
++    expect(html()).not.toContain('Reset All');
++    expect(window.terrResetAll).toBeUndefined();
++  });
++
++  it('prompts with the static wording, no dynamic count', async () => {
++    await boot();
++    window.terrOpenTerritoryPicker();
++    window.terrPickTerritory('harbour');
++    submitRegent('Reed Justice');
++    flush();
++    window.terrWipeBoard();
++    expect(globalThis.confirm).toHaveBeenCalledWith('Wipe the entire board? This removes all territories and bids.');
++  });
++
++  it('changes nothing on cancel', async () => {
++    await boot();
++    window.terrOpenTerritoryPicker();
++    window.terrPickTerritory('harbour');
++    submitRegent('Reed Justice');
++    flush();
++    globalThis.confirm.mockReturnValueOnce(false);
++    window.terrWipeBoard();
++    flush();
++    expect(territoriesNow()).toHaveLength(1);
++    expect(html()).toContain('The Harbour');
++  });
++
++  it('clears the whole board on confirm, and resets phase/peek', async () => {
++    await boot();
++    window.terrOpenTerritoryPicker();
++    window.terrPickTerritory('harbour');
++    submitRegent('Reed Justice');
++    window.terrAdvance();
++    window.terrTogglePeek();
++    flush();
++    expect(saved().phase).toBe('final');
++    expect(saved().peek).toBe(true);
++
++    window.terrWipeBoard();
++    flush();
++    expect(saved().territories).toEqual([]);
++    expect(saved().phase).toBe('open');
++    expect(saved().peek).toBe(false);
++    expect(saved().schemaVersion).toBe(1);
++    expect(html()).toMatch(/terr-empty/);
++  });
++
++  it('does not carry the old regents back onto a reseeded five-territory board', async () => {
++    await boot();
++    window.terrOpenTerritoryPicker();
++    window.terrPickTerritory('harbour');
++    submitRegent('Reed Justice');
++    flush();
++    window.terrWipeBoard();
++    flush();
++    expect(territoriesNow()).toEqual([]);
++  });
++});
++
++// ═════════════════════════════════════════════════════════════════════════════
++//  AC10, AC11, AC12 — CSS and token hygiene
++// ═════════════════════════════════════════════════════════════════════════════
++
++describe('TBID.1 AC10/AC11 — no inline styles, no phantom token', () => {
++  const js = read('public/js/suite/territory.js');
++  const css = read('public/css/suite.css');
++
++  it('territory.js has no inline style attribute left anywhere', () => {
++    expect(js).not.toMatch(/style\s*=\s*["']/);
++  });
++
++  it('territory.js never touches el.style either', () => {
++    expect(js).not.toMatch(/\.style\s*[.[=]/);
++  });
++
++  it('the phantom --text3 token is gone from the whole repo-facing surface', () => {
++    expect(js).not.toContain('--text3');
++    expect(css).not.toContain('--text3');
++  });
++
++  it('the Reopen button colour now lives in a class, using the real --txt3 token', () => {
++    expect(css).toMatch(/#t-territory\s+\.res-bar\s+\.btn-sm\s*\{[^}]*color:\s*var\(--txt3\)[^}]*\}/);
++    expect(css).toMatch(/#t-territory\s+\.res-bar\s+\.btn-sm\s*\{[^}]*border-color:\s*var\(--txt3\)[^}]*\}/);
++  });
++
++  it('the card-footer flex:1 and the ruler Reset padding moved into scoped rules', () => {
++    expect(css).toMatch(/#t-territory\s+\.tc-foot\s+button\s*\{[^}]*flex:\s*1/);
++    expect(css).toMatch(/#t-territory\s+\.ruler-row\s+\.btn-sm\s*\{[^}]*padding:\s*3px 8px/);
++    expect(css).toMatch(/#t-territory\s+\.ruler-row\s+\.btn-sm\s*\{[^}]*margin-left:\s*4px/);
++  });
++
++  it('selStyle is deleted and the modal fields use the shared component classes', () => {
++    expect(js).not.toContain('selStyle');
++    expect(js).toMatch(/id="modal-cl"[^>]*class="form-select"/);
++    expect(js).toMatch(/id="modal-sc"[^>]*class="form-select"/);
++    expect(js).toMatch(/id="modal-pl"[^>]*class="form-select"/);
++    expect(js).toMatch(/id="modal-regent"[^>]*class="form-select"/);
++    expect(js).toMatch(/id="modal-am"[^>]*class="form-input"/);
++  });
++
++  it('.form-select/.form-input are still declared in components.css (reused, not forked)', () => {
++    const comp = read('public/css/components.css');
++    expect(comp).toMatch(/\.form-select\s*\{/);
++    expect(comp).toMatch(/\.form-input\s*\{/);
++    expect(css).not.toMatch(/^\.form-select\s*\{/m);
++  });
++});
++
++describe('TBID.1 AC12 — every #t-territory value resolves through a real theme token', () => {
++  it('has no bare hex or rgba() in the territory block', () => {
++    const block = read('public/css/suite.css').split('\n').filter(l => l.includes('#t-territory')).join('\n');
++    expect(block).not.toMatch(/#[0-9A-Fa-f]{3,8}(?![0-9A-Za-z_-])/);
++    expect(block).not.toMatch(/rgba?\(/);
++  });
++
++  it('uses no token that theme.css does not define — the exact bug AC10 fixes', () => {
++    const theme = read('public/css/theme.css');
++    const defined = new Set([...theme.matchAll(/(--[A-Za-z0-9_-]+)\s*:/g)].map(m => m[1]));
++    const block = read('public/css/suite.css').split('\n').filter(l => l.includes('#t-territory')).join('\n');
++    const used = new Set([...block.matchAll(/var\((--[A-Za-z0-9_-]+)/g)].map(m => m[1]));
++    const missing = [...used].filter(t => !defined.has(t));
++    expect(missing).toEqual([]);
++  });
++
++  it('declares the new picker/resolved/empty chrome under scoped #t-territory classes', () => {
++    const css = read('public/css/suite.css');
++    for (const sel of ['.pick-grid', '.pick-tile', '.pick-taken', '.pick-tag', '.terr-empty', '.trr']) {
++      expect(css).toMatch(new RegExp(`#t-territory[^{\\n]*\\${sel}`));
++    }
++  });
++});
++
++describe('TBID.1 AC13 — the DB-backed territory API is untouched', () => {
++  it('territory.js makes no network call at all', () => {
++    const js = read('public/js/suite/territory.js');
++    expect(js).not.toMatch(/\bfetch\s*\(/);
++    expect(js).not.toMatch(/apiGet|apiPost|apiPut|apiPatch|apiDelete/);
++    expect(js).not.toMatch(/\/api\//);
++  });
++});
+diff --git a/tests/tbid-1-territory-bid-open-flow.spec.js b/tests/tbid-1-territory-bid-open-flow.spec.js
+new file mode 100644
+index 00000000..6a21fe80
+--- /dev/null
++++ b/tests/tbid-1-territory-bid-open-flow.spec.js
+@@ -0,0 +1,257 @@
++/**
++ * TBID.1 — Territory Bids open-flow, in a real browser.
++ *
++ * The vitest suite (server/tests/tbid-1-territory-bid-open-flow.test.js) drives
++ * the module's logic against a stand-in DOM. This spec exists for the half that
++ * cannot: that the markup actually composes against the REAL suite.css, in both
++ * themes, and that the Reopen button's colour/border now renders at all (the
++ * --text3 typo AC10 fixes was silently dropping it, and no structural test can
++ * see that).
++ *
++ * The Territory tab is reached by activating it directly rather than through
++ * the ST nav, because this repo's own nav specs for the suite app are already
++ * failing at base (see CLAUDE.md's known-failures list) and this story is not
++ * scoped to fix them. territory.js makes no network calls at all, so nothing
++ * here depends on API fixtures.
++ */
++
++const { test, expect } = require('@playwright/test');
++const path = require('path');
++
++const SHOTS = process.env.TBID_SHOT_DIR || '';
++const shot = async (page, name) => {
++  if (!SHOTS) return;
++  await page.screenshot({ path: path.join(SHOTS, name), fullPage: false });
++};
++
++const ST_USER = {
++  id: '123456789', username: 'test_st', global_name: 'Test ST', avatar: null,
++  role: 'st', player_id: 'p-001', character_ids: [], is_dual_role: false,
++};
++
++const CHAR_NAMES = ['Alice Vunder', 'Brandy LaRoux', 'Eve Lockridge', 'Reed Justice'];
++
++async function openTerritoryTab(page, { seed = null, theme = null } = {}) {
++  await page.route('**/api/auth/me', route =>
++    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(ST_USER) }));
++  await page.route('**/api/characters*', route =>
++    route.fulfill({ status: 200, contentType: 'application/json', body: '[]' }));
++
++  await page.addInitScript(({ user, seed, theme }) => {
++    // Keep the service worker out of the way; it has been caught serving stale
++    // and live payloads ahead of route stubs in this repo before.
++    try {
++      if (navigator.serviceWorker) navigator.serviceWorker.register = () => Promise.resolve();
++    } catch (e) { /* ignore */ }
++    localStorage.setItem('tm_auth_token', 'fake-test-token');
++    localStorage.setItem('tm_auth_expires', String(Date.now() + 3600000));
++    localStorage.setItem('tm_auth_user', JSON.stringify(user));
++    if (seed) localStorage.setItem('tm_bids_v2', JSON.stringify(seed));
++    else localStorage.removeItem('tm_bids_v2');
++    if (theme) localStorage.setItem('tm_theme', theme);
++  }, { user: ST_USER, seed, theme });
++
++  await page.goto('/index.html');
++  await page.waitForFunction(() => typeof window._mountTerr === 'function', null, { timeout: 30000 });
++
++  await page.evaluate(({ names, theme }) => {
++    window._charNames = names;
++    if (theme) document.documentElement.setAttribute('data-theme', theme);
++    const gate = document.getElementById('auth-gate');
++    if (gate) gate.style.display = 'none';
++    const app = document.getElementById('app');
++    if (app) app.style.display = '';
++    document.querySelectorAll('.tab').forEach(el => el.classList.remove('active'));
++    document.getElementById('t-territory').classList.add('active');
++    window._mountTerr();
++  }, { names: CHAR_NAMES, theme });
++
++  await expect(page.locator('#terr-root .toolbar')).toBeVisible();
++}
++
++test.describe('TBID.1 — Territory Bids open flow (real browser)', () => {
++  test('empty board, picker, regent confirm, card, resolved row', async ({ page }) => {
++    await openTerritoryTab(page);
++
++    // ── AC1/AC2: empty board, Open Territory Bid present, no Wipe Board ──
++    await expect(page.locator('#terr-root .tc')).toHaveCount(0);
++    await expect(page.locator('#terr-root .terr-empty')).toBeVisible();
++    const openBtn = page.locator('#terr-root button', { hasText: 'Open Territory Bid' });
++    await expect(openBtn).toBeVisible();
++    await expect(page.locator('#terr-root button', { hasText: 'Wipe Board' })).toHaveCount(0);
++    await page.locator('#terr-root .terr-empty').scrollIntoViewIfNeeded();
++    await shot(page, '01-empty-board.png');
++
++    // ── AC3: picker step 1 ──
++    await openBtn.click();
++    await expect(page.locator('#terr-root .modal-title')).toHaveText('Open Territory Bid');
++    await expect(page.locator('#terr-root .pick-tile')).toHaveCount(5);
++    await expect(page.locator('#terr-root .pick-tile:disabled')).toHaveCount(0);
++    await shot(page, '02-picker-step1.png');
++
++    // ── AC4: picker step 2, pre-filled Regent ──
++    await page.locator('#terr-root .pick-tile', { hasText: 'The Harbour' }).click();
++    const sel = page.locator('#modal-regent');
++    await expect(sel).toBeVisible();
++    await expect(sel).toHaveValue('Reed Justice');
++    await shot(page, '03-picker-step2-regent.png');
++
++    // Overridable.
++    await sel.selectOption('Alice Vunder');
++    await page.locator('#terr-root .modal-btns .btn-primary').click();
++
++    await expect(page.locator('#terr-root .tc')).toHaveCount(1);
++    await expect(page.locator('#terr-root .tc-name')).toHaveText('The Harbour');
++    await expect(page.locator('#terr-root .regent-tag')).toContainText('Alice Vunder');
++    await expect(page.locator('#terr-root button', { hasText: 'Wipe Board' })).toBeVisible();
++    await shot(page, '04-card-added.png');
++
++    // ── AC3: the open territory is disabled in the picker, not hidden ──
++    await page.locator('#terr-root button', { hasText: 'Open Territory Bid' }).click();
++    await expect(page.locator('#terr-root .pick-tile')).toHaveCount(5);
++    const taken = page.locator('#terr-root .pick-tile.pick-taken');
++    await expect(taken).toHaveCount(1);
++    await expect(taken).toBeDisabled();
++    await expect(taken).toContainText('In Contest');
++    await shot(page, '05-picker-in-contest.png');
++    await page.locator('#terr-root .modal-btns button', { hasText: 'Cancel' }).click();
++
++    // ── AC7: resolve, and the card collapses to a row ──
++    await page.locator('#terr-root .tc-foot button', { hasText: '+ Open Bid' }).click();
++    await page.locator('#modal-cl').selectOption('Brandy LaRoux');
++    await page.locator('#modal-sc').selectOption('Eve Lockridge');
++    await page.locator('#terr-root .modal-btns .btn-primary').click();
++    await expect(page.locator('#terr-root .bid')).toHaveCount(2);   // + the regent's auto defence bid
++
++    // Back the challenger past the regent's automatic +3, so the winner is a
++    // different name from the regent and the reopen pre-fill has to prove it
++    // reads the winner rather than the stale regent field.
++    await page.locator('#terr-root .bid', { hasText: 'Brandy LaRoux' })
++      .locator('button', { hasText: '+ Influence' }).click();
++    await page.locator('#modal-pl').selectOption('Eve Lockridge');
++    await page.locator('#modal-am').fill('7');
++    await page.locator('#terr-root .modal-btns .btn-primary').click();
++    await expect(page.locator('#terr-root .back-row')).toHaveCount(1);
++
++    await page.locator('#terr-root .tc-foot button', { hasText: 'Resolve' }).click();
++    const row = page.locator('#terr-root .trr');
++    await expect(row).toBeVisible();
++    await expect(row).toContainText('Resolved');
++    await expect(row).toContainText('The Harbour');
++    await expect(row).toContainText('Brandy LaRoux');   // the winning Regent
++    await expect(page.locator('#terr-root .bid')).toHaveCount(0);
++    await expect(page.locator('#terr-root .back-list')).toHaveCount(0);
++    await expect(row).not.toContainText('Eve Lockridge');
++    await expect(row).not.toContainText('7');
++    await shot(page, '06-resolved-collapsed.png');
++
++    // ── AC10: the Reopen button really has a colour and a border now ──
++    const reopen = row.locator('button', { hasText: 'Reopen' });
++    const style = await reopen.evaluate(el => {
++      const cs = getComputedStyle(el);
++      return { colour: cs.color, border: cs.borderTopColor, token: getComputedStyle(document.documentElement).getPropertyValue('--txt3').trim() };
++    });
++    const tokenRgb = await page.evaluate((tok) => {
++      const probe = document.createElement('span');
++      probe.style.color = tok;
++      document.body.appendChild(probe);
++      const v = getComputedStyle(probe).color;
++      probe.remove();
++      return v;
++    }, style.token);
++    expect(style.colour).toBe(tokenRgb);
++    expect(style.border).toBe(tokenRgb);
++
++    // ── AC8: Reopen re-enters the Regent-confirm step ──
++    await reopen.click();
++    const sel2 = page.locator('#modal-regent');
++    await expect(sel2).toBeVisible();
++    await expect(sel2).toHaveValue('Brandy LaRoux');   // the previous winner
++    await shot(page, '07-reopen-regent-confirm.png');
++    await sel2.selectOption('Eve Lockridge');
++    await page.locator('#terr-root .modal-btns .btn-primary').click();
++
++    await expect(page.locator('#terr-root .trr')).toHaveCount(0);
++    await expect(page.locator('#terr-root .tc')).toHaveCount(1);
++    await expect(page.locator('#terr-root .bid')).toHaveCount(0);   // bids cleared
++    await expect(page.locator('#terr-root .regent-tag')).toContainText('Eve Lockridge');
++    await shot(page, '08-reopened-card.png');
++  });
++
++  test('Wipe Board is confirm-gated, and cancelling changes nothing', async ({ page }) => {
++    await openTerritoryTab(page);
++    await page.locator('#terr-root button', { hasText: 'Open Territory Bid' }).click();
++    await page.locator('#terr-root .pick-tile', { hasText: 'The Academy' }).click();
++    await page.locator('#terr-root .modal-btns .btn-primary').click();
++    await expect(page.locator('#terr-root .tc')).toHaveCount(1);
++
++    let asked = '';
++    page.once('dialog', async d => { asked = d.message(); await d.dismiss(); });
++    await page.locator('#terr-root button', { hasText: 'Wipe Board' }).click();
++    expect(asked).toBe('Wipe the entire board? This removes all territories and bids.');
++    await expect(page.locator('#terr-root .tc')).toHaveCount(1);
++    await shot(page, '09-wipe-confirm-cancelled.png');
++
++    page.once('dialog', async d => { await d.accept(); });
++    await page.locator('#terr-root button', { hasText: 'Wipe Board' }).click();
++    await expect(page.locator('#terr-root .tc')).toHaveCount(0);
++    await expect(page.locator('#terr-root .terr-empty')).toBeVisible();
++    await expect(page.locator('#terr-root button', { hasText: 'Wipe Board' })).toHaveCount(0);
++  });
++
++  test('a pre-TBID.1 save is still on the board after this deploy', async ({ page }) => {
++    await openTerritoryTab(page, {
++      seed: {
++        phase: 'open',
++        peek: false,
++        territories: [{
++          id: 'northshore', name: 'The North Shore', defaultRegent: 'Alice Vunder',
++          ambience: 'Tended', ambienceMod: 2,
++          regent: 'Alice Vunder', regentInput: 'Alice Vunder',
++          bids: [{ id: '9', claimant: 'Brandy LaRoux', seconder: 'Eve Lockridge', backing: [{ id: '8', player: 'Eve Lockridge', amount: 5 }], rulerAdjust: 0 }],
++          resolved: false, winnerId: null,
++        }],
++      },
++    });
++    await expect(page.locator('#terr-root .tc-name')).toHaveText('The North Shore');
++    await expect(page.locator('#terr-root .bid-claimant')).toHaveText('Brandy LaRoux');
++    await shot(page, '10-grandfathered-board.png');
++  });
++
++  for (const theme of ['dark', 'light']) {
++    test(`the ${theme} theme renders the picker and the resolved row through tokens`, async ({ page }) => {
++      await openTerritoryTab(page, { theme });
++      await page.locator('#terr-root button', { hasText: 'Open Territory Bid' }).click();
++      await expect(page.locator('#terr-root .pick-tile')).toHaveCount(5);
++      await shot(page, `11-${theme}-picker.png`);
++      await page.locator('#terr-root .pick-tile', { hasText: 'The Dockyards' }).click();
++      await page.locator('#terr-root .modal-btns .btn-primary').click();
++      await page.locator('#terr-root .tc-foot button', { hasText: '+ Open Bid' }).click();
++      await page.locator('#modal-cl').selectOption('Brandy LaRoux');
++      await page.locator('#modal-sc').selectOption('Eve Lockridge');
++      await page.locator('#terr-root .modal-btns .btn-primary').click();
++      await page.locator('#terr-root .tc-foot button', { hasText: 'Resolve' }).click();
++      const row = page.locator('#terr-root .trr');
++      await expect(row).toBeVisible();
++
++      // The Reopen button's colour/border must resolve to this theme's own
++      // --txt3, not to the button default. AC10's --text3 typo failed exactly
++      // this check silently, in both themes.
++      const seen = await row.locator('button', { hasText: 'Reopen' }).evaluate(el => {
++        const cs = getComputedStyle(el);
++        return { colour: cs.color, border: cs.borderTopColor };
++      });
++      const tokenRgb = await page.evaluate(() => {
++        const probe = document.createElement('span');
++        probe.style.color = 'var(--txt3)';
++        document.body.appendChild(probe);
++        const v = getComputedStyle(probe).color;
++        probe.remove();
++        return v;
++      });
++      expect(seen.colour).toBe(tokenRgb);
++      expect(seen.border).toBe(tokenRgb);
++      await shot(page, `12-${theme}-resolved.png`);
++    });
++  }
++});
