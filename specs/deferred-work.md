@@ -1,5 +1,49 @@
 # Deferred Work
 
+## Deferred from: issue-1122-pledge-pool-overcommit code review (2026-08-31)
+
+External adversarial review (Codex, 3-pass) of the render-time pledge-overcommitment indicator
+(#1122) surfaced two real, evidence-backed Medium findings, both genuinely out of that story's
+declared scope (it wires a comparison into four existing call sites; neither of these is that) —
+deferred rather than patched:
+
+- **Deleting or renaming a pledged merit makes ALL pledge-related display vanish for that
+  merit, and exposes that ADR-010 D2's own claimed guarantee is unenforced.** `shRemoveGenMerit`
+  (`public/js/editor/edit-domain.js:159-166`) splices the merit row with zero check for a standing
+  pledge against it — confirmed by reading the function directly, no guard exists. `buildPledgeIndex`
+  still holds the orphaned pledge (keyed by name+qualifier), but every render-time consumer
+  (`_pledgeBadge`, `_pledgeOvercommitNote`, and by extension #1122's whole indicator) iterates
+  `c.merits` — the merit ROWS that currently exist — not the pledge index's own keys, so nothing
+  renders anything once the target merit is gone. The oath's own `_oathPledgeNote` still names the
+  missing attachment ("Sworn against Missing Merit 3") but does not say the pool backing it no longer
+  exists at all, which is a MORE severe over-commitment (100% unfunded) than anything #1122's own
+  indicator can currently express. Separately, ADR-010 D2 explicitly claims *"the editor refuses to
+  sell or reallocate pledged dots out from under a standing oath"* — `shRemoveGenMerit` shows that
+  claim is false for full merit removal specifically (only per-field edits route through
+  `_applyPledgeFloor`). A real fix needs a product decision first: should removing a pledged merit be
+  blocked outright (matching ADR-010's own claimed behaviour), release the pledge automatically, or
+  something else? That decision should precede any code. Found by Pass 2 (Edge Case Hunter), verified
+  independently via direct code reading (Angelus's session, 2026-08-31) rather than trusted.
+- **Legacy `rating`-only merits (no `cp`/`xp`/`free_*` fields) produce DIFFERENT pledge-overcommitment
+  numbers in the admin app versus the player-facing Suite app, for the identical persisted document.**
+  Admin's `renderSheet` runs `ensureMeritSync(c)` (`public/js/editor/merits.js:139-158`) before
+  rendering, which materialises `cp:0`/`xp:0`/every `free_*` field to `0` wherever they were
+  `undefined` — a real, in-place mutation of the in-memory character. Suite's `renderSuiteSheet`
+  calls `shRenderGeneralMerits(c, false)` directly (`public/js/suite/sheet.js:739`) with no such
+  normalisation first. `meritRating(c, m)` (`public/js/editor/xp.js:193-197`) has an early-return
+  fallback — `if (m.cp === undefined && m.xp === undefined) return m.rating || 0` — whose branch
+  choice is flipped purely by whichever app ran `ensureMeritSync` first, even though nothing about
+  the merit's true value changed. Reachable in practice: the schema permits a rating-only shape, and
+  the server-side normaliser explicitly preserves a positive no-channel `rating` when it cannot map
+  `granted_by` to a canonical channel (confirmed by the reviewer's own tracing). This is a pre-existing
+  ambiguity in `meritRating` itself — it already silently affected `pledgeableDots`'s numbers before
+  #1122 existed — which #1122 merely gives a directly-contradicting user-visible symptom for the
+  first time (two apps quoting different "pool funds N" numbers for the same character). A real fix
+  touches `meritRating`'s own fallback condition, which is explicitly out of #1122's declared scope
+  ("Not a change to any dot count, `meritRating`..."). Found and reproduced by Pass 2 (two real-render
+  probes, one per app, quoting the exact contradicting numbers): `#1122's own`
+  `codex-findings.md` (`specs/stories/code-review/`).
+
 ## Deferred from: Epic DTUI closure — downtime-form.js cleanup (2026-08-27)
 
 Closing Epic DTUI's remaining backlog surfaced that `public/js/tabs/downtime-form.js`'s player-facing

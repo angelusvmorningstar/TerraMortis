@@ -2231,7 +2231,7 @@ function _oathPledgeEditor(c, m, rIdx) {
   return h;
 }
 
-export function shRenderGeneralMerits(c, editMode) {
+export function shRenderGeneralMerits(c, editMode, showOvercommitIndicator = false) {
   const oM = (c.merits || []).filter(m => m.category === 'general');
   if (!editMode && !oM.length) return '';
   const bpCP = (c.bp_creation && c.bp_creation.cp) || 0;
@@ -2268,6 +2268,70 @@ export function shRenderGeneralMerits(c, editMode) {
       .join(', ');
     return '<span class="gen-granted-tag" title="Sworn against ' + esc(what)
       + '">Sworn ' + sb.dots_required + '</span>';
+  };
+  /**
+   * #1122 — the STANDING over-commitment indicator: "this merit currently
+   * holds fewer dots than a standing oath has pledged against it".
+   *
+   * RENDER-TIME DERIVED, in BOTH renderers, independent of any edit. That is
+   * the whole point, and it is what makes this a different feature from
+   * `_pledgeFloorNote` above rather than a second view of it:
+   *
+   *   - `_pledgeFloorNote` is EDIT-TIME feedback ("the change you just made
+   *     was overridden"). It exists only after an edit set it, so a freshly
+   *     loaded character shows nothing, correctly.
+   *   - This one is derived from current state every render, so an
+   *     over-commitment produced by one of the six merit-write paths that do
+   *     NOT route through `_applyPledgeFloor` (#1128's finding) is visible on
+   *     load, with nobody having touched the merit.
+   *
+   * The two are NOT mutually exclusive and must not be merged. Immediately
+   * after the floor fires, `owned === pledged` (edit.js:1099-1108 raises the
+   * value to exactly the floor, never past it), so this returns '' in that
+   * instant. But `m._pledgeFloorNote` survives in memory until the next edit
+   * on that merit or a fresh load, so a later ungated write dropping the
+   * merit below its pledge legitimately renders both at once.
+   *
+   * TONE: warning, not error (ST ruling on #1122). The data is legal — the
+   * pledge floor exists precisely so an oath's dots are never silently
+   * voided, and pledging beyond a shrunk pool is a sanctioned game state.
+   * So this reuses `.dom-cap-warn`/`--warn-dk`, the class `_pledgeFloorNote`
+   * already renders with, and must never reach for `--err`/`.rel-error`.
+   *
+   * `meritRating` is deliberately the OWNED measure, not the OATH-B
+   * suspension-adjusted effective one — matching `pledgeableDots`'s own
+   * documented choice (ADR-010 D1b: "pledging is about what you bought") so
+   * the whole pledge family reads "owned" the same way.
+   *
+   * Pure: sets nothing on `m`, so unlike `_pledgeFloorNote` there is nothing
+   * for a save path to strip.
+   *
+   * ADMIN-ONLY (Angelus's ruling, Codex review, issue #1122): `shRenderGeneralMerits`
+   * is shared with the player-facing Suite app (`public/js/suite/sheet.js`,
+   * always view mode, `showOvercommitIndicator` omitted so it defaults false).
+   * The pre-existing `_pledgeBadge`/`_oathPledgeNote` badges are fine for a
+   * player to see (they already reassure "still fully usable"); THIS
+   * indicator's "short against..." wording reads as a problem needing fixing,
+   * which is a call for an ST, not a player. Gated on the caller-supplied
+   * `showOvercommitIndicator` flag rather than on `editMode`, because Suite's
+   * OWN view-mode call is indistinguishable from admin's view-mode call by
+   * `editMode` alone (both pass `false`) - a genuinely separate signal is
+   * needed to tell the two callers apart.
+   */
+  const _pledgeOvercommitNote = (m) => {
+    if (!m || !showOvercommitIndicator) return '';
+    const e = _pledgeIdx.get(pledgeKeyFor(m));
+    if (!e || !e.dots) return '';
+    const owned = meritRating(c, m) || 0;
+    const short = e.dots - owned;
+    if (short <= 0) return '';
+    // Codex review (issue #1122, Medium, Pass 1): name each oath's OWN
+    // contribution, matching _pledgeBadge's format above, rather than a bare
+    // name list a reader cannot use to see which oath owes what.
+    const by = e.oaths.map(o => o.oath + ' (' + o.dots + ')').join(', ');
+    return '<div class="dom-cap-warn">⚠ Pledged ' + e.dots + ', pool funds ' + owned
+      + ' - ' + short + ' dot' + (short === 1 ? '' : 's') + ' short against '
+      + esc(by || 'a standing oath') + '.</div>';
   };
   let h = '<div class="sh-sec"><div class="sh-sec-title">Merits' + _meritBadge + '</div><div class="merit-list">';
   if (editMode) {
@@ -2311,7 +2375,7 @@ export function shRenderGeneralMerits(c, editMode) {
       // Merits that accept a free-text qualifier (all others show no qualifier input unless one is already set)
       const _FREE_TEXT_QUAL = new Set(['Language','Multilingual','Library','Quick Draw','Mandragora Garden']);
       const _gPurch = (m.cp || 0) + (m.xp || 0);
-      if (m.granted_by) { h += '<div class="gen-edit-row gen-granted-row"><span class="gen-granted-name">' + esc(m.name) + (m.qualifier ? ' (' + esc(m.qualifier) + ')' : '') + '</span><span class="infl-dots-derived">' + shDotsSuspendedPlain(_gPurch, Math.max(0, dd - _gPurch), shSuspendedOf(m)) + '</span><span class="gen-granted-tag" title="Granted by ' + esc(m.granted_by) + '">' + esc(m.granted_by) + '</span>' + _pledgeBadge(m) + _oathPledgeNote(m) + '</div>'; h += meritBdRow(rIdx, m, meritFixedRating(m.name), { showMCI: _genMciPool > 0, compoundPools: _genPoolsFor(m.name), compoundSlugs: _genCompoundSlugs }); h += _pledgeFloorNote(m); h += _oathPledgeEditor(c, m, rIdx); h += _derivedNotes(m); h += _prereqWarn(c, m.name, m); }
+      if (m.granted_by) { h += '<div class="gen-edit-row gen-granted-row"><span class="gen-granted-name">' + esc(m.name) + (m.qualifier ? ' (' + esc(m.qualifier) + ')' : '') + '</span><span class="infl-dots-derived">' + shDotsSuspendedPlain(_gPurch, Math.max(0, dd - _gPurch), shSuspendedOf(m)) + '</span><span class="gen-granted-tag" title="Granted by ' + esc(m.granted_by) + '">' + esc(m.granted_by) + '</span>' + _pledgeBadge(m) + _oathPledgeNote(m) + '</div>'; h += meritBdRow(rIdx, m, meritFixedRating(m.name), { showMCI: _genMciPool > 0, compoundPools: _genPoolsFor(m.name), compoundSlugs: _genCompoundSlugs }); h += _pledgeFloorNote(m); h += _pledgeOvercommitNote(m); h += _oathPledgeEditor(c, m, rIdx); h += _derivedNotes(m); h += _prereqWarn(c, m.name, m); }
       else {
         h += '<div class="gen-edit-row"><select class="gen-name-select" onchange="shEditGenMerit(' + gi + ',\'name\',this.value)">' + buildMeritOptions(c, m.name || '') + shFightingMeritOptions(c) + '</select>';
         if (isFT) h += '<select class="gen-qual-input" onchange="shEditGenMerit(' + gi + ',\'qualifier\',this.value)">' + buildFThiefOptions(m.qualifier || '') + '</select>';
@@ -2331,6 +2395,7 @@ export function shRenderGeneralMerits(c, editMode) {
           + '<button class="dev-rm-btn" onclick="shRemoveGenMerit(' + gi + ')" title="Remove">&times;</button></div>';
         h += meritBdRow(rIdx, m, meritFixedRating(m.name), { showMCI: _genMciPool > 0, compoundPools: _genPoolsFor(m.name), compoundSlugs: _genCompoundSlugs });
         h += _pledgeFloorNote(m);
+        h += _pledgeOvercommitNote(m);
         h += _oathPledgeEditor(c, m, rIdx);
         // N-4a (issue #781): White Ants + Trap Door pickers moved to
         // shRenderDomainMerits (their merits are sub_category='domain').
@@ -2352,8 +2417,9 @@ export function shRenderGeneralMerits(c, editMode) {
         const gb = m.granted_by === 'Mystery Cult Initiation' ? 'MCI' : m.granted_by === 'Professional Training' ? 'PT' : m.granted_by;
         const grantTag = '<span class="gen-granted-tag-view" title="Granted by ' + esc(m.granted_by) + '">' + esc(gb) + '</span>';
         h += shRenderMeritRow(m.name + qual, 'gmerit', i, dotH, grantTag + _pledgeBadge(m) + _oathPledgeNote(m), c, rIdx);
+        h += _pledgeOvercommitNote(m);
         if (pw) h += pw;
-      } else { h += shRenderMeritRow(m.name + qual, 'merit', i, dotH, _pledgeBadge(m) + _oathPledgeNote(m), c, rIdx); if (pw) h += pw; }
+      } else { h += shRenderMeritRow(m.name + qual, 'merit', i, dotH, _pledgeBadge(m) + _oathPledgeNote(m), c, rIdx); h += _pledgeOvercommitNote(m); if (pw) h += pw; }
     });
   }
   h += '</div></div>'; return h;
@@ -3375,10 +3441,13 @@ export function renderSheet(c, target = null) {
   if (isDesktop) {
     h += '<div class="sh-body">' + shRenderAttributes(c, editMode) + shRenderSkills(c, editMode) + '</div>';
     h += '</div>'; // end sh-dcol-left
-    h += '<div class="sh-dcol sh-dcol-right"><div class="sh-body">' + shRenderGeneralMerits(c, editMode) + shRenderInfluenceMerits(c, editMode) + shRenderDomainMerits(c, editMode) + shRenderStandingMerits(c, editMode) + shRenderManoeuvres(c, editMode) + shRenderEquipment(c, editMode) + shRenderDisciplines(c, editMode) + '</div></div>';
+    // showOvercommitIndicator=true: this is the ADMIN renderer (issue #1122,
+    // Angelus's ruling) - Suite's own call (public/js/suite/sheet.js:739)
+    // omits the argument and stays false.
+    h += '<div class="sh-dcol sh-dcol-right"><div class="sh-body">' + shRenderGeneralMerits(c, editMode, true) + shRenderInfluenceMerits(c, editMode) + shRenderDomainMerits(c, editMode) + shRenderStandingMerits(c, editMode) + shRenderManoeuvres(c, editMode) + shRenderEquipment(c, editMode) + shRenderDisciplines(c, editMode) + '</div></div>';
     h += '</div>'; // end sh-desktop
   } else {
-    h += '<div class="sh-body">' + shRenderAttributes(c, editMode) + shRenderSkills(c, editMode) + shRenderDisciplines(c, editMode) + shRenderGeneralMerits(c, editMode) + shRenderInfluenceMerits(c, editMode) + shRenderDomainMerits(c, editMode) + shRenderStandingMerits(c, editMode) + shRenderManoeuvres(c, editMode) + shRenderEquipment(c, editMode) + '</div>';
+    h += '<div class="sh-body">' + shRenderAttributes(c, editMode) + shRenderSkills(c, editMode) + shRenderDisciplines(c, editMode) + shRenderGeneralMerits(c, editMode, true) + shRenderInfluenceMerits(c, editMode) + shRenderDomainMerits(c, editMode) + shRenderStandingMerits(c, editMode) + shRenderManoeuvres(c, editMode) + shRenderEquipment(c, editMode) + '</div>';
   }
   const _scrollEl = el.closest('.sh-wrap') || el.parentElement || document.documentElement, _scrollTop = _scrollEl.scrollTop;
   el.innerHTML = h; _scrollEl.scrollTop = _scrollTop;
