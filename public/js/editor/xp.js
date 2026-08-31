@@ -267,9 +267,17 @@ export function meritBdRow(realIdx, mc, fixedAt, opts = {}) {
   // m.bonus, so the Bonus row was visible-but-no-op. Standing call sites pass
   // opts.hideBonus=true to suppress the row entirely. Default behaviour
   // (general/influence/domain/style merits) is unchanged.
+  // TM Admin Story tm-admin.10.1b AC4: the ▲/▼ stepper (shAdjMeritBonus,
+  // retired — it wrote c.merits[X].bonus directly, unaudited) is replaced
+  // with a read-only value display, matching STM-14's own precedent for the
+  // equivalent attribute/skill Bonus rows (sheet.js's attr-derived-row at
+  // line ~613/707: shown only when nonzero, no controls). Ad hoc merit
+  // bonuses now go through the audited st_mods apply affordance on the
+  // rendered (non-edit) sheet (shRenderMeritRow / the Domain and Standing
+  // view rows — see sheet.js), not this edit-mode panel.
   if (!opts.hideBonus) {
     const bon = mc.bonus || 0;
-    h += '<div class="attr-derived-row"><span class="bd-lbl">Bonus</span><button class="sh-stat-adj" onclick="shAdjMeritBonus(' + realIdx + ',-1)"' + (bon === 0 ? ' disabled' : '') + '>&#x25BC;</button><span class="bd-src">' + (bon > 0 ? '+' + bon : '0') + '</span><button class="sh-stat-adj" onclick="shAdjMeritBonus(' + realIdx + ',1)">&#x25B2;</button></div>';
+    if (bon > 0) h += '<div class="attr-derived-row"><span class="bd-lbl">Bonus</span><span class="bd-src">+' + bon + '</span></div>';
   }
   return h;
 }

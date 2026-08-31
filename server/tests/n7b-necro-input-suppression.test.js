@@ -144,7 +144,12 @@ describe('N-7b — Necropolis target input suppression (behavioural)', () => {
     const c = mkChar({
       merits: [
         { name: 'Safe Place', category: 'domain', cp: 1, xp: 0, qualifier: 'Penthouse' },
-        { name: 'Haven', category: 'domain', cp: 1, xp: 0, attached_to: 'Safe Place (Penthouse)' },
+        // TM Admin Story tm-admin.10.1b AC4: bonus is a nonzero 2 here so the
+        // (now read-only, non-hidden) Bonus row actually renders — the
+        // post-AC4 row is suppressed entirely at bonus===0 (matching
+        // STM-14's own attribute/skill precedent), so a zero fixture would
+        // no longer exercise this assertion at all.
+        { name: 'Haven', category: 'domain', cp: 1, xp: 0, bonus: 2, attached_to: 'Safe Place (Penthouse)' },
       ],
     });
     stateMod.chars = [c];
@@ -155,7 +160,10 @@ describe('N-7b — Necropolis target input suppression (behavioural)', () => {
     // Haven is NOT a Necropolis target — CP / XP / Bonus must still render.
     expect(html).toContain("shEditMeritPt(1,'cp'");
     expect(html).toContain("shEditMeritPt(1,'xp'");
-    expect(html).toContain('shAdjMeritBonus(1');
+    // TM Admin Story tm-admin.10.1b AC3/AC4: the ▲/▼ stepper (shAdjMeritBonus)
+    // is retired — the Bonus row is now a read-only value display.
+    expect(html).not.toContain('shAdjMeritBonus');
+    expect(html).toMatch(/<span class="bd-lbl">Bonus<\/span><span class="bd-src">\+2<\/span>/);
     // And no NECRO stepper on Haven (it's a non-Necropolis domain merit
     // even if the character lacked Sepulcher entirely).
     expect(html).not.toContain('NECRO');

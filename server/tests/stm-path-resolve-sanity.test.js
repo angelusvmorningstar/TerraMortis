@@ -35,10 +35,13 @@ function buildCharacter() {
     skills: Object.fromEntries(SKILLS.map(s => [s, { dots: 1, bonus: 0, specs: [], nine_again: false }])),
     blood_potency: 2,
     humanity: 7,
+    // TM Admin Story tm-admin.10.1b AC1: `bonus` added alongside `dots` so
+    // the merits.N.bonus dynamic-regex path (new sibling to merits.N.dots)
+    // is covered by this same resolve-sanity discipline.
     merits: [
-      { name: 'Status (City)', dots: 1 },
-      { name: 'Resources', dots: 3 },
-      { name: 'Allies', dots: 2 },
+      { name: 'Status (City)', dots: 1, bonus: 0 },
+      { name: 'Resources', dots: 3, bonus: 2 },
+      { name: 'Allies', dots: 2, bonus: 0 },
     ],
     // Object-keyed in the v2 schema (per public/js/data/accessors.js#discDots).
     // STM-5 (issue #386) tightened the server regex to accept letter-named
@@ -155,6 +158,22 @@ describe('STM-2 path-resolve sanity check (ADR-004 §Concerns Item 2)', () => {
     Object.keys(c.disciplines).forEach((name) => {
       const v = getByPath(c, `disciplines.${name}.dots`);
       if (typeof v !== 'number') failures.push(`disciplines.${name}.dots -> ${v}`);
+    });
+
+    expect(failures, `unresolved dynamic paths:\n  ${failures.join('\n  ')}`).toEqual([]);
+  });
+
+  // TM Admin Story tm-admin.10.1b AC1: merits.N.bonus resolves to a number
+  // via the same dynamic-regex mechanism merits.N.dots already uses — this
+  // is the path the retired shAdjMeritBonus stepper's audited replacement
+  // composes onto (server/routes/st_mods.js DYNAMIC_PATH_RE).
+  it('merit bonus paths resolve via the dynamic regex shape', () => {
+    const c = buildCharacter();
+    const failures = [];
+
+    c.merits.forEach((_, i) => {
+      const v = getByPath(c, `merits.${i}.bonus`);
+      if (typeof v !== 'number') failures.push(`merits.${i}.bonus -> ${v}`);
     });
 
     expect(failures, `unresolved dynamic paths:\n  ${failures.join('\n  ')}`).toEqual([]);

@@ -1,0 +1,47 @@
+name: Verify No Bonus Writes
+
+# Static source-only guard (no DB dependency). TM Admin Story tm-admin.10.1
+# ("one true rating" Stage 1, Phase A) freezes the `bonus` field on every
+# trait (attributes/skills/disciplines/merits) — no new write outside the
+# named exceptions in server/scripts/rules-verify/bonus-write-allowlist.json.
+# Catches the same class of regression STM-14 already retired once (an
+# unaudited direct write to a stored .bonus field), matching this repo's own
+# verify-rules-engine.yml convention.
+#
+# The allowlist has the original TWO durable audit exceptions (Mantle of
+# Amorous Fire, Faith Militant). A TEMPORARY third (shAdjMeritBonus,
+# public/js/editor/edit.js — the merit-bonus stepper) was added 2026-08-31
+# with Angelus's explicit sign-off pending TM Admin Story 10.1b, which has
+# since retired that write path entirely — the temporary entry was removed
+# once it landed. See
+# TM Admin/specs/stories/tm-admin.10.1.tm-game-schema-freeze-bonus.story.md
+# and TM Admin's own Story 10.1b for the full account.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: server
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: 'npm'
+          cache-dependency-path: server/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Verify no unallowlisted .bonus writes
+        run: node scripts/rules-verify/verify-no-bonus-writes.js

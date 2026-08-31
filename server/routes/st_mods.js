@@ -62,7 +62,30 @@ const STATIC_WHITELIST = new Set([
 // `public/js/data/accessors.js#discDots` which reads `c.disciplines[name].dots`).
 // Splitting the regex per kind: merits stay numeric (array path); disciplines
 // accept an ASCII-letter name key to match the actual document shape.
-const DYNAMIC_PATH_RE = /^(merits\.[0-9]+|disciplines\.[A-Za-z][A-Za-z0-9]*)\.dots$/;
+//
+// TM Admin Story tm-admin.10.1b AC1: `merits.N.bonus` added alongside the
+// pre-existing `merits.N.dots`. Evidence for choosing `.bonus` over
+// repointing at `.dots` (per the story's own open question) — traced, not
+// assumed:
+//   - `meritEffectiveRating` (public/js/editor/domain.js:363) never reads
+//     `m.dots` at all (v2 schema merits have no `dots` field; the array-form
+//     merit's rating channels are `cp`/`xp`/`meritFreeSum(m)`). Composing an
+//     st_mod onto `merits.N.dots` via `applyStMods`'s `setByPath` would set a
+//     field nothing in the editor's own rating/display logic reads — inert,
+//     not a working feature.
+//   - The retired `shAdjMeritBonus` (edit.js:599-608, removed by this story)
+//     wrote `m.bonus` directly, and `m.bonus` IS read by multiple live sheet
+//     renderers (sheet.js:1099/1611/2305/2325, xp.js's `meritBdRow`) as an
+//     additive term alongside cp/xp/meritFreeSum. Composing onto
+//     `merits.N.bonus` reuses that exact same read path with zero further
+//     glue — the same shape as the attribute/skill static-whitelist entries
+//     (`attributes.${a}.bonus`/`skills.${s}.bonus`, STM-14) applied to a
+//     per-character-indexed field via the dynamic regex merits already uses
+//     for `.dots` (STM-1/STM-5).
+//   - `merits.N.dots` itself stays exactly as it already was (unrelated to
+//     this change) — still accepted for whatever pre-existing use composes
+//     onto it; this AC only adds a sibling suffix, it does not remove one.
+const DYNAMIC_PATH_RE = /^(merits\.[0-9]+\.(dots|bonus)|disciplines\.[A-Za-z][A-Za-z0-9]*\.dots)$/;
 
 function isValidStatPath(p) {
   return typeof p === 'string' && (STATIC_WHITELIST.has(p) || DYNAMIC_PATH_RE.test(p));
