@@ -23,17 +23,22 @@
 // existing TM Game submissions filed before this cutover. Only new
 // player-initiated writes are blocked.
 //
-// TODO(copy): RETIRED_NOTICE below is placeholder text pending Angelus's
-// own pass on player-facing wording — see specs/deferred-work.md.
 export const FORM_RETIRED = true;
 
-export const RETIRED_TILE_REASON = 'downtimes are filed on the sibling site';
+export const RETIRED_TILE_REASON = 'downtimes are filed on TM Story now';
 
+// Copy pass 2026-08-27 (flight-check finding, Paige): named the destination
+// instead of the vague "sibling site", led with the one instruction that
+// matters, and moved the migration-cohort safety net to a smaller
+// secondary line so it doesn't read as alarming to a player who has never
+// used this form. ctaHref/ctaLabel render as a real link — see
+// downtime-tab.js's own retired-notice render block.
 export const RETIRED_NOTICE = {
-  title: 'Downtime filing has moved',
+  title: 'Downtimes are now filed on TM Story',
   body: [
-    'This form is out of service. A downtime filed here does not reach the Storyteller.',
-    'File your downtime on the sibling site instead.',
-    'If you have already filed a downtime on this page, tell the Storyteller now so that nothing of yours is lost.',
+    'This form no longer reaches the Storyteller.',
   ],
+  ctaHref: 'https://terramortisstory.netlify.app/',
+  ctaLabel: 'File your downtime on TM Story',
+  footnote: 'If you filed a downtime on this page before 25 August, tell your Storyteller directly so nothing of yours is lost.',
 };

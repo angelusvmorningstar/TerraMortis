@@ -60,7 +60,59 @@ to superseded once found, flagged to Angelus rather than silently overwritten. A
 superseded (Angelus's explicit ruling on both the stale-premise and the FORM_RETIRED batches), epic-
 dtui itself closed done - see its own row and each story's row for full reasoning. No code changed,
 no dev-story phase run; this was entirely a create-story-phase investigation that found nothing left
-to build. Prior entry follows.) 2026-08-27 (SESSION WRAP: branch ms/session-wrap-dbo7-status-2026-08-26 pushed to origin
+to build. Prior entry follows.) 2026-08-27 (bmad-party-mode pre-release flight check, branch
+ms/flight-check-overlay-fix-and-notice-copy, cut fresh off main: Angelus asked for a roundtable
+covering everyone including Dana before releasing to all players. 10 independent agents spawned
+(Mary/Winston/Dana/Amelia/John/Quinn/Barry/Bob/Paige/Sally). Dana's was the standout finding - the
+only agent that went and checked live data rather than reasoning from docs, and found a real,
+currently-active bug: a player's boot-time bulk st_mods fetch (app.js's applyOverlayToAll call)
+built its CSV from suiteState.chars, which includes non-owned combat opponents merged in for the
+resist-target dropdown; the server's bulk route 403s the WHOLE request atomically on the first id
+the caller doesn't own, so ANY player with a live combat opponent silently lost their OWN ST-mod
+overlay too, no error surfaced. Live check found 6 active mods across 5 player-owned characters
+including a +4 Dominate mod nobody would have seen reflected in their own pool. FIXED: st-mods.js's
+applyOverlayToAll gained an optional fetchIds override so the CSV builds from the caller's own ids
+only; loadStModsBulk also stopped silently swallowing a non-OK response (now console.warns). Both
+targeted suites (stm-7-bulk-endpoint, issue-879-defence-penalty-wirein) 80/80 unchanged.
+Separately, Paige's finding: the downtime-form-retirement notice (public/js/downtime/form-
+retirement.js) was still explicit placeholder copy pending exactly this pass - rewrote it (named TM
+Story instead of \"the sibling site\", real CTA link to https://terramortisstory.netlify.app/,
+migration-cohort safety net moved to a smaller footnote). Found this path had ZERO test coverage at
+all (the only existing spec, downtime-player-smoke.spec.js, deliberately runs as an ST actor per its
+own D6 comment) - added tests/flight-check-retired-notice.spec.js, 4/4 pass with a real player role.
+Amelia/Quinn's ask (run the full suite fresh, don't trust the documented known-failures list) paid
+off: full vitest run (245 files, 4472 tests) came back 225 passed/20 failed-or-skipped files, 4374
+passed/22 failed/76 skipped. Beyond CLAUDE.md's documented 5, found 7 MORE failing files not on that
+list (rule-engine-integration, fix.943.retireStripDerived, issue-830-inherited-card-css, ws-fanout,
+gdx-4-css-standards-grep, issue-823-test-db-guard, bl3a-one-inclan-implementation) - all confirmed
+pre-existing via git-stash A/B or direct evidence, none caused by this session. Chased one down fully
+per Angelus's own explicit ask: gdx-4-css-standards-grep.test.js was 31/31 as of gdx-4's own
+2026-08-21 review, now failing a fixed >=11 var(--token,fallback)-count assertion. Root cause (via
+git history, not guessed): commit 61cb81c3 (\"port shared design tokens; rebuild the footer as a
+cross-app switcher\") - a LATER, unrelated commit - retired .sidebar-app-btn's
+`background: var(--crim, #8B0000)` down to a bare `var(--crim)`, since --crim is now unconditionally
+declared in both theme.css variants. Not a violation - verified zero bare hex, both tokens real.
+Fixed the test's floor to 10 with a provenance comment, prove-discriminated (reverted to 11, watched
+it fail identically, restored). Also ran the GitHub-vs-sprint-status reconciliation Bob's own
+roundtable turn suggested (not a release blocker, but Angelus asked for it explicitly this session):
+closed 14 issues confirmed done 1:1 against this file's own \"done\" epic rows (#981-984/986-988/990
+GDX, #1029-1032 CM, #1008 bloodlines, #859 DOM-API cleanup, each closed with an evidence comment
+citing the exact row/PR), commented (not closed) on #1039 flagging its own explicit \"special pools +
+WS targeted rolls\" carve-out as real untracked remaining scope, and closed #1218 (dice roller desktop
+alignment) once Angelus visually confirmed this week's roll-v2 alignment commits fixed it. 69 -> 54
+open issues. Left alone as genuinely still open: Epic ADM/#1064 and its sub-issues (unstarted, real),
+#1047 Epic USF (still parked per its own prior ruling), #496/#1132 (only tangentially mentioned, not
+actually resolved). NOT ACTIONED, per the roundtable's own consensus these aren't release blockers:
+the orphan st_mods rows sweep (75 of 85 active rows are inert load-test junk pointing at deleted
+characters - Dana's own proposal, destructive, Angelus's to run), a rollback-plan writeup, and a real
+phone-device visual pass on gdx-9's single-scroll sheet (attempted via Claude-in-Chrome, blocked by a
+genuine tool limitation - resize_window did not actually constrain the page's viewport, confirmed via
+window.innerWidth still reading 1920 after repeated attempts - still needs a real device). Two
+commits on this branch (db609388 overlay-fix+copy, 970ca6aa gdx-4-test-fix), NOT pushed, NOT merged -
+Angelus's call. Separately on branch ms/dtui-wave5-6-orientation-polish (07b7761d, its own commit,
+NOT pushed/merged): Epic DTUI's remaining backlog (dtui-25 through dtui-32) closed superseded rather
+than built - see that branch's own sprint-status.yaml entry for the full FORM_RETIRED finding behind
+it. Prior entry follows.) 2026-08-27 (SESSION WRAP: branch ms/session-wrap-dbo7-status-2026-08-26 pushed to origin
 and merged to main via PR #1222, merge commit 02f6e473 - Angelus's explicit \"push and merge\"
 instruction. Ten commits landed: dtui-24 (verified-already-satisfied), oxp-9 (spend routes through
 Epic OAQ, external Codex review closed), gdx-9 (single-scroll phone sheet, external Codex review

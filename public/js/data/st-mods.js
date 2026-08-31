@@ -57,7 +57,14 @@ export async function loadStModsBulk(characterIds) {
       `${API_BASE}/api/st_mods?character_ids=${csv}`,
       { headers: authHeaders() },
     );
-    if (!res.ok) return {};
+    if (!res.ok) {
+      // Fails atomically server-side on the first unauthorised id in the
+      // CSV (never partial results) — a real, actionable signal that the
+      // overlay silently went dark for every character in this batch, not
+      // just an offline blip. Surface it rather than swallowing it.
+      console.warn(`[st-mods] bulk overlay fetch failed (${res.status}) for ${characterIds.length} character(s) — overlay disabled for this batch`);
+      return {};
+    }
     return await res.json();
   } catch {
     return {};
@@ -193,9 +200,18 @@ export function applyStMods(c, mods, overlayEnabled) {
  *  global toggle reverts cleanly on next boot.
  *
  *  Called from public/js/app.js boot after applyDerivedMerits. */
-export async function applyOverlayToAll(chars, globalEnabled) {
+/** `fetchIds`, when given, overrides which ids the bulk CSV is built from —
+ *  `chars` itself is still what the overlay gets APPLIED to. Needed because
+ *  a player's `chars` array can carry non-owned combat opponents (merged in
+ *  for the resist-target dropdown); querying st_mods for ids the caller
+ *  doesn't own 403s the WHOLE bulk request server-side (it's deliberately
+ *  atomic, never partial), silently zeroing the overlay for every character
+ *  including the player's own. Defaults to the old chars-derived behaviour
+ *  when omitted, so ST call sites (already authorised for every id) are
+ *  unaffected. */
+export async function applyOverlayToAll(chars, globalEnabled, fetchIds) {
   if (!Array.isArray(chars) || chars.length === 0) return chars;
-  const ids = chars.map(c => c?._id).filter(Boolean);
+  const ids = Array.isArray(fetchIds) ? fetchIds.filter(Boolean) : chars.map(c => c?._id).filter(Boolean);
   const modsByChar = await loadStModsBulk(ids);
   for (const c of chars) {
     if (!c) continue;

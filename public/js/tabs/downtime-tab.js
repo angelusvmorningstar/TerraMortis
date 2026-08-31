@@ -14,6 +14,8 @@ export async function initDowntimeTab(el, char, territories = []) {
     el.innerHTML = `<div class="placeholder-msg dt-retired-notice">
       <h3>${esc(RETIRED_NOTICE.title)}</h3>
       ${RETIRED_NOTICE.body.map(p => `<p>${esc(p)}</p>`).join('')}
+      <p><a class="dt-mobile-show-anyway" href="${esc(RETIRED_NOTICE.ctaHref)}" target="_blank" rel="noopener">${esc(RETIRED_NOTICE.ctaLabel)}</a></p>
+      <p class="dt-retired-notice-footnote">${esc(RETIRED_NOTICE.footnote)}</p>
     </div>`;
     return;
   }

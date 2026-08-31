@@ -85,7 +85,9 @@
  * is what actually renders. #859 AC2 ruled on this using `public/js/app.js`'s
  * `var(--green2, #7EC8A0)` as the precedent. Assertion 1 allows that one site by
  * CONTENT, and assertion 3's predicate deliberately steps over every `var()`
- * fallback in `suite.css` (there are eleven).
+ * fallback in `suite.css` (there were eleven as of gdx-4's own 2026-08-21
+ * review, ten as of 2026-08-27 - see that assertion's own comment for why
+ * the drop is legitimate, not a sweep).
  *
  * Adding a third exemption means adding it to this header, to
  * `specs/architecture/coding-standards.md` -> CSS Standards -> Documented
@@ -351,7 +353,8 @@ describe('gdx-4 AC2 - no inline style attribute carries a colour', () => {
  * "Bare" is the whole difficulty here. A naive `/#[0-9A-Fa-f]{3,6}/` over the
  * file matches three things this story must NOT touch:
  *
- *   • the eleven compliant `var(--token, #hex)` fallbacks,
+ *   • the compliant `var(--token, #hex)` fallbacks (ten as of 2026-08-27,
+ *     see the fallback-count assertion below for why that number moves),
  *   • ID selectors made entirely of hex digits, of which `#feed-chev` is a
  *     real live example in this file,
  *   • hexes quoted inside comments.
@@ -421,16 +424,30 @@ describe('gdx-4 AC3 - suite.css declarations resolve through tokens', () => {
 
   it('leaves the compliant var() fallbacks in place - they are not offenders', () => {
     // Carve-out guard in the other direction: this test must not have been made
-    // to pass by sweeping the eleven fallback sites #859 AC2 rules compliant.
+    // to pass by sweeping the fallback sites #859 AC2 rules compliant.
     const css = read('public/css/suite.css');
     //
-    // Eleven `var(--token, <fallback>)` sites, of which TEN have a hex fallback
+    // Ten `var(--token, <fallback>)` sites, of which NINE have a hex fallback
     // and one (`var(--gold2-a40, rgba(224, 196, 122, .4))`) has an rgba one.
-    // gdx-4's story text called all eleven "hex" fallbacks; measured against the
-    // tree, ten are. Counted here as the union, which is the honest predicate.
+    // gdx-4's story text called all eleven original sites "hex" fallbacks;
+    // measured against the tree at the time, ten of the eleven were. Counted
+    // here as the union, which is the honest predicate.
+    //
+    // Was eleven as of gdx-4's own 2026-08-21 review. Dropped to ten via the
+    // design-token-port commit 61cb81c3 ("port shared design tokens; rebuild
+    // the footer as a cross-app switcher"), a LATER, unrelated change - it
+    // retired .sidebar-app-btn's `background: var(--crim, #8B0000)` down to a
+    // bare `background: var(--crim)`, since --crim is now unconditionally
+    // declared in both theme.css variants (light #7A0000, dark #8B0000 - the
+    // dark value is unchanged, just token-sourced instead of hardcoded). Not
+    // a violation and not gdx-4 sweeping its own carve-out: verified via git
+    // history (2026-08-27) that --crim/--crim-hover/--crim-active are all
+    // real declared tokens, and the new rule has zero bare hex. The count
+    // floor moves down deliberately here rather than silently drifting -
+    // any FUTURE drop below ten should still fail this guard.
     const fallbacks = css.match(/var\(\s*--[a-zA-Z0-9-]+\s*,\s*(?:#[0-9A-Fa-f]{3,8}|rgba?\()/g) || [];
     expect(fallbacks.length, 'the var(--token, fallback) sites were swept, which was not the ask')
-      .toBeGreaterThanOrEqual(11);
+      .toBeGreaterThanOrEqual(10);
   });
 
   it('the ~17 bare rgba() sites are still there - carve-out 3, not this story', () => {
