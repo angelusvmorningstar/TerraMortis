@@ -15,6 +15,9 @@ import { freeOf, resolveSharingScope } from '../../public/js/data/rules-helpers.
 // lives in its own module (the bloodline-delete-guard.js precedent); only the
 // wiring is here.
 import { WRITE_ONCE_FIELDS, checkWriteOnce, writeOnceRaceMessage } from '../lib/character-write-once.js';
+// #1132: refused write-once transitions are recorded as well as refused.
+// Purely additive — character-write-once.js's own logic is untouched.
+import { recordWriteOnceViolations } from '../lib/write-once-violation-log.js';
 import { bloodlineKey } from '../lib/bloodline-key.js';
 // ECM-7 (#874): the EQUIPMENT_CATALOGUE static-module import + the dead
 // _CATALOGUE_IDS slug set were removed alongside the static module deletion.
@@ -576,6 +579,18 @@ router.put('/:id', requireRole('st'), stripEphemeral, validateCharacterPartial, 
         // 409, not 400: the body is well-formed and schema-valid. What
         // conflicts is the stored state. Same code BL-4 returns for the name
         // collision and the guarded delete.
+        //
+        // #1132: record the attempt before refusing it. One row, for the one
+        // field adjudicated here — this loop returns on the FIRST refusal
+        // (BL-5's behaviour, deliberately unchanged), so a body forbidding both
+        // fields records the first one WRITE_ONCE_FIELDS reaches. Best-effort:
+        // recordWriteOnceViolations never throws, so this cannot turn a 409
+        // into a 500.
+        await recordWriteOnceViolations(oid, [{
+          field,
+          stored_value: existingChar[field],
+          attempted_value: updates[field],
+        }], req.user);
         return res.status(409).json({ error: 'WRITE_ONCE_VIOLATION', message: v.reason });
       }
       if (!v.changed) continue;
@@ -680,9 +695,20 @@ router.put('/:id', requireRole('st'), stripEphemeral, validateCharacterPartial, 
         const moved = raced.filter(f => (stillThere[f] ?? null) !== (acquisitions[f] ?? null));
         // If nothing reads as moved the value went and came back, or moved
         // again after this read. Name every acquired field rather than none.
+        const named = moved.length ? moved : raced;
+        // #1132: one row per raced field — this branch adjudicates them all at
+        // once, so unlike the direct check above it can genuinely produce two.
+        // `stored_value` is what ACTUALLY LANDED (read back a moment ago), not
+        // the prior value this request was pinning; that prior value is exactly
+        // what makes this a race rather than a plain refusal.
+        await recordWriteOnceViolations(oid, named.map(f => ({
+          field: f,
+          stored_value: stillThere[f] ?? null,
+          attempted_value: updates[f],
+        })), req.user);
         return res.status(409).json({
           error: 'WRITE_ONCE_VIOLATION',
-          message: writeOnceRaceMessage(moved.length ? moved : raced),
+          message: writeOnceRaceMessage(named),
         });
       }
     }

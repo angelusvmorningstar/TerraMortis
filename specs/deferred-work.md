@@ -1843,3 +1843,24 @@ not worth blocking on:
   Angelus's own explicit steer 2026-08-25. See also `specs/architecture/adr-008-admin-merge.md`
   (marked superseded the same day — TM Admin's separate-app approach is the actual direction, not
   ADR-008's merge-into-one-app plan) for the broader architectural context this sits inside.
+
+## Deferred from: issue-1132-write-once-violation-audit-log code review (2026-08-31)
+
+External Codex CLI review, 3-pass single session, high reasoning effort. No High-severity finding.
+Two patched and prove-discriminated (a non-Error rejection in the audit insert's catch block could
+itself throw, turning the 409 it guards into a 500; the documentation schema couldn't represent every
+value the module promises to preserve) - see the story's own Senior Developer Review for the full
+triage. One real finding deferred rather than fixed:
+
+- **[Medium, deferred] The best-effort audit insert (`write-once-violation-log.js`'s
+  `recordWriteOnceViolations`) is `await`ed with no local time bound, so a stalled MongoDB/network
+  connection delays the 409 it sits in front of indefinitely rather than merely risking it becoming a
+  500.** Real, but not unique to this story: `xp_ledger`'s own insert at the identical call site in
+  `characters.js` (`PUT /:id`, line ~733) has the exact same shape and is equally unaddressed - this
+  story's own module explicitly says it mirrors that established precedent ("Same guarantee xpl.1's
+  ledger insert makes, for the same reason"). Fixing it here alone, without touching the pattern it
+  deliberately copies, would leave the codebase with two inconsistent versions of the same risk rather
+  than resolving it. Needs a decision on the general pattern (a bounded local timeout on the insert, or
+  detaching it entirely with a fire-and-forget + logged-rejection shape), then applying it to both call
+  sites together. Suggested title: `bound-best-effort-audit-inserts` (no issue number assigned; opening
+  a GitHub issue for it is Angelus's call).
