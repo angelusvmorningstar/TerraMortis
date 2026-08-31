@@ -1,8 +1,18 @@
-# Epic FRZ — The Frenzy System (scoping stub, not yet storied)
+# Epic FRZ — The Frenzy System (CLOSED — scoped, then deliberately not built)
 
-**Status:** backlog, scoping only. Pulled out of Epic RCV's own `rcv.1` on 2026-08-30, after
+**Status:** CLOSED 2026-08-31. Angelus's explicit ruling, after a `bmad-party-mode` scoping round
+(Dana/Winston/Sally) worked through the state-shape, turn-tracking, and design-lock questions below:
+**do not build the peripheral mechanics at all — they're too niche.** The existing "Frenzy
+Resistance" roll (`public/js/game/char-pools.js:129-130`, a bare Resolve+Composure tile, already
+live) stays exactly as it is, with no modifiers, no Tempted Condition grant, and no −1 tracking
+added. Trigger (#1), Delay with Willpower (#3), Riding the Wave (#4), and Touchstone Talk-Down (#5)
+are all deliberately NOT built. Nothing further is planned here; no story exists or should be
+created from this doc. See "Closure" at the bottom for the full session record.
+
+Pulled out of Epic RCV's own `rcv.1` on 2026-08-30, after
 investigating what a correct fix for the "Riding the Wave" bug would actually require and finding it
-was one gap in a much larger, almost entirely unbuilt system.
+was one gap in a much larger, almost entirely unbuilt system. The scoping below is kept as a record
+of that investigation — it is no longer a live plan.
 
 ## What this is
 
@@ -80,3 +90,36 @@ for existing) — a second mechanic quietly assuming a slightly different shape 
 Deliberately not broken into `frz.N` rows yet — that needs the design-lock and state-shape decisions
 above settled first, likely via a dedicated `bmad-party-mode` round (Dana, Winston, Sally at minimum)
 once Epic RCV is further along or complete.
+
+## Closure (2026-08-31)
+
+Epic RCV finished (committed, merged, pushed), so the party-mode round this doc called for above was
+run: Dana, Winston, and Sally, in several rounds as the scope narrowed under a live sequence of
+Angelus's own rulings. Recorded here for anyone who finds this doc later and wonders why a fully
+scoped epic was never storied.
+
+**The rulings, in order:**
+
+1. **Visibility of mechanical output (Sally's Q1).** Other players never see Riding the Wave's
+   running successes/WP/threshold in the app, only the frenzying player and the ST — narrated
+   fiction at the table is unaffected either way. This alone removed any need for live push
+   (websockets/presence) and shrank the epic significantly, without yet cutting any mechanic.
+2. **Riding the Wave (#4) itself, dropped.** Not "just the roll, no tracking" (the intermediate
+   reading the roundtable worked from for one round) but dropped entirely — no app work at all,
+   tracked or untracked.
+3. **The rest, dropped as too niche to code.** Trigger (#1), Delay with Willpower (#3), and
+   Touchstone Talk-Down (#5) are not being built. The existing "Frenzy Resistance" roll
+   (`char-pools.js:129-130`) — a live Resolve+Composure tile, no modifiers, no Tempted grant, no −1
+   tracking — is judged sufficient as the app's entire frenzy surface. It is not being extended.
+
+**What the scoping work below is worth keeping, if this is ever reopened:** Dana's finding that
+`tracker_state`'s write path is schemaless and permissive (so extending a Condition or adding a
+sibling field costs no server migration), and that no cross-roll success accumulator or non-combat
+turn counter exists anywhere in the app; Winston's finding that no two-attribute roll pool builder
+exists outside the hardcoded `VM_IMMEDIATE` tiles (`char-pools.js`) and the Custom Pool builder
+(`app.js:1327-1384`) only supports one attribute + one skill + one discipline, so even a bare "just
+add the roll" version of a dropped mechanic is not literally free; and that `Tempted` (named in the
+rules glossary, `rules.js:50`) is not present in `CONDITIONS_DB` today. None of this is being acted
+on now — recorded only so a future reopening doesn't have to re-derive it.
+
+**No story exists for this epic and none should be created** unless Angelus explicitly reopens it.
