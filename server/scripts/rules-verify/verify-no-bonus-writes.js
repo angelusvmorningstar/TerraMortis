@@ -33,13 +33,15 @@
  * the story's own Dev Agent Record for the manual review that found those
  * two call sites benign.
  *
- * Known current gap (see the story's Dev Agent Record and
+ * Historical note (see the story's Dev Agent Record and
  * character.schema.js's own merit.bonus comment): `shAdjMeritBonus`
- * (public/js/editor/edit.js) DOES write a changed value into merit.bonus
- * and is not in the allowlist below. Running this guard today therefore
- * reports one real violation. That is this guard doing its job correctly,
- * not a bug in the guard — see the story record for why it is not fixed by
- * this same story.
+ * (public/js/editor/edit.js) used to write a changed value into merit.bonus
+ * directly and unaudited. This guard found it; it was temporarily
+ * allowlisted (Angelus's explicit sign-off, 2026-08-31) pending TM Admin
+ * Story tm-admin.10.1b, which has since retired the write path entirely
+ * (replaced with the audited `st_mods` apply-affordance flow,
+ * `merits.N.bonus`) and removed the temporary entry — the allowlist below
+ * is back to its original two durable, audit-confirmed exceptions.
  */
 
 import { readFileSync, readdirSync } from 'node:fs';

@@ -4,15 +4,14 @@
  *
  * Two groups:
  *   1. Real-repo run — confirms the guard is clean against the real manifest
- *      (3-item allowlist, including the TEMPORARY shAdjMeritBonus entry
- *      added 2026-08-31 with Angelus's explicit sign-off — see
- *      bonus-write-allowlist.json's own $comment and Story tm-admin.10.1's
- *      Dev Agent Record), AND independently re-proves the detector still
- *      finds that exact write site when the temporary entry isn't present
- *      — so this regression test still catches the underlying bug class
- *      even though it is currently allowlisted, and stops silently
- *      "passing" if the write site's shape ever changes underneath the
- *      allowlist entry.
+ *      (the original, durable 2-item allowlist — Mantle of Amorous Fire,
+ *      Faith Militant). The TEMPORARY third entry (shAdjMeritBonus,
+ *      public/js/editor/edit.js), added 2026-08-31 with Angelus's explicit
+ *      sign-off pending TM Admin Story tm-admin.10.1b, was removed by that
+ *      story once it retired the write path entirely (see
+ *      bonus-write-allowlist.json's own $comment and Story tm-admin.10.1b's
+ *      Dev Agent Record) — the guard is back to the durable-exception-only
+ *      shape with no temporary carve-out live.
  *   2. Synthetic fixtures — prove the detector's true-positive/true-negative
  *      boundary (literal-zero writes allowed, pass-through object-literal
  *      construction not flagged, excluded dirs never scanned) without
@@ -26,28 +25,32 @@ import { join } from 'node:path';
 import { verifyNoBonusWrites, loadManifest } from '../scripts/rules-verify/verify-no-bonus-writes.js';
 
 describe('verify-no-bonus-writes — real repo state', () => {
-  it('is clean against the real (3-item) manifest', () => {
+  it('is clean against the real (2-item, durable-exception-only) manifest', () => {
     const result = verifyNoBonusWrites();
     expect(result.filesScanned).toBeGreaterThan(100); // sanity: server/ + public/js/ both scanned
     expect(result.violations).toEqual([]);
     expect(result.ok).toBe(true);
   });
 
-  it('still detects shAdjMeritBonus underneath the temporary allowlist entry (regression guard on the entry itself)', () => {
+  it('the manifest is back to exactly the two durable, audit-confirmed exceptions — no temporary carve-out', () => {
     const realManifest = loadManifest();
-    const withoutTemporaryEntry = {
-      ...realManifest,
-      allowlist: realManifest.allowlist.filter(a => a.path !== 'public/js/editor/edit.js'),
-    };
-    const result = verifyNoBonusWrites(undefined, withoutTemporaryEntry);
-    expect(result.violations).toEqual([
-      expect.objectContaining({
-        file: 'public/js/editor/edit.js',
-        kind: 'assignment',
-      }),
+    expect(realManifest.allowlist).toHaveLength(2);
+    expect(realManifest.allowlist.map(a => a.path)).toEqual([
+      'TM Admin/cockpit/scripts/apply-mantle-presence-bonus-2026-08.mjs',
+      'TM Admin/cockpit/scripts/apply-faith-militant-<reserved>.mjs',
     ]);
-    expect(result.violations[0].text).toContain('m.bonus = Math.max(0, (m.bonus || 0) + delta)');
-    expect(result.ok).toBe(false);
+  });
+
+  it('shAdjMeritBonus is genuinely gone, not just re-hidden — the guard finds nothing at edit.js:605 any more', () => {
+    // TM Admin Story tm-admin.10.1b AC3: the write site itself
+    // (`m.bonus = Math.max(0, (m.bonus || 0) + delta)`, edit.js:605) was
+    // removed by this story, not merely re-allowlisted. Confirms the guard
+    // would report clean even with NO edit.js allowlist entry at all —
+    // proving the retirement, not just the manifest edit.
+    const realManifest = loadManifest();
+    expect(realManifest.allowlist.some(a => a.path === 'public/js/editor/edit.js')).toBe(false);
+    const result = verifyNoBonusWrites();
+    expect(result.violations.filter(v => v.file === 'public/js/editor/edit.js')).toEqual([]);
   });
 });
 

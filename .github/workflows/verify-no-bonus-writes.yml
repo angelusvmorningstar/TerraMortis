@@ -8,13 +8,14 @@ name: Verify No Bonus Writes
 # unaudited direct write to a stored .bonus field), matching this repo's own
 # verify-rules-engine.yml convention.
 #
-# The allowlist has THREE entries, not two: the two durable audit exceptions
-# (Mantle of Amorous Fire, Faith Militant) plus a TEMPORARY third
-# (shAdjMeritBonus, public/js/editor/edit.js — the merit-bonus stepper),
-# added 2026-08-31 with Angelus's explicit sign-off pending TM Admin Story
-# 10.1b, which retires that write path. See
+# The allowlist has the original TWO durable audit exceptions (Mantle of
+# Amorous Fire, Faith Militant). A TEMPORARY third (shAdjMeritBonus,
+# public/js/editor/edit.js — the merit-bonus stepper) was added 2026-08-31
+# with Angelus's explicit sign-off pending TM Admin Story 10.1b, which has
+# since retired that write path entirely — the temporary entry was removed
+# once it landed. See
 # TM Admin/specs/stories/tm-admin.10.1.tm-game-schema-freeze-bonus.story.md
-# for the finding and TM Admin's own Story 10.1b for the retirement.
+# and TM Admin's own Story 10.1b for the full account.
 
 on:
   push:

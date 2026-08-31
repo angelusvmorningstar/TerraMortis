@@ -500,17 +500,16 @@ async function runRulesEngineGate() {
 // of bug this guard exists to catch loudly instead of letting it silently
 // drift the live character population further apart.
 //
-// The allowlist (bonus-write-allowlist.json) currently has THREE entries,
-// not two: alongside the two durable audit exceptions (Mantle of Amorous
-// Fire, Faith Militant), shAdjMeritBonus (public/js/editor/edit.js:599-608,
-// the merit-bonus stepper, feature.333/335 — deliberately out of STM-14's
-// own scope) was added 2026-08-31 with Angelus's explicit sign-off as a
-// TEMPORARY exception, not a durable one. See
-// TM Admin/specs/stories/tm-admin.10.1.tm-game-schema-freeze-bonus.story.md
-// Dev Agent Record. Story 10.2's own drop step now depends on TM Admin
-// Story 10.1b (not yet built) retiring that write path first — do not
-// remove the third entry here without that story landing, and do not add a
-// FOURTH entry without the same kind of explicit sign-off.
+// The allowlist (bonus-write-allowlist.json) has the original TWO durable
+// audit exceptions (Mantle of Amorous Fire, Faith Militant). A TEMPORARY
+// third entry (shAdjMeritBonus, public/js/editor/edit.js:599-608, the
+// merit-bonus stepper, feature.333/335 — deliberately out of STM-14's own
+// scope) was added 2026-08-31 with Angelus's explicit sign-off, then removed
+// by TM Admin Story tm-admin.10.1b once it retired that write path entirely
+// (the audited Add-ST-Mod flow, merits.N.bonus — see that story's own Dev
+// Agent Record). Story 10.2's own drop step depended on 10.1b landing
+// first, which it now has. Do not add a further entry without the same
+// kind of explicit sign-off.
 function runBonusWriteGate() {
   const result = verifyNoBonusWrites();
   if (result.ok) {

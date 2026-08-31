@@ -768,20 +768,21 @@ export const characterSchema = {
         _collective_shared_with: { type: 'array', items: { type: 'string' } },
         rule_key: { type: ['string', 'null'] },
         // WRITE-FROZEN (see the block above `attrObj`) as of Story
-        // tm-admin.10.1. UNLIKE the attribute/skill channels, this freeze is
-        // NOT yet mechanically enforced for merits: `shAdjMeritBonus`
-        // (`public/js/editor/edit.js:599-608`) is a real, live, currently
-        // wired write path (the merit-bonus stepper, `feature.333`/
-        // `feature.335`, deliberately out of STM-14's own scope per
-        // `specs/qa/gates/1034.1-stm-14-audited-adhoc-bonus.yml:106`) that
-        // still writes a changed value into this field. Story tm-admin.10.1
-        // found this and, with Angelus's explicit sign-off (2026-08-31),
-        // added it as a THIRD, TEMPORARY entry in
-        // `server/scripts/rules-verify/bonus-write-allowlist.json` — a known,
-        // temporarily-allowlisted gap, not a resolved one. TM Admin Story
-        // 10.1b (not yet built) retires this write path; Story 10.2's own
-        // drop step cannot run until 10.1b lands. See tm-admin.10.1's Dev
-        // Agent Record for the full account.
+        // tm-admin.10.1. Now mechanically enforced for merits too, matching
+        // the attribute/skill channels: `shAdjMeritBonus`
+        // (`public/js/editor/edit.js:599-608`), the merit-bonus stepper
+        // (`feature.333`/`feature.335`, deliberately out of STM-14's own
+        // scope per `specs/qa/gates/1034.1-stm-14-audited-adhoc-bonus.yml:106`)
+        // that wrote a changed value into this field directly and unaudited,
+        // was retired by TM Admin Story tm-admin.10.1b. Ad hoc merit bonuses
+        // now go through the same audited `st_mods` apply-affordance flow
+        // the attribute/skill channels already used (`merits.N.bonus` on the
+        // server's dynamic stat-path regex, `server/routes/st_mods.js`). The
+        // THIRD, TEMPORARY allowlist entry Story tm-admin.10.1 added (with
+        // Angelus's explicit sign-off, 2026-08-31) for the interim was
+        // removed once 10.1b landed — the guard is back to its original two
+        // durable, audit-confirmed exceptions. See tm-admin.10.1's and
+        // tm-admin.10.1b's own Dev Agent Records for the full account.
         bonus:    { type: 'integer', minimum: 0 }
       },
       additionalProperties: false
