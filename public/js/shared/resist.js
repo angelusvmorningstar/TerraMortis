@@ -2,7 +2,7 @@
 
 import state from '../suite/data.js';
 import { getPool } from './pools.js';
-import { getAttrEffective, skDots } from '../data/accessors.js';
+import { getAttrEffective, getAttrVal, skDots } from '../data/accessors.js';
 
 // gdx-11 (#981, Task 3): exported so Custom Pool (Attribute chip group) can
 // reuse this repo's one list rather than maintaining its own copy.
@@ -72,7 +72,13 @@ export function parseResistance(r) {
  */
 export function lashOutPool(char, attr, kindred) {
   const bp = char?.blood_potency || 0;
-  const attrV = getAttrEffective(char, attr);
+  // CODE REVIEW FIX (2026-08-31): used getAttrEffective (base + bonus + discipline
+  // enhancement, e.g. Vigour boosting Strength) - confirmed live with Angelus that Lash Out is
+  // the SOLE mechanic that pools off the raw attribute alone, explicitly excluding permanent
+  // discipline-derived enhancement as well as any bonus/live ST-mod. Every other resist/pool
+  // mechanic in this file (getResistTokenVal, etc.) correctly keeps using getAttrEffective -
+  // this carve-out is Lash Out's own, not a general policy change.
+  const attrV = getAttrVal(char, attr);
   const total = attrV + bp;
   return {
     total,

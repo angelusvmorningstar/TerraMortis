@@ -1,0 +1,783 @@
+diff --git a/server/index.js b/server/index.js
+index 60f16ba3..7f9e38eb 100644
+--- a/server/index.js
++++ b/server/index.js
+@@ -38,6 +38,7 @@ import contestedRollsRouter from './routes/contested-rolls.js';
+ import humanityCheckRouter from './routes/humanity-check.js';
+ import officePurchaseRouter from './routes/office-purchase.js';
+ import stModsRouter, { auditRouter as stModAuditRouter } from './routes/st_mods.js';
++import writeOnceViolationsRouter from './routes/write-once-violations.js';
+ import appSettingsRouter from './routes/app-settings.js';
+ import rollLogRouter from './routes/roll-log.js';
+ import buildEquipmentCatalogueRouter from './routes/equipment-catalogue.js';
+@@ -245,6 +246,11 @@ app.use('/api/admin', requireAuth, requireRole('st'), noCache(), adminMigrations
+ // req.user. no-cache since mods mutate frequently from the admin panel.
+ app.use('/api/st_mods', requireAuth, noCache(), stModsRouter);
+ app.use('/api/st_mod_audit', requireAuth, noCache(), stModAuditRouter);
++// Issue #1132: refused write-once (clan/bloodline) transition attempts.
++// Same mount shape as st_mod_audit — ST gating lives on the handler itself,
++// requireAuth first to populate req.user, no-cache because a violation an ST
++// is looking for is by definition one that has just happened.
++app.use('/api/write_once_violations', requireAuth, noCache(), writeOnceViolationsRouter);
+ // Epic STM (issue #378): global app settings (kill-switch lives here).
+ // ST-auth at router level; requireAuth populates req.user. no-cache since
+ // PATCH from the STM-5 admin panel needs to surface to all readers without
+diff --git a/server/routes/characters.js b/server/routes/characters.js
+index 3b3d1984..1202ddad 100644
+--- a/server/routes/characters.js
++++ b/server/routes/characters.js
+@@ -15,6 +15,9 @@ import { freeOf, resolveSharingScope } from '../../public/js/data/rules-helpers.
+ // lives in its own module (the bloodline-delete-guard.js precedent); only the
+ // wiring is here.
+ import { WRITE_ONCE_FIELDS, checkWriteOnce, writeOnceRaceMessage } from '../lib/character-write-once.js';
++// #1132: refused write-once transitions are recorded as well as refused.
++// Purely additive — character-write-once.js's own logic is untouched.
++import { recordWriteOnceViolations } from '../lib/write-once-violation-log.js';
+ import { bloodlineKey } from '../lib/bloodline-key.js';
+ // ECM-7 (#874): the EQUIPMENT_CATALOGUE static-module import + the dead
+ // _CATALOGUE_IDS slug set were removed alongside the static module deletion.
+@@ -576,6 +579,18 @@ router.put('/:id', requireRole('st'), stripEphemeral, validateCharacterPartial,
+         // 409, not 400: the body is well-formed and schema-valid. What
+         // conflicts is the stored state. Same code BL-4 returns for the name
+         // collision and the guarded delete.
++        //
++        // #1132: record the attempt before refusing it. One row, for the one
++        // field adjudicated here — this loop returns on the FIRST refusal
++        // (BL-5's behaviour, deliberately unchanged), so a body forbidding both
++        // fields records the first one WRITE_ONCE_FIELDS reaches. Best-effort:
++        // recordWriteOnceViolations never throws, so this cannot turn a 409
++        // into a 500.
++        await recordWriteOnceViolations(oid, [{
++          field,
++          stored_value: existingChar[field],
++          attempted_value: updates[field],
++        }], req.user);
+         return res.status(409).json({ error: 'WRITE_ONCE_VIOLATION', message: v.reason });
+       }
+       if (!v.changed) continue;
+@@ -680,9 +695,20 @@ router.put('/:id', requireRole('st'), stripEphemeral, validateCharacterPartial,
+         const moved = raced.filter(f => (stillThere[f] ?? null) !== (acquisitions[f] ?? null));
+         // If nothing reads as moved the value went and came back, or moved
+         // again after this read. Name every acquired field rather than none.
++        const named = moved.length ? moved : raced;
++        // #1132: one row per raced field — this branch adjudicates them all at
++        // once, so unlike the direct check above it can genuinely produce two.
++        // `stored_value` is what ACTUALLY LANDED (read back a moment ago), not
++        // the prior value this request was pinning; that prior value is exactly
++        // what makes this a race rather than a plain refusal.
++        await recordWriteOnceViolations(oid, named.map(f => ({
++          field: f,
++          stored_value: stillThere[f] ?? null,
++          attempted_value: updates[f],
++        })), req.user);
+         return res.status(409).json({
+           error: 'WRITE_ONCE_VIOLATION',
+-          message: writeOnceRaceMessage(moved.length ? moved : raced),
++          message: writeOnceRaceMessage(named),
+         });
+       }
+     }
+diff --git a/server/tests/helpers/test-app.js b/server/tests/helpers/test-app.js
+index 11808dab..dbb989f6 100644
+--- a/server/tests/helpers/test-app.js
++++ b/server/tests/helpers/test-app.js
+@@ -30,6 +30,7 @@ import relationshipsRouter from '../../routes/relationships.js';
+ import npcFlagsRouter from '../../routes/npc-flags.js';
+ import npcsRouter from '../../routes/npcs.js';
+ import stModsRouter, { auditRouter as stModAuditRouter } from '../../routes/st_mods.js';
++import writeOnceViolationsRouter from '../../routes/write-once-violations.js';
+ import appSettingsRouter from '../../routes/app-settings.js';
+ import buildEquipmentCatalogueRouter from '../../routes/equipment-catalogue.js';
+ import { storyCyclesRouter } from '../../routes/story-cycles.js';
+@@ -137,6 +138,10 @@ export function createTestApp() {
+   // Epic STM (issue #358): ST mod overlay foundation
+   app.use('/api/st_mods', mockAuth, noCache(), stModsRouter);
+   app.use('/api/st_mod_audit', mockAuth, noCache(), stModAuditRouter);
++  // Issue #1132: refused write-once (clan/bloodline) transition attempts.
++  // Mirrors prod's own mount in server/index.js, with mockAuth in place of
++  // requireAuth. ST gating stays on the handler inside the router.
++  app.use('/api/write_once_violations', mockAuth, noCache(), writeOnceViolationsRouter);
+   // Epic STM (issue #378): app settings (global kill-switch)
+   app.use('/api/settings', mockAuth, noCache(), appSettingsRouter);
+   // CYCLE epic (#708): story cycle management (was /api/chapters until cm-2)
+diff --git a/server/lib/write-once-violation-log.js b/server/lib/write-once-violation-log.js
+new file mode 100644
+index 00000000..4c4f2307
+--- /dev/null
++++ b/server/lib/write-once-violation-log.js
+@@ -0,0 +1,102 @@
++/**
++ * Record a REFUSED write-once transition (issue #1132).
++ *
++ * ──────────────────────────────────────────────────────────────────────────
++ *   Why a separate collection, and why not on the character
++ * ──────────────────────────────────────────────────────────────────────────
++ *
++ *   BL-5 (#1008) made `clan` and `bloodline` write-once. A forbidden change
++ *   returns `409 WRITE_ONCE_VIOLATION` and nothing persisted that it happened
++ *   — the 409 was the only trace, seen once and then gone. #1132's own first
++ *   acceptance criterion was deciding where the record should live.
++ *
++ *   This repo already has two audit-trail precedents and they agree:
++ *   `xp_ledger` (append-only XP-write record, written by a direct insert from
++ *   the same PUT handler, read back through one small ST-only GET) and
++ *   `st_mod_audit` (ST-mod lifecycle events in their own separate collection).
++ *   Neither is the right REUSE target — wrong domain each — but together they
++ *   establish the convention: a small, purpose-built, append-only collection
++ *   per audit concern, not a shared generic audit surface.
++ *
++ *   And not on the character document. Nothing in this codebase puts
++ *   write-history on `characters`, which is one of ADR-007's two "sacrosanct"
++ *   collections for persistence-safety reasons, not an audit-noise target.
++ *
++ * ──────────────────────────────────────────────────────────────────────────
++ *   Why this is best-effort, and never blocks
++ * ──────────────────────────────────────────────────────────────────────────
++ *
++ *   The caller is already on its way to returning a 409. A logging failure
++ *   must not turn a correct, well-explained refusal into a 500 the ST cannot
++ *   act on. Same guarantee xpl.1's ledger insert makes, for the same reason:
++ *   the audit machinery is additive, so it never gets a veto over the path it
++ *   is observing. A failure is logged and swallowed.
++ *
++ *   Deliberately purely additive: `character-write-once.js`'s refusal logic and
++ *   the 409 response shape are untouched by this story (issue #1132 says so
++ *   outright), and this module is imported by, not merged into, the route.
++ */
++
++import { getCollection } from '../db.js';
++
++const COLLECTION = 'write_once_violations';
++
++/**
++ * The ST behind the request, in `st_mod_audit`'s own `by` shape.
++ *
++ * `xp_ledger` carries a flat `st_username` string; `st_mod_audit` carries
++ * `{ discord_id, discord_name }`. The second is the stronger shape for a
++ * security-adjacent record: a Discord username can be changed by its owner,
++ * the snowflake id cannot, so a record keyed only on the name can stop
++ * identifying anybody.
++ *
++ * The fallbacks are not decoration. `xp_ledger`'s own code review (2026-08-15,
++ * Medium) found `req.user.username` assumed always present, which would have
++ * written an unattributed row on the one path where attribution is the point.
++ */
++export function actorFromUser(user) {
++  return {
++    discord_id: String(user?.id || ''),
++    discord_name: user?.global_name || user?.username || 'unknown',
++  };
++}
++
++/**
++ * Build the documents for one refusal.
++ *
++ * @param {import('mongodb').ObjectId} characterId
++ * @param {Array<{field: string, stored_value: *, attempted_value: *}>} rows
++ *   ONE ROW PER FIELD. A single request that is refused over both `clan` and
++ *   `bloodline` produces two documents, never one document naming two fields —
++ *   a conflated row cannot answer "which value was attempted for which field".
++ * @param {object} user  req.user
++ * @param {string} [at]  ISO timestamp; shared by every row of one refusal, so
++ *   the rows of a single attempt can be recognised as one event.
++ */
++export function buildViolationDocs(characterId, rows, user, at = new Date().toISOString()) {
++  const actor = actorFromUser(user);
++  return rows.map(row => ({
++    character_id: characterId,
++    field: row.field,
++    // `undefined` would be dropped by the driver, taking the key with it and
++    // leaving the record silent about the very thing it exists to say. `null`
++    // is the honest stored form of "there was nothing there". Nothing else is
++    // normalised: '' stays '', case and whitespace stay as attempted.
++    stored_value: row.stored_value === undefined ? null : row.stored_value,
++    attempted_value: row.attempted_value === undefined ? null : row.attempted_value,
++    actor,
++    at,
++  }));
++}
++
++/**
++ * Write the documents. Never throws, never blocks the caller's own response.
++ */
++export async function recordWriteOnceViolations(characterId, rows, user) {
++  if (!Array.isArray(rows) || rows.length === 0) return;
++  try {
++    await getCollection(COLLECTION).insertMany(buildViolationDocs(characterId, rows, user));
++  } catch (err) {
++    console.error('write_once_violations insert failed for character', String(characterId), err.message);
++  }
++}
+diff --git a/server/routes/write-once-violations.js b/server/routes/write-once-violations.js
+new file mode 100644
+index 00000000..657941bf
+--- /dev/null
++++ b/server/routes/write-once-violations.js
+@@ -0,0 +1,65 @@
++/**
++ * GET /api/write_once_violations — issue #1132.
++ *
++ * The review surface for refused write-once transitions on `characters.clan`
++ * and `characters.bloodline`. Written from `routes/characters.js`'s PUT /:id
++ * at both of its existing 409 sites (see `lib/write-once-violation-log.js`);
++ * this router only reads.
++ *
++ * Deliberately NOT shaped like `st_mods.js`'s `auditRouter`, which pages and
++ * facets through an aggregation pipeline. This is a rare-event log — an ST
++ * mistakenly retrying a change the rules make permanent — not a stream. The
++ * shape that fits is the one `GET /api/characters/:id/xp_ledger` already uses:
++ * find, sort, hand it back. A bounded limit is the only concession, so a
++ * pathological collection can never return unboundedly.
++ *
++ * ST only. `requireRole('st')` already admits `dev` (see middleware/auth.js) —
++ * do not add it explicitly.
++ */
++
++import { Router } from 'express';
++import { ObjectId } from 'mongodb';
++import { getCollection } from '../db.js';
++import { requireRole } from '../middleware/auth.js';
++
++const DEFAULT_LIMIT = 200;
++const MAX_LIMIT = 500;
++
++const router = Router();
++
++router.get('/', requireRole('st'), async (req, res) => {
++  const filter = {};
++
++  if (req.query.character_id !== undefined) {
++    const raw = String(req.query.character_id);
++    // Round-trip equality as well as isValid: `ObjectId.isValid` also accepts
++    // any 12-character string and an uppercase-hex spelling that would then
++    // never match the stored lowercase id. Same defensive shape characters.js
++    // uses for equipment[].catalogue_id.
++    if (!ObjectId.isValid(raw) || String(new ObjectId(raw)) !== raw) {
++      return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'Invalid character ID format' });
++    }
++    filter.character_id = new ObjectId(raw);
++  }
++
++  let limit = DEFAULT_LIMIT;
++  if (req.query.limit !== undefined) {
++    const n = Number(req.query.limit);
++    // A non-numeric or non-positive limit falls back to the default rather
++    // than 400ing: this is a read-only review surface, and a broken query
++    // string should not stop an ST seeing the log.
++    if (Number.isInteger(n) && n > 0) limit = Math.min(n, MAX_LIMIT);
++  }
++
++  // `_id` tiebreak: the rows of one refusal share an identical `at` (see
++  // buildViolationDocs), so `at` alone leaves same-event ordering unspecified.
++  const rows = await getCollection('write_once_violations')
++    .find(filter)
++    .sort({ at: -1, _id: -1 })
++    .limit(limit)
++    .toArray();
++
++  res.json(rows);
++});
++
++export default router;
+diff --git a/server/schemas/write_once_violations.schema.js b/server/schemas/write_once_violations.schema.js
+new file mode 100644
+index 00000000..d2869c8b
+--- /dev/null
++++ b/server/schemas/write_once_violations.schema.js
+@@ -0,0 +1,67 @@
++/**
++ * JSON Schema (Draft-07) for TM write-once violation records.
++ * Collection: write_once_violations
++ *
++ * Append-only audit record of a REFUSED write-once transition on a character's
++ * `clan` or `bloodline` (issue #1132, on top of BL-5 / #1008). Only refusals
++ * are recorded; a legitimate acquisition or a no-op save writes nothing.
++ *
++ * Not currently wired to Ajv/route validation anywhere — the insert
++ * (server/lib/write-once-violation-log.js, called from
++ * server/routes/characters.js's PUT /:id handler at its two existing 409
++ * sites) writes directly via insertMany, so this schema is
++ * documentation-of-intended-shape only, the same status
++ * xp_ledger.schema.js holds.
++ *
++ * Two shape decisions are inherited from that file's own code review
++ * (2026-08-15) rather than rediscovered the hard way:
++ *
++ *   - `_id` is DECLARED. Under `additionalProperties: false` an undeclared
++ *     `_id` would reject every document Mongo actually writes.
++ *   - `character_id` is the 24-hex STRING a validator sees, not
++ *     `{ type: 'object' }`. Canonical storage is a real ObjectId; a validator
++ *     only ever meets the JSON-serialised form.
++ *
++ * `stored_value` and `attempted_value` are deliberately loose. The whole point
++ * of the record is what was actually stored and what was actually attempted —
++ * including a malformed stored value, which is precisely the case
++ * character-write-once.js's own `hasNoValue` docstring says you most want
++ * visible. Nothing is trimmed, case-folded or coerced on the way in; an absent
++ * value is normalised to `null` only so the key persists at all.
++ */
++
++// Canonical STORAGE is a real ObjectId; a validator sees the serialised form.
++// Lowercase-only 24-hex, matching characterIdRef in xp_ledger.schema.js and
++// holderRef in office_seat.schema.js.
++const characterIdRef = { type: 'string', pattern: '^[a-f0-9]{24}$' };
++
++// Mirrors `by` in the st_mod_audit event stream (server/routes/st_mods.js's
++// creatorFromUser). The id is the durable half — a Discord username can be
++// changed by its owner, the snowflake cannot — so an audit row carries both.
++const actorRef = {
++  type: 'object',
++  required: ['discord_id', 'discord_name'],
++  additionalProperties: false,
++  properties: {
++    discord_id:   { type: 'string' },
++    discord_name: { type: 'string', minLength: 1 },
++  },
++};
++
++export const writeOnceViolationSchema = {
++  $schema: 'http://json-schema.org/draft-07/schema#',
++  title: 'TM Write-Once Violation Record',
++  type: 'object',
++  required: ['character_id', 'field', 'stored_value', 'attempted_value', 'actor', 'at'],
++  additionalProperties: false,
++  properties: {
++    _id:             { type: 'string' },
++    character_id:    characterIdRef,
++    // The two fields WRITE_ONCE_FIELDS governs, in its own order.
++    field:           { type: 'string', enum: ['clan', 'bloodline'] },
++    stored_value:    { type: ['string', 'null'] },
++    attempted_value: { type: ['string', 'null'] },
++    actor:           actorRef,
++    at:              { type: 'string' },
++  },
++};
+diff --git a/server/tests/issue-1132-write-once-violation-log.test.js b/server/tests/issue-1132-write-once-violation-log.test.js
+new file mode 100644
+index 00000000..6eae3e67
+--- /dev/null
++++ b/server/tests/issue-1132-write-once-violation-log.test.js
+@@ -0,0 +1,423 @@
++/**
++ * Issue #1132 — a forbidden write-once transition is RECORDED as well as refused.
++ *
++ * BL-5 (#1008) made `characters.clan` and `characters.bloodline` write-once and
++ * refuses a forbidden change with `409 WRITE_ONCE_VIOLATION`. Nothing persisted
++ * that the attempt happened. This story adds an append-only
++ * `write_once_violations` collection, written at BOTH of `PUT /api/characters/:id`'s
++ * existing 409 sites (the direct check and the compare-and-set race), plus a
++ * minimal ST-only read endpoint.
++ *
++ * Purely additive: `server/lib/character-write-once.js` and the 409 response
++ * shape are untouched, and AC5 below pins that.
++ *
++ * DB-backed: skips wholesale when MongoDB is unreachable (isDbAvailable()),
++ * this project's established pattern. Runs against tm_game_test only.
++ */
++
++import { describe, it, expect, vi, beforeAll, afterAll } from 'vitest';
++import request from 'supertest';
++import { Collection, ObjectId } from 'mongodb';
++import { createTestApp, stUser, playerUser } from './helpers/test-app.js';
++import { setupDb, teardownDb, isDbAvailable } from './helpers/db-setup.js';
++import { getCollection } from '../db.js';
++import { writeOnceMessage, writeOnceRaceMessage } from '../lib/character-write-once.js';
++import { writeOnceViolationSchema } from '../schemas/write_once_violations.schema.js';
++import { actorFromUser, buildViolationDocs } from '../lib/write-once-violation-log.js';
++
++const dbAvailable = await isDbAvailable();
++
++const VIOLATIONS = () => getCollection('write_once_violations');
++
++// ═════════════════════════════════════════════════════════════════════════════
++//  AC1 — the schema file, documentation-of-intended-shape only
++// ═════════════════════════════════════════════════════════════════════════════
++
++describe('#1132 AC1 — write_once_violations schema file', () => {
++  it('declares exactly the seven fields, nothing else', () => {
++    expect(Object.keys(writeOnceViolationSchema.properties).sort()).toEqual([
++      '_id', 'actor', 'at', 'attempted_value', 'character_id', 'field', 'stored_value',
++    ]);
++    expect(writeOnceViolationSchema.additionalProperties).toBe(false);
++  });
++
++  it('declares _id, so a real Mongo document would not be rejected', () => {
++    // xp_ledger.schema.js's own code review (2026-08-15) found exactly this
++    // omission: `additionalProperties: false` with no `_id` rejects every
++    // document Mongo actually writes.
++    expect(writeOnceViolationSchema.properties._id).toBeDefined();
++  });
++
++  it('types character_id as the 24-hex string a validator sees, not an object', () => {
++    expect(writeOnceViolationSchema.properties.character_id).toMatchObject({
++      type: 'string',
++      pattern: '^[a-f0-9]{24}$',
++    });
++  });
++
++  it('constrains field to the two write-once fields', () => {
++    expect(writeOnceViolationSchema.properties.field.enum).toEqual(['clan', 'bloodline']);
++  });
++
++  it('requires everything except _id', () => {
++    expect(writeOnceViolationSchema.required.sort()).toEqual([
++      'actor', 'at', 'attempted_value', 'character_id', 'field', 'stored_value',
++    ]);
++  });
++
++  it('is Draft-07', () => {
++    expect(writeOnceViolationSchema.$schema).toBe('http://json-schema.org/draft-07/schema#');
++  });
++});
++
++// ═════════════════════════════════════════════════════════════════════════════
++//  The actor helper — never write an unattributed row (xp_ledger's own lesson)
++// ═════════════════════════════════════════════════════════════════════════════
++
++describe('#1132 — actorFromUser', () => {
++  it('prefers global_name, matching st_mods.js creatorFromUser', () => {
++    expect(actorFromUser({ id: '42', global_name: 'Angelus', username: 'angelus_v' }))
++      .toEqual({ discord_id: '42', discord_name: 'Angelus' });
++  });
++
++  it('falls back to username', () => {
++    expect(actorFromUser({ id: '42', username: 'angelus_v' }))
++      .toEqual({ discord_id: '42', discord_name: 'angelus_v' });
++  });
++
++  it('never returns an unattributed row for a user with nothing usable', () => {
++    expect(actorFromUser(undefined)).toEqual({ discord_id: '', discord_name: 'unknown' });
++    expect(actorFromUser({})).toEqual({ discord_id: '', discord_name: 'unknown' });
++  });
++
++  it('stringifies a non-string discord id', () => {
++    expect(actorFromUser({ id: 42, username: 'x' }).discord_id).toBe('42');
++  });
++});
++
++describe('#1132 — buildViolationDocs', () => {
++  const oid = new ObjectId();
++
++  it('builds one document per row, never conflating two fields', () => {
++    const docs = buildViolationDocs(oid, [
++      { field: 'clan', stored_value: 'Ventrue', attempted_value: 'Daeva' },
++      { field: 'bloodline', stored_value: 'Malkovians', attempted_value: null },
++    ], { id: 'u1', username: 'st' });
++    expect(docs).toHaveLength(2);
++    expect(docs.map(d => d.field)).toEqual(['clan', 'bloodline']);
++    expect(docs[0].character_id).toBe(oid);
++  });
++
++  it('shares one timestamp across the rows of a single refusal', () => {
++    const docs = buildViolationDocs(oid, [
++      { field: 'clan', stored_value: 'Ventrue', attempted_value: 'Daeva' },
++      { field: 'bloodline', stored_value: 'Malkovians', attempted_value: 'Gorgons' },
++    ], {});
++    expect(docs[0].at).toBe(docs[1].at);
++    expect(docs[0].at).toMatch(/^\d{4}-\d{2}-\d{2}T/);
++  });
++
++  it('normalises an absent value to null so the key still persists', () => {
++    const [doc] = buildViolationDocs(oid, [{ field: 'clan', stored_value: undefined, attempted_value: undefined }], {});
++    expect(doc.stored_value).toBeNull();
++    expect(doc.attempted_value).toBeNull();
++  });
++
++  it('does not trim, case-fold or otherwise normalise a real value', () => {
++    const [doc] = buildViolationDocs(oid, [{ field: 'bloodline', stored_value: '  Malkovians  ', attempted_value: 'MALKOVIANS' }], {});
++    expect(doc.stored_value).toBe('  Malkovians  ');
++    expect(doc.attempted_value).toBe('MALKOVIANS');
++  });
++});
++
++// ═════════════════════════════════════════════════════════════════════════════
++//  The route, behaviourally
++// ═════════════════════════════════════════════════════════════════════════════
++
++describe.skipIf(!dbAvailable)('#1132 — write_once_violations write path + read route', () => {
++  let app;
++  const seededIds = [];
++  /** Whatever the shared test DB already held in `bloodlines`, restored in afterAll. */
++  let bloodlineBackup = [];
++
++  async function seedChar(overrides = {}) {
++    const doc = {
++      name: 'WOV-1132 Subject',
++      retired: false,
++      pending_approval: false,
++      attributes: {}, skills: {}, disciplines: {}, merits: [], powers: [], ordeals: [],
++      ...overrides,
++    };
++    const result = await getCollection('characters').insertOne(doc);
++    seededIds.push(result.insertedId);
++    return { ...doc, _id: result.insertedId };
++  }
++
++  function put(id, body, user = stUser()) {
++    return request(app).put('/api/characters/' + String(id)).set('X-Test-User', user).send(body);
++  }
++
++  const rowsFor = id => VIOLATIONS().find({ character_id: id }).sort({ _id: 1 }).toArray();
++
++  beforeAll(async () => {
++    await setupDb();
++    app = createTestApp();
++    // BL-5's referential check on bloodline ACQUISITION reads this collection.
++    // An empty collection must not be allowed to answer "no" (BL-5 AC 8), so
++    // emptying it here keeps every acquisition below allowed and deterministic.
++    bloodlineBackup = await getCollection('bloodlines').find({}).toArray();
++    await getCollection('bloodlines').deleteMany({});
++  });
++
++  afterAll(async () => {
++    // Scoped to THIS suite's own documents only. xp_ledger's code review (Low)
++    // caught a cleanup filter that wiped every other suite's rows.
++    for (const id of seededIds) {
++      await getCollection('characters').deleteOne({ _id: id });
++      await VIOLATIONS().deleteMany({ character_id: id });
++    }
++    await getCollection('bloodlines').deleteMany({});
++    if (bloodlineBackup.length) await getCollection('bloodlines').insertMany(bloodlineBackup);
++    await teardownDb();
++  });
++
++  // ── AC2 — the direct refusal is recorded ──────────────────────────────────
++
++  it('AC2 — a forbidden clan change writes exactly one violation document', async () => {
++    const char = await seedChar({ clan: 'Ventrue' });
++    const res = await put(char._id, { clan: 'Daeva' });
++    expect(res.status).toBe(409);
++
++    const rows = await rowsFor(char._id);
++    expect(rows).toHaveLength(1);
++    expect(rows[0]).toMatchObject({
++      field: 'clan',
++      stored_value: 'Ventrue',
++      attempted_value: 'Daeva',
++      actor: { discord_id: 'test-st-001', discord_name: 'test_st' },
++    });
++    expect(String(rows[0].character_id)).toBe(String(char._id));
++    expect(rows[0].at).toMatch(/^\d{4}-\d{2}-\d{2}T.*Z$/);
++
++    // The character document itself is untouched.
++    const after = await getCollection('characters').findOne({ _id: char._id });
++    expect(after.clan).toBe('Ventrue');
++  });
++
++  it('AC2 — a forbidden bloodline change writes exactly one violation document', async () => {
++    const char = await seedChar({ clan: 'Mekhet', bloodline: 'Malkovians' });
++    const res = await put(char._id, { bloodline: 'Gorgons' });
++    expect(res.status).toBe(409);
++
++    const rows = await rowsFor(char._id);
++    expect(rows).toHaveLength(1);
++    expect(rows[0]).toMatchObject({
++      field: 'bloodline', stored_value: 'Malkovians', attempted_value: 'Gorgons',
++    });
++  });
++
++  it('AC2 — a clearing attempt records the attempted null, not a dropped key', async () => {
++    const char = await seedChar({ clan: 'Mekhet', bloodline: 'Malkovians' });
++    const res = await put(char._id, { bloodline: null });
++    expect(res.status).toBe(409);
++
++    const rows = await rowsFor(char._id);
++    expect(rows).toHaveLength(1);
++    expect(rows[0]).toHaveProperty('attempted_value');
++    expect(rows[0].attempted_value).toBeNull();
++    expect(rows[0].stored_value).toBe('Malkovians');
++  });
++
++  it("AC2 — an empty-string clearing attempt records '' verbatim, not null", async () => {
++    // The '' bypass BL-5's hasNoValue predicate closes. The record has to show
++    // what was actually attempted, or the audit trail loses the distinction.
++    const char = await seedChar({ clan: 'Mekhet', bloodline: 'Malkovians' });
++    const res = await put(char._id, { bloodline: '' });
++    expect(res.status).toBe(409);
++
++    const rows = await rowsFor(char._id);
++    expect(rows).toHaveLength(1);
++    expect(rows[0].attempted_value).toBe('');
++  });
++
++  // ── AC4 — one document per field, never conflated ─────────────────────────
++
++  it('AC4 — a body forbidding BOTH fields records one document per adjudicated field', async () => {
++    // BL-5's direct loop returns on the FIRST refusal (unchanged by this
++    // story), and WRITE_ONCE_FIELDS order is ['clan', 'bloodline'] — so clan
++    // is the field adjudicated, and exactly one document is written. What must
++    // never happen is one document carrying two fields.
++    const char = await seedChar({ clan: 'Ventrue', bloodline: 'Malkovians' });
++    const res = await put(char._id, { clan: 'Daeva', bloodline: 'Gorgons' });
++    expect(res.status).toBe(409);
++
++    const rows = await rowsFor(char._id);
++    expect(rows).toHaveLength(1);
++    expect(rows[0].field).toBe('clan');
++    expect(Array.isArray(rows[0].field)).toBe(false);
++  });
++
++  // ── AC5 — the 409 contract is unchanged ───────────────────────────────────
++
++  it('AC5 — the 409 status, error code and message are byte-identical to BL-5', async () => {
++    const char = await seedChar({ clan: 'Ventrue' });
++    const res = await put(char._id, { clan: 'Daeva' });
++    expect(res.status).toBe(409);
++    expect(res.body.error).toBe('WRITE_ONCE_VIOLATION');
++    expect(res.body.message).toBe(writeOnceMessage('clan', 'Ventrue', 'Daeva'));
++    expect(Object.keys(res.body).sort()).toEqual(['error', 'message']);
++  });
++
++  // ── AC6 — a logging failure never changes the response ────────────────────
++
++  it('AC6 — a violation-insert failure still returns the same 409', async () => {
++    const char = await seedChar({ clan: 'Ventrue' });
++    const spy = vi.spyOn(Collection.prototype, 'insertMany').mockImplementationOnce(() => {
++      throw new Error('simulated write_once_violations insert failure');
++    });
++    const res = await put(char._id, { clan: 'Daeva' });
++    spy.mockRestore();
++
++    expect(res.status).toBe(409);
++    expect(res.body.error).toBe('WRITE_ONCE_VIOLATION');
++    expect(res.body.message).toBe(writeOnceMessage('clan', 'Ventrue', 'Daeva'));
++    // The insert genuinely failed — no row exists.
++    expect(await rowsFor(char._id)).toHaveLength(0);
++  });
++
++  // ── AC3 — the compare-and-set race is recorded ────────────────────────────
++
++  it('AC3 — a lost compare-and-set race records the value that actually landed', async () => {
++    // Provoked deterministically rather than by two real requests: the stored
++    // value is moved from underneath INSIDE the route's own read-to-write
++    // window, which is exactly the condition the race branch exists for.
++    const char = await seedChar({});
++    const original = Collection.prototype.findOneAndUpdate;
++    const spy = vi.spyOn(Collection.prototype, 'findOneAndUpdate')
++      .mockImplementationOnce(async function racer(...args) {
++        await getCollection('characters').updateOne({ _id: char._id }, { $set: { clan: 'Nosferatu' } });
++        return original.apply(this, args);
++      });
++
++    const res = await put(char._id, { clan: 'Ventrue' });
++    spy.mockRestore();
++
++    expect(res.status).toBe(409);
++    expect(res.body.error).toBe('WRITE_ONCE_VIOLATION');
++    expect(res.body.message).toBe(writeOnceRaceMessage(['clan']));
++
++    const rows = await rowsFor(char._id);
++    expect(rows).toHaveLength(1);
++    expect(rows[0]).toMatchObject({
++      field: 'clan',
++      stored_value: 'Nosferatu',   // what actually landed
++      attempted_value: 'Ventrue',  // what this request wanted
++      actor: { discord_id: 'test-st-001', discord_name: 'test_st' },
++    });
++  });
++
++  // ── AC8 — no regression on the allowed paths ──────────────────────────────
++
++  it('AC8 — the load-bearing no-op full-document save writes zero violations', async () => {
++    const char = await seedChar({ clan: 'Ventrue', bloodline: 'Malkovians' });
++    const res = await put(char._id, { clan: 'Ventrue', bloodline: 'Malkovians', concept: 'Unchanged lineage' });
++    expect(res.status).toBe(200);
++    expect(await rowsFor(char._id)).toHaveLength(0);
++  });
++
++  it('AC8 — a legitimate acquisition writes zero violations', async () => {
++    const char = await seedChar({});
++    const res = await put(char._id, { clan: 'Gangrel', bloodline: 'Nelapsi' });
++    expect(res.status).toBe(200);
++    expect(await rowsFor(char._id)).toHaveLength(0);
++    const after = await getCollection('characters').findOne({ _id: char._id });
++    expect(after.clan).toBe('Gangrel');
++  });
++
++  it('AC8 — a save touching neither guarded field writes zero violations', async () => {
++    const char = await seedChar({ clan: 'Ventrue' });
++    const res = await put(char._id, { concept: 'Something else entirely' });
++    expect(res.status).toBe(200);
++    expect(await rowsFor(char._id)).toHaveLength(0);
++  });
++
++  // ── AC7 — the read surface ────────────────────────────────────────────────
++
++  describe('AC7 — GET /api/write_once_violations', () => {
++    let subject;
++
++    beforeAll(async () => {
++      subject = await seedChar({ clan: 'Ventrue', bloodline: 'Malkovians' });
++      await VIOLATIONS().deleteMany({ character_id: subject._id });
++      await put(subject._id, { clan: 'Daeva' });
++      await put(subject._id, { bloodline: 'Gorgons' });
++      await put(subject._id, { clan: 'Mekhet' });
++    });
++
++    it('is ST-only', async () => {
++      const res = await request(app).get('/api/write_once_violations').set('X-Test-User', playerUser());
++      expect(res.status).toBe(403);
++    });
++
++    it('returns rows newest-first', async () => {
++      const res = await request(app).get('/api/write_once_violations').set('X-Test-User', stUser());
++      expect(res.status).toBe(200);
++      expect(Array.isArray(res.body)).toBe(true);
++      const times = res.body.map(r => r.at);
++      expect(times).toEqual([...times].sort().reverse());
++    });
++
++    it('filters by character_id', async () => {
++      const res = await request(app)
++        .get('/api/write_once_violations?character_id=' + String(subject._id))
++        .set('X-Test-User', stUser());
++      expect(res.status).toBe(200);
++      expect(res.body).toHaveLength(3);
++      expect(res.body.every(r => String(r.character_id) === String(subject._id))).toBe(true);
++      expect(res.body.map(r => r.field).sort()).toEqual(['bloodline', 'clan', 'clan']);
++    });
++
++    it('rejects a malformed character_id with 400', async () => {
++      const res = await request(app)
++        .get('/api/write_once_violations?character_id=not-an-oid')
++        .set('X-Test-User', stUser());
++      expect(res.status).toBe(400);
++      expect(res.body.error).toBe('VALIDATION_ERROR');
++    });
++
++    it('honours an explicit limit', async () => {
++      const res = await request(app)
++        .get('/api/write_once_violations?character_id=' + String(subject._id) + '&limit=2')
++        .set('X-Test-User', stUser());
++      expect(res.status).toBe(200);
++      expect(res.body).toHaveLength(2);
++    });
++
++    it('falls back to the default limit for a non-numeric limit', async () => {
++      const res = await request(app)
++        .get('/api/write_once_violations?character_id=' + String(subject._id) + '&limit=banana')
++        .set('X-Test-User', stUser());
++      expect(res.status).toBe(200);
++      expect(res.body).toHaveLength(3);
++    });
++
++    it('caps an absurd limit rather than honouring it', async () => {
++      const res = await request(app)
++        .get('/api/write_once_violations?limit=100000')
++        .set('X-Test-User', stUser());
++      expect(res.status).toBe(200);
++      expect(res.body.length).toBeLessThanOrEqual(500);
++    });
++
++    it('returns documents matching the declared schema shape', async () => {
++      const res = await request(app)
++        .get('/api/write_once_violations?character_id=' + String(subject._id))
++        .set('X-Test-User', stUser());
++      const declared = Object.keys(writeOnceViolationSchema.properties);
++      for (const row of res.body) {
++        expect(Object.keys(row).sort()).toEqual([...declared].sort());
++        expect(String(row.character_id)).toMatch(/^[a-f0-9]{24}$/);
++      }
++    });
++  });
++});

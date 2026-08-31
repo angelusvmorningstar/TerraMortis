@@ -30,6 +30,7 @@ import relationshipsRouter from '../../routes/relationships.js';
 import npcFlagsRouter from '../../routes/npc-flags.js';
 import npcsRouter from '../../routes/npcs.js';
 import stModsRouter, { auditRouter as stModAuditRouter } from '../../routes/st_mods.js';
+import writeOnceViolationsRouter from '../../routes/write-once-violations.js';
 import appSettingsRouter from '../../routes/app-settings.js';
 import buildEquipmentCatalogueRouter from '../../routes/equipment-catalogue.js';
 import { storyCyclesRouter } from '../../routes/story-cycles.js';
@@ -137,6 +138,10 @@ export function createTestApp() {
   // Epic STM (issue #358): ST mod overlay foundation
   app.use('/api/st_mods', mockAuth, noCache(), stModsRouter);
   app.use('/api/st_mod_audit', mockAuth, noCache(), stModAuditRouter);
+  // Issue #1132: refused write-once (clan/bloodline) transition attempts.
+  // Mirrors prod's own mount in server/index.js, with mockAuth in place of
+  // requireAuth. ST gating stays on the handler inside the router.
+  app.use('/api/write_once_violations', mockAuth, noCache(), writeOnceViolationsRouter);
   // Epic STM (issue #378): app settings (global kill-switch)
   app.use('/api/settings', mockAuth, noCache(), appSettingsRouter);
   // CYCLE epic (#708): story cycle management (was /api/chapters until cm-2)

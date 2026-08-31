@@ -65,8 +65,8 @@ describe('#836 — data/loader.js drops generic tracker helpers', () => {
   });
 });
 
-describe('#836 — suite/tracker.js gutted to just `toast`', () => {
-  const src = read('public/js/suite/tracker.js');
+describe('#836 — suite/tracker.js (renamed to suite/toast.js) gutted to just `toast`', () => {
+  const src = read('public/js/suite/toast.js');
   it('no longer exports the deprecated st* helpers', () => {
     const deprecated = [
       'stGetTracker', 'stSetTracker', 'stGetDt', 'stSetDt',
@@ -83,7 +83,7 @@ describe('#836 — suite/tracker.js gutted to just `toast`', () => {
         .not.toMatch(new RegExp(`export\\s*\\{[^}]*\\b${name}\\b[^}]*\\}`));
     }
   });
-  it('still exports `toast` (the one live consumer at app.js:109)', () => {
+  it('still exports `toast` (the one live consumer, app.js\'s `_toast` import)', () => {
     expect(src).toMatch(/export\s+function\s+toast\b/);
   });
   it('no longer reads or writes tm_tracker_${name} keys directly', () => {
@@ -106,7 +106,7 @@ describe('#836 — no live writers remain for legacy keys', () => {
   const LIVE_FILES = [
     'public/js/admin.js',
     'public/js/data/loader.js',
-    'public/js/suite/tracker.js',
+    'public/js/suite/toast.js',
     'public/js/data/accessors.js',
     'public/js/editor/edit.js',
     'public/js/editor/identity.js',

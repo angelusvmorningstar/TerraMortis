@@ -223,12 +223,18 @@ describe('AC#3 — input validation', () => {
     expect(res.status).toBe(400);
     expect(res.body.message).toMatch(/invalid stat_path/);
   });
-  it('accepts merits[N].dots regex path', async () => {
+  // #1119 (2026-08-31): merits.<N>.dots used to be accepted here, but no
+  // merit reader consults a `dots` field at all — the merit shape is
+  // cp/xp/free_grants/rating. The mod validated, saved, and showed in the
+  // overlay breakdown while silently doing nothing to any displayed or
+  // rolled value. Rejected outright now, with a message naming why —
+  // inverted from "accepts" to "rejects" deliberately, not widened.
+  it('rejects merits[N].dots — no merit reader consults a dots field (#1119)', async () => {
     const res = await request(app).post('/api/st_mods').set('X-Test-User', stUser()).send({
       character_id: CHAR_ID, stat_path: 'merits.3.dots', delta: 1, reason: 'merit dot grant',
     });
-    expect(res.status).toBe(201);
-    CREATED_MOD_IDS.push(res.body._id);
+    expect(res.status).toBe(400);
+    expect(res.body.message).toMatch(/merit dot mods are not supported/);
   });
   // STM-5 (issue #386): the original STM-1 regex accepted only numeric
   // discipline indices, but on the v2 schema c.disciplines is object-keyed

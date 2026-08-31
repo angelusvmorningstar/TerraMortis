@@ -44,6 +44,23 @@ deferred rather than patched:
   probes, one per app, quoting the exact contradicting numbers): `#1122's own`
   `codex-findings.md` (`specs/stories/code-review/`).
 
+## Deferred from: Codex external review of tbid-1-territory-bid-open-flow (2026-08-29)
+
+**`terrConfirmRegent(tid, regentName)` (`public/js/suite/territory.js`) decides "is this a reopen"
+purely from `state.territories.some(t => t.id === tid)`, ignoring the modal's own `mode: 'open'` /
+`mode: 'reopen'` field.** Every constructor that builds a `{type: 'regent', ...}` modal today keeps
+`mode` and array-membership aligned (`terrPickTerritory` only opens `mode: 'open'` for a territory
+confirmed absent from `state.territories`; `terrReopen` only opens `mode: 'reopen'` for one confirmed
+present), so under the real UI this cannot diverge. But the function is assigned to
+`window.terrConfirmRegent`, reachable from the console or any future caller — if one ever called it
+directly (or a future code path built a `mode: 'open'` modal for a `tid` already on the board) it
+would silently replace the live entry in place (bids cleared, resolved reset) as if reopening it,
+with no warning that a contest in progress was discarded. Judged Low severity and out of this story's
+scope by Codex's own external review (Pass 1) — not a demonstrated ordinary-click path, "primarily an
+exposed-handler/invariant-hardening defect." Fix, if picked up: branch on `m.mode` explicitly rather
+than array membership, passing `mode` through from `terrModalSubmit`'s `window.terrConfirmRegent(m.tid,
+rg)` call.
+
 ## Deferred from: Epic DTUI closure — downtime-form.js cleanup (2026-08-27)
 
 Closing Epic DTUI's remaining backlog surfaced that `public/js/tabs/downtime-form.js`'s player-facing
@@ -997,11 +1014,13 @@ than gdx-3 work:
 External Codex adversarial review plus independent verification. Everything below was measured in
 headless Chromium against the real served page, not reasoned from the diff.
 
-- **[RESOLVED 2026-08-20 - Angelus, filed as [GitHub issue #1192](https://github.com/angelusvmorningstar/TerraMortis/issues/1192)] Thirteen Technique T2 selectors now expand horizontally only,
+- **[RESOLVED 2026-08-31 - issue #1192 fixed, exception removed.] Thirteen Technique T2 selectors now expand horizontally only,
   because a full 44px vertical expansion reaches into their own stacked or wrapped siblings.**
   Angelus authorised the follow-up (option b below) rather than accepting the capped state
-  permanently - gdx-3 itself still ships `done` with the capped state as AC2's evidenced exception,
-  and issue #1192 tracks removing that exception via the Technique T3 fix described below.
+  permanently - #1192 landed Technique T3 (phone-tier row growth) on all thirteen, verified against
+  the real sibling-run Playwright fixtures (`css-audit — every in-scope control has a >=44px
+  effective hit area at 360px`, `... no two sibling hit areas overlap`, both pass now), and
+  `GDX3_AC2_EXCEPTIONS` in `tests/desktop-and-css.spec.js` no longer lists any of the thirteen.
   `.effpool-spec`, `.trk-chip-rm`, `.trk-card-hd`, `.trk-adj.sm`, `.sh-tracker-info-btn`,
   `.rl-sec-hd`, `.status-chip-st`, `.rank-pill`, `.settings-btn`, `.settings-checkbox-row`,
   `.rules-expander-toggle`, `.qf-checkbox-label`, `.char-picker__chip-remove`. Measured overlaps
@@ -1180,14 +1199,15 @@ defender-resolution fields). The three below were **not** patched and each wants
   implicit-discriminator fragility that produced the oaq.3 void-orphaning bug, left half-fixed.
   Task 3's own wording explicitly permitted keeping `$ne`, so this is a spec-vs-spec inconsistency
   inside crd.1 rather than a deviation from it.
-- **The parent epic's server-derived `game_session_id` was never added to the creation shape**
-  (Medium) — `specs/epic-crd-contested-roll-defence.md` (~line 100) puts a server-derived
-  `game_session_id` in crd.1's creation shape and explicitly forbids a client-supplied one;
-  `contested-rolls.js`'s `POST /` adds no such field, no AC in crd.1 ever mentioned it, and the
-  schema does not declare it. **NEEDS ANGELUS'S OWN SCOPE DECISION, deliberately not resolved:** does
-  this belong retroactively in crd.1, or in crd.2/crd.3a where the queue and the resolve endpoint
-  actually need session provenance? Either way, every document crd.1 creates will lack it, so
-  whichever story takes it on must decide separately whether pre-existing pending documents matter.
+- **RULED ON by Angelus, 2026-09-01: `game_session_id` provenance belongs in crd.2/crd.3a, not
+  retroactively in crd.1.** (Medium) — `specs/epic-crd-contested-roll-defence.md` (~line 100) puts
+  a server-derived `game_session_id` in crd.1's creation shape and explicitly forbids a
+  client-supplied one; `contested-rolls.js`'s `POST /` adds no such field, no AC in crd.1 ever
+  mentioned it, and the schema does not declare it. Decision: add it where session provenance is
+  actually consumed — the player-facing pending queue (crd.2) and the resolve endpoint (crd.3a) —
+  not by reopening the already-closed crd.1 story. Every document crd.1 created lacks the field;
+  whichever of crd.2/crd.3a takes this on should treat those as pre-migration data rather than
+  assume the field is always present. Not yet built — this only settles which story owns it.
   Related precedent worth reading first: the otc-2 entry above, where `game_session_id` on
   `office_actions` is already logged as a caller-supplied, unvalidated, spoofable string — this epic
   should not reproduce that shape.
@@ -1211,21 +1231,16 @@ defender-resolution fields). The three below were **not** patched and each wants
   `resolve-harpy` itself already uses) touches exactly those routes. Prax.4b's own resolve route for
   the Praxis tally will want the identical guard for `resolved.praxis`, so this is a natural candidate
   to fix once, for both tallies, alongside that story rather than as two separate patches.
-- **`resetManoeuvreRank` fires unconditionally on `resolve-harpy`'s resolve path, including when the
-  declared winner is the SITTING People's Harpy being re-elected** (Low - a genuine game-rules
-  question, not a defect). `office-seats.js`'s own `PUT /:seatId/holder` treats a same-holder request
-  as NOT a handover (AC4 there) and explicitly skips the reset, on the reasoning that re-saving an
-  unchanged assignment must never be able to wipe a ladder. Prax.4a's resolve-harpy route has no
-  equivalent same-holder branch — AC5's own literal text lists the manoeuvre reset as an unconditional
-  step of the resolve path, and the shipped code does exactly that (confirmed: the "sitting Harpy
-  re-winning is not a conflict" test asserts the handover succeeds and the office is kept, but does
-  not assert on the manoeuvre rank one way or the other). **NEEDS ANGELUS'S OWN RULING, deliberately
-  not resolved:** is a People's Harpy re-election a fresh tenure (reset is correct - a new term earned
-  by a new vote) or a continuation of the same one (reset is an unwanted surprise)? The design-lock
-  never posed this question because "the sitting holder wins again" was not one of the states it
-  mocked. Whichever way this is ruled, it is a one-line conditional in `resolve-harpy`'s resolve
-  branch (skip the `resetManoeuvreRank` call when `currentHolderId === claimantId`, mirroring the
-  clear-departing-holder skip already there for the same case) - trivial to build once decided.
+- **RULED ON by Angelus, 2026-09-01: a People's Harpy re-election is a continuation of the same
+  tenure, not a fresh one — skip the manoeuvre reset.** `resetManoeuvreRank` used to fire
+  unconditionally on `resolve-harpy`'s resolve path, including when the declared winner was the
+  SITTING People's Harpy being re-elected, in contrast to `office-seats.js`'s own `PUT
+  /:seatId/holder` (AC4), which already treats a same-holder request as not a handover at all and
+  skips the reset for exactly this reason. Fixed as part of the 2026-09-01 stranded-branch
+  consolidation: `resolve-harpy` now skips the reset when `currentHolderId === claimantId`,
+  mirroring the clear-departing-holder skip already in step 5 of the same route. The "sitting
+  Harpy re-winning is not a conflict" test in `prax-4a-peoples-harpy-resolve.test.js` now also
+  seeds a pre-existing manoeuvre rank and asserts it survives the re-election untouched.
 
 ## Deferred from: code review of crd-2-player-facing-pending-queue (2026-08-22, external Codex review)
 
@@ -1797,3 +1812,94 @@ not worth blocking on:
   no `rating`). Harmless: the evaluator's `manoeuvre_present` predicate only ever reads
   `fighting_picks`, never `fighting_styles`, so the extra field is inert. Already disclosed in the
   story's own Dev Agent Record before external review ran.
+
+## Deferred from: cross-repo redundancy review (2026-08-25, TM Admin liaison)
+
+- **No compare-and-set on `merits`, `powers`, `status`, `court_title`/`court_category`, or
+  `equipment` — last-write-wins on all five, confirmed real by TM Admin against their own code**
+  (Medium-High; both apps' admin character editors do a full-document `PUT /api/characters/:id`
+  with a blind `$set: updates`, `server/routes/characters.js:502-665`). `WRITE_ONCE_FIELDS` in
+  `server/lib/character-write-once.js` is `['clan', 'bloodline']` only — the sole compare-and-set
+  protection anywhere on this document. Two STs (one in TM Game, one in TM Admin) editing the same
+  character around the same time, or a concurrent write racing a player self-service route, can
+  silently drop whichever save landed first. `merits` is the highest-risk of the five: it's also
+  written by TM Game's own player self-service routes (`safe_place_locations`, `carthian_pull`),
+  not just the two ST editors — three independent writers on one field with zero conflict
+  detection between any pair of them. Not fixed here — this is a real design question (per-field
+  version tokens? optimistic concurrency on the whole document? something narrower matching just
+  the fields both apps' editors actually touch?), not a bounded pattern to port the way the
+  ordeals-array race was (see the two entries directly above this one, and the sibling fix on
+  branch `ms/issue-ordeal-cascade-atomic-write`). Needs a scoped conversation with Angelus on
+  approach before anyone builds it, not an improvised fix. Cross-referenced in TM Admin's own
+  liaison notes from the same review.
+
+- **Roughly ten `public/js/admin/*.js` modules are confirmed redundant with TM Admin and safe to
+  retire, at Angelus's discretion — not urgent, dead code rather than dangerous code** (unlike the
+  two entries above). Confirmed via an independent fork reading TM Admin's own `specs/sprint-status.yaml`
+  and cross-checking each module against it: `players-view.js` (2.1 Players, done), `city-views.js`
+  + `spheres-view.js` (2.4 City+Spheres, done — Prestige/Influence calc specifically flagged
+  "PARTIALLY IN" by TM Admin's own story, blocked on porting `meritEffectiveRating`, so don't touch
+  that one sub-piece yet), `attendance.js` (2.3 Attendance & XP, done), `ordeals-admin.js` (Epic 3/4,
+  done), `equipment-catalogue-admin.js` (4.1, done), `rules-data-view.js` + `rules-view.js` (4.2/4.3,
+  done), `st-mods-panel*.js` + `st-mods-audit.js` (4.4a/4.4b, done), `bloodlines-admin.js` (6.1,
+  done), `devlog-admin.js` (6.2, done). `cycle-views.js`/`next-session.js`/`session-log.js` likely
+  covered by 2.5 Chapters & Stories (done) but session-log specifically wasn't verified — check
+  before retiring. **Do NOT touch**: the character editor (`admin.js`'s own sheet-edit path — TM
+  Admin's 2.2b port covers only ~11 of ~60 handlers as of 2026-08-25, still `review` not `done`, and
+  TM Admin's own session explicitly said not to retire this yet), the Downtime admin modules
+  (`downtime-*.js`, TM Admin's Epic 5 is `not-storied`, gated behind a tm_game→tm_story storage
+  migration not yet reached), and `data-portability*.js`/`excel-merge.js`/`excel-parser.js` (TM
+  Admin deliberately dropped the Excel-merge tool as legacy rather than porting it — Angelus already
+  called it dead weight, but that's a separate call from "TM Admin replaced it"). Not retired here —
+  deliberately deferred rather than rushed at the end of an already-large session; do as its own
+  scoped pass, probably one module (or a few related ones) at a time rather than one big sweep, per
+  Angelus's own explicit steer 2026-08-25. See also `specs/architecture/adr-008-admin-merge.md`
+  (marked superseded the same day — TM Admin's separate-app approach is the actual direction, not
+  ADR-008's merge-into-one-app plan) for the broader architectural context this sits inside.
+
+## Deferred from: issue-1132-write-once-violation-audit-log code review (2026-08-31)
+
+External Codex CLI review, 3-pass single session, high reasoning effort. No High-severity finding.
+Two patched and prove-discriminated (a non-Error rejection in the audit insert's catch block could
+itself throw, turning the 409 it guards into a 500; the documentation schema couldn't represent every
+value the module promises to preserve) - see the story's own Senior Developer Review for the full
+triage. One real finding deferred rather than fixed:
+
+- **[Medium, deferred] The best-effort audit insert (`write-once-violation-log.js`'s
+  `recordWriteOnceViolations`) is `await`ed with no local time bound, so a stalled MongoDB/network
+  connection delays the 409 it sits in front of indefinitely rather than merely risking it becoming a
+  500.** Real, but not unique to this story: `xp_ledger`'s own insert at the identical call site in
+  `characters.js` (`PUT /:id`, line ~733) has the exact same shape and is equally unaddressed - this
+  story's own module explicitly says it mirrors that established precedent ("Same guarantee xpl.1's
+  ledger insert makes, for the same reason"). Fixing it here alone, without touching the pattern it
+  deliberately copies, would leave the codebase with two inconsistent versions of the same risk rather
+  than resolving it. Needs a decision on the general pattern (a bounded local timeout on the insert, or
+  detaching it entirely with a fire-and-forget + logged-rejection shape), then applying it to both call
+  sites together. Suggested title: `bound-best-effort-audit-inserts` (no issue number assigned; opening
+  a GitHub issue for it is Angelus's call).
+
+## Raised from TM Story's own deferred-work.md (items #384/#385), Angelus's ruling 2026-09-01
+
+TM Story (read-only consumer of `tm_game`) found two real data gaps it cannot fix itself. Both ruled
+by Angelus 2026-09-01; not yet actioned here.
+
+- **["Mantle of Amorous Fire" rite: deliberate rename, 2 real characters need migrating.] The live
+  `purchasable_powers` catalogue re-keyed AND renamed this rite (`rite-mantle-of-amorous-fire` →
+  `rite-the-mantle-of-amorous-fire`, "Mantle of Amorous Fire" → "The Mantle of Amorous Fire").
+  Brandy LaRoux and Jack Fallow both already hold this rite, stored under the OLD key — TM Story's
+  own rite picker can no longer resolve it for either character (neither a stale-key nor a
+  folded-name match works, since the article makes the strings differ), so it's honestly omitted
+  from both characters' pickers there rather than guessed at.** Angelus confirmed the rename was
+  intentional (not catalogue drift) — the fix is to migrate Brandy LaRoux's and Jack Fallow's own
+  stored rite key/name to the new catalogue values, not to revert the catalogue. A `tm_game` write;
+  TM Story cannot make it. Full context: TM Story's `specs/deferred-work.md` item #384.
+
+- **[`rule_key` backfill gap — 60 of 68 real character rite power instances carry no working join
+  key at all.] A catalogue-wide data-hygiene gap on the character side, not the catalogue side (the
+  catalogue's own `rule_key` values are fine — TM Story's own item #383 already confirmed this and
+  made its rite picker resilient to the gap via a folded-name fallback).** Any future feature —
+  in TM Game, TM Admin, or TM Story — that joins character-side rite data on `rule_key` inherits the
+  same risk #383 just patched around for one consumer. Angelus ruled this should be a real,
+  scoped backlog item here (or in TM Admin) rather than just a note — a permanent `rule_key`
+  backfill across affected characters' rite instances. Unscoped, unprioritised as of this entry.
+  Full context: TM Story's `specs/deferred-work.md` item #385.

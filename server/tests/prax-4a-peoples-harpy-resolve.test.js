@@ -715,9 +715,19 @@ describe.skipIf(!dbAvailable)('prax.4a AC5: refusals', () => {
     expect((await rawBoard(boardId)).resolved.harpy).toBeNull();
   });
 
-  it('the SITTING People’s Harpy re-winning is NOT a conflict', async () => {
+  it('the SITTING People’s Harpy re-winning is NOT a conflict, and keeps her manoeuvre rank', async () => {
     // BRANDY already holds this seat. The refusal above is scoped to a
     // DIFFERENT seat; an incumbent re-elected must go through cleanly.
+    //
+    // Angelus's ruling (2026-09-01, deferred-work.md): a re-election is a
+    // continuation of the same tenure, not a fresh one - the manoeuvre reset
+    // must be skipped, mirroring office-seats.js's own same-holder handling.
+    await ranks().insertOne({
+      _id: s(SEAT_PEOPLES_HARPY),
+      rank: 3,
+      office_category: 'Socialite',
+      updated_at: '2026-08-01T00:00:00.000Z',
+    });
     const boardId = await seedBoard({
       harpy: {
         claims: [{ character_id: s(BRANDY), opened_at: '2026-08-29T10:00:00.000Z' }],
@@ -734,6 +744,10 @@ describe.skipIf(!dbAvailable)('prax.4a AC5: refusals', () => {
     const brandy = await charDoc(BRANDY);
     expect(brandy.court_category).toBe('Socialite');
     expect(brandy.court_title).toBe(PEOPLES_HARPY_SEAT_LABEL);
+    // Her manoeuvre rank survives the re-election untouched - not reset to 0.
+    const rank = await rankDoc(SEAT_PEOPLES_HARPY);
+    expect(rank.rank).toBe(3);
+    expect(rank.manoeuvre_xp_destroyed).toBeUndefined();
   });
 
   it('404s when the winner has no character document', async () => {

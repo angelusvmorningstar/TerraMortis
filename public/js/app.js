@@ -567,34 +567,6 @@ function goTab(t, ctx) {
   if (t === 'more') renderMoreGrid();
   if (t === 'settings') renderSettingsTab();
 
-  // ── More grid apps — player portal tabs (nav-2-3) ────────────────────────
-  if (t === 'map') {
-    const el = document.getElementById('t-map');
-    if (el && !el.innerHTML.trim()) {
-      const terrs = (suiteState.territories || []).filter(t => t.regent_id);
-      const chars = suiteState.chars || [];
-      let regHtml = '';
-      if (terrs.length) {
-        regHtml = '<div class="map-regent-panel"><div class="map-regent-title">Regents</div><div class="map-regent-list">';
-        for (const tr of terrs.sort((a, b) => (a.name || a.id).localeCompare(b.name || b.id))) {
-          const c = chars.find(ch => String(ch._id) === tr.regent_id);
-          const name = c ? (c.moniker || c.name) : '(vacant)';
-          regHtml += `<div class="map-regent-row"><span class="map-regent-terr">${tr.name || tr.id}</span><span class="map-regent-name">${name}</span></div>`;
-        }
-        regHtml += '</div></div>';
-      }
-      // Issue #9: render map_coords overlay labels over the inline image.
-      // Read-only on this surface — ST drag-to-place lives on the World
-      // fullscreen overlay (city-tab.js _openMapOverlay).
-      const mapStage = renderMapStageHtml({
-        territories: suiteState.territories || [],
-        chars,
-        imgClass: 'city-map',
-        editable: false,
-      });
-      el.innerHTML = `<div class="map-tab-wrap"><div class="map-img-wrap">${mapStage}</div>${regHtml}</div>`;
-    }
-  }
   if (t === 'feeding') {
     const el = document.getElementById('t-feeding');
     const char = _activeMoreChar();
@@ -867,7 +839,13 @@ async function loadAllData() {
   // char BEFORE applyOverlayToAll so 'derived.defence' STM mods compose
   // additively on top of the real mechanical base.
   for (const c of (suiteState.chars || [])) materialiseDerivedDefence(c);
-  await applyOverlayToAll(suiteState.chars, globalEnabled);
+  // Fetch the bulk CSV against the player's OWN character ids only
+  // (sortedChars, pre-combat-merge) — suiteState.chars can carry non-owned
+  // combat opponents (2b above), and st_mods' bulk route 403s the whole
+  // batch atomically on the first id the caller doesn't own, silently
+  // zeroing the overlay for the player's own characters too. STs already
+  // own everything editorState.chars returns, so this is a no-op for them.
+  await applyOverlayToAll(suiteState.chars, globalEnabled, sortedChars.map(c => c._id));
   // editorState.chars is the same set of references for the player-owned
   // subset (sortedChars came from editorState.chars.slice()). Combat-only
   // chars are not in editorState. Nothing more to mirror.

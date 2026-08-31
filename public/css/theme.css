@@ -24,14 +24,18 @@
   --gold-a8:rgba(120,90,40,.08);--gold-a10:rgba(120,90,40,.10);
   --gold-a12:rgba(120,90,40,.12);--gold-a15:rgba(120,90,40,.15);
   --gold-a20:rgba(120,90,40,.20);--gold-a30:rgba(120,90,40,.30);
+  --gold-a40:rgba(120,90,40,.40);--gold-a60:rgba(120,90,40,.60);
   --gold2-a12:rgba(122,82,8,.12);--gold2-a25:rgba(122,82,8,.25);
+  --gold2-a40:rgba(122,82,8,.40);
   --golddark-a8:rgba(100,60,5,.08);--golddark-a50:rgba(100,60,5,.50);
 
   /* Crimson accents */
   --crim:#7A0000;--crim2:#8B1010;
   --crim-a8:rgba(122,0,0,.08);--crim-a12:rgba(122,0,0,.12);
-  --crim-a15:rgba(122,0,0,.15);--crim-a22:rgba(122,0,0,.22);
+  --crim-a15:rgba(122,0,0,.15);--crim-a20:rgba(122,0,0,.20);
+  --crim-a22:rgba(122,0,0,.22);
   --crim-a25:rgba(122,0,0,.25);--crim-a30:rgba(122,0,0,.30);
+  --crim-a35:rgba(122,0,0,.35);
   --crim-a40:rgba(122,0,0,.40);--crim-a45:rgba(122,0,0,.45);
   --crim-a50:rgba(122,0,0,.50);--crim-a55:rgba(122,0,0,.55);
   --crim-a60:rgba(122,0,0,.60);--crim-a70:rgba(122,0,0,.70);
@@ -55,6 +59,13 @@
      DS-NN. Whatever DS-02..DS-12 was, it is untracked and orthogonal; --fhd/--fb stay
      as they are, unresolved, flagged for whoever next has reason to chase it. */
   --fhd:var(--fh);--fb:var(--ft);
+  /* #1105: tracked-numeral alias, kept as its own name (not folded into --fl)
+     so a future pass can diverge it without an audit across every call site. */
+  --fm:var(--fl);
+  /* #1105: names the generic monospace keyword both --fc call sites already
+     fell back to (zero visual change) - used for the Discord-ID fields an ST
+     manually types into and cross-checks, not a chosen webface. */
+  --fc:monospace;
 
   /* ── SHARED ECOSYSTEM LAYER (2026-08-22) ───────────────────────────────
      Ported from TM Design System after Angelus approved it rendered; TM Admin
@@ -133,6 +144,7 @@
   /* Status: success / green */
   --green:#1E6A1E;--green2:#2A7A4A;--green3:#1A5A30;--green4:#2A8A4A;
   --green-a15:rgba(30,106,30,.15);--green-a45:rgba(30,106,30,.45);
+  --green2-a35:rgba(42,122,74,.35);
   --green2-a8:rgba(42,122,74,.80);--green2-a9:rgba(42,122,74,.90);
   --rote:#6A3CA0; /* fix.854: Rote-eligible legend accent (no purple existed) */
   --green3-a5:rgba(26,90,48,.50);--green3-a9:rgba(26,90,48,.90);
@@ -157,6 +169,7 @@
   --info:#1A4A7A;--info2:#1A3A6A;
   --info-a9:rgba(26,74,122,.90);--info2-a9:rgba(26,58,106,.90);
   --info3-a8:rgba(20,60,110,.80);
+  --info4-a15:rgba(38,70,94,.15);--info4-a20:rgba(38,70,94,.20);
   --info4-a30:rgba(38,70,94,.30);--info4-a60:rgba(38,70,94,.60);
 
   /* Warm dark overlays (replaces white overlays on light bg) */
@@ -166,7 +179,9 @@
 
   /* Semantic accent — crimson on parchment */
   --accent:var(--crim);--accent2:var(--crim2);
-  --accent-a8:rgba(122,0,0,.08);--accent-a25:rgba(122,0,0,.25);--accent-a40:rgba(122,0,0,.40);
+  --accent-a8:rgba(122,0,0,.08);--accent-a12:rgba(122,0,0,.12);
+  --accent-a15:rgba(122,0,0,.15);
+  --accent-a25:rgba(122,0,0,.25);--accent-a40:rgba(122,0,0,.40);
 
   /* Label contrast */
   --label-secondary:#5a4a3a;--label-tertiary:#8a7060;
@@ -286,14 +301,18 @@
   --gold-a8:rgba(201,169,98,.08);--gold-a10:rgba(201,169,98,.1);
   --gold-a12:rgba(201,169,98,.12);--gold-a15:rgba(201,169,98,.15);
   --gold-a20:rgba(201,169,98,.2);--gold-a30:rgba(201,169,98,.3);
+  --gold-a40:rgba(201,169,98,.4);--gold-a60:rgba(201,169,98,.6);
   --gold2-a12:rgba(224,196,122,.12);--gold2-a25:rgba(224,196,122,.25);
+  --gold2-a40:rgba(224,196,122,.40);
   --golddark-a8:rgba(200,144,10,.08);--golddark-a50:rgba(200,144,10,.5);
 
   /* Crimson accents */
   --crim:#8B0000;--crim2:#A81010;
   --crim-a8:rgba(139,0,0,.08);--crim-a12:rgba(139,0,0,.12);
-  --crim-a15:rgba(139,0,0,.15);--crim-a22:rgba(139,0,0,.22);
+  --crim-a15:rgba(139,0,0,.15);--crim-a20:rgba(139,0,0,.2);
+  --crim-a22:rgba(139,0,0,.22);
   --crim-a25:rgba(139,0,0,.25);--crim-a30:rgba(139,0,0,.3);
+  --crim-a35:rgba(139,0,0,.35);
   --crim-a40:rgba(139,0,0,.4);--crim-a45:rgba(139,0,0,.45);
   --crim-a50:rgba(139,0,0,.5);--crim-a55:rgba(139,0,0,.55);
   --crim-a60:rgba(139,0,0,.6);--crim-a70:rgba(139,0,0,.7);
@@ -307,6 +326,7 @@
   /* Status: success / green */
   --green:#5A8A5A;--green2:#7EC8A0;--green3:#8bc878;--green4:#A8D8B4;
   --green-a15:rgba(90,138,90,.15);--green-a45:rgba(90,138,90,.45);
+  --green2-a35:rgba(140,200,140,.35);
   --green2-a8:rgba(140,200,140,.8);--green2-a9:rgba(140,200,140,.9);
   --rote:#9E7AE0; /* fix.854: Rote-eligible legend accent */
   --green3-a5:rgba(140,210,140,.5);--green3-a9:rgba(140,210,140,.9);
@@ -331,6 +351,7 @@
   --info:#A8C4E0;--info2:#A0C8E8;
   --info-a9:rgba(100,150,200,.9);--info2-a9:rgba(120,170,220,.9);
   --info3-a8:rgba(70,110,155,.8);
+  --info4-a15:rgba(78,110,124,.15);--info4-a20:rgba(78,110,124,.2);
   --info4-a30:rgba(78,110,124,.3);--info4-a60:rgba(78,110,124,.6);
 
   /* White overlays */
@@ -340,7 +361,9 @@
 
   /* Semantic accent — gold on dark */
   --accent:var(--gold2);--accent2:var(--gold);
-  --accent-a8:rgba(224,196,122,.08);--accent-a25:rgba(224,196,122,.25);--accent-a40:rgba(224,196,122,.40);
+  --accent-a8:rgba(224,196,122,.08);--accent-a12:rgba(224,196,122,.12);
+  --accent-a15:rgba(224,196,122,.15);
+  --accent-a25:rgba(224,196,122,.25);--accent-a40:rgba(224,196,122,.40);
 
   /* Label contrast */
   --label-secondary:var(--txt2);--label-tertiary:var(--txt3);

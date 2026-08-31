@@ -185,8 +185,19 @@ export function setSkillObj(c, skill, obj) {
   }
 }
 
-/** Effective discipline rating. Disciplines have no bonus channel — `dots` is canonical. */
-export function discDots(c, disc) { return c.disciplines?.[disc]?.dots || 0; }
+/**
+ * Effective discipline rating: dots + bonus. CORRECTED 2026-08-31 ("one true rating" investigation)
+ * - discObj.bonus is a real, schema-declared field (added for CP/XP/Derived/Bonus edit-card parity),
+ * deliberately kept separate from `dots` so it is not double-counted with the purchase channels -
+ * which means a read-side total must add it back on, and this accessor never did. Dormant today
+ * (every live discipline has bonus:0) but is the exact "correct until real data exercises it" bug
+ * class this investigation exists to close. Every real caller (downtime-form.js, feeding-pool.js)
+ * uses this for pool totals and gating checks, the same effective-rating semantics as getAttrEffective.
+ */
+export function discDots(c, disc) {
+  const d = c.disciplines?.[disc];
+  return (d?.dots || 0) + (d?.bonus || 0);
+}
 
 /**
  * Count of a character's Touchstones currently "Attached" — gdx.12,

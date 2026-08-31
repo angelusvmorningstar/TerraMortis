@@ -39,6 +39,7 @@ import contestedRollsRouter from './routes/contested-rolls.js';
 import humanityCheckRouter from './routes/humanity-check.js';
 import officePurchaseRouter from './routes/office-purchase.js';
 import stModsRouter, { auditRouter as stModAuditRouter } from './routes/st_mods.js';
+import writeOnceViolationsRouter from './routes/write-once-violations.js';
 import appSettingsRouter from './routes/app-settings.js';
 import rollLogRouter from './routes/roll-log.js';
 import buildEquipmentCatalogueRouter from './routes/equipment-catalogue.js';
@@ -246,6 +247,11 @@ app.use('/api/admin', requireAuth, requireRole('st'), noCache(), adminMigrations
 // req.user. no-cache since mods mutate frequently from the admin panel.
 app.use('/api/st_mods', requireAuth, noCache(), stModsRouter);
 app.use('/api/st_mod_audit', requireAuth, noCache(), stModAuditRouter);
+// Issue #1132: refused write-once (clan/bloodline) transition attempts.
+// Same mount shape as st_mod_audit — ST gating lives on the handler itself,
+// requireAuth first to populate req.user, no-cache because a violation an ST
+// is looking for is by definition one that has just happened.
+app.use('/api/write_once_violations', requireAuth, noCache(), writeOnceViolationsRouter);
 // Epic STM (issue #378): global app settings (kill-switch lives here).
 // ST-auth at router level; requireAuth populates req.user. no-cache since
 // PATCH from the STM-5 admin panel needs to surface to all readers without

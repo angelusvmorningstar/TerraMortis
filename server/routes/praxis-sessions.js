@@ -828,7 +828,15 @@ router.post('/:id/resolve-harpy', requireRole('st'), handle(async (req, res) => 
         // office-powers.md's ruling: manoeuvres reset to zero on every handover
         // and the XP spent on them is destroyed, not refunded. The shared module
         // is the only place that arithmetic exists.
-        await resetManoeuvreRank(String(seatOid), SOCIALITE_CATEGORY, timestamp, dbSession);
+        //
+        // Skipped when the winner is the sitting holder being re-elected
+        // (Angelus's ruling, 2026-09-01, deferred-work.md): a re-election is a
+        // continuation of the same tenure, not a fresh one, mirroring step 5's
+        // own same-holder skip above and office-seats.js's PUT /:seatId/holder
+        // (AC4) treating a same-holder request as not a handover at all.
+        if (currentHolderId !== claimantId) {
+          await resetManoeuvreRank(String(seatOid), SOCIALITE_CATEGORY, timestamp, dbSession);
+        }
 
         snapshot = {
           winner_character_id: claimantId,
