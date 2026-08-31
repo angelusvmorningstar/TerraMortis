@@ -2,7 +2,7 @@
 title: 'Effective rating + cap sweep — Influence, Feeding pool, XP picker, Project dice pool'
 type: 'fix'
 created: '2026-04-30'
-status: review
+status: done  # corrected 2026-08-31 (one true rating investigation) - shipped and merged (21737c31); frontmatter simply never updated post-merge, per sprint-status.yaml's own authoritative dtlt-4-effective-rating-and-cap-sweep: done row
 recommended_model: 'sonnet — uniform pattern across 4 sites + spec picker addition + rite catalog filter; bounded changes guided by an existing canonical implementation (the merit XP picker branch)'
 context:
   - specs/epic-dtlt-dt2-live-form-triage.md

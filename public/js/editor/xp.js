@@ -6,6 +6,12 @@
 import { getRuleByKey } from '../data/loader.js';
 // N-1: map-fallback shape for per-slug free reads (see rules-helpers.js).
 import { freeOf } from '../data/rules-helpers.js';
+// Code review (2026-08-31, "one true rating"): meritRating's own hardcoded
+// 10-slug list was missing attache/carthian/fwb/retainer and never read
+// free_grants at all - meritFreeSum is the canonical 14-slug + free_grants
+// union (rules-helpers.js) with the Necropolis-target categorical gate
+// (issue #790) layered on top, already the pattern rules-view.js uses.
+import { meritFreeSum } from './domain.js';
 // COLLECTIVE-2 (#1110): compound slug + source names reach the bd-row from
 // rule data, so they are escaped like every other data-sourced label.
 import { esc } from '../data/helpers.js';
@@ -192,8 +198,7 @@ export function xpLeft(c) {
  */
 export function meritRating(c, m) {
   if (m.cp === undefined && m.xp === undefined) return m.rating || 0;
-  return (m.cp || 0) + freeOf(m, 'bloodline') + freeOf(m, 'pet') + freeOf(m, 'mci') + freeOf(m, 'vm') + freeOf(m, 'lk')
-    + freeOf(m, 'ohm') + freeOf(m, 'inv') + freeOf(m, 'pt') + freeOf(m, 'mdb') + freeOf(m, 'sw') + (m.xp || 0);
+  return (m.cp || 0) + meritFreeSum(m) + (m.xp || 0);
 }
 
 /**
