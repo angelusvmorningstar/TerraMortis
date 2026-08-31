@@ -1199,14 +1199,15 @@ defender-resolution fields). The three below were **not** patched and each wants
   implicit-discriminator fragility that produced the oaq.3 void-orphaning bug, left half-fixed.
   Task 3's own wording explicitly permitted keeping `$ne`, so this is a spec-vs-spec inconsistency
   inside crd.1 rather than a deviation from it.
-- **The parent epic's server-derived `game_session_id` was never added to the creation shape**
-  (Medium) — `specs/epic-crd-contested-roll-defence.md` (~line 100) puts a server-derived
-  `game_session_id` in crd.1's creation shape and explicitly forbids a client-supplied one;
-  `contested-rolls.js`'s `POST /` adds no such field, no AC in crd.1 ever mentioned it, and the
-  schema does not declare it. **NEEDS ANGELUS'S OWN SCOPE DECISION, deliberately not resolved:** does
-  this belong retroactively in crd.1, or in crd.2/crd.3a where the queue and the resolve endpoint
-  actually need session provenance? Either way, every document crd.1 creates will lack it, so
-  whichever story takes it on must decide separately whether pre-existing pending documents matter.
+- **RULED ON by Angelus, 2026-09-01: `game_session_id` provenance belongs in crd.2/crd.3a, not
+  retroactively in crd.1.** (Medium) — `specs/epic-crd-contested-roll-defence.md` (~line 100) puts
+  a server-derived `game_session_id` in crd.1's creation shape and explicitly forbids a
+  client-supplied one; `contested-rolls.js`'s `POST /` adds no such field, no AC in crd.1 ever
+  mentioned it, and the schema does not declare it. Decision: add it where session provenance is
+  actually consumed — the player-facing pending queue (crd.2) and the resolve endpoint (crd.3a) —
+  not by reopening the already-closed crd.1 story. Every document crd.1 created lacks the field;
+  whichever of crd.2/crd.3a takes this on should treat those as pre-migration data rather than
+  assume the field is always present. Not yet built — this only settles which story owns it.
   Related precedent worth reading first: the otc-2 entry above, where `game_session_id` on
   `office_actions` is already logged as a caller-supplied, unvalidated, spoofable string — this epic
   should not reproduce that shape.
@@ -1230,21 +1231,16 @@ defender-resolution fields). The three below were **not** patched and each wants
   `resolve-harpy` itself already uses) touches exactly those routes. Prax.4b's own resolve route for
   the Praxis tally will want the identical guard for `resolved.praxis`, so this is a natural candidate
   to fix once, for both tallies, alongside that story rather than as two separate patches.
-- **`resetManoeuvreRank` fires unconditionally on `resolve-harpy`'s resolve path, including when the
-  declared winner is the SITTING People's Harpy being re-elected** (Low - a genuine game-rules
-  question, not a defect). `office-seats.js`'s own `PUT /:seatId/holder` treats a same-holder request
-  as NOT a handover (AC4 there) and explicitly skips the reset, on the reasoning that re-saving an
-  unchanged assignment must never be able to wipe a ladder. Prax.4a's resolve-harpy route has no
-  equivalent same-holder branch — AC5's own literal text lists the manoeuvre reset as an unconditional
-  step of the resolve path, and the shipped code does exactly that (confirmed: the "sitting Harpy
-  re-winning is not a conflict" test asserts the handover succeeds and the office is kept, but does
-  not assert on the manoeuvre rank one way or the other). **NEEDS ANGELUS'S OWN RULING, deliberately
-  not resolved:** is a People's Harpy re-election a fresh tenure (reset is correct - a new term earned
-  by a new vote) or a continuation of the same one (reset is an unwanted surprise)? The design-lock
-  never posed this question because "the sitting holder wins again" was not one of the states it
-  mocked. Whichever way this is ruled, it is a one-line conditional in `resolve-harpy`'s resolve
-  branch (skip the `resetManoeuvreRank` call when `currentHolderId === claimantId`, mirroring the
-  clear-departing-holder skip already there for the same case) - trivial to build once decided.
+- **RULED ON by Angelus, 2026-09-01: a People's Harpy re-election is a continuation of the same
+  tenure, not a fresh one — skip the manoeuvre reset.** `resetManoeuvreRank` used to fire
+  unconditionally on `resolve-harpy`'s resolve path, including when the declared winner was the
+  SITTING People's Harpy being re-elected, in contrast to `office-seats.js`'s own `PUT
+  /:seatId/holder` (AC4), which already treats a same-holder request as not a handover at all and
+  skips the reset for exactly this reason. Fixed as part of the 2026-09-01 stranded-branch
+  consolidation: `resolve-harpy` now skips the reset when `currentHolderId === claimantId`,
+  mirroring the clear-departing-holder skip already in step 5 of the same route. The "sitting
+  Harpy re-winning is not a conflict" test in `prax-4a-peoples-harpy-resolve.test.js` now also
+  seeds a pre-existing manoeuvre rank and asserts it survives the re-election untouched.
 
 ## Deferred from: code review of crd-2-player-facing-pending-queue (2026-08-22, external Codex review)
 
