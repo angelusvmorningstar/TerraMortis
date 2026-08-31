@@ -1881,3 +1881,29 @@ triage. One real finding deferred rather than fixed:
   detaching it entirely with a fire-and-forget + logged-rejection shape), then applying it to both call
   sites together. Suggested title: `bound-best-effort-audit-inserts` (no issue number assigned; opening
   a GitHub issue for it is Angelus's call).
+
+## Raised from TM Story's own deferred-work.md (items #384/#385), Angelus's ruling 2026-09-01
+
+TM Story (read-only consumer of `tm_game`) found two real data gaps it cannot fix itself. Both ruled
+by Angelus 2026-09-01; not yet actioned here.
+
+- **["Mantle of Amorous Fire" rite: deliberate rename, 2 real characters need migrating.] The live
+  `purchasable_powers` catalogue re-keyed AND renamed this rite (`rite-mantle-of-amorous-fire` →
+  `rite-the-mantle-of-amorous-fire`, "Mantle of Amorous Fire" → "The Mantle of Amorous Fire").
+  Brandy LaRoux and Jack Fallow both already hold this rite, stored under the OLD key — TM Story's
+  own rite picker can no longer resolve it for either character (neither a stale-key nor a
+  folded-name match works, since the article makes the strings differ), so it's honestly omitted
+  from both characters' pickers there rather than guessed at.** Angelus confirmed the rename was
+  intentional (not catalogue drift) — the fix is to migrate Brandy LaRoux's and Jack Fallow's own
+  stored rite key/name to the new catalogue values, not to revert the catalogue. A `tm_game` write;
+  TM Story cannot make it. Full context: TM Story's `specs/deferred-work.md` item #384.
+
+- **[`rule_key` backfill gap — 60 of 68 real character rite power instances carry no working join
+  key at all.] A catalogue-wide data-hygiene gap on the character side, not the catalogue side (the
+  catalogue's own `rule_key` values are fine — TM Story's own item #383 already confirmed this and
+  made its rite picker resilient to the gap via a folded-name fallback).** Any future feature —
+  in TM Game, TM Admin, or TM Story — that joins character-side rite data on `rule_key` inherits the
+  same risk #383 just patched around for one consumer. Angelus ruled this should be a real,
+  scoped backlog item here (or in TM Admin) rather than just a note — a permanent `rule_key`
+  backfill across affected characters' rite instances. Unscoped, unprioritised as of this entry.
+  Full context: TM Story's `specs/deferred-work.md` item #385.
