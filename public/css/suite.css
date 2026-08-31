@@ -2963,11 +2963,23 @@ body.desktop-mode.sidebar-collapsed .sb-collapse-btn { width: 100%; justify-cont
    top of an already-full-width box and pushed the whole button 16px right
    of every sibling below the Again Rule section. Zeroing the side margins
    is what actually fixed it - width alone or margin alone, tried in
-   isolation, each still reproduced the misalignment. */
+   isolation, each still reproduced the misalignment.
+
+   Live-site bug report: `position: sticky` here (previously `bottom: 8px`)
+   pins the button near the bottom of #t-roll's own scroll box the whole time
+   its natural (unstuck) position is still below that line - which, for most
+   of this tab's own scroll range, is true, since #t-roll's content is much
+   taller than its viewport (measured live: scrollHeight 1621 vs clientHeight
+   855 on a real character). That means the button visibly overlaps the
+   Special tiles, the Rote/WP row, and the pool-breakdown anchor for almost
+   the ENTIRE scroll through this tab, not just briefly - reproduced directly
+   against the live site, not assumed from source. It only settles into a
+   clean, non-overlapping position once scrolled close to the true bottom of
+   the tab's content. A user cannot reliably tap Rote/WP, a Special tile, or
+   type a Mod while scrolling past them for this reason. Static (in normal
+   flow, no sticky/bottom/z-index/box-shadow) is what every other block in
+   this tab already is - this button gets no different treatment now. */
 .rv2-roll-btn {
-  position: sticky;
-  bottom: 8px;
-  z-index: 10;
   display: block;
   width: 100%;
   margin: 12px 0 16px;
@@ -2983,7 +2995,6 @@ body.desktop-mode.sidebar-collapsed .sb-collapse-btn { width: 100%; justify-cont
   letter-spacing: 0.06em;
   text-transform: uppercase;
   cursor: pointer;
-  box-shadow: 0 -4px 16px var(--overlay);
   transition: filter 0.12s;
 }
 .rv2-roll-btn:active { filter: brightness(1.15); }
