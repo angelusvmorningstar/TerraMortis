@@ -1,6 +1,6 @@
 # Story issue-1122: Standing pledge-overcommitment indicator (render-time, both renderers)
 
-Status: review
+Status: done
 
 > **The other half of OATH-A.** #1111 shipped `_pledgeFloorNote` (`public/js/editor/edit.js`
 > `_applyPledgeFloor`, `sheet.js:2149`): edit-time feedback that fires when an edit would have
@@ -56,6 +56,12 @@ the new indicator is not feedback about anything that just happened, so it belon
    calling neither, `:2322-2334`) both call the new check for every merit and render its output when
    the merit is over-committed. Prove this with assertions against BOTH rendered HTML strings, per
    the `renderBoth()` pattern already established in `server/tests/oath-a-render-and-gate.test.js`.
+   **Corrected post-review (2026-08-31, Codex + Angelus's ruling):** "both renderers" means admin's
+   own edit-mode and view-mode calls specifically, not audience-agnostically. `shRenderGeneralMerits`
+   is also called by the player-facing Suite app (`public/js/suite/sheet.js:739`, always view mode),
+   which the original AC text did not name. Angelus ruled this indicator stays ST-only — see the new
+   `showOvercommitIndicator` parameter in Dev Notes and the Senior Developer Review. The pre-existing
+   `_pledgeBadge`/`_oathPledgeNote` badges remain player-visible, unchanged.
 3. **A freshly loaded, never-edited, over-committed character shows it.** Constructing a character
    fixture directly (bypassing `shEditMeritPt`/`_applyPledgeFloor` entirely, modelling one of the six
    ungated write paths #1128 names) with a merit whose `cp`/`xp`/`free_*` sum is below what an oath's
@@ -430,10 +436,11 @@ than claimed broadly.
 
 | File | Change |
 |---|---|
-| `public/js/editor/sheet.js` | MODIFIED — added `_pledgeOvercommitNote` inside `shRenderGeneralMerits`; wired into 4 call sites (2 edit-mode sub-branches, 2 view-mode sub-branches) |
-| `server/tests/issue-1122-pledge-overcommit-indicator.test.js` | NEW — 17 tests across AC1/AC3/AC4/AC5/AC6/AC7 |
-| `specs/stories/issue-1122-pledge-pool-overcommit.story.md` | MODIFIED — tasks ticked, Dev Agent Record added, Status → review |
-| `specs/stories/sprint-status.yaml` | MODIFIED — `issue-1122-pledge-pool-overcommit` → `review` (one line, nothing else touched) |
+| `public/js/editor/sheet.js` | MODIFIED — added `_pledgeOvercommitNote` inside `shRenderGeneralMerits`; wired into 4 call sites (2 edit-mode sub-branches, 2 view-mode sub-branches); `showOvercommitIndicator` param (default `false`) added to the function signature, admin's two `renderSheet` call sites pass `true`, Suite's call site (`public/js/suite/sheet.js:739`) untouched and stays `false` by omission; per-oath dot breakdown added to the "short against..." wording |
+| `server/tests/issue-1122-pledge-overcommit-indicator.test.js` | NEW/MODIFIED (post-review) — 20 tests across AC1/AC3/AC4/AC5/AC6/AC7 plus the new admin-only describe block |
+| `specs/stories/issue-1122-pledge-pool-overcommit.story.md` | MODIFIED — tasks ticked, Dev Agent Record + Senior Developer Review added, AC2 corrected, Status → done |
+| `specs/stories/sprint-status.yaml` | MODIFIED — `issue-1122-pledge-pool-overcommit` status field (one line, nothing else touched) |
+| `specs/deferred-work.md` | MODIFIED — two Medium findings from the external review recorded (orphaned-pledge-on-merit-delete; cross-app legacy-rating arithmetic mismatch) |
 
 Zero CSS files. Zero server/route/schema files. Zero changes to `edit.js`, `rules-helpers.js`,
 `xp.js`, `domain.js` or any accessor.
@@ -444,11 +451,113 @@ Zero CSS files. Zero server/route/schema files. Zero changes to `edit.js`, `rule
 |---|---|
 | 2026-08-31 | Story created from issue #1122 (SM). Angelus's ruling on the issue's own open question — warning, not error — folded in before writing ACs. Ready for dev. |
 | 2026-08-31 | Implemented (Dev). `_pledgeOvercommitNote` added to `shRenderGeneralMerits`, wired into all 4 renderer sub-branches. New suite 17/17 (RED 10/7 at base). T7 set 114 passed / 1 pre-existing fail (A/B-verified). T8 done as a Chromium render of real output under real stylesheets, both themes — see Declared Deviations. Zero CSS. Status → review. |
+| 2026-08-31 | External adversarial review (Codex, 3-pass, high reasoning effort): 0 High, 6 Medium, 3 Low. 1 Medium patched (per-oath dot breakdown in the "short against..." wording, prove-discriminated). A second Medium (this indicator is player-visible via Suite, with alarming-not-reassuring wording) went back to Angelus as a genuine tone/audience call rather than being decided unilaterally — Angelus chose **admin-only**: added a `showOvercommitIndicator` parameter (default `false`) so Suite's existing call site is unaffected by omission while admin's two call sites opt in explicitly, prove-discriminated with 3 new tests. 2 Medium findings deferred to `deferred-work.md` with full evidence (orphaned pledge on merit deletion; cross-app `meritRating` fallback ambiguity on legacy rating-only merits) — both real, both genuinely out of this story's declared scope (neither is "wire a comparison into 4 existing call sites"). 3 Low findings: 2 dismissed with evidence (schema/AJV-blocked at real write paths, inherited pre-existing patterns), 1 noted (AC8's literal "tests green" wording vs the same pre-existing CRLF failure, independently reproduced a third time by the reviewer itself). Full targeted gate re-run post-patch: 117 passed / 1 pre-existing failure (118). Status → done. |
+
+## Senior Developer Review (AI)
+
+**Reviewer:** external adversarial 3-pass review (Codex CLI, `model_reasoning_effort=high`), verified
+and triaged internally (Angelus's session, 2026-08-31), not just read. **Outcome:** 0 High, 6 Medium
+(1 patched, 1 resolved via a product decision + patch, 2 deferred with evidence, 2 effectively
+downgraded to Low by the reviewer's own later passes and folded into the Low disposition below), 3
+Low (2 dismissed with evidence, 1 noted). **Ready to ship** with the admin-only gate applied.
+
+### What was verified independently, not just read
+
+- Re-ran the full T7 gate myself before and after both patches: 114/115 → 117/118 (3 tests added),
+  same single pre-existing failure both times (`oath-a-pledge-helpers.test.js:388`, CRLF-vs-LF, unrelated
+  files). `node --check public/js/editor/sheet.js` clean both times.
+- Confirmed `_pledgeBadge` (pre-existing, OATH-A, unchanged) already interpolates `e.dots` into HTML
+  without `esc()` — the exact same pattern the reviewer flagged in the new code (Pass 1 Medium /
+  Pass 2 Low). Grepped the live source directly rather than trusting the claim either way.
+- Confirmed `shRemoveGenMerit` (`public/js/editor/edit-domain.js:159-166`) has zero pledge guard —
+  read the function directly. Confirms the orphaned-pledge Medium finding is real.
+- Confirmed `ensureMeritSync` (`public/js/editor/merits.js:139-158`) mutates `c.merits` in place,
+  materialising `cp:0`/`xp:0`/every `free_*` to `0` — read the function directly. Confirms the
+  cross-app arithmetic Medium finding's mechanism.
+- Confirmed the player-visibility fact itself before the review even ran (flagged proactively when
+  launching the review), then had it independently corroborated by the reviewer's own Pass 2 tracing.
+
+### Patched
+
+1. **Per-oath dot breakdown** (Pass 1 Medium, downgraded to a copy improvement by the reviewer's own
+   Pass 3a — not an AC violation, but a real readability loss). `_pledgeOvercommitNote`'s "by" string
+   now reads `e.oaths.map(o => o.oath + ' (' + o.dots + ')').join(', ')`, matching `_pledgeBadge`'s
+   own existing format, instead of a bare deduplicated name list. Prove-discriminated: reverted the
+   one line, watched the updated multi-oath test fail with the exact old (wrong) string, restored,
+   confirmed green.
+2. **Admin-only gating** (Pass 2 + Pass 3a Medium, "player-visible without the badge's reassurance" /
+   "audience expansion the spec never named" — same root cause, two passes). Genuinely a product
+   decision, not something to patch or dismiss unilaterally — put to Angelus directly with three
+   concrete options (soften the copy / ship as-is / admin-only). **Angelus chose admin-only.**
+   Implemented: `shRenderGeneralMerits(c, editMode, showOvercommitIndicator = false)` — a new,
+   backward-compatible optional parameter (every other existing caller across `n4a-picker-renderer-
+   placement.test.js`, `n7a-necro-domain-render.test.js`, `oath-b-suspension.test.js` etc. calls with
+   two args and is unaffected, spot-checked green — 68/68). Admin's two `renderSheet` call sites
+   (`sheet.js:3408`, `:3411`) now pass `true`; Suite's call site (`public/js/suite/sheet.js:739`) is
+   untouched and defaults to `false` by omission. Prove-discriminated: reverted the gate to `if (!m)
+   return ''`, watched the new "Suite never shows the indicator" test fail with the full over-commit
+   text present, restored, confirmed green. Two new tests also lock in that the pre-existing
+   `_pledgeBadge`/`_oathPledgeNote` badges are UNCHANGED (still player-visible, only the new indicator
+   is gated) and that admin's own view-mode call is unaffected by the gate.
+
+### Deferred (real, evidence-backed, genuinely out of this story's scope)
+
+Both written up in full in `specs/deferred-work.md` under "Deferred from: issue-1122-pledge-pool-
+overcommit code review (2026-08-31)" — summarised here, not duplicated:
+
+3. **Deleting a pledged merit makes every pledge-related display vanish for it**, and exposes that
+   ADR-010 D2's claimed guarantee ("the editor refuses to sell or reallocate pledged dots... under a
+   standing oath") does not hold for full merit removal (`shRemoveGenMerit` has no pledge check at
+   all). Needs a product decision (block removal? auto-release the pledge? something else?) before
+   any code — not this story's to decide or fix.
+4. **Legacy `rating`-only merits produce different "pool funds N" numbers in admin vs Suite**, because
+   `ensureMeritSync` (admin-only) flips which branch of `meritRating`'s own fallback fires for data
+   with no `cp`/`xp`. Pre-existing ambiguity in `meritRating` itself (already silently affected
+   `pledgeableDots` before #1122 existed); a real fix touches `meritRating`, explicitly out of this
+   story's declared boundary ("Not a change to any dot count, `meritRating`...").
+
+### Dismissed / noted (Low)
+
+5. **Unescaped `e.dots`/`owned`/`short` in the new HTML output** (Pass 1 Medium, downgraded to Low by
+   the reviewer's own Pass 2 once it traced reachability) — confirmed inherited from `_pledgeBadge`
+   (pre-existing, unchanged, same pattern) and confirmed schema/AJV-blocked at every real write path
+   (`validatePledge` and the server's AJV schema both reject non-integer and zero-dot attachment
+   values; the reviewer ran an actual AJV probe, not just a reading). Dismissed — fixing this function
+   alone without touching its sibling would be inconsistent, and touching the sibling too is scope
+   creep this story's own boundary explicitly excludes.
+6. **A zero-dot attachment names an oath that contributed nothing to the shortage** — same disposition
+   as #5: reachable only via legacy/corrupt data, not via any accepted normal write (`validatePledge`
+   rejects `dots: 0`, the JSON schema requires `minimum: 1`). Dismissed.
+7. **AC8's literal "Targeted tests green" wording** vs. the one pre-existing CRLF failure — the
+   reviewer independently reproduced the exact same failure a THIRD time (after the dev agent's own
+   stash A/B and this session's own re-run), via a from-scratch base-archive rebuild, confirming it is
+   not a regression. Accepted as satisfied in spirit; the AC's own wording didn't anticipate an
+   already-known pre-existing flake living inside one of its four named gate files.
+8. **The claimed Playwright/CSSOM browser run is unreproducible as stated** (harness/screenshots were
+   session-scratchpad-only, disclosed as such in the Dev Agent Record, not hidden). The underlying
+   claim it was checking — `.dom-cap-warn` resolves to `--warn-dk`, not `--err`, in both themes — was
+   independently re-confirmed by the reviewer via static CSS reading, with exact matching RGB values.
+   Accepted: the fact needed is true and doubly verified; the specific browser run just can't be
+   re-run after the fact.
+
+### Regression
+
+Full targeted gate, re-run independently after both patches: **117 passed / 1 pre-existing failure
+(118)**, same failure, same line, as before either patch. Spot-check of three unrelated
+`shRenderGeneralMerits` consumers (`n7a-necro-domain-render.test.js`, `n4a-picker-renderer-
+placement.test.js`, `oath-b-suspension.test.js`) confirms the new optional parameter is genuinely
+backward-compatible: 68/68 green, untouched by the signature change. `node --check
+public/js/editor/sheet.js` clean.
+
+**No unresolved High or Medium remains.** Status → `done`.
 
 ## Open questions for Angelus
 
-None blocking. One scope boundary is recorded rather than asked, because the evidence settles it:
-this story wires the indicator into `shRenderGeneralMerits` only, because `buildPledgeIndex` /
+None remaining. The one genuine open call this review surfaced (player-visible tone/audience) was put
+to Angelus directly during triage — he chose admin-only, implemented above. The scope boundary below
+was recorded rather than asked at story-creation time, because the evidence settled it:
+
+This story wires the indicator into `shRenderGeneralMerits` only, because `buildPledgeIndex` /
 `_pledgeBadge` / `sworn_by` are referenced nowhere else in `sheet.js` today (verified by grep) — the
 other three category renderers have no pledge-display machinery to extend in the first place, even
 though a pledge could in principle target a merit in one of them (ADR-010's own note). Building that

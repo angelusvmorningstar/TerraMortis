@@ -120,15 +120,30 @@ function overcommittedFixture() {
   ]);
 }
 
-/** Render both modes. */
+/**
+ * Render both modes AS THE ADMIN APP CALLS THEM — `showOvercommitIndicator: true`
+ * on both, matching `renderSheet`'s own two call sites in `sheet.js`
+ * (Angelus's ruling, Codex review: this indicator is admin-only).
+ */
 function renderBoth(c) {
   stateMod.chars = [c];
   stateMod.editIdx = 0;
   stateMod.editMode = true;
-  const edit = shRenderGeneralMerits(c, true);
+  const edit = shRenderGeneralMerits(c, true, true);
   stateMod.editMode = false;
-  const view = shRenderGeneralMerits(c, false);
+  const view = shRenderGeneralMerits(c, false, true);
   return { edit, view };
+}
+
+/**
+ * Suite's EXACT call shape (`public/js/suite/sheet.js:739`): two arguments,
+ * `showOvercommitIndicator` omitted entirely, always view mode.
+ */
+function renderAsSuite(c) {
+  stateMod.chars = [c];
+  stateMod.editIdx = 0;
+  stateMod.editMode = false;
+  return shRenderGeneralMerits(c, false);
 }
 
 // The phrase that identifies the new indicator specifically. Deliberately NOT
@@ -249,7 +264,10 @@ describe('#1122 AC1 — multiple oaths against one merit sum, per buildPledgeInd
     const { edit, view } = renderBoth(c);
     for (const html of [edit, view]) {
       expect(html).toContain('Pledged 5, pool funds 2');
-      expect(html).toContain('3 dots short against Oath Of Fealty, Oath Of Abstinence');
+      // Codex review (Medium, Pass 1): name each oath's OWN contribution, not
+      // just its name — matching _pledgeBadge's own "Oath (N)" format, so a
+      // reader can see which oath owes what rather than only the total.
+      expect(html).toContain('3 dots short against Oath Of Fealty (3), Oath Of Abstinence (2)');
       expect((html.match(MARKER) || []).length).toBe(1);
     }
   });
@@ -268,6 +286,35 @@ describe('#1122 AC1 — multiple oaths against one merit sum, per buildPledgeInd
     expect(meritRating(c, c.merits[0])).toBe(3);
     const { edit, view } = renderBoth(c);
     for (const html of [edit, view]) expect(html).not.toMatch(MARKER);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Admin-only (Codex review + Angelus's ruling, 2026-08-31): Suite (the
+// player-facing app) must never render this indicator, even though it shares
+// the same view-mode branch that admin's own view mode uses.
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('#1122 admin-only — Suite never shows the indicator', () => {
+  it('Suite\'s exact call shape renders no indicator on an over-committed character', () => {
+    const html = renderAsSuite(overcommittedFixture());
+    expect(html).not.toMatch(MARKER);
+  });
+
+  it('the pre-existing Pledged/Sworn badges are UNCHANGED — still visible to Suite', () => {
+    // Proves this restricts only the NEW indicator, not the whole shared
+    // renderer or the pledge badges OATH-A already ships to players.
+    const html = renderAsSuite(overcommittedFixture());
+    expect(html).toContain('Pledged 3');
+    expect(html).toContain('Sworn 3');
+  });
+
+  it('admin\'s own view-mode call (showOvercommitIndicator: true) still shows it', () => {
+    // Same editMode=false as Suite's call — the ONLY difference is the third
+    // argument. If this failed, the gate would be silently defeating admin
+    // too, not just Suite.
+    const { view } = renderBoth(overcommittedFixture());
+    expect(view).toMatch(MARKER);
   });
 });
 
