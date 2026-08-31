@@ -275,6 +275,30 @@ describe('AC#3 — input validation', () => {
     });
     expect(res.status).toBe(400);
   });
+
+  // TM Admin Story tm-admin.10.1b AC1: merits.N.bonus joins merits.N.dots on
+  // the dynamic regex (server/routes/st_mods.js) — the retired
+  // shAdjMeritBonus stepper's audited replacement composes onto this path.
+  it('accepts merits[N].bonus regex path (AC1)', async () => {
+    const res = await request(app).post('/api/st_mods').set('X-Test-User', stUser()).send({
+      character_id: CHAR_ID, stat_path: 'merits.2.bonus', delta: 1, reason: 'merit bonus grant',
+    });
+    expect(res.status).toBe(201);
+    expect(res.body.stat_path).toBe('merits.2.bonus');
+    CREATED_MOD_IDS.push(res.body._id);
+  });
+  it('rejects merits.X.bonus where X is not numeric', async () => {
+    const res = await request(app).post('/api/st_mods').set('X-Test-User', stUser()).send({
+      character_id: CHAR_ID, stat_path: 'merits.foo.bonus', delta: 1, reason: 'x',
+    });
+    expect(res.status).toBe(400);
+  });
+  it('still rejects merits.N.<other field> (e.g. .rating) — only dots/bonus are whitelisted', async () => {
+    const res = await request(app).post('/api/st_mods').set('X-Test-User', stUser()).send({
+      character_id: CHAR_ID, stat_path: 'merits.2.rating', delta: 1, reason: 'x',
+    });
+    expect(res.status).toBe(400);
+  });
 });
 
 // ── Ordering (AC#4) ──────────────────────────────────────────────────

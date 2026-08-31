@@ -595,17 +595,14 @@ export function shEditAttrPt(attr, field, val) {
 // c.attributes[X].bonus / c.skills[X].bonus directly, unaudited. Ad-hoc
 // bonuses now go through the audited st_mods apply affordance on the
 // rendered (non-edit) sheet (editor/st-mod-popover.js applyAffordance).
-
-export function shAdjMeritBonus(realIdx, delta) {
-  if (state.editIdx < 0) return;
-  const c = state.chars[state.editIdx];
-  ensureMeritSync(c);
-  const m = c.merits[realIdx];
-  if (!m) return;
-  m.bonus = Math.max(0, (m.bonus || 0) + delta);
-  _markDirty();
-  _renderSheet(c);
-}
+//
+// TM Admin Story tm-admin.10.1b (AC3): shAdjMeritBonus — the merit-channel
+// equivalent STM-14 deliberately left out of its own scope
+// (specs/qa/gates/1034.1-stm-14-audited-adhoc-bonus.yml:106) — is retired
+// here too, on the same terms. It wrote c.merits[X].bonus directly,
+// unaudited (feature.333/feature.335). Ad hoc merit bonuses now go through
+// the same audited st_mods apply affordance, wired into shRenderMeritRow
+// and the Domain/Standing view rows (editor/sheet.js).
 
 export function shSetClanAttr(val) {
   if (state.editIdx < 0) return;

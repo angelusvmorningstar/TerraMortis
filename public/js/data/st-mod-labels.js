@@ -44,7 +44,11 @@ const STATIC_LABELS = (() => {
   return m;
 })();
 
-const MERIT_RE = /^merits\.([0-9]+)\.dots$/;
+// TM Admin Story tm-admin.10.1b AC1/AC2: merits.N.bonus joins merits.N.dots
+// as a valid dynamic path (server/routes/st_mods.js DYNAMIC_PATH_RE) — the
+// fallback label needs the same (dots|bonus) suffix so a merit-bonus mod's
+// popover/audit label doesn't fall through to the raw path.
+const MERIT_RE = /^merits\.([0-9]+)\.(dots|bonus)$/;
 const DISC_RE = /^disciplines\.([0-9]+)\.dots$/;
 
 /** Return a human-readable label for a stat_path. Falls back to the raw
@@ -56,7 +60,7 @@ export function labelForPath(path) {
   if (typeof path !== 'string') return '';
   if (STATIC_LABELS.has(path)) return STATIC_LABELS.get(path);
   const mMerit = MERIT_RE.exec(path);
-  if (mMerit) return `Merit #${mMerit[1]} (dots)`;
+  if (mMerit) return `Merit #${mMerit[1]} (${mMerit[2]})`;
   const mDisc = DISC_RE.exec(path);
   if (mDisc) return `Discipline #${mDisc[1]} (dots)`;
   return path;

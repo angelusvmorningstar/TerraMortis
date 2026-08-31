@@ -928,9 +928,18 @@ html:not([data-theme="dark"]) .edit-icon {
 /* ── Dev-mode redacted inputs ──
    Disabled inputs in dev mode display block-character placeholders.
    Style them to look deliberate (black background, gold text) rather
-   than like broken greyed-out controls. */
-input.form-input:disabled,
-input.sh-edit-input:disabled {
+   than like broken greyed-out controls.
+   Live-site bug report: this used to match ANY disabled .form-input/
+   .sh-edit-input, not just redacted ones - so the Roll tab's Mods row
+   (disabled until a pool is picked) and the Identity tab's derived XP
+   fields (always disabled, nothing to do with redaction) were forced into
+   this fixed dark/gold look in EVERY theme, including Parchment, since
+   --surf-ink is a deliberate theme-agnostic constant (theme.css), not a
+   token that varies with data-theme. Scoped to .redact-input (set only on
+   the genuinely dev-mode-redacted inputs in identity.js/sheet.js) so an
+   ordinary disabled control instead falls through to its own theme's
+   normal disabled treatment. */
+input.redact-input:disabled {
   background: var(--surf-ink);
   color: var(--gold2);
   opacity: 1;

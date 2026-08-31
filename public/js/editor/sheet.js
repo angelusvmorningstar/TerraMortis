@@ -1097,7 +1097,7 @@ export function shRenderInfluenceMerits(c, editMode) {
       const displayArea = narrow ? (area ? area + ' — ' + narrow : narrow) : area;
       const iRIdx = c.merits.indexOf(m);
       const iPurch = (m.cp || 0) + (m.xp || 0), iBon = meritFreeSum(m) + attacheBonusDots(c, displayArea ? m.name + ' (' + displayArea + ')' : m.name) + (m.bonus || 0);
-      h += shRenderMeritRow((displayArea ? m.name + ' (' + displayArea + gt + ')' : m.name + gt) + gb, 'infl', idx, shDotsSuspended(iPurch, iBon, shSuspendedOf(m)));
+      h += shRenderMeritRow((displayArea ? m.name + ' (' + displayArea + gt + ')' : m.name + gt) + gb, 'infl', idx, shDotsSuspended(iPurch, iBon, shSuspendedOf(m)), undefined, c, iRIdx);
     });
     const ce = inflM.filter(m => m.name === 'Contacts');
     if (ce.length) {
@@ -1664,7 +1664,8 @@ export function shRenderDomainMerits(c, editMode) {
       // Derived-note warnings (Capped / Needs attached) emit as further
       // siblings after the exp-body \u2014 same visual intent as the existing
       // pattern (cap warning sits beneath the row).
-      const _viewExpId = 'dom-' + c.merits.indexOf(m);
+      const _viewRealIdx = c.merits.indexOf(m);
+      const _viewExpId = 'dom-' + _viewRealIdx;
       const _viewDb = meritLookup(m.name);
       const _viewDesc = _viewDb && _viewDb.desc ? esc(_viewDb.desc) : '';
       const _viewPrereq = _viewDb && _viewDb.prereq ? prereqLabel(_viewDb.prereq) : '';
@@ -1673,10 +1674,25 @@ export function shRenderDomainMerits(c, editMode) {
         ? '<div class="trait-sub"><span class="trait-qual dom-shared-lbl">Shared \u00B7 ' + dp.map(entry => { const p = resolveSharedWithMember(chars, entry); const pd = p ? domMeritShareable(p, m.name) : 0; const label = p ? displayName(p) : entry; return esc(label) + (pd ? ' ' + shDots(pd) : ''); }).join(', ') + '</span></div>'
         : '';
       const _viewArr = _viewHasExp ? '<span class="exp-arr">\u203A</span>' : '';
+      // TM Admin Story tm-admin.10.1b AC2 (extended): shRenderDomainMerits'
+      // own view-mode row (_emitViewRow) never routed through
+      // shRenderMeritRow (it builds _viewInner inline) \u2014 so the story's
+      // literal "wire it into shRenderMeritRow, one call site" instruction
+      // would silently leave Domain merits with NO audited bonus-grant path
+      // at all once AC4 removes the edit-mode stepper below. Wiring the same
+      // applyAffordance/markerFor pair directly here closes that gap.
+      // Compound-target rows (_rowCompoundsView.length > 0, e.g. Necropolis
+      // targets) are pool-funded only and never read m.bonus (mirrors the
+      // edit-mode hideBonus: _isCompoundTarget suppression at meritBdRow's
+      // own call site below) \u2014 no affordance on those rows either.
+      const _viewStatPath = 'merits.' + _viewRealIdx + '.bonus';
+      const _viewAfford = _rowCompoundsView.length === 0
+        ? applyAffordance(c, _viewStatPath, m.name) + markerFor(c, _viewStatPath)
+        : '';
       // Inner row body \u2014 trait-row + trait-main + trait-right + optional
       // shared trait-sub. Self-contained: opens 3 divs (trait-row,
       // trait-main, trait-right) and closes them all inline.
-      const _viewInner = '<div class="trait-row"><div class="trait-main"><span class="trait-name">' + _dispName + '</span>' + _subtitleInlineView + '<div class="trait-right">' + (dp ? _shHtml : dotHtml) + _viewArr + '</div></div></div>' + _viewSharedSub;
+      const _viewInner = '<div class="trait-row"><div class="trait-main"><span class="trait-name">' + _dispName + '</span>' + _viewAfford + _subtitleInlineView + '<div class="trait-right">' + (dp ? _shHtml : dotHtml) + _viewArr + '</div></div></div>' + _viewSharedSub;
       // Capped-view warnings (Needs Attached / Capped at N) \u2014 derived-note
       // siblings after the exp-body. Hoisted out so both branches share.
       let _viewCappedNote = '';
@@ -1977,7 +1993,14 @@ export function shRenderStandingMerits(c, editMode) {
         h += '<div class="derived-note">OTS: +' + (dd * 2) + ' free style/merit dots (' + (c._ots_free_dots || 0) + ' pool)</div>';
       }
     }
-    else { const sub = m.cult_name || m.role || '', assets = m.asset_skills && m.asset_skills.length ? m.asset_skills.join(', ') : ''; const _sSub = [sub ? esc(sub) : '', assets ? 'Asset Skills: ' + esc(assets) : ''].filter(Boolean).join(' \u00B7 '); h += '<div class="merit-plain"><div class="trait-row"><div class="trait-main"><span class="trait-name">' + esc(m.name) + '</span><div class="trait-right">' + shDotsSuspended(_stPurch, Math.max(0, (m.rating || 0) - _stPurch), shSuspendedOf(m)) + '</div></div>' + (_sSub ? '<div class="trait-sub"><span class="trait-qual">' + _sSub + '</span></div>' : '') + '</div></div>'; }
+    // TM Admin Story tm-admin.10.1b AC2 (extended): this plain-name view row
+    // (any Standing merit other than MCI/PT) never routed through
+    // shRenderMeritRow either \u2014 same gap as Domain's own view row above.
+    // MCI/PT are excluded (N-9: m.bonus is a documented no-op for them,
+    // hideBonus:true on their own meritBdRow call) \u2014 this branch is only
+    // reached for the arbitrary-named Standing merits that DO read m.bonus
+    // in edit mode (line 1988, no hideBonus flag).
+    else { const sub = m.cult_name || m.role || '', assets = m.asset_skills && m.asset_skills.length ? m.asset_skills.join(', ') : ''; const _sSub = [sub ? esc(sub) : '', assets ? 'Asset Skills: ' + esc(assets) : ''].filter(Boolean).join(' \u00B7 '); const _standStatPath = 'merits.' + rIdx + '.bonus'; const _standAfford = applyAffordance(c, _standStatPath, m.name) + markerFor(c, _standStatPath); h += '<div class="merit-plain"><div class="trait-row"><div class="trait-main"><span class="trait-name">' + esc(m.name) + '</span>' + _standAfford + '<div class="trait-right">' + shDotsSuspended(_stPurch, Math.max(0, (m.rating || 0) - _stPurch), shSuspendedOf(m)) + '</div></div>' + (_sSub ? '<div class="trait-sub"><span class="trait-qual">' + _sSub + '</span></div>' : '') + '</div></div>'; }
   });
   if (editMode) {
     const hasMCI = standM.some(m => m.name === 'Mystery Cult Initiation');
@@ -2389,13 +2412,14 @@ export function shRenderGeneralMerits(c, editMode, showOvercommitIndicator = fal
       const pw = _prereqWarn(c, m.name, m);
       const purch = (m.cp || 0) + (m.xp || 0), bon = meritFreeSum(m) + (m.bonus || 0);
       const dotH = shDotsSuspended(purch, bon, shSuspendedOf(m));
+      const rIdx = c.merits.indexOf(m);
       if (m.granted_by) {
         const gb = m.granted_by === 'Mystery Cult Initiation' ? 'MCI' : m.granted_by === 'Professional Training' ? 'PT' : m.granted_by;
         const grantTag = '<span class="gen-granted-tag-view" title="Granted by ' + esc(m.granted_by) + '">' + esc(gb) + '</span>';
-        h += shRenderMeritRow(m.name + qual, 'gmerit', i, dotH, grantTag + _pledgeBadge(m) + _oathPledgeNote(m));
+        h += shRenderMeritRow(m.name + qual, 'gmerit', i, dotH, grantTag + _pledgeBadge(m) + _oathPledgeNote(m), c, rIdx);
         h += _pledgeOvercommitNote(m);
         if (pw) h += pw;
-      } else { h += shRenderMeritRow(m.name + qual, 'merit', i, dotH, _pledgeBadge(m) + _oathPledgeNote(m)); h += _pledgeOvercommitNote(m); if (pw) h += pw; }
+      } else { h += shRenderMeritRow(m.name + qual, 'merit', i, dotH, _pledgeBadge(m) + _oathPledgeNote(m), c, rIdx); h += _pledgeOvercommitNote(m); if (pw) h += pw; }
     });
   }
   h += '</div></div>'; return h;
@@ -3104,14 +3128,26 @@ export function shRenderEquipment(c, editMode) {
   return h;
 }
 
-export function shRenderMeritRow(m, idPrefix, i, dotHtml, chipHtml) {
+export function shRenderMeritRow(m, idPrefix, i, dotHtml, chipHtml, c, realIdx) {
   // Name parser: greedy prefix + final-paren-group capture that disallows
   // nested parens. Handles variant merit names that already contain parens
   // (e.g. "Attaché (Resources) (Nicole)") — splits to main "Attaché (Resources)"
   // + sub "Nicole" instead of leaving a stray ')' in the subtitle.
   const b2 = meritBase(m), dc = meritDotCount(m), ds = dc ? shDots(dc) : '', pm = b2.match(/^(.+?)\s*\(([^()]+)\)$/), mn = pm ? pm[1].trim() : b2, sn = pm ? pm[2].trim() : null;
   const db = meritLookup(m), dt = dotHtml !== undefined ? dotHtml : (ds ? '<span class="trait-dots">' + ds + '</span>' : '');
-  const _inner = (hasArr) => '<div class="trait-row"><div class="trait-main"><span class="trait-name">' + esc(mn) + '</span><div class="trait-right">' + (dt || '') + '<span class="exp-arr' + (hasArr ? '' : ' trait-arr-hidden') + '">\u203A</span></div></div>' + ((sn || chipHtml) ? '<div class="trait-sub">' + (chipHtml || '') + (sn ? '<span class="trait-qual">' + esc(sn) + '</span>' : '') + '</div>' : '') + '</div>';
+  // TM Admin Story tm-admin.10.1b AC2: audited apply-bonus affordance,
+  // reused verbatim from the attribute/skill channel (STM-14). Only
+  // rendered when the caller supplies BOTH `c` and a real integer index
+  // into `c.merits` \u2014 i.e. this row represents exactly one live merit
+  // instance with its own `bonus` field. Callers that pass a synthesised
+  // display row spanning multiple instances (Contacts, aggregated across
+  // every Contacts entry) or no live c.merits backing at all (Office
+  // Merits, sourced from a seat-keyed API collection, not `c.merits`)
+  // intentionally omit `c`/`realIdx` and get no affordance \u2014 matching the
+  // real per-instance scope AC2 asks for, not a blanket addition.
+  const _statPath = (c && Number.isInteger(realIdx)) ? `merits.${realIdx}.bonus` : null;
+  const _afford = _statPath ? applyAffordance(c, _statPath, mn) + markerFor(c, _statPath) : '';
+  const _inner = (hasArr) => '<div class="trait-row"><div class="trait-main"><span class="trait-name">' + esc(mn) + '</span>' + _afford + '<div class="trait-right">' + (dt || '') + '<span class="exp-arr' + (hasArr ? '' : ' trait-arr-hidden') + '">\u203A</span></div></div>' + ((sn || chipHtml) ? '<div class="trait-sub">' + (chipHtml || '') + (sn ? '<span class="trait-qual">' + esc(sn) + '</span>' : '') + '</div>' : '') + '</div>';
   if (db && db.desc) {
     const id2 = idPrefix + i, pqStr = db.prereq ? prereqLabel(db.prereq) : '', body = '<div>' + esc(db.desc) + '</div>' + (pqStr ? '<div style="margin-top:5px;font-style:italic;color:var(--txt3)">Prerequisite: ' + esc(pqStr) + '</div>' : '');
     // Issue #994: "Full rules" expander from the merit's rules doc (meritLookup
@@ -3293,15 +3329,15 @@ export function renderSheet(c, target = null) {
   if (isDesktop) h += '<div class="sh-desktop' + (editMode ? ' sh-editing' : '') + '"><div class="sh-dcol sh-dcol-left">';
   // Header
   const _rd = editMode && isRedactMode();
-  h += '<div class="sh-char-hdr"><div class="sh-namerow"><div class="sh-char-name">' + (editMode ? (_rd ? '<input class="sh-edit-input" value="' + esc(redactCharName(c.name)) + '" disabled>' : '<input class="sh-edit-input" value="' + esc(c.name) + '" onchange="shEdit(\'name\',this.value);document.getElementById(\'edit-charname\').textContent=this.value">') : esc(cardName(c))) + '</div>' + _auditBadge(c);
+  h += '<div class="sh-char-hdr"><div class="sh-namerow"><div class="sh-char-name">' + (editMode ? (_rd ? '<input class="sh-edit-input redact-input" value="' + esc(redactCharName(c.name)) + '" disabled>' : '<input class="sh-edit-input" value="' + esc(c.name) + '" onchange="shEdit(\'name\',this.value);document.getElementById(\'edit-charname\').textContent=this.value">') : esc(cardName(c))) + '</div>' + _auditBadge(c);
   if (editMode) {
     if (_rd) {
-      h += '<div style="display:flex;gap:8px;margin-top:2px"><div style="flex:1"><input class="sh-edit-input" value="' + esc(redactCharName(c.honorific || '')) + '" disabled style="font-size:12px"></div><div style="flex:1"><input class="sh-edit-input" value="' + esc(redactCharName(c.moniker || '')) + '" disabled style="font-size:12px"></div></div>';
+      h += '<div style="display:flex;gap:8px;margin-top:2px"><div style="flex:1"><input class="sh-edit-input redact-input" value="' + esc(redactCharName(c.honorific || '')) + '" disabled style="font-size:12px"></div><div style="flex:1"><input class="sh-edit-input redact-input" value="' + esc(redactCharName(c.moniker || '')) + '" disabled style="font-size:12px"></div></div>';
     } else {
       h += '<div style="display:flex;gap:8px;margin-top:2px"><div style="flex:1"><input class="sh-edit-input" value="' + esc(c.honorific || '') + '" onchange="shEdit(\'honorific\',this.value||null)" placeholder="Honorific (e.g. Lord, Lady)" style="font-size:12px"></div><div style="flex:1"><input class="sh-edit-input" value="' + esc(c.moniker || '') + '" onchange="shEdit(\'moniker\',this.value||null)" placeholder="Moniker (overrides display name)" style="font-size:12px"></div></div>';
     }
   }
-  h += '<div class="sh-player-row"><span class="sh-char-player">' + (editMode ? (_rd ? '<input class="sh-edit-input" value="' + esc(redactPlayer(c.player || '')) + '" disabled placeholder="Player">' : '<input class="sh-edit-input" value="' + esc(c.player || '') + '" onchange="shEdit(\'player\',this.value)" placeholder="Player">') : esc(redactPlayer(c.player || ''))) + '</span><span class="sh-xp-badge' + (xpLeft(c) < 0 ? ' xp-over' : xpLeft(c) > 0 ? ' xp-under' : '') + '">XP ' + xpLeft(c) + '/' + xpEarned(c) + '</span></div></div>';
+  h += '<div class="sh-player-row"><span class="sh-char-player">' + (editMode ? (_rd ? '<input class="sh-edit-input redact-input" value="' + esc(redactPlayer(c.player || '')) + '" disabled placeholder="Player">' : '<input class="sh-edit-input" value="' + esc(c.player || '') + '" onchange="shEdit(\'player\',this.value)" placeholder="Player">') : esc(redactPlayer(c.player || ''))) + '</span><span class="sh-xp-badge' + (xpLeft(c) < 0 ? ' xp-over' : xpLeft(c) > 0 ? ' xp-under' : '') + '">XP ' + xpLeft(c) + '/' + xpEarned(c) + '</span></div></div>';
   if (editMode) {
     const eT = xpEarned(c), sT = xpSpent(c);
     const _pt5 = xpPT5(c);

@@ -3,6 +3,7 @@ import cors from 'cors';
 import { config } from './config.js';
 import { connectDb, closeDb, isConnected, getDb } from './db.js';
 import { verifyRulesEngine, formatMissingReport, formatPassReport } from './scripts/rules-verify/verify-rules-engine.js';
+import { verifyNoBonusWrites, formatViolationsReport, formatPassReport as formatBonusPassReport } from './scripts/rules-verify/verify-no-bonus-writes.js';
 import authRouter from './routes/auth.js';
 import { requireAuth, requireRole } from './middleware/auth.js';
 import { cacheControl, noCache } from './middleware/cache-control.js';
@@ -462,6 +463,7 @@ async function start() {
       );
     }
     await runRulesEngineGate();
+    runBonusWriteGate();
   } catch (err) {
     console.error('Failed to connect to MongoDB:', err.message);
     console.error('Health check will report disconnected status');
@@ -487,6 +489,40 @@ async function runRulesEngineGate() {
   }
   console.warn('WARNING: rules-engine verification failed (non-production — continuing).');
   console.warn(formatMissingReport(result.missing, dbName));
+}
+
+// Verify no TM Game source file writes a changed value into a trait's
+// `.bonus` field outside the named allowlist (TM Admin Story tm-admin.10.1,
+// "one true rating" Stage 1, Phase A — bonus is write-frozen pending Story
+// 10.2's fold). Pure static source scan, no DB dependency — synchronous,
+// runs after the rules-engine gate. Same production/non-production split as
+// runRulesEngineGate(): a real regression here is exactly the STM-14 class
+// of bug this guard exists to catch loudly instead of letting it silently
+// drift the live character population further apart.
+//
+// The allowlist (bonus-write-allowlist.json) has the original TWO durable
+// audit exceptions (Mantle of Amorous Fire, Faith Militant). A TEMPORARY
+// third entry (shAdjMeritBonus, public/js/editor/edit.js:599-608, the
+// merit-bonus stepper, feature.333/335 — deliberately out of STM-14's own
+// scope) was added 2026-08-31 with Angelus's explicit sign-off, then removed
+// by TM Admin Story tm-admin.10.1b once it retired that write path entirely
+// (the audited Add-ST-Mod flow, merits.N.bonus — see that story's own Dev
+// Agent Record). Story 10.2's own drop step depended on 10.1b landing
+// first, which it now has. Do not add a further entry without the same
+// kind of explicit sign-off.
+function runBonusWriteGate() {
+  const result = verifyNoBonusWrites();
+  if (result.ok) {
+    console.log(formatBonusPassReport(result.filesScanned));
+    return;
+  }
+  if (config.NODE_ENV === 'production') {
+    console.error('CRITICAL: bonus write-freeze verification failed — refusing to boot.');
+    console.error(formatViolationsReport(result.violations));
+    process.exit(1);
+  }
+  console.warn('WARNING: bonus write-freeze verification failed (non-production — continuing).');
+  console.warn(formatViolationsReport(result.violations));
 }
 
 // Graceful shutdown
