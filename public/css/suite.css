@@ -1382,7 +1382,7 @@ details.city-section[open] > .city-section-hd::before { transform: rotate(90deg)
   width: calc(100% - 28px); margin: 12px 14px 4px;
   padding: 10px 16px; border-radius: var(--radius-md);
   background: var(--surf2); border: 1px solid var(--bdr);
-  color: var(--accent); font-family: var(--hd); font-size:0.8125rem;
+  color: var(--accent); font-family: var(--fl); font-size:0.8125rem;
   font-weight: 600; letter-spacing: .3px; cursor: pointer;
   transition: background .15s, border-color .15s;
 }
@@ -2096,7 +2096,7 @@ body.desktop-mode.sidebar-collapsed .sb-collapse-btn { width: 100%; justify-cont
 .ch-select, .ch-input {
   background: var(--surf2); border: 1px solid var(--bdr); border-radius: var(--radius-sm);
   color: var(--txt); font-size: 0.8125rem; padding: 7px 10px;
-  font-family: var(--body, inherit);
+  font-family: var(--ft, inherit);
 }
 .ch-select:focus, .ch-input:focus { outline: none; border-color: var(--accent); }
 .ch-pool-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
@@ -3331,6 +3331,39 @@ body.desktop-mode.sidebar-collapsed .sb-collapse-btn { width: 100%; justify-cont
   .st-char-dismiss,
   .cr-close{min-width:var(--tap-min);min-height:var(--tap-min);}
   .cr-adj{width:var(--tap-min);height:var(--tap-min);}
+
+  /* #1192 — the 13 T2 AC2-exception selectors get real T3 box growth,
+     removing the exception rather than leaving the vertical hit area
+     capped at the visible box. Same technique as the four rows above
+     (.arc-doc-item etc.): grow the actual layout box on phone only, so
+     siblings are pushed apart by real document flow instead of an overlay
+     reaching into a neighbour. Desktop (>=600px) untouched by construction. */
+  .effpool-spec,
+  .trk-chip-rm,
+  .trk-card-hd,
+  .trk-adj.sm,
+  .sh-tracker-info-btn,
+  .rl-sec-hd,
+  .status-chip-st,
+  .rank-pill,
+  .settings-btn,
+  .settings-checkbox-row,
+  .rules-expander-toggle,
+  .qf-checkbox-label,
+  .char-picker__chip-remove{min-height:var(--tap-min);}
+  /* Already flex rows (verified against their own base rule, not assumed):
+     .trk-card-hd, .trk-adj (parent of .trk-adj.sm), .sh-tracker-info-btn,
+     .rl-sec-hd, .status-chip (base of .status-chip-st), .settings-checkbox-row
+     (already had a smaller min-height token, overridden above), .rules-expander-
+     toggle, .qf-checkbox-label — need nothing further; align-items:center
+     already recentres their content when the box grows.
+     Not already flex — same reason as .char-picker__option/.hdr-menu-item
+     above, or the label/glyph would sit against the top of the taller box: */
+  .effpool-spec,
+  .trk-chip-rm,
+  .rank-pill,
+  .char-picker__chip-remove{display:inline-flex;align-items:center;justify-content:center;}
+  .settings-btn{display:flex;align-items:center;justify-content:center;}
 }
 
 /* ══════════════════════════════════════════
@@ -3380,18 +3413,13 @@ body.desktop-mode.sidebar-collapsed .sb-collapse-btn { width: 100%; justify-cont
 .office-manoeuvre-rank-stepper .cs-step-btn::after,
 .office-merit-stepper .cs-step-btn::after{min-width:32px;min-height:40px;}
 
-.effpool-spec::after,
-.trk-chip-rm::after,
-.trk-card-hd::after,
-.trk-adj.sm::after,
-.sh-tracker-info-btn::after,
-.rl-sec-hd::after,
-.status-chip-st::after,
-.rank-pill::after,
-.settings-btn::after,
-.settings-checkbox-row::after,
-.rules-expander-toggle::after,
-.qf-checkbox-label::after,
-.char-picker__chip-remove::after{min-height:0;}
+/* #1192: the 13 selectors below are GONE from this min-height:0 exception —
+   T3 phone-tier box growth (further down, inside @media max-width:599px)
+   gives each a genuine 44px box instead, so the T2 overlay's own vertical
+   expansion is no longer a sibling-overlap hazard at all: once the real box
+   is >=44px tall, height:100% of the overlay already equals >=44px. Left
+   at the overlay's own default (min-width/height:var(--tap-min) from the T2
+   block above) rather than re-adding an explicit min-height here, since
+   that default is now correct, not a hazard. */
 
 body.desktop-mode.sidebar-collapsed #desktop-sidebar .sidebar-app-tile{overflow:visible;}

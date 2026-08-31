@@ -1267,7 +1267,7 @@ body {
 
 /* DT Ready panel content */
 .dt-ready-content { padding: 24px; }
-.dt-ready-title  { margin: 0 0 12px; color: var(--accent); font-family: var(--fh2); }
+.dt-ready-title  { margin: 0 0 12px; color: var(--accent); font-family: var(--fl); }
 .dt-ready-summary { margin: 0 0 12px; color: var(--txt2); }
 .dt-ready-hint    { margin: 0 0 16px; color: var(--txt3); font-size: 13px; }
 .dt-ready-actions { padding-top: 12px; border-top: 1px solid var(--bdr); }
@@ -1832,7 +1832,7 @@ body {
 
 /* CHM-2: chapter-finale maintenance audit (rendered inside dt-prep-panel) */
 .dt-maintenance-audit { margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--bdr); }
-.dt-maintenance-title { margin: 0 0 4px; font-family: var(--fh2); font-size: 13px; letter-spacing: .12em; text-transform: uppercase; color: var(--accent); }
+.dt-maintenance-title { margin: 0 0 4px; font-family: var(--fl); font-size: 13px; letter-spacing: .12em; text-transform: uppercase; color: var(--accent); }
 .dt-maintenance-sub-label { font-size: 11px; color: var(--txt3); letter-spacing: 0; text-transform: none; }
 .dt-maintenance-sub { margin: 0 0 10px; font-size: 12px; color: var(--txt3); font-style: italic; }
 .dt-maintenance-empty { font-size: 13px; color: var(--txt3); font-style: italic; margin: 0; }
@@ -2328,7 +2328,7 @@ body {
   font-style: italic;
 }
 .dt-autosave-status[data-state="saving"], .dt-story-autosave-status[data-state="saving"] { color: var(--txt2); }
-.dt-autosave-status[data-state="saved"],  .dt-story-autosave-status[data-state="saved"]  { color: var(--gold3); }
+.dt-autosave-status[data-state="saved"],  .dt-story-autosave-status[data-state="saved"]  { color: var(--green2); }
 .dt-autosave-status[data-state="error"],  .dt-story-autosave-status[data-state="error"]  { color: var(--crim); }
 
 /* ── Attendance & Finance ── */
@@ -2654,7 +2654,7 @@ body {
 }
 .plm-table tbody tr:last-child td { border-bottom: none; }
 .plm-row-linked td { color: var(--txt); background: var(--gold-a5); }
-.plm-did { font-family: var(--fc, monospace); font-size: 12px; color: var(--txt3) !important; }
+.plm-did { font-family: var(--fc); font-size: 12px; color: var(--txt3) !important; }
 .plm-role { font-size: 12px; color: var(--txt3) !important; }
 .plm-badge {
   display: inline-block;
@@ -2877,7 +2877,7 @@ body {
 }
 
 .pv-badge-st     { background: var(--accent-a8); color: var(--accent); }
-.pv-badge-coord  { background: var(--gold1, #C9A962); color: var(--bg, #0D0B09); }
+.pv-badge-coord  { background: var(--gold2, #C9A962); color: var(--bg, #0D0B09); }
 .pv-badge-player { background: var(--surf2); color: var(--txt3); }
 
 .pv-discord-row {
@@ -2888,7 +2888,7 @@ body {
 }
 
 .pv-handle { color: var(--txt2); }
-.pv-did    { font-family: var(--fc, monospace); color: var(--txt3); font-size: 11px; }
+.pv-did    { font-family: var(--fc); color: var(--txt3); font-size: 11px; }
 .pv-dim    { color: var(--txt3); font-style: italic; }
 
 .pv-chars {
@@ -4337,7 +4337,7 @@ body {
 .proc-second-opinion-btn {
   font-size: 11px;
   padding: 3px 10px;
-  border: 1px solid var(--surf4);
+  border: 1px solid var(--surf3);
   border-radius: 3px;
   background: transparent;
   color: var(--txt3);
@@ -4560,7 +4560,7 @@ body {
 .proc-pool-mod-inc:hover { border-color: var(--accent); color: var(--accent); }
 .proc-pool-mod-disp {
   font-size: 14px;
-  font-family: var(--fm);
+  font-family: var(--fm); font-variant-numeric: tabular-nums;
   color: var(--txt1);
   min-width: 30px;
   text-align: center;
@@ -4581,7 +4581,7 @@ body {
   font-size: 14px;
   font-weight: bold;
   color: var(--accent);
-  font-family: var(--fm);
+  font-family: var(--fm); font-variant-numeric: tabular-nums;
   padding-top: 6px;
   border-top: 1px solid var(--bdr);
 }
@@ -5224,7 +5224,7 @@ body {
   margin-bottom: 12px;
   border: 1px solid var(--bdr);
   border-radius: 4px;
-  background: var(--surf0, var(--bg));
+  background: var(--bg);
 }
 
 .proc-attach-char-group {
@@ -5509,7 +5509,7 @@ body {
   font-size: 14px;
   font-weight: bold;
   color: var(--accent);
-  font-family: var(--fm);
+  font-family: var(--fm); font-variant-numeric: tabular-nums;
   word-break: break-word;
   line-height: 1.5;
 }
@@ -6208,7 +6208,7 @@ html:not([data-theme="dark"]) .proc-amb-pending-chip { background: var(--crim-a1
   width: 100%; box-sizing: border-box;
   padding: 5px 8px; background: var(--bg);
   border: 1px solid var(--bdr); border-radius: 4px;
-  color: var(--text); font-size: 13px; font-family: var(--fl);
+  color: var(--txt); font-size: 13px; font-family: var(--fl);
 }
 .proc-conn-input:focus { outline: none; border-color: var(--gold2); }
 .proc-conn-dropdown {
@@ -6220,7 +6220,7 @@ html:not([data-theme="dark"]) .proc-amb-pending-chip { background: var(--crim-a1
 }
 .proc-conn-dd-item {
   padding: 6px 10px; cursor: pointer;
-  font-size: 13px; color: var(--text);
+  font-size: 13px; color: var(--txt);
 }
 .proc-conn-dd-item:hover { background: var(--gold-a10); color: var(--gold2); }
 
@@ -8459,7 +8459,7 @@ html:not([data-theme="dark"]) .rules-tbl tbody tr:hover            { background:
 
 .npcr-flag-row {
   padding: 8px 0;
-  border-top: 1px solid var(--border, rgba(255, 255, 255, 0.08));
+  border-top: 1px solid var(--bdr, rgba(255, 255, 255, 0.08));
 }
 
 .npcr-flag-row:first-of-type {
@@ -8502,7 +8502,7 @@ html:not([data-theme="dark"]) .rules-tbl tbody tr:hover            { background:
   font-weight: 500;
   color: var(--txt2, var(--txt));
   background: var(--surf2, rgba(255, 255, 255, 0.04));
-  border: 1px solid var(--border, rgba(255, 255, 255, 0.1));
+  border: 1px solid var(--bdr, rgba(255, 255, 255, 0.1));
   border-radius: 2px;
 }
 
@@ -10063,6 +10063,8 @@ html:not([data-theme="dark"]) .btn-danger {
 .cy-label-cell { vertical-align: middle; }
 .cy-label-inner { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 .cy-label-text { font-family: var(--ft); color: var(--txt); }
+/* #1002: the feeds-into span, derived from game_number, shown under the label. */
+.cy-label-span { font-family: var(--ft); font-size: var(--fs-floor-micro); color: var(--txt3); margin-top: 2px; }
 .cy-label-input { min-width: 160px; }
 .cy-label-input.is-error { border-color: var(--crim); }
 .cy-icon-btn {

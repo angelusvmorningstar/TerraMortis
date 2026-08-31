@@ -99,4 +99,14 @@ describe('epic.708.3 — cycle-views.js: phase control UI', () => {
     expect(CYCLE_VIEWS).toContain("'downtime'");
     expect(CYCLE_VIEWS).toContain("'processing'");
   });
+
+  it('#1002: cycle label cell derives the feeds-into span from game_number', () => {
+    // The 2026-07-16 incident this issue tracks was exactly this confusion —
+    // the cycle name alone invites the wrong flip. Derived text, not stored.
+    expect(CYCLE_VIEWS).toMatch(/DT after Game \$\{cy\.game_number\} . feeds Game \$\{cy\.game_number \+ 1\}/);
+  });
+
+  it('#1002: the game-phase button title states what the flip means', () => {
+    expect(CYCLE_VIEWS).toContain('Open session play for the downtimes submitted in this cycle');
+  });
 });
