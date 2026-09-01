@@ -15,8 +15,14 @@
  * present here) — this suite instead does a static source scan, the same
  * pattern this repo already uses for exactly this kind of "must never
  * reappear" guarantee (see ws-fanout.test.js, issue-918-cycle-tab-management
- * .test.js's DELETE-route regex check). It needs neither mongod nor
- * markdown/, so it runs everywhere, including this environment.
+ * .test.js's DELETE-route regex check). Its own assertions need neither
+ * mongod nor markdown/ — but note (2026-09-02 codex-review, Pass 3) this
+ * file is still collected via this project's shared `vitest.config.js`
+ * globalSetup like every other suite, so the STANDARD `npx vitest run`
+ * invocation still requires a reachable MongoDB to get past collection at
+ * all; only a bypass of that global setup (not the normal command) makes
+ * this suite genuinely infrastructure-free. Fixing that is #1117's own
+ * scope, not this file's.
  */
 
 import { describe, it, expect } from 'vitest';
@@ -33,6 +39,8 @@ const HISTORY = read('server/routes/history.js');
 const QUESTIONNAIRE = read('server/routes/questionnaire.js');
 const ORDEAL_RESPONSES = read('server/routes/ordeal-responses.js');
 const GAME_SESSIONS = read('server/routes/game-sessions.js');
+const ORDEAL_RETIREMENT = read('server/middleware/ordeal-retirement.js');
+const CHARACTERS = read('server/routes/characters.js');
 
 describe('P0 — no route gates an ownership/redaction/lock check on the literal role==="player" string', () => {
   // The vulnerable pattern, precisely: a live `if` condition testing the
@@ -58,6 +66,18 @@ describe('P0 — no route gates an ownership/redaction/lock check on the literal
 
   it('game-sessions.js never used the role==="player" pattern (different bug shape — see below)', () => {
     expect(GAME_SESSIONS).not.toMatch(VULNERABLE_PATTERN);
+  });
+
+  // 2026-09-02 codex-review (Pass 2 finding): the original five-file scan
+  // above didn't cover the two extra fixes found while implementing (not
+  // in the original audit's own finding) — this suite would have stayed
+  // green even if either regressed. Closing that gap.
+  it('ordeal-retirement.js (requireOrdealNotRetiredForPlayers, shared by history/questionnaire/ordeal-responses): zero live occurrences (was 1)', () => {
+    expect(ORDEAL_RETIREMENT).not.toMatch(VULNERABLE_PATTERN);
+  });
+
+  it('characters.js: zero live occurrences (was 1 — GET /:id; the file\'s other four ownership checks were already correct pre-fix)', () => {
+    expect(CHARACTERS).not.toMatch(VULNERABLE_PATTERN);
   });
 });
 
@@ -86,6 +106,17 @@ describe('P0 — each file now gates on !isStRole(req.user), or a route-level re
   it('game-sessions.js: DELETE /:id now carries requireRole(\'st\') as route-level middleware, overriding the looser router-level requireRole(\'coordinator\') mount', () => {
     expect(GAME_SESSIONS).toMatch(/import\s*\{[^}]*\brequireRole\b[^}]*\}\s*from\s*'\.\.\/middleware\/auth\.js'/);
     expect(GAME_SESSIONS).toMatch(/router\.delete\(\s*'\/:id'\s*,\s*requireRole\('st'\)\s*,/);
+  });
+
+  it('ordeal-retirement.js imports isStRole and uses !isStRole(req.user) once', () => {
+    expect(ORDEAL_RETIREMENT).toMatch(/import\s*\{[^}]*\bisStRole\b[^}]*\}\s*from\s*'\.\/auth\.js'/);
+    const count = (ORDEAL_RETIREMENT.match(/!isStRole\(req\.user\)/g) || []).length;
+    expect(count).toBe(1);
+  });
+
+  it('characters.js uses !isStRole(req.user) exactly 5 times (the 4 pre-existing correct checks plus the fixed GET /:id)', () => {
+    const count = (CHARACTERS.match(/!isStRole\(req\.user\)/g) || []).length;
+    expect(count).toBe(5);
   });
 });
 

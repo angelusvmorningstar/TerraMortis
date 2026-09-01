@@ -1,0 +1,614 @@
+diff --git a/server/middleware/ordeal-retirement.js b/server/middleware/ordeal-retirement.js
+index cde78927..f1ba1499 100644
+--- a/server/middleware/ordeal-retirement.js
++++ b/server/middleware/ordeal-retirement.js
+@@ -2,9 +2,15 @@
+ // public/js/ordeals/ordeal-retirement.js for why). STs pass through
+ // unaffected — only new player-initiated writes are blocked.
+ import { ORDEALS_RETIRED } from '../../public/js/ordeals/ordeal-retirement.js';
++import { isStRole } from './auth.js';
+ 
+ export function requireOrdealNotRetiredForPlayers(req, res, next) {
+-  if (ORDEALS_RETIRED && req.user.role === 'player') {
++  // 2026-09-01 general audit fix (same root cause as the ownership-check
++  // fixes in history.js/ordeal-responses.js/questionnaire.js, found while
++  // implementing them, not in the original audit's own finding): was
++  // role === 'player', which let a coordinator-role account bypass this
++  // retirement gate entirely and reach the POST/PUT handlers below.
++  if (ORDEALS_RETIRED && !isStRole(req.user)) {
+     return res.status(403).json({
+       error: 'ORDEAL_RETIRED',
+       message: 'This form no longer accepts new ordeal submissions. Complete your ordeals on the sibling site instead.',
+diff --git a/server/routes/characters.js b/server/routes/characters.js
+index 1202ddad..fd4fd076 100644
+--- a/server/routes/characters.js
++++ b/server/routes/characters.js
+@@ -430,8 +430,12 @@ router.get('/:id', async (req, res) => {
+   const oid = parseId(req.params.id);
+   if (!oid) return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'Invalid character ID format' });
+ 
+-  // Player: check they own this character
+-  if (req.user.role === 'player') {
++  // 2026-09-01 general audit fix (found while implementing the P0 fix,
++  // not in the original audit's own finding): was role === 'player' — the
++  // one inconsistent spot in this file, which already uses !isStRole(req.user)
++  // everywhere else (lines ~247, ~809, ~866, ~1042). Let a coordinator-role
++  // account read any character's full sheet with no ownership check.
++  if (!isStRole(req.user)) {
+     const owns = (req.user.character_ids || []).some(id => id.toString() === oid.toString());
+     if (!owns) return res.status(403).json({ error: 'FORBIDDEN', message: 'Not your character' });
+   }
+diff --git a/server/routes/downtime.js b/server/routes/downtime.js
+index 315cbe5f..3f3e4267 100644
+--- a/server/routes/downtime.js
++++ b/server/routes/downtime.js
+@@ -27,7 +27,7 @@
+ import { Router } from 'express';
+ import { ObjectId } from 'mongodb';
+ import { getCollection } from '../db.js';
+-import { requireRole } from '../middleware/auth.js';
++import { requireRole, isStRole } from '../middleware/auth.js';
+ import { stripStReview } from '../helpers/strip-st-review.js';
+ import { validate } from '../middleware/validate.js';
+ import { downtimeSubmissionSchema } from '../schemas/downtime_submission.schema.js';
+@@ -64,7 +64,12 @@ function parseId(id) {
+ // the cutover. A stable error code so the client can surface a clear
+ // message rather than a generic failure.
+ function requireFormNotRetiredForPlayers(req, res, next) {
+-  if (FORM_RETIRED && req.user.role === 'player') {
++  // 2026-09-01 general audit fix: was role === 'player', which let a
++  // coordinator-role account (real, distinct role, scoped to check-in/
++  // finance/emergency only) bypass the retirement gate and submit new
++  // downtime writes — the same root cause as the ownership-check fixes
++  // below, just for this one gate.
++  if (FORM_RETIRED && !isStRole(req.user)) {
+     return res.status(403).json({
+       error: 'FORM_RETIRED',
+       message: 'This form no longer accepts new downtime submissions. File on the sibling site instead.',
+@@ -248,8 +253,9 @@ submissionsRouter.get('/hold-flags', async (req, res) => {
+   // chapter_id/cycle_id split (cm-2b) — not two patterns layered on each other.
+   let filter = withChapterFk({}, chapterRaw);
+ 
+-  // Player: restrict to their characters (mirrors `GET /` scoping).
+-  if (req.user.role === 'player') {
++  // 2026-09-01 general audit fix: was role === 'player'. Restrict to their
++  // characters (mirrors `GET /` scoping below).
++  if (!isStRole(req.user)) {
+     const charIdOids = (req.user.character_ids || []).map(id =>
+       id instanceof ObjectId ? id : new ObjectId(id)
+     );
+@@ -294,9 +300,13 @@ submissionsRouter.get('/', async (req, res) => {
+     filter = withChapterFk(filter, chapterRaw);
+   }
+ 
+-  // Player: restrict to their characters
++  // 2026-09-01 general audit fix (High severity): was role === 'player',
++  // which let a coordinator-role account read every player's downtime
++  // submission unrestricted (see the matching st_review strip fix below —
++  // both gates must move together or a coordinator gets unfiltered rows
++  // WITH unredacted ST notes). Restrict to their characters.
+   // Accept both ObjectId and legacy string-stored character_ids (CSV imports may store as string)
+-  if (req.user.role === 'player') {
++  if (!isStRole(req.user)) {
+     const charIdOids = (req.user.character_ids || []).map(id =>
+       id instanceof ObjectId ? id : new ObjectId(id)
+     );
+@@ -306,8 +316,10 @@ submissionsRouter.get('/', async (req, res) => {
+ 
+   const docs = await submissions().find(filter).toArray();
+ 
+-  // Strip st_review for player responses
+-  if (req.user.role === 'player') {
++  // 2026-09-01 general audit fix: was role === 'player' — must move with
++  // the ownership filter above (a coordinator otherwise saw unredacted
++  // ST review notes on every submission).
++  if (!isStRole(req.user)) {
+     docs.forEach(doc => stripStReview(doc));
+   }
+ 
+@@ -336,8 +348,12 @@ submissionsRouter.put('/:id', requireFormNotRetiredForPlayers, rejectLegacyChapt
+   const existing = await submissions().findOne({ _id: oid });
+   if (!existing) return res.status(404).json({ error: 'NOT_FOUND', message: 'Submission not found' });
+ 
+-  // Player: verify ownership and deadline
+-  if (req.user.role === 'player') {
++  // 2026-09-01 general audit fix (High severity): was role === 'player',
++  // which let a coordinator-role account edit ANY player's submission,
++  // bypass the cycle-deadline gate, and (see the st_review strip fix
++  // below) write st_review fields and trigger the publish-transition
++  // email. Verify ownership and deadline.
++  if (!isStRole(req.user)) {
+     const charIds = (req.user.character_ids || []).map(id => id.toString());
+     if (!charIds.includes(existing.character_id?.toString())) {
+       return res.status(403).json({ error: 'FORBIDDEN', message: 'Not your submission' });
+@@ -416,8 +432,11 @@ submissionsRouter.put('/:id', requireFormNotRetiredForPlayers, rejectLegacyChapt
+     console.error('[mandragora] flag sync error:', err.message)
+   );
+ 
+-  // Strip st_review from player responses
+-  if (req.user.role === 'player') {
++  // 2026-09-01 general audit fix: was role === 'player' — must match the
++  // ownership-check gate above, or a coordinator's own PUT response would
++  // echo back unredacted st_review even though they were correctly blocked
++  // from writing it.
++  if (!isStRole(req.user)) {
+     stripStReview(result);
+   }
+ 
+diff --git a/server/routes/game-sessions.js b/server/routes/game-sessions.js
+index 19f742c6..3750b0d8 100644
+--- a/server/routes/game-sessions.js
++++ b/server/routes/game-sessions.js
+@@ -3,6 +3,7 @@ import { getCollection } from '../db.js';
+ import { ObjectId } from 'mongodb';
+ import { validate } from '../middleware/validate.js';
+ import { gameSessionSchema } from '../schemas/game_session.schema.js';
++import { requireRole } from '../middleware/auth.js';
+ 
+ function formatDeadline(isoStr) {
+   const d = new Date(isoStr);
+@@ -172,7 +173,14 @@ router.put('/:id', async (req, res) => {
+ });
+ 
+ // DELETE /api/game_sessions/:id — remove a session (ST only)
+-router.delete('/:id', async (req, res) => {
++// 2026-09-01 general audit fix (Medium severity): this comment said "(ST
++// only)" but had no role check of its own — the router mounts behind
++// requireRole('coordinator') (server/index.js), and requireRole's own
++// implementation auto-expands that to include st/dev, so a coordinator-
++// tier account could actually delete any game session (and its attendance
++// data) despite the comment. requireRole('st') here overrides the looser
++// router-level gate for this one destructive route specifically.
++router.delete('/:id', requireRole('st'), async (req, res) => {
+   const result = await col().deleteOne({ _id: new ObjectId(req.params.id) });
+   if (result.deletedCount === 0) return res.status(404).json({ error: 'NOT_FOUND' });
+   res.json({ ok: true });
+diff --git a/server/routes/history.js b/server/routes/history.js
+index 91d97061..109f25f8 100644
+--- a/server/routes/history.js
++++ b/server/routes/history.js
+@@ -30,7 +30,11 @@ router.get('/', async (req, res) => {
+   const oid = parseId(charId);
+   if (!oid) return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'Invalid character_id format' });
+ 
+-  if (req.user.role === 'player') {
++  // 2026-09-01 general audit fix (Medium severity): was role === 'player',
++  // which let a coordinator-role account (real, distinct role, scoped to
++  // check-in/finance/emergency only) read/edit any character's personal
++  // history with no ownership check at all.
++  if (!isStRole(req.user)) {
+     const owns = (req.user.character_ids || []).some(id => id.toString() === oid.toString());
+     if (!owns) return res.status(403).json({ error: 'FORBIDDEN', message: 'Not your character' });
+   }
+@@ -64,7 +68,11 @@ router.post('/', requireOrdealNotRetiredForPlayers, validate(historyResponseSche
+   const charOid = parseId(character_id);
+   if (!charOid) return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'Invalid character_id' });
+ 
+-  if (req.user.role === 'player') {
++  // 2026-09-01 general audit fix (Medium severity): was role === 'player',
++  // which let a coordinator-role account (real, distinct role, scoped to
++  // check-in/finance/emergency only) read/edit any character's personal
++  // history with no ownership check at all.
++  if (!isStRole(req.user)) {
+     const owns = (req.user.character_ids || []).some(id => id.toString() === charOid.toString());
+     if (!owns) return res.status(403).json({ error: 'FORBIDDEN', message: 'Not your character' });
+   }
+@@ -99,7 +107,11 @@ router.put('/:id', requireOrdealNotRetiredForPlayers, async (req, res) => {
+   const existing = await col().findOne({ _id: oid });
+   if (!existing) return res.status(404).json({ error: 'NOT_FOUND', message: 'Response not found' });
+ 
+-  if (req.user.role === 'player') {
++  // 2026-09-01 general audit fix (Medium severity): was role === 'player',
++  // which let a coordinator-role account (real, distinct role, scoped to
++  // check-in/finance/emergency only) read/edit any character's personal
++  // history with no ownership check at all.
++  if (!isStRole(req.user)) {
+     const owns = (req.user.character_ids || []).some(id => id.toString() === existing.character_id.toString());
+     if (!owns) return res.status(403).json({ error: 'FORBIDDEN', message: 'Not your character' });
+     if (existing.status === 'approved') {
+diff --git a/server/routes/ordeal-responses.js b/server/routes/ordeal-responses.js
+index c99067df..d011119f 100644
+--- a/server/routes/ordeal-responses.js
++++ b/server/routes/ordeal-responses.js
+@@ -109,8 +109,10 @@ router.put('/:id', requireOrdealNotRetiredForPlayers, async (req, res) => {
+   const existing = await col().findOne({ _id: oid });
+   if (!existing) return res.status(404).json({ error: 'NOT_FOUND', message: 'Response not found' });
+ 
+-  // Players can only edit their own, and not if approved
+-  if (req.user.role === 'player') {
++  // 2026-09-01 general audit fix (Medium severity): was role === 'player',
++  // which let a coordinator-role account edit/submit any player's ordeal
++  // response with no ownership or approved-lock check at all.
++  if (!isStRole(req.user)) {
+     if (existing.player_id.toString() !== req.user.player_id.toString()) {
+       return res.status(403).json({ error: 'FORBIDDEN', message: 'Not your response' });
+     }
+diff --git a/server/routes/questionnaire.js b/server/routes/questionnaire.js
+index 4b94ce3a..5a282738 100644
+--- a/server/routes/questionnaire.js
++++ b/server/routes/questionnaire.js
+@@ -36,7 +36,10 @@ router.get('/', async (req, res) => {
+   if (!oid) return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'Invalid character_id format' });
+ 
+   // Player: verify they own this character
+-  if (req.user.role === 'player') {
++  // 2026-09-01 general audit fix (Medium severity): was role === 'player',
++  // which let a coordinator-role account read/edit any character's
++  // questionnaire responses with no ownership check.
++  if (!isStRole(req.user)) {
+     const owns = (req.user.character_ids || []).some(id => id.toString() === oid.toString());
+     if (!owns) return res.status(403).json({ error: 'FORBIDDEN', message: 'Not your character' });
+   }
+@@ -55,7 +58,10 @@ router.post('/', requireOrdealNotRetiredForPlayers, validate(questionnaireRespon
+   if (!charOid) return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'Invalid character_id' });
+ 
+   // Player: verify ownership
+-  if (req.user.role === 'player') {
++  // 2026-09-01 general audit fix (Medium severity): was role === 'player',
++  // which let a coordinator-role account read/edit any character's
++  // questionnaire responses with no ownership check.
++  if (!isStRole(req.user)) {
+     const owns = (req.user.character_ids || []).some(id => id.toString() === charOid.toString());
+     if (!owns) return res.status(403).json({ error: 'FORBIDDEN', message: 'Not your character' });
+   }
+@@ -92,13 +98,19 @@ router.put('/:id', requireOrdealNotRetiredForPlayers, async (req, res) => {
+   if (!existing) return res.status(404).json({ error: 'NOT_FOUND', message: 'Response not found' });
+ 
+   // Player: verify ownership
+-  if (req.user.role === 'player') {
++  // 2026-09-01 general audit fix (Medium severity): was role === 'player',
++  // which let a coordinator-role account read/edit any character's
++  // questionnaire responses with no ownership check.
++  if (!isStRole(req.user)) {
+     const owns = (req.user.character_ids || []).some(id => id.toString() === existing.character_id.toString());
+     if (!owns) return res.status(403).json({ error: 'FORBIDDEN', message: 'Not your character' });
+   }
+ 
+-  // Players cannot edit approved questionnaires
+-  if (req.user.role === 'player' && existing.status === 'approved') {
++  // 2026-09-01 general audit fix: was role === 'player' — an approved
++  // questionnaire should stay locked for anyone who isn't ST, not just
++  // players (a coordinator has no more business re-editing an approved
++  // response than a player does).
++  if (!isStRole(req.user) && existing.status === 'approved') {
+     return res.status(403).json({ error: 'FORBIDDEN', message: 'Approved questionnaire is locked' });
+   }
+ 
+diff --git a/server/tests/p0-coordinator-role-ownership-bypass-http.test.js b/server/tests/p0-coordinator-role-ownership-bypass-http.test.js
+new file mode 100644
+index 00000000..f3c696c7
+--- /dev/null
++++ b/server/tests/p0-coordinator-role-ownership-bypass-http.test.js
+@@ -0,0 +1,219 @@
++/**
++ * P0 (High severity) — 2026-09-01 general audit, security-auth dimension.
++ * Real HTTP-level regression coverage (companion to the static source-scan
++ * suite, p0-coordinator-role-ownership-bypass.test.js) proving a live
++ * coordinator-role account can no longer read/write another player's
++ * private data across the five originally-flagged routes, plus two more
++ * found while implementing the fix (characters.js's GET /:id, and the
++ * shared requireOrdealNotRetiredForPlayers middleware used by
++ * history.js/questionnaire.js/ordeal-responses.js).
++ *
++ * Where a route wires BOTH a retirement gate and an ownership check (the
++ * Downtime form and the Ordeals-adjacent routes are both globally retired
++ * for non-ST writes), the now-fixed retirement gate fires first and the
++ * coordinator never reaches the ownership check at all — that's still a
++ * correct, complete block, just via a different one of this session's own
++ * fixes. Each test below asserts whichever gate actually fires, and says
++ * so in its own name.
++ */
++
++import { describe, it, expect, beforeAll, afterAll, afterEach } from 'vitest';
++import request from 'supertest';
++import 'dotenv/config';
++import { ObjectId } from 'mongodb';
++import { createTestApp, stUser, playerUser, coordinatorUser } from './helpers/test-app.js';
++import { setupDb, teardownDb, getTestCharacterIds } from './helpers/db-setup.js';
++import { getCollection } from '../db.js';
++
++let app;
++let testChars; // two real (or seeded) test characters — [0] is "the coordinator's own", [1] is "someone else's"
++const cleanup = { downtime: [], history: [], questionnaire: [], ordeal: [], session: null };
++
++beforeAll(async () => {
++  await setupDb();
++  app = createTestApp();
++  testChars = await getTestCharacterIds(2);
++});
++
++afterEach(async () => {
++  for (const id of cleanup.downtime) await getCollection('downtime_submissions').deleteOne({ _id: id });
++  for (const id of cleanup.history) await getCollection('history_responses').deleteOne({ _id: id });
++  for (const id of cleanup.questionnaire) await getCollection('questionnaire_responses').deleteOne({ _id: id });
++  for (const id of cleanup.ordeal) await getCollection('ordeal_responses').deleteOne({ _id: id });
++  cleanup.downtime = []; cleanup.history = []; cleanup.questionnaire = []; cleanup.ordeal = [];
++});
++
++afterAll(async () => {
++  if (cleanup.session) await getCollection('game_sessions').deleteOne({ _id: cleanup.session });
++  await teardownDb();
++});
++
++// A coordinator with no characters of their own — the default shape a real
++// coordinator account has (character_ids: [] per test-app.js's factory).
++const COORD = coordinatorUser();
++const OTHER_CHAR = () => testChars[1].id;
++
++describe('P0 — GET /api/downtime_submissions: coordinator is scoped to their own character_ids, not the full unfiltered collection', () => {
++  it('a coordinator sees no submissions belonging to someone else\'s character', async () => {
++    const col = getCollection('downtime_submissions');
++    const { insertedId } = await col.insertOne({
++      character_id: new ObjectId(OTHER_CHAR()),
++      chapter_id: null,
++      status: 'draft',
++      responses: {},
++      st_review: { outcome_text: 'PRIVATE ST NOTES' },
++    });
++    cleanup.downtime.push(insertedId);
++
++    const res = await request(app).get('/api/downtime_submissions').set('X-Test-User', COORD);
++    expect(res.status).toBe(200);
++    const leaked = res.body.find(s => String(s._id) === String(insertedId));
++    expect(leaked).toBeUndefined();
++  });
++});
++
++describe('P0 — PUT /api/downtime_submissions/:id: a coordinator is blocked (via the now-fixed FORM_RETIRED gate, since Downtime is globally retired)', () => {
++  it('403 FORM_RETIRED, not a silent pass-through to the ownership check', async () => {
++    const col = getCollection('downtime_submissions');
++    const { insertedId } = await col.insertOne({
++      character_id: new ObjectId(OTHER_CHAR()), chapter_id: null, status: 'draft', responses: {},
++    });
++    cleanup.downtime.push(insertedId);
++
++    const res = await request(app)
++      .put(`/api/downtime_submissions/${insertedId}`)
++      .set('X-Test-User', COORD)
++      .send({ responses: { travel: 'coordinator should not be able to write this' } });
++    expect(res.status).toBe(403);
++    expect(res.body.error).toBe('FORM_RETIRED');
++  });
++});
++
++describe('P0 — GET /api/history: coordinator ownership scoping', () => {
++  it('a coordinator cannot read another character\'s history response', async () => {
++    const created = await request(app)
++      .post('/api/history')
++      .set('X-Test-User', stUser({ player_id: 'p-other-001' }))
++      .send({ character_id: OTHER_CHAR(), responses: { q1: 'private history answer' } });
++    expect(created.status).toBe(201);
++    cleanup.history.push(new ObjectId(created.body._id));
++
++    const res = await request(app)
++      .get(`/api/history?character_id=${OTHER_CHAR()}`)
++      .set('X-Test-User', COORD);
++    expect(res.status).toBe(403);
++    expect(res.body.error).toBe('FORBIDDEN');
++  });
++});
++
++describe('P0 — PUT /api/history/:id: a coordinator is blocked (via the now-fixed ORDEAL_RETIRED gate, shared middleware)', () => {
++  it('403 ORDEAL_RETIRED, not a silent pass-through to the ownership check', async () => {
++    const created = await request(app)
++      .post('/api/history')
++      .set('X-Test-User', stUser({ player_id: 'p-other-002' }))
++      .send({ character_id: OTHER_CHAR(), responses: {} });
++    expect(created.status).toBe(201);
++    cleanup.history.push(new ObjectId(created.body._id));
++
++    const res = await request(app)
++      .put(`/api/history/${created.body._id}`)
++      .set('X-Test-User', COORD)
++      .send({ responses: { q1: 'coordinator should not be able to write this' } });
++    expect(res.status).toBe(403);
++    expect(res.body.error).toBe('ORDEAL_RETIRED');
++  });
++});
++
++describe('P0 — GET /api/questionnaire: coordinator ownership scoping', () => {
++  it('a coordinator cannot read another character\'s questionnaire response', async () => {
++    const created = await request(app)
++      .post('/api/questionnaire')
++      .set('X-Test-User', stUser({ player_id: 'p-other-003' }))
++      .send({ character_id: OTHER_CHAR(), responses: { q1: 'private questionnaire answer' } });
++    expect(created.status).toBe(201);
++    cleanup.questionnaire.push(new ObjectId(created.body._id));
++
++    const res = await request(app)
++      .get(`/api/questionnaire?character_id=${OTHER_CHAR()}`)
++      .set('X-Test-User', COORD);
++    expect(res.status).toBe(403);
++    expect(res.body.error).toBe('FORBIDDEN');
++  });
++});
++
++describe('P0 — PUT /api/ordeal-responses/:id: a coordinator is blocked (via the now-fixed ORDEAL_RETIRED gate, shared middleware)', () => {
++  it('403 ORDEAL_RETIRED, not a silent pass-through to the ownership check', async () => {
++    const created = await request(app)
++      .post('/api/ordeal-responses')
++      .set('X-Test-User', stUser({ player_id: 'p-other-004' }))
++      .send({ type: 'rules', responses: {} });
++    expect(created.status).toBe(201);
++    cleanup.ordeal.push(new ObjectId(created.body._id));
++
++    const res = await request(app)
++      .put(`/api/ordeal-responses/${created.body._id}`)
++      .set('X-Test-User', COORD)
++      .send({ responses: { q1: 'coordinator should not be able to write this' }, status: 'submitted' });
++    expect(res.status).toBe(403);
++    expect(res.body.error).toBe('ORDEAL_RETIRED');
++  });
++});
++
++describe('P0 — DELETE /api/game_sessions/:id: coordinator can no longer delete a game session', () => {
++  it('403s a coordinator despite passing the router-level requireRole(\'coordinator\') mount gate', async () => {
++    const col = getCollection('game_sessions');
++    const { insertedId } = await col.insertOne({
++      game_number: 999001, session_date: '2026-09-01', attendance: [],
++    });
++    cleanup.session = insertedId;
++
++    const res = await request(app)
++      .delete(`/api/game_sessions/${insertedId}`)
++      .set('X-Test-User', COORD);
++    expect(res.status).toBe(403);
++
++    // Prove it wasn't actually deleted (belt and braces, not just trusting the status code).
++    const stillThere = await col.findOne({ _id: insertedId });
++    expect(stillThere).not.toBeNull();
++  });
++
++  it('an ST can still delete (regression guard — the fix must not have broken the legitimate path)', async () => {
++    const col = getCollection('game_sessions');
++    const { insertedId } = await col.insertOne({
++      game_number: 999002, session_date: '2026-09-01', attendance: [],
++    });
++    const res = await request(app)
++      .delete(`/api/game_sessions/${insertedId}`)
++      .set('X-Test-User', stUser());
++    expect(res.status).toBe(200);
++    const gone = await col.findOne({ _id: insertedId });
++    expect(gone).toBeNull();
++  });
++});
++
++describe('P0 — GET /api/characters/:id: coordinator ownership scoping', () => {
++  it('a coordinator cannot read a character sheet that isn\'t their own', async () => {
++    const res = await request(app)
++      .get(`/api/characters/${OTHER_CHAR()}`)
++      .set('X-Test-User', COORD);
++    expect(res.status).toBe(403);
++    expect(res.body.error).toBe('FORBIDDEN');
++  });
++
++  it('a coordinator CAN still read their own character (regression guard)', async () => {
++    const ownChar = testChars[0].id;
++    const ownCoord = coordinatorUser({ character_ids: [ownChar] });
++    const res = await request(app)
++      .get(`/api/characters/${ownChar}`)
++      .set('X-Test-User', ownCoord);
++    expect(res.status).toBe(200);
++    expect(String(res.body._id)).toBe(String(ownChar));
++  });
++
++  it('an ST can still read any character (regression guard)', async () => {
++    const res = await request(app)
++      .get(`/api/characters/${OTHER_CHAR()}`)
++      .set('X-Test-User', stUser());
++    expect(res.status).toBe(200);
++  });
++});
+diff --git a/server/tests/p0-coordinator-role-ownership-bypass.test.js b/server/tests/p0-coordinator-role-ownership-bypass.test.js
+new file mode 100644
+index 00000000..f02dbc79
+--- /dev/null
++++ b/server/tests/p0-coordinator-role-ownership-bypass.test.js
+@@ -0,0 +1,107 @@
++/**
++ * P0 (High severity) — 2026-09-01 general audit, security-auth dimension,
++ * adversarially verified. Five route files gated ownership/redaction checks
++ * on the literal string `req.user.role === 'player'` rather than excluding
++ * only ST (`!isStRole(req.user)`). The real, distinct `coordinator` role
++ * (scoped in this app's own model to check-in/finance/emergency only) was
++ * never retrofitted into these checks, so a live coordinator-tier account
++ * could read/write any player's private downtime submissions, history,
++ * questionnaire, and ordeal responses with no ownership check at all, and
++ * delete any game session despite a code comment claiming "(ST only)".
++ *
++ * These DB-backed routes cannot be exercised end-to-end in this checkout
++ * (the server test suite's own #1117 infrastructure precondition refuses to
++ * start without both a local mongod AND a markdown/ rulebook corpus, neither
++ * present here) — this suite instead does a static source scan, the same
++ * pattern this repo already uses for exactly this kind of "must never
++ * reappear" guarantee (see ws-fanout.test.js, issue-918-cycle-tab-management
++ * .test.js's DELETE-route regex check). It needs neither mongod nor
++ * markdown/, so it runs everywhere, including this environment.
++ */
++
++import { describe, it, expect } from 'vitest';
++import fs from 'node:fs';
++import path from 'node:path';
++import { fileURLToPath } from 'node:url';
++
++const __dirname = path.dirname(fileURLToPath(import.meta.url));
++const REPO_ROOT = path.resolve(__dirname, '..', '..');
++function read(rel) { return fs.readFileSync(path.join(REPO_ROOT, rel), 'utf8'); }
++
++const DOWNTIME = read('server/routes/downtime.js');
++const HISTORY = read('server/routes/history.js');
++const QUESTIONNAIRE = read('server/routes/questionnaire.js');
++const ORDEAL_RESPONSES = read('server/routes/ordeal-responses.js');
++const GAME_SESSIONS = read('server/routes/game-sessions.js');
++
++describe('P0 — no route gates an ownership/redaction/lock check on the literal role==="player" string', () => {
++  // The vulnerable pattern, precisely: a live `if` condition testing the
++  // literal string. Matches both `req.user.role === 'player'` and the
++  // `&&`-compound shape questionnaire.js's approved-lock check used.
++  const VULNERABLE_PATTERN = /req\.user\.role\s*===\s*'player'/;
++
++  it('downtime.js: zero live occurrences (was 6 — POST retirement gate, GET hold-flags scoping, GET / scoping + st_review strip, PUT ownership + st_review strip)', () => {
++    expect(DOWNTIME).not.toMatch(VULNERABLE_PATTERN);
++  });
++
++  it('history.js: zero live occurrences (was 3 — GET/POST/PUT ownership checks)', () => {
++    expect(HISTORY).not.toMatch(VULNERABLE_PATTERN);
++  });
++
++  it('questionnaire.js: zero live occurrences (was 4 — GET/POST/PUT ownership checks + the approved-lock check)', () => {
++    expect(QUESTIONNAIRE).not.toMatch(VULNERABLE_PATTERN);
++  });
++
++  it('ordeal-responses.js: zero live occurrences (was 1 — PUT ownership + approved-lock check)', () => {
++    expect(ORDEAL_RESPONSES).not.toMatch(VULNERABLE_PATTERN);
++  });
++
++  it('game-sessions.js never used the role==="player" pattern (different bug shape — see below)', () => {
++    expect(GAME_SESSIONS).not.toMatch(VULNERABLE_PATTERN);
++  });
++});
++
++describe('P0 — each file now gates on !isStRole(req.user), or a route-level requireRole', () => {
++  it('downtime.js imports isStRole and uses !isStRole(req.user) at least 6 times (one per fixed gate)', () => {
++    expect(DOWNTIME).toMatch(/import\s*\{[^}]*\bisStRole\b[^}]*\}\s*from\s*'\.\.\/middleware\/auth\.js'/);
++    const count = (DOWNTIME.match(/!isStRole\(req\.user\)/g) || []).length;
++    expect(count).toBe(6);
++  });
++
++  it('history.js uses !isStRole(req.user) at least 3 times (GET/POST/PUT)', () => {
++    const count = (HISTORY.match(/!isStRole\(req\.user\)/g) || []).length;
++    expect(count).toBe(3);
++  });
++
++  it('questionnaire.js uses !isStRole(req.user) at least 4 times (GET/POST/PUT + approved-lock)', () => {
++    const count = (QUESTIONNAIRE.match(/!isStRole\(req\.user\)/g) || []).length;
++    expect(count).toBe(4);
++  });
++
++  it('ordeal-responses.js uses !isStRole(req.user) once (ownership + approved-lock)', () => {
++    const count = (ORDEAL_RESPONSES.match(/!isStRole\(req\.user\)/g) || []).length;
++    expect(count).toBe(1);
++  });
++
++  it('game-sessions.js: DELETE /:id now carries requireRole(\'st\') as route-level middleware, overriding the looser router-level requireRole(\'coordinator\') mount', () => {
++    expect(GAME_SESSIONS).toMatch(/import\s*\{[^}]*\brequireRole\b[^}]*\}\s*from\s*'\.\.\/middleware\/auth\.js'/);
++    expect(GAME_SESSIONS).toMatch(/router\.delete\(\s*'\/:id'\s*,\s*requireRole\('st'\)\s*,/);
++  });
++});
++
++describe('P0 — server/index.js mount-level gate for game-sessions is unchanged (confirms the bug\'s real mechanism)', () => {
++  it('game_sessions router is still mounted behind requireRole(\'coordinator\'), which requireRole itself auto-expands to include st/dev', () => {
++    const INDEX = read('server/index.js');
++    expect(INDEX).toMatch(/app\.use\('\/api\/game_sessions',\s*requireAuth,\s*requireRole\('coordinator'\)/);
++  });
++
++  it('requireRole(\'st\') does NOT auto-expand to include coordinator (confirms the route-level fix actually excludes coordinator)', () => {
++    const AUTH = read('server/middleware/auth.js');
++    // The expansion rule: requesting 'st' auto-adds 'dev', but only requesting
++    // 'coordinator' auto-adds 'st'/'dev' — never the reverse. Read directly
++    // from source so this test breaks loudly if that asymmetry ever changes.
++    const fn = AUTH.slice(AUTH.indexOf('export function requireRole'));
++    expect(fn).toMatch(/if \(roles\.includes\('st'\)[\s\S]{0,40}\)\s*effective\.push\('dev'\);/);
++    expect(fn).not.toMatch(/roles\.includes\('st'\)[\s\S]{0,80}effective\.push\('coordinator'\)/);
++  });
++});

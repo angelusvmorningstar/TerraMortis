@@ -1,0 +1,12 @@
+Completed the Pass 3 audit and wrote [the findings](</D:/Terra Mortis/TM Game/specs/stories/code-review/p0-coordinator-role-ownership-bypass-pass3-findings.md>).
+
+Result:
+
+- High: 0
+- Medium: 2
+- Low: 1
+- Judgement: needs patches before shipping
+- Prescribed test run: exit 1, zero tests collected
+- Supplemental static suite: 12/12 passed
+- HTTP/integration tests: blocked by forced-TLS MongoDB infrastructure
+- Only the requested findings file was created; unrelated changes were untouched.

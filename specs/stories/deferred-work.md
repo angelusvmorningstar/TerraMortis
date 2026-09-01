@@ -689,27 +689,53 @@ real page, or direct source read) before deferral, not taken on a reviewer's wor
 
 ## Deferred from: 2026-09-01/02 general-audit day (4-domain Workflow audit, 79 agents, adversarially verified; plus Kurtis W's own live bug reports) — P0 now RESOLVED, see below
 
-- **(RESOLVED 2026-09-02, branch `ms/p0-coordinator-role-ownership-bypass`, uncommitted) High, security.**
+- **(RESOLVED 2026-09-02, branch `ms/p0-coordinator-role-ownership-bypass`, committed `1b241614`,
+  codex-reviewed 2026-09-02 — see the dated sub-entry below) High, security.**
   Five route files gated ownership checks on the literal string `req.user.role === 'player'` rather
-  than excluding only ST (`!isStRole(req.user)`) — `server/routes/downtime.js` (GET+PUT), `history.js`,
-  `questionnaire.js`, `ordeal-responses.js`, plus `game-sessions.js`'s DELETE (mount-level
-  `requireRole('coordinator')` auto-expands to include st/dev, handler added no further check despite
-  its own "(ST only)" comment). Fixed all five. While implementing, found and fixed two MORE instances
-  of the identical bug the original audit hadn't caught: `middleware/ordeal-retirement.js`'s
-  `requireOrdealNotRetiredForPlayers` (shared by history/questionnaire/ordeal-responses — without this
-  fix a coordinator could bypass the Ordeals-retired block entirely and reach the handlers the other
-  five fixes had just locked down), and `routes/characters.js`'s `GET /:id` (the one inconsistent spot
-  in a file that already used the correct `!isStRole()` pattern in three other places, letting a
-  coordinator read any character's full sheet). Deliberately left `attendance.js`'s look-alike check
-  untouched — check-in is literally the coordinator role's own job, so broader access there is almost
-  certainly intentional, not a bug; changing it risked breaking a real workflow for a finding the audit
-  never actually flagged. Verified with 209 tests across 15 files (zero regressions): a new static
+  than excluding only ST (`!isStRole(req.user)`) — `server/routes/downtime.js` (GET+PUT, and POST too
+  via the same shared `requireFormNotRetiredForPlayers` gate — confirmed by codex-review Pass 3;
+  desirable, just under-described here originally), `history.js`, `questionnaire.js`,
+  `ordeal-responses.js`, plus `game-sessions.js`'s DELETE (mount-level `requireRole('coordinator')`
+  auto-expands to include st/dev, handler added no further check despite its own "(ST only)" comment).
+  Fixed all five. While implementing, found and fixed two MORE instances of the identical bug the
+  original audit hadn't caught: `middleware/ordeal-retirement.js`'s `requireOrdealNotRetiredForPlayers`
+  (shared by history/questionnaire/ordeal-responses — without this fix a coordinator could bypass the
+  Ordeals-retired block entirely and reach the handlers the other five fixes had just locked down), and
+  `routes/characters.js`'s `GET /:id` (the one inconsistent spot in a file that already used the
+  correct `!isStRole()` pattern in four other places, letting a coordinator read any character's full
+  sheet). Deliberately left `attendance.js`'s look-alike check untouched at the time on the reasoning
+  that check-in is the coordinator role's own job — **codex-review Pass 2 found that reasoning doesn't
+  fully hold**: the specific check at `attendance.js:123` gates a PATCH that can flip a DIFFERENT
+  character's downtime flag, not the coordinator's own check-in action. Left unpatched anyway (see the
+  dated sub-entry below) because a coordinator already has equivalent access to the same field via the
+  authorized `PUT /api/game_sessions/:id`, so the net privilege exposure is negligible. Verified with
+  209 tests across 15 files (zero regressions) at the time of the original fix; a new static
   source-scan suite (`p0-coordinator-role-ownership-bypass.test.js`, no DB/markdown/ dependency, so it
   runs even in this checkout's degraded environment) plus a new real HTTP-level suite
   (`p0-coordinator-role-ownership-bypass-http.test.js`) that creates data as one player and proves a
   live coordinator account genuinely gets 403'd reading or writing it, with regression guards proving
-  ST and "coordinator on their own data" still work. **Not committed** — Angelus has not said the word
-  yet.
+  ST and "coordinator on their own data" still work. **Committed** `1b241614`, not yet pushed/PR'd.
+- **(2026-09-02, codex-review of `1b241614`, 3 isolated passes — Blind Hunter/Edge Case
+  Hunter/Acceptance Auditor, `reasoning_effort=high`) No High found by any pass; core authorization
+  fix confirmed correct in all three.** Patched immediately (new commit, same branch): extended the
+  static suite to also cover `ordeal-retirement.js` and `characters.js` (Pass 2 correctly caught that
+  the original 5-file scan didn't cover the two extra fixes found during implementation — prove-
+  discriminated by reverting `ordeal-retirement.js` and confirming the new assertions fail, then
+  restoring). Dismissed with evidence: a claimed `ordeal-responses.js:116` crash risk for a
+  coordinator with no `player_id` (Pass 1/3, converged) — `requireAuth` in `middleware/auth.js`
+  unconditionally populates `player_id` from the `players` collection for every authenticated
+  non-test-bypass user, so the dereference can't actually see `null`/`undefined`. Also dismissed:
+  Pass 1/3's "0 tests executed, not 23 passed" reading of the static/HTTP suites — that's Codex's own
+  sandbox lacking MongoDB Atlas network egress (`EACCES`) and failing a local-mongod TLS handshake
+  (`ECONNRESET`), not a real repo defect; the orchestrating session re-ran both suites live, twice,
+  getting real green results each time (23/23, then 27/27 after the patch above). Deferred, not
+  patched here (real gaps, but no live bug and not worth widening this already-large P0 diff further):
+  the HTTP suite's PUT-ownership assertions for downtime/history/ordeal-responses never reach the
+  underlying ownership/deadline logic because the retirement-gate 403 fires first (both retirement
+  flags are currently `true`); `questionnaire.js`'s PUT has no HTTP coverage at all; only
+  `characters.js` GET has a "coordinator succeeds on their own data" positive regression test, not the
+  other four surfaces. `attendance.js`'s residual bypass is covered in the entry above. Full raw
+  findings: `specs/stories/code-review/p0-coordinator-role-ownership-bypass-pass{1,2,3}-findings.md`.
 - **(Medium, data integrity, prepared not applied)** `server/scripts/fix-p1-audit-data-hygiene.js` and
   `server/scripts/cleanup-p1-orphaned-test-stmods.js`. Both dry-run by default with a full-document
   JSON backup before any write, both dry-run verified. Currently sitting stashed (`git stash@{0}` on
