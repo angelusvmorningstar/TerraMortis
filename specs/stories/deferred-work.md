@@ -686,3 +686,59 @@ real page, or direct source read) before deferral, not taken on a reviewer's wor
   request against the card's remaining headroom before calling `applyDmg`. Not fixed here — genuinely
   a `tracker.js` concern shared by any future feature that applies damage in bulk, not specific to
   this story's own Acceptance Criteria.
+
+## Deferred from: 2026-09-01/02 general-audit day (4-domain Workflow audit, 79 agents, adversarially verified; plus Kurtis W's own live bug reports) — P0 now RESOLVED, see below
+
+- **(RESOLVED 2026-09-02, branch `ms/p0-coordinator-role-ownership-bypass`, uncommitted) High, security.**
+  Five route files gated ownership checks on the literal string `req.user.role === 'player'` rather
+  than excluding only ST (`!isStRole(req.user)`) — `server/routes/downtime.js` (GET+PUT), `history.js`,
+  `questionnaire.js`, `ordeal-responses.js`, plus `game-sessions.js`'s DELETE (mount-level
+  `requireRole('coordinator')` auto-expands to include st/dev, handler added no further check despite
+  its own "(ST only)" comment). Fixed all five. While implementing, found and fixed two MORE instances
+  of the identical bug the original audit hadn't caught: `middleware/ordeal-retirement.js`'s
+  `requireOrdealNotRetiredForPlayers` (shared by history/questionnaire/ordeal-responses — without this
+  fix a coordinator could bypass the Ordeals-retired block entirely and reach the handlers the other
+  five fixes had just locked down), and `routes/characters.js`'s `GET /:id` (the one inconsistent spot
+  in a file that already used the correct `!isStRole()` pattern in three other places, letting a
+  coordinator read any character's full sheet). Deliberately left `attendance.js`'s look-alike check
+  untouched — check-in is literally the coordinator role's own job, so broader access there is almost
+  certainly intentional, not a bug; changing it risked breaking a real workflow for a finding the audit
+  never actually flagged. Verified with 209 tests across 15 files (zero regressions): a new static
+  source-scan suite (`p0-coordinator-role-ownership-bypass.test.js`, no DB/markdown/ dependency, so it
+  runs even in this checkout's degraded environment) plus a new real HTTP-level suite
+  (`p0-coordinator-role-ownership-bypass-http.test.js`) that creates data as one player and proves a
+  live coordinator account genuinely gets 403'd reading or writing it, with regression guards proving
+  ST and "coordinator on their own data" still work. **Not committed** — Angelus has not said the word
+  yet.
+- **(Medium, data integrity, prepared not applied)** `server/scripts/fix-p1-audit-data-hygiene.js` and
+  `server/scripts/cleanup-p1-orphaned-test-stmods.js`. Both dry-run by default with a full-document
+  JSON backup before any write, both dry-run verified. Currently sitting stashed (`git stash@{0}` on
+  this checkout, message "P2/P3 audit fixes") alongside the rest of the P2/P3 work — see the
+  stash-recovery note in the session's own wrap history if this isn't restored by the time anyone
+  reads this. Not applied — Angelus runs destructive/mutating DB scripts himself via `!`.
+- **(Low, display, deliberately out of scope)** `editor/sheet.js`'s Standing merit plain-name view row
+  still has no per-dot ST-mod marking (unlike the Domain/Influence/General rows the P2 pass fixed) —
+  its bonus band reads `m.rating` directly rather than `m.bonus`, and it isn't confirmed whether an
+  active `.bonus` overlay even flows into `m.rating` for this merit category. Also currently stashed
+  alongside the rest of P2/P3, not yet committed.
+- **(Investigate next, per Angelus's own standing instruction to pick these up)** Three live bug
+  reports from Kurtis W, on his own character (Charlie Ballsack, `_id` `69d73ea49162ece35897a482`):
+  - **Domain Merit shared-partner ID leak + CSS overlap.** `resolveSharedWithMember` (`data/helpers.js`)
+    only searches whatever character array the caller passes it — for a player's own view this is
+    their own role-scoped roster, which never contains a shared merit's partner. The lookup fails,
+    falls back to the raw 24-hex `shared_with` entry, and that ~50-character ID string overflowing a
+    layout built for short names is what produces the visible overlap with the row below. Root-caused,
+    not fixed. Proposed fix: extend `server/routes/characters.js`'s existing player-scoped
+    `_partner_dots` enrichment (already resolves domain-merit sharing partners server-side, but only by
+    name — silently failing for the ID-based `shared_with` entries this exact character has) to also
+    resolve by `_id` and attach each partner's display name, then have `editor/sheet.js`'s
+    `_viewSharedSub` consult that enrichment when `resolveSharedWithMember` can't resolve locally.
+  - **Missing Professional Training dot-4 Stealth bonus.** Charlie's PT merit is rating 5 with
+    `dot4_skill: "Stealth"`; the live `rule_skill_bonus` doc requires tier ≥4 with
+    `target_skill: "dot4_skill"` — on paper the bonus should be granting +1 to Stealth via
+    `_pt_dot4_bonus_skills` (`editor/rule_engine/pt-evaluator.js`). Root cause not found; next step is
+    tracing whether `applyPTRulesFromDb`/the rules cache actually runs with the right `skillBonus`
+    rules array at render time for this character.
+  - **"Safe Place capped by Safe Place" confusing message.** Not investigated at all — surfaced only
+    as a screenshot artifact. Needs a look at the Domain merit cap-warning logic (`_isCappedView`'s
+    `dom-cap-warn` derived-note in `editor/sheet.js`).
