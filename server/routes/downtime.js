@@ -27,7 +27,7 @@
 import { Router } from 'express';
 import { ObjectId } from 'mongodb';
 import { getCollection } from '../db.js';
-import { requireRole } from '../middleware/auth.js';
+import { requireRole, isStRole } from '../middleware/auth.js';
 import { stripStReview } from '../helpers/strip-st-review.js';
 import { validate } from '../middleware/validate.js';
 import { downtimeSubmissionSchema } from '../schemas/downtime_submission.schema.js';
@@ -64,7 +64,12 @@ function parseId(id) {
 // the cutover. A stable error code so the client can surface a clear
 // message rather than a generic failure.
 function requireFormNotRetiredForPlayers(req, res, next) {
-  if (FORM_RETIRED && req.user.role === 'player') {
+  // 2026-09-01 general audit fix: was role === 'player', which let a
+  // coordinator-role account (real, distinct role, scoped to check-in/
+  // finance/emergency only) bypass the retirement gate and submit new
+  // downtime writes — the same root cause as the ownership-check fixes
+  // below, just for this one gate.
+  if (FORM_RETIRED && !isStRole(req.user)) {
     return res.status(403).json({
       error: 'FORM_RETIRED',
       message: 'This form no longer accepts new downtime submissions. File on the sibling site instead.',
@@ -248,8 +253,9 @@ submissionsRouter.get('/hold-flags', async (req, res) => {
   // chapter_id/cycle_id split (cm-2b) — not two patterns layered on each other.
   let filter = withChapterFk({}, chapterRaw);
 
-  // Player: restrict to their characters (mirrors `GET /` scoping).
-  if (req.user.role === 'player') {
+  // 2026-09-01 general audit fix: was role === 'player'. Restrict to their
+  // characters (mirrors `GET /` scoping below).
+  if (!isStRole(req.user)) {
     const charIdOids = (req.user.character_ids || []).map(id =>
       id instanceof ObjectId ? id : new ObjectId(id)
     );
@@ -294,9 +300,13 @@ submissionsRouter.get('/', async (req, res) => {
     filter = withChapterFk(filter, chapterRaw);
   }
 
-  // Player: restrict to their characters
+  // 2026-09-01 general audit fix (High severity): was role === 'player',
+  // which let a coordinator-role account read every player's downtime
+  // submission unrestricted (see the matching st_review strip fix below —
+  // both gates must move together or a coordinator gets unfiltered rows
+  // WITH unredacted ST notes). Restrict to their characters.
   // Accept both ObjectId and legacy string-stored character_ids (CSV imports may store as string)
-  if (req.user.role === 'player') {
+  if (!isStRole(req.user)) {
     const charIdOids = (req.user.character_ids || []).map(id =>
       id instanceof ObjectId ? id : new ObjectId(id)
     );
@@ -306,8 +316,10 @@ submissionsRouter.get('/', async (req, res) => {
 
   const docs = await submissions().find(filter).toArray();
 
-  // Strip st_review for player responses
-  if (req.user.role === 'player') {
+  // 2026-09-01 general audit fix: was role === 'player' — must move with
+  // the ownership filter above (a coordinator otherwise saw unredacted
+  // ST review notes on every submission).
+  if (!isStRole(req.user)) {
     docs.forEach(doc => stripStReview(doc));
   }
 
@@ -336,8 +348,12 @@ submissionsRouter.put('/:id', requireFormNotRetiredForPlayers, rejectLegacyChapt
   const existing = await submissions().findOne({ _id: oid });
   if (!existing) return res.status(404).json({ error: 'NOT_FOUND', message: 'Submission not found' });
 
-  // Player: verify ownership and deadline
-  if (req.user.role === 'player') {
+  // 2026-09-01 general audit fix (High severity): was role === 'player',
+  // which let a coordinator-role account edit ANY player's submission,
+  // bypass the cycle-deadline gate, and (see the st_review strip fix
+  // below) write st_review fields and trigger the publish-transition
+  // email. Verify ownership and deadline.
+  if (!isStRole(req.user)) {
     const charIds = (req.user.character_ids || []).map(id => id.toString());
     if (!charIds.includes(existing.character_id?.toString())) {
       return res.status(403).json({ error: 'FORBIDDEN', message: 'Not your submission' });
@@ -416,8 +432,11 @@ submissionsRouter.put('/:id', requireFormNotRetiredForPlayers, rejectLegacyChapt
     console.error('[mandragora] flag sync error:', err.message)
   );
 
-  // Strip st_review from player responses
-  if (req.user.role === 'player') {
+  // 2026-09-01 general audit fix: was role === 'player' — must match the
+  // ownership-check gate above, or a coordinator's own PUT response would
+  // echo back unredacted st_review even though they were correctly blocked
+  // from writing it.
+  if (!isStRole(req.user)) {
     stripStReview(result);
   }
 

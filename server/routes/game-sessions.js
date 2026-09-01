@@ -3,6 +3,7 @@ import { getCollection } from '../db.js';
 import { ObjectId } from 'mongodb';
 import { validate } from '../middleware/validate.js';
 import { gameSessionSchema } from '../schemas/game_session.schema.js';
+import { requireRole } from '../middleware/auth.js';
 
 function formatDeadline(isoStr) {
   const d = new Date(isoStr);
@@ -172,7 +173,14 @@ router.put('/:id', async (req, res) => {
 });
 
 // DELETE /api/game_sessions/:id — remove a session (ST only)
-router.delete('/:id', async (req, res) => {
+// 2026-09-01 general audit fix (Medium severity): this comment said "(ST
+// only)" but had no role check of its own — the router mounts behind
+// requireRole('coordinator') (server/index.js), and requireRole's own
+// implementation auto-expands that to include st/dev, so a coordinator-
+// tier account could actually delete any game session (and its attendance
+// data) despite the comment. requireRole('st') here overrides the looser
+// router-level gate for this one destructive route specifically.
+router.delete('/:id', requireRole('st'), async (req, res) => {
   const result = await col().deleteOne({ _id: new ObjectId(req.params.id) });
   if (result.deletedCount === 0) return res.status(404).json({ error: 'NOT_FOUND' });
   res.json({ ok: true });

@@ -36,7 +36,10 @@ router.get('/', async (req, res) => {
   if (!oid) return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'Invalid character_id format' });
 
   // Player: verify they own this character
-  if (req.user.role === 'player') {
+  // 2026-09-01 general audit fix (Medium severity): was role === 'player',
+  // which let a coordinator-role account read/edit any character's
+  // questionnaire responses with no ownership check.
+  if (!isStRole(req.user)) {
     const owns = (req.user.character_ids || []).some(id => id.toString() === oid.toString());
     if (!owns) return res.status(403).json({ error: 'FORBIDDEN', message: 'Not your character' });
   }
@@ -55,7 +58,10 @@ router.post('/', requireOrdealNotRetiredForPlayers, validate(questionnaireRespon
   if (!charOid) return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'Invalid character_id' });
 
   // Player: verify ownership
-  if (req.user.role === 'player') {
+  // 2026-09-01 general audit fix (Medium severity): was role === 'player',
+  // which let a coordinator-role account read/edit any character's
+  // questionnaire responses with no ownership check.
+  if (!isStRole(req.user)) {
     const owns = (req.user.character_ids || []).some(id => id.toString() === charOid.toString());
     if (!owns) return res.status(403).json({ error: 'FORBIDDEN', message: 'Not your character' });
   }
@@ -92,13 +98,19 @@ router.put('/:id', requireOrdealNotRetiredForPlayers, async (req, res) => {
   if (!existing) return res.status(404).json({ error: 'NOT_FOUND', message: 'Response not found' });
 
   // Player: verify ownership
-  if (req.user.role === 'player') {
+  // 2026-09-01 general audit fix (Medium severity): was role === 'player',
+  // which let a coordinator-role account read/edit any character's
+  // questionnaire responses with no ownership check.
+  if (!isStRole(req.user)) {
     const owns = (req.user.character_ids || []).some(id => id.toString() === existing.character_id.toString());
     if (!owns) return res.status(403).json({ error: 'FORBIDDEN', message: 'Not your character' });
   }
 
-  // Players cannot edit approved questionnaires
-  if (req.user.role === 'player' && existing.status === 'approved') {
+  // 2026-09-01 general audit fix: was role === 'player' — an approved
+  // questionnaire should stay locked for anyone who isn't ST, not just
+  // players (a coordinator has no more business re-editing an approved
+  // response than a player does).
+  if (!isStRole(req.user) && existing.status === 'approved') {
     return res.status(403).json({ error: 'FORBIDDEN', message: 'Approved questionnaire is locked' });
   }
 

@@ -1,4 +1,4 @@
-# Session Start — TM Suite (project playbook)
+# Session Start — TM Game (project playbook)
 
 > Loaded by the global `session-start` dispatcher skill when the working dir is this repo.
 > Mirror image of this repo's own `.claude/session-wrap.md` — orient here, wrap there. Run these
@@ -109,6 +109,12 @@ suites need a local `mongod` and **skip rather than fail** without one — a ski
 passing suite.
 
 ## 8. Output orientation summary, then ask
+
+Lead the summary with a one-line session identifier — **Session: TM Game** — before anything else.
+This repo runs alongside sibling sessions in `TM Story`/`TM Admin`/`TM Herald`, and occasionally a
+second concurrent session in this same checkout (real, observed 2026-09-02 — a parallel audit
+session mutated the working tree mid-session); a glance at the top of the output should be enough
+to tell which project a given terminal pane belongs to.
 
 Write a short summary (8-12 lines) covering: last session's commit(s); the sprint-status header's
 opening clause; anything Step 4/5/6 flagged (omit any that came back clean); the single

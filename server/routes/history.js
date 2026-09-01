@@ -30,7 +30,11 @@ router.get('/', async (req, res) => {
   const oid = parseId(charId);
   if (!oid) return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'Invalid character_id format' });
 
-  if (req.user.role === 'player') {
+  // 2026-09-01 general audit fix (Medium severity): was role === 'player',
+  // which let a coordinator-role account (real, distinct role, scoped to
+  // check-in/finance/emergency only) read/edit any character's personal
+  // history with no ownership check at all.
+  if (!isStRole(req.user)) {
     const owns = (req.user.character_ids || []).some(id => id.toString() === oid.toString());
     if (!owns) return res.status(403).json({ error: 'FORBIDDEN', message: 'Not your character' });
   }
@@ -64,7 +68,11 @@ router.post('/', requireOrdealNotRetiredForPlayers, validate(historyResponseSche
   const charOid = parseId(character_id);
   if (!charOid) return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'Invalid character_id' });
 
-  if (req.user.role === 'player') {
+  // 2026-09-01 general audit fix (Medium severity): was role === 'player',
+  // which let a coordinator-role account (real, distinct role, scoped to
+  // check-in/finance/emergency only) read/edit any character's personal
+  // history with no ownership check at all.
+  if (!isStRole(req.user)) {
     const owns = (req.user.character_ids || []).some(id => id.toString() === charOid.toString());
     if (!owns) return res.status(403).json({ error: 'FORBIDDEN', message: 'Not your character' });
   }
@@ -99,7 +107,11 @@ router.put('/:id', requireOrdealNotRetiredForPlayers, async (req, res) => {
   const existing = await col().findOne({ _id: oid });
   if (!existing) return res.status(404).json({ error: 'NOT_FOUND', message: 'Response not found' });
 
-  if (req.user.role === 'player') {
+  // 2026-09-01 general audit fix (Medium severity): was role === 'player',
+  // which let a coordinator-role account (real, distinct role, scoped to
+  // check-in/finance/emergency only) read/edit any character's personal
+  // history with no ownership check at all.
+  if (!isStRole(req.user)) {
     const owns = (req.user.character_ids || []).some(id => id.toString() === existing.character_id.toString());
     if (!owns) return res.status(403).json({ error: 'FORBIDDEN', message: 'Not your character' });
     if (existing.status === 'approved') {
