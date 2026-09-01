@@ -347,6 +347,14 @@
          unmodified. Do not rename it or merge the two elements — goTab needs
          the outer #t-spheres, the module needs the inner #spheres-content. -->
     <div id="t-spheres" class="tab"><div id="spheres-content"></div></div>
+    <!-- Praxis Claim / People's Harpy Vote (Epic PRAX). The inner id is
+         required: initPraxisView() takes no container argument and looks up
+         #praxis-content itself (praxis-tab.js:507), same reuse pattern as
+         #t-spheres above. Reuses admin/praxis-tab.js's real implementation
+         unmodified (2026-09-01, Angelus: admin.html is being retired, this
+         must be reachable from the Game App) - do not rename or merge the
+         two elements. -->
+    <div id="t-praxis" class="tab"><div id="praxis-content"></div></div>
     <div id="t-emergency" class="tab"></div>
     <div id="t-combat" class="tab"></div>
     <div id="t-regency" class="tab"></div>

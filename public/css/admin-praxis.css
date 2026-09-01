@@ -1,0 +1,399 @@
+/* ════════════════════════════════════════════════════════════════════
+   Praxis Claim board (Epic PRAX, prax.2)
+
+   Ported 1:1 from the locked design mockup at
+   specs/mockups/prax-2-claim-board/index.html. That file carried a
+   hand-copy of theme.css's :root block so it could be opened standalone;
+   NOTHING is redeclared here - every colour, font and radius below
+   resolves through the real theme.css custom properties, so the board
+   flips with the theme like the rest of the app.
+
+   Every rule is scoped under .praxis-board on purpose. The mockup's class
+   names (.claim-card, .sheet, .sheet-row) are generic enough that an
+   unscoped copy would be a landmine for the next component that wants one
+   of those words; scoping keeps the locked names in the markup without
+   claiming them globally.
+
+   .char-chip is REUSED VERBATIM from components.css and is deliberately
+   absent below - not overridden, not re-specified.
+
+   Extracted verbatim from admin-layout.css (2026-09-01, Angelus's own
+   "admin.html is being retired, everything I use must be on the Game App"
+   instruction) so the Praxis Claim / People's Harpy Vote board can be
+   mounted from public/index.html the same way Spheres already reuses
+   admin/spheres-view.js via admin-shared.css/admin-spheres.css. Copied,
+   not moved: admin-layout.css's own copy stays untouched so admin.html's
+   existing Praxis tab keeps working unmodified. Every selector here was
+   checked against suite.css/components.css/theme.css/layout.css before
+   copying and has zero name collisions.
+   ════════════════════════════════════════════════════════════════════ */
+
+.praxis-board {
+  background: var(--surf);
+  border: 1px solid var(--bdr);
+  border-radius: var(--radius-lg);
+  padding: 16px;
+  position: relative;
+  max-width: 720px;
+}
+
+/* ── header ── */
+.praxis-board .pb-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin-bottom: 14px; }
+.praxis-board .pb-title { font-family: var(--fl); font-size: 16px; font-weight: 700; color: var(--txt); }
+.praxis-board .pb-chapter { font-family: var(--fl); font-size: 11px; color: var(--txt3); margin-left: 8px; font-weight: 400; }
+.praxis-board .pb-live { display: inline-flex; align-items: center; gap: 5px; font-family: var(--fl); font-size: 10px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--txt3); white-space: nowrap; }
+.praxis-board .pb-live .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--gold); box-shadow: 0 0 0 3px var(--gold-a15); }
+
+/* Transient result line (supporters released on a withdrawal, save failures). */
+.praxis-board .pb-status {
+  font-family: var(--fl); font-size: 11.5px; font-weight: 600; color: var(--gold2);
+  background: var(--gold-a8); border: 1px solid var(--bdr2); border-radius: var(--radius-md);
+  padding: 8px 12px; margin-bottom: 14px;
+}
+.praxis-board .pb-note { font-family: var(--fl); font-size: 11.5px; font-style: italic; color: var(--txt3); margin: 0 0 12px; line-height: 1.5; }
+
+/* ── empty state ── */
+.praxis-board .pb-empty { padding: 36px 20px; text-align: center; }
+.praxis-board .pb-empty p { font-family: var(--fl); font-size: 12px; color: var(--txt3); margin: 0 0 16px; }
+.praxis-board .btn-open {
+  background: var(--accent); color: var(--txt-on-dark); border: none; border-radius: var(--radius-md);
+  padding: 0 20px; height: var(--control-height-md); font-family: var(--fl); font-size: 13px;
+  font-weight: 700; letter-spacing: .02em; cursor: pointer;
+}
+.praxis-board .btn-open:hover { background: var(--crim2); }
+
+/* ── pool strip ── */
+.praxis-board .pool-label { font-family: var(--fl); font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--txt3); margin: 0 0 8px; }
+.praxis-board .pool-label--inline { margin: 0; }
+.praxis-board .pool-strip { display: flex; flex-wrap: wrap; gap: 8px; padding-bottom: 16px; margin-bottom: 16px; border-bottom: 1px solid var(--bdr); }
+.praxis-board .pool-strip:empty::after { content: 'Everyone attending has a support assignment.'; font-family: var(--fl); font-size: 11.5px; font-style: italic; color: var(--txt3); }
+
+/* ── claimant cards ── */
+.praxis-board .claimants-label { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+.praxis-board .claimants { display: flex; flex-direction: column; gap: 10px; }
+.praxis-board .claim-card { background: var(--surf1); border: 1px solid var(--bdr); border-radius: var(--radius-md); padding: 12px 14px; }
+.praxis-board .claim-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.praxis-board .claim-name { font-family: var(--fl); font-size: 14px; font-weight: 700; color: var(--txt); }
+.praxis-board .claim-tally { font-family: var(--fl); font-size: 18px; font-weight: 700; color: var(--gold2); white-space: nowrap; }
+.praxis-board .claim-tally .lbl { font-size: 10px; font-weight: 600; letter-spacing: .05em; text-transform: uppercase; color: var(--txt3); margin-left: 5px; }
+.praxis-board .claim-badge { font-family: var(--fl); font-size: 10.5px; font-weight: 600; margin-top: 3px; display: inline-block; }
+.praxis-board .claim-badge.neutral { color: var(--txt3); }
+.praxis-board .claim-badge.amber { color: var(--warn-orange); }
+.praxis-board .claim-supporters { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+.praxis-board .claim-empty-supporters { font-family: var(--fl); font-size: 11px; font-style: italic; color: var(--txt3); margin-top: 10px; }
+.praxis-board .support-chip {
+  background: var(--bg); border: 1px solid var(--bdr); border-radius: var(--radius-pill);
+  padding: 5px 10px 5px 12px; font-family: var(--fl); font-size: 11.5px; font-weight: 600;
+  color: var(--txt2); display: inline-flex; align-items: center; gap: 6px;
+}
+.praxis-board .withdraw-x {
+  background: none; border: none; color: var(--txt3); font-family: var(--fl); font-size: 11px;
+  font-weight: 700; cursor: pointer; padding: 2px 4px; border-radius: var(--radius-sm); line-height: 1;
+}
+.praxis-board .withdraw-x:hover { color: var(--crim); background: var(--accent-a8); }
+.praxis-board .claim-actions { margin-top: 10px; }
+.praxis-board .claim-withdraw {
+  background: none; border: none; padding: 2px 0; font-family: var(--fl); font-size: 11px;
+  font-weight: 700; letter-spacing: .04em; color: var(--txt3); cursor: pointer;
+}
+.praxis-board .claim-withdraw:hover { color: var(--crim); }
+
+/* ── bottom sheet ── */
+.praxis-board .sheet-overlay {
+  position: absolute; inset: 0; background: var(--overlay); border-radius: var(--radius-lg);
+  display: none; align-items: flex-end; justify-content: center; z-index: 5;
+}
+.praxis-board .sheet-overlay.open { display: flex; }
+.praxis-board .sheet {
+  background: var(--surf); border-top: 1px solid var(--bdr2);
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0; width: 100%; max-height: 78%;
+  overflow-y: auto; padding: 14px 16px 20px; box-shadow: 0 -8px 24px var(--overlay);
+}
+.praxis-board .sheet-handle { width: 36px; height: 4px; background: var(--bdr3); border-radius: var(--radius-pill); margin: 0 auto 12px; }
+.praxis-board .sheet-title { font-family: var(--fl); font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--txt3); margin-bottom: 2px; }
+.praxis-board .sheet-sub { font-family: var(--fl); font-size: 15px; font-weight: 700; color: var(--txt); margin-bottom: 14px; }
+.praxis-board .sheet-action {
+  width: 100%; text-align: left; background: var(--gold-a8); border: 1px solid var(--bdr2);
+  border-radius: var(--radius-md); padding: 11px 14px; font-family: var(--fl); font-size: 13px;
+  font-weight: 700; color: var(--gold2); cursor: pointer; margin-bottom: 12px;
+}
+.praxis-board .sheet-action:hover { background: var(--gold-a15); }
+.praxis-board .sheet-section-lbl { font-family: var(--fl); font-size: 10.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--txt3); margin: 0 0 8px; }
+.praxis-board .sheet-list { display: flex; flex-direction: column; gap: 6px; }
+.praxis-board .sheet-row {
+  width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  background: var(--surf1); border: 1px solid var(--bdr); border-radius: var(--radius-md);
+  padding: 10px 12px; cursor: pointer; text-align: left;
+}
+.praxis-board .sheet-row:hover { border-color: var(--accent-a25); }
+.praxis-board .sheet-row .n { font-family: var(--fl); font-size: 13px; font-weight: 600; color: var(--txt); }
+.praxis-board .sheet-row .t { font-family: var(--fl); font-size: 11px; color: var(--txt3); white-space: nowrap; }
+.praxis-board .sheet-empty { font-family: var(--fl); font-size: 11px; font-style: italic; color: var(--txt3); margin: 0; }
+.praxis-board .sheet-close {
+  width: 100%; text-align: center; background: none; border: 1px solid var(--bdr2);
+  border-radius: var(--radius-md); padding: 10px; font-family: var(--fl); font-size: 12px;
+  font-weight: 700; color: var(--txt3); cursor: pointer; margin-top: 14px;
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   Praxis board, second tally (Epic PRAX, prax.3)
+
+   Ported 1:1 from the locked design mockup at
+   specs/mockups/prax-3-harpy-segmented/index.html, same posture as the
+   prax.2 block above: the mockup's hand-copied :root block is NOT
+   reproduced, every value resolves through theme.css, and every rule
+   stays scoped under .praxis-board. Nothing above is modified - prax.3
+   layers three new pieces onto prax.2's components and reuses the rest
+   verbatim.
+   ════════════════════════════════════════════════════════════════════ */
+
+/* ── segmented Praxis / People's Harpy control ── */
+.praxis-board .tally-switch {
+  display: inline-flex; border: 1px solid var(--bdr2); border-radius: var(--radius-pill);
+  padding: 3px; gap: 2px; background: var(--surf1);
+}
+.praxis-board .tally-switch-btn {
+  border: none; background: none; font-family: var(--fl); font-size: 12px; font-weight: 700;
+  letter-spacing: .02em; color: var(--txt3); padding: 7px 16px;
+  border-radius: var(--radius-pill); cursor: pointer;
+}
+.praxis-board .tally-switch-btn.active { background: var(--accent); color: var(--txt-on-dark); }
+.praxis-board .tally-switch-btn:not(.active):hover { color: var(--accent); }
+
+/* ── summary row: both contests' leaders, whichever tally is active ── */
+.praxis-board .tally-summary {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 10px;
+  background: var(--gold-a8); border: 1px solid var(--bdr2); border-radius: var(--radius-md);
+  padding: 10px 12px; margin-bottom: 16px;
+}
+.praxis-board .tally-summary-item { display: flex; flex-direction: column; gap: 2px; }
+.praxis-board .tally-summary-item + .tally-summary-item { border-left: 1px solid var(--bdr); padding-left: 10px; }
+.praxis-board .tally-summary-label {
+  font-family: var(--fl); font-size: 9.5px; font-weight: 700; letter-spacing: .08em;
+  text-transform: uppercase; color: var(--txt3);
+}
+/* The live dot sits inside the ACTIVE tally's label, so the row also says
+   which of the two contests the board below is currently working. */
+.praxis-board .tally-summary-label .pb-live { vertical-align: middle; }
+.praxis-board .tally-summary-leader { font-family: var(--fl); font-size: 13px; font-weight: 700; color: var(--txt); }
+.praxis-board .tally-summary-leader .n { color: var(--gold2); font-weight: 700; margin-left: 4px; }
+.praxis-board .tally-summary-empty { font-family: var(--fl); font-size: 12px; font-style: italic; color: var(--txt3); }
+
+/* ── dual-dot pool-chip indicator (crimson = Praxis, gold = Harpy) ── */
+.praxis-board .chip-dots { display: inline-flex; gap: 3px; margin-left: 2px; }
+.praxis-board .chip-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--bdr3); }
+.praxis-board .chip-dot.on-praxis { background: var(--crim); }
+.praxis-board .chip-dot.on-harpy { background: var(--gold2); }
+
+/* ════════════════════════════════════════════════════════════════════
+   Praxis board, resolving the Harpy tally (Epic PRAX, prax.4a)
+
+   Ported from the locked design mockup at
+   specs/mockups/prax-4a-harpy-resolve/index.html, same posture as the
+   prax.2 and prax.3 blocks above: the mockup's hand-copied :root block
+   is NOT reproduced, every value resolves through theme.css, and every
+   rule stays scoped under .praxis-board - with ONE deliberate exception,
+   the toast, explained at its own rule below.
+
+   Two mockup values had no real token behind them and are resolved here
+   rather than redeclared: the mockup's ad-hoc `--green3-a15` becomes
+   `--green4-a15` (the same near-transparent green at the same alpha,
+   and theme-aware), and its `rgba(0,0,0,.25)` toast shadow becomes
+   `--overlay`, which is what the prax.2 sheet's own shadow already uses.
+
+   Nothing above is modified. The one existing rule this block touches is
+   `.claim-actions`, which prax.2 wrote as a plain margin because it held
+   a single button; it now holds two, and the mockup lays them out in a
+   row. Extended here rather than edited in place, so prax.2's own block
+   stays exactly as that story shipped it.
+   ════════════════════════════════════════════════════════════════════ */
+
+.praxis-board .claim-actions { display: flex; align-items: center; gap: 14px; }
+
+/* ── per-claimant "Declare Winner" ── */
+/* Deliberately heavier than the neutral "Withdraw claim" text action beside
+   it: a withdrawal is reversible by reopening the claim, this one hands a
+   court office over and cannot be undone from this screen at all. */
+.praxis-board .claim-resolve {
+  background: var(--gold-a8); border: 1px solid var(--bdr2); border-radius: var(--radius-sm);
+  padding: 5px 12px; font-family: var(--fl); font-size: 11px; font-weight: 700;
+  letter-spacing: .02em; color: var(--gold2); cursor: pointer;
+}
+.praxis-board .claim-resolve:hover { background: var(--gold-a15); }
+
+/* ── board-level "Dismiss vote" ── */
+/* Sits with the Claimants label rather than on a card, because it abandons the
+   WHOLE tally rather than one claim. The dotted underline is what marks it as
+   an action while keeping it quieter than either button on the cards. */
+.praxis-board .dismiss-vote {
+  background: none; border: none; font-family: var(--fl); font-size: 10.5px;
+  font-weight: 700; letter-spacing: .04em; color: var(--txt3); cursor: pointer;
+  text-decoration: underline; text-decoration-style: dotted; text-underline-offset: 2px;
+}
+.praxis-board .dismiss-vote:hover { color: var(--crim); }
+
+/* ── the resolved-tally summary ── */
+/* Replaces the live pool/claimants section on whichever tally is resolved. The
+   other tally stays fully live and renders through the untouched path above. */
+.praxis-board .resolved-summary {
+  background: var(--surf1); border: 1px solid var(--bdr2); border-radius: var(--radius-md);
+  padding: 18px 16px; text-align: center;
+}
+.praxis-board .resolved-summary.won { border-color: var(--green4-a15); }
+.praxis-board .resolved-summary .icon {
+  font-family: var(--fl); font-size: 10px; font-weight: 700; letter-spacing: .1em;
+  text-transform: uppercase; color: var(--green3); margin-bottom: 8px;
+}
+.praxis-board .resolved-summary.abandoned .icon { color: var(--txt3); }
+.praxis-board .resolved-summary .winner-name { font-family: var(--fl); font-size: 18px; font-weight: 700; color: var(--txt); }
+/* A dismissal has no winner to name, so the same slot carries the absence
+   instead - quieter and italic, so it never reads as somebody's name. */
+.praxis-board .resolved-summary.abandoned .winner-name { color: var(--txt3); font-style: italic; }
+.praxis-board .resolved-summary .winner-tally { font-family: var(--fl); font-size: 12px; color: var(--txt3); margin-top: 4px; }
+
+/* ── the confirmation toast ── */
+/* THE ONE RULE IN THIS FILE'S PRAXIS BLOCKS THAT IS NOT SCOPED UNDER
+   .praxis-board, and it has to be: the element is parented to document.body and
+   fixed to the viewport, because the board underneath it is rebuilt from
+   scratch by the very re-render this toast is confirming.
+   The markup carries the locked class name `toast` as well, but the SELECTOR is
+   `.praxis-toast` - a word as generic as "toast" would otherwise be claimed
+   globally for the next component that wants it, which is the same reason
+   prax.2's block scoped `.sheet` and `.claim-card` rather than owning them.
+   Message-only: there is no action button, because the locked design dropped
+   Undo entirely. */
+.praxis-toast {
+  position: fixed; left: 50%; bottom: 28px; transform: translateX(-50%);
+  background: var(--txt); color: var(--txt-on-dark); border-radius: var(--radius-md);
+  padding: 12px 16px; display: none; align-items: center;
+  box-shadow: 0 8px 24px var(--overlay); max-width: calc(100vw - 32px); z-index: 60;
+}
+.praxis-toast.on { display: flex; }
+.praxis-toast .msg { font-family: var(--fl); font-size: 12.5px; line-height: 1.4; }
+
+/* ════════════════════════════════════════════════════════════════════
+   Praxis board, resolving the Praxis tally (Epic PRAX, prax.4b)
+
+   Ported from the locked design mockup at
+   specs/mockups/prax-4b-head-of-state-resolve/index.html, same posture as
+   the three blocks above: the mockup's hand-copied :root block is NOT
+   reproduced, every value resolves through theme.css, and every rule
+   stays scoped under .praxis-board - with ONE deliberate exception, the
+   confirm modal's overlay, for the same reason prax.4a's toast is one
+   (it is fixed to the viewport, not to the board).
+
+   THREE mockup values had no real token behind them and are resolved
+   here rather than redeclared, following prax.4a's own precedent with
+   `--green3-a15`:
+
+     - the mockup's `--accent-a15` (a hover fill) becomes `--accent-a25`.
+       theme.css carries `--accent-a8`, `--accent-a25` and `--accent-a40`
+       and no a15, and `--accent` is the token that correctly flips
+       crimson-to-gold between the two themes, so pinning `--crim-a15`
+       instead would freeze this one button crimson in dark mode while
+       every other accent surface on the board flipped.
+     - the mockup's `--warn-a8` / `--warn-a25` become
+       `--warn-orange-bg` / `--warn-orange-bdr`, which are the real
+       theme-aware tokens for exactly this treatment and are already what
+       `.claim-badge.amber` above resolves through.
+     - the mockup's `rgba(0,0,0,.35)` modal shadow becomes `--overlay`,
+       which is what prax.2's sheet and prax.4a's toast already use.
+
+   Nothing above is modified. `.claim-resolve.praxis` LAYERS onto
+   prax.4a's `.claim-resolve` rather than replacing it, so the Harpy
+   button keeps the gold treatment that story shipped.
+   ════════════════════════════════════════════════════════════════════ */
+
+/* ── the Praxis variant of "Declare Winner" ── */
+/* Crimson rather than gold, and deliberately heavier than the Harpy button it
+   sits in the same slot as: that one hands over a single seat, this one
+   mass-clears three offices belonging to people who are not watching the board.
+   The colour should read as heavier before anyone reads a word. */
+.praxis-board .claim-resolve.praxis {
+  background: var(--accent-a8);
+  border-color: var(--accent-a25);
+  color: var(--accent);
+}
+.praxis-board .claim-resolve.praxis:hover { background: var(--accent-a25); }
+
+/* ── the confirm modal ── */
+/* THE SECOND RULE IN THIS FILE'S PRAXIS BLOCKS THAT IS NOT SCOPED UNDER
+   .praxis-board, and it has to be: the overlay is fixed to the VIEWPORT rather
+   than to the board, because the vacate list can be longer than the board is
+   tall and a modal clipped to a card is not a modal. It reuses this app's own
+   established `ec-modal-overlay` / `ec-modal-box` shape (see them earlier in
+   this file) rather than inventing a new dialog pattern, themed to the Praxis
+   board's crimson because this is the highest-stakes confirmation in the app. */
+.confirm-modal-overlay {
+  position: fixed; inset: 0; background: var(--overlay); z-index: 2000;
+  display: flex; align-items: center; justify-content: center; padding: 20px;
+}
+.confirm-modal-box {
+  max-width: 480px; width: 100%; background: var(--surf); border: 1px solid var(--bdr2);
+  border-radius: var(--radius-lg); padding: 20px 22px; box-shadow: 0 12px 40px var(--overlay);
+  max-height: calc(100vh - 40px); overflow-y: auto;
+}
+.confirm-modal-box .panel-label {
+  font-family: var(--fl); font-size: 11px; font-weight: 700; letter-spacing: .12em;
+  text-transform: uppercase; color: var(--accent); padding-bottom: 10px;
+  margin-bottom: 4px; border-bottom: 1px solid var(--bdr);
+}
+.confirm-headline { font-family: var(--fl); font-size: 16px; font-weight: 700; color: var(--txt); margin: 14px 0 4px; }
+.confirm-headline .winner { color: var(--accent); }
+.confirm-sub { font-family: var(--fl); font-size: 12px; color: var(--txt3); margin-bottom: 16px; }
+.confirm-section-label {
+  font-family: var(--fl); font-size: 10px; font-weight: 700; letter-spacing: .08em;
+  text-transform: uppercase; color: var(--txt3); margin: 16px 0 8px;
+}
+
+/* One row per office this resolution empties, named individually and never
+   folded into a count - the whole reason this screen exists. */
+.confirm-vacate-list { display: flex; flex-direction: column; gap: 6px; }
+.confirm-vacate-row {
+  display: flex; align-items: baseline; justify-content: space-between;
+  background: var(--accent-a8); border: 1px solid var(--accent-a25);
+  border-radius: var(--radius-sm); padding: 8px 12px;
+}
+.confirm-vacate-row .name { font-family: var(--fl); font-size: 13px; font-weight: 600; color: var(--txt); }
+.confirm-vacate-row .office { font-family: var(--fl); font-size: 11px; color: var(--txt3); }
+/* An empty match set says so in words rather than rendering as blank space: an
+   ST tapping Confirm over nothing must be able to tell "nobody holds any of the
+   three" from "the list failed to load". */
+.confirm-vacate-empty { font-family: var(--fl); font-size: 12px; color: var(--txt3); font-style: italic; padding: 6px 0; }
+
+/* The two consequences the vacate list cannot express: a Primogen seat that
+   SURVIVES, and a People's Harpy seat vacated by a different mechanism. Gold
+   rather than crimson, because neither is a person losing an office to this
+   resolution in the way every row above is. */
+.confirm-note-row {
+  display: flex; align-items: center; gap: 8px; background: var(--gold-a8);
+  border: 1px solid var(--bdr2); border-radius: var(--radius-sm); padding: 8px 12px;
+  margin-top: 8px; font-family: var(--fl); font-size: 12px; color: var(--txt2);
+}
+.confirm-note-row .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--gold2); flex-shrink: 0; }
+
+.confirm-actions {
+  display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px;
+  padding-top: 16px; border-top: 1px solid var(--bdr);
+}
+.confirm-cancel {
+  background: none; border: 1px solid var(--bdr2); border-radius: var(--radius-sm);
+  padding: 9px 16px; font-family: var(--fl); font-size: 12px; font-weight: 700;
+  letter-spacing: .02em; color: var(--txt2); cursor: pointer;
+}
+.confirm-go {
+  background: var(--accent); border: 1px solid var(--accent); border-radius: var(--radius-sm);
+  padding: 9px 18px; font-family: var(--fl); font-size: 12px; font-weight: 700;
+  letter-spacing: .02em; color: var(--txt-on-dark); cursor: pointer;
+}
+.confirm-go:hover { background: var(--accent2); }
+
+/* The stale-confirm-list state: the execute-time re-verify found the board had
+   moved since this modal opened. Orange rather than crimson - nothing has gone
+   wrong and nothing was written, the list simply needs re-reading before the ST
+   confirms again. */
+.confirm-stale {
+  background: var(--warn-orange-bg); border: 1px solid var(--warn-orange-bdr);
+  border-radius: var(--radius-sm); padding: 10px 12px; margin-top: 14px;
+  font-family: var(--fl); font-size: 12px; color: var(--warn-orange); line-height: 1.5;
+}
