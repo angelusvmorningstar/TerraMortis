@@ -69,6 +69,15 @@ function stmSkillOpts(c, s) {
   return opts;
 }
 
+// Mirror of suite/sheet.js _stmDiscOpts. Disciplines only ever carry a
+// `.dots` overlay (no separate `.bonus` path), so filledMod only.
+function stmDiscOpts(c, d) {
+  const ovDots = c._st_mod_overlay?.[`disciplines.${d}.dots`];
+  const opts = {};
+  if (ovDots) opts.filledMod = { from: ovDots.base, to: ovDots.final, path: `disciplines.${d}.dots`, title: 't' };
+  return opts;
+}
+
 function count(s, sub) {
   let n = 0, i = 0;
   while ((i = s.indexOf(sub, i)) !== -1) { n++; i += sub.length; }
@@ -124,5 +133,45 @@ describe('#425 — suite skill dots emit modded markup via opts', () => {
     const out = shDotsWithBonus(3, 0, opts);
     expect(count(out, '<span class="pointed stm-modded-dot"')).toBe(1);
     expect(count(out, '<span class="pointed"></span>')).toBe(2);
+  });
+});
+
+describe('#425 regression — discipline dots recolour in place, no standalone marker pip', () => {
+  // Ryan Ambrose live-data shape (2026-09-01 investigation): Celerity has
+  // 0 base dots and one active +1 st_mod ("Oath of Serfdom to Lord
+  // Justice"). renderDiscRow previously rendered this via the OLD
+  // markerFor() pip appended after the dot run (dots(1) + a standalone
+  // 8x8 gold <span class="stm-marker">), which is visually indistinguishable
+  // from 2 real dots for a discipline whose entire total is exactly one
+  // mod's delta. The fix routes disciplines through the same
+  // shDotsWithBonus(filledMod) recolour-in-place convention #408 already
+  // gave attributes/skills — total dot-span count must equal the true
+  // total, never total + 1.
+  it('discipline entirely mod-derived (0 base + 1 mod = 1 total): exactly ONE dot span, gold-tinted', () => {
+    const c = { _st_mod_overlay: { 'disciplines.Celerity.dots': { base: 0, delta: 1, final: 1 } } };
+    const opts = stmDiscOpts(c, 'Celerity');
+    const out = shDotsWithBonus(1, 0, opts);
+    expect(count(out, '<span class="pointed')).toBe(1);
+    expect(count(out, '<span class="pointed stm-modded-dot"')).toBe(1);
+    expect(out).toContain('data-stm-marker-path="disciplines.Celerity.dots"');
+    expect(out).not.toContain('class="stm-marker"');
+  });
+
+  it('discipline with base dots plus a mod: modded sub-range marked, base dots plain, total unchanged', () => {
+    const c = { _st_mod_overlay: { 'disciplines.Protean.dots': { base: 3, delta: 1, final: 4 } } };
+    const opts = stmDiscOpts(c, 'Protean');
+    const out = shDotsWithBonus(4, 0, opts);
+    expect(count(out, '<span class="pointed')).toBe(4);
+    expect(count(out, '<span class="pointed stm-modded-dot"')).toBe(1);
+    expect(count(out, '<span class="pointed"></span>')).toBe(3);
+  });
+
+  it('no overlay -> byte-identical to plain dots (no regression)', () => {
+    const c = {};
+    const opts = stmDiscOpts(c, 'Vigour');
+    expect(opts).toEqual({});
+    const out = shDotsWithBonus(2, 0, opts);
+    expect(out).toBe('<span class="pointed"></span>'.repeat(2));
+    expect(out).not.toContain('stm-modded-dot');
   });
 });

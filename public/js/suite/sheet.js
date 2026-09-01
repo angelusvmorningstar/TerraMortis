@@ -72,6 +72,27 @@ function _stmAttrOpts(c, a, autoBonus) {
   return opts;
 }
 
+/** Build shDotsWithBonus opts for a discipline path. Disciplines only ever
+ *  carry a `.dots` overlay (no separate `.bonus` path in this schema), so
+ *  only filledMod is ever populated. Issue: the discipline row previously
+ *  rendered the ST-mod marker via the old standalone `markerFor()` pip
+ *  (pre-#408 pattern) instead of this recolour-in-place one, so a fully
+ *  mod-derived discipline (0 base dots + a +1 mod) showed a real dot plus
+ *  an adjacent same-size gold marker pip — indistinguishable from 2 dots. */
+function _stmDiscOpts(c, d) {
+  const ovDots = c._st_mod_overlay?.[`disciplines.${d}.dots`];
+  const opts = {};
+  if (ovDots) {
+    const sign = ovDots.delta >= 0 ? '+' : '';
+    opts.filledMod = {
+      from: ovDots.base, to: ovDots.final,
+      path: `disciplines.${d}.dots`,
+      title: `ST adjustment: ${d} (dots) ${sign}${ovDots.delta}. Click for details.`,
+    };
+  }
+  return opts;
+}
+
 /** Build shDotsWithBonus opts for a skill path. Skill hollow stream is
  *  manual bonus first, then PT/MCI auto-bonus — so the modded skill bonus
  *  sub-range starts at hollow position ovBonus.base (no offset). */
@@ -567,10 +588,13 @@ export function renderSheet() {
         drawerHtml += `<button class="auspex-insight-btn" onclick="openPanel('auspex')">Auspex Insight \u203A</button>`;
       }
       const nCls = nameClass ? `trait-name ${nameClass}` : 'trait-name';
-      // Issue #425: marker on modded discipline dots. Disciplines are
-      // object-keyed (project_disciplines_object_keyed) so the path is
+      // Issue #425 (fixed properly here): modded discipline dots recolour
+      // in place via shDotsWithBonus's filledMod, matching the #408
+      // attribute/skill convention — not a standalone marker pip appended
+      // after the dot run, which visually reads as an extra dot. Disciplines
+      // are object-keyed (project_disciplines_object_keyed) so the path is
       // disciplines.<Name>.dots.
-      const dTag = r ? `<span class="trait-dots">${dots(r)}${markerFor(c, `disciplines.${d}.dots`)}</span>` : '';
+      const dTag = r ? `<span class="trait-dots">${shDotsWithBonus(r, 0, _stmDiscOpts(c, d))}</span>` : '';
       const isExpandable = hasPowers || (d === 'Auspex' && r >= 1);
       const inner = `<div class="trait-row"><div class="trait-main"><span class="${nCls}">${d}</span><div class="trait-right">${dTag}${isExpandable ? '<span class="disc-tap-arr">\u203A</span>' : ''}</div></div></div>`;
       if (!isExpandable) return `<div class="disc-tap-row">${inner}</div>`;
