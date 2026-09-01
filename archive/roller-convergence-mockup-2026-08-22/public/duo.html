@@ -1,0 +1,65 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Roller Convergence — two devices (CRD mockup)</title>
+<style>
+  /* CRD mockup: two independent devices side by side, each a full, separate iframe'd instance
+     of index.html?as=<name> — same server, two real characters, own JS context each, so the
+     poll loops genuinely don't share state. Not a component of the real app; demo-only page,
+     see specs/epic-crd-contested-roll-defence.md. */
+  :root{
+    --bg:#0D0B09; --surf:#161210; --surf2:#1E1A16; --bdr2:rgba(201,169,98,.35);
+    --gold2:#E0C47A; --txt:#E8E0D0; --txt3:#8A7A6A; --fl:'Lato',sans-serif;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0; padding:0;}
+  body{
+    min-height:100vh; background:var(--bg); color:var(--txt); font-family:var(--fl);
+    display:flex; flex-direction:column; align-items:center; gap:16px; padding:20px 16px 40px;
+  }
+  h1{
+    font-size:15px; font-weight:700; letter-spacing:.04em; text-transform:uppercase;
+    color:var(--gold2); margin:0;
+  }
+  p.sub{margin:0; font-size:12px; color:var(--txt3); text-align:center; max-width:640px;}
+  .devices{
+    display:flex; flex-wrap:wrap; justify-content:center; gap:24px; width:100%;
+  }
+  .device{
+    display:flex; flex-direction:column; align-items:center; gap:8px;
+  }
+  .device-label{
+    font-size:11px; font-weight:600; letter-spacing:.06em; text-transform:uppercase; color:var(--txt3);
+  }
+  .device-label b{color:var(--gold2);}
+  iframe{
+    width:420px; height:900px; max-width:92vw;
+    border:1px solid var(--bdr2); border-radius:16px; background:var(--surf);
+  }
+</style>
+</head>
+<body>
+
+  <h1>Contested-roll handshake — two-device mockup</h1>
+  <p class="sub">
+    Two real, independent app instances, one server. Left is Yusuf's phone (the attacker); right
+    is Eve's phone (the defender). Send a contest from Yusuf's Special/Skills/Disciplines list —
+    it lands in Eve's Queue within a few seconds, no reload. Tap Resolve on Eve's side to route
+    into her own pre-loaded pool for that roll. See <code>specs/epic-crd-contested-roll-defence.md</code>.
+  </p>
+
+  <div class="devices">
+    <div class="device">
+      <span class="device-label">Attacker &middot; <b>Yusuf Kalusicj</b></span>
+      <iframe src="/index.html?as=Yusuf%20Kalusicj" title="Yusuf's dice roller"></iframe>
+    </div>
+    <div class="device">
+      <span class="device-label">Defender &middot; <b>Eve Lockridge</b></span>
+      <iframe src="/index.html?as=Eve%20Lockridge" title="Eve's dice roller"></iframe>
+    </div>
+  </div>
+
+</body>
+</html>

@@ -1,0 +1,683 @@
+/* Real TM Game tokens, both real palettes. index.html (the app this roller lives in) is
+   actually hardcoded to dark with no in-app toggle — this switcher is a mockup-exploration
+   convenience, not a reproduction of a real feature, so it's clearly marked as one (see the
+   devbar). Dark is the default here to match the real app's real default. Values are TM Game's
+   actual :root (light/Parchment) and [data-theme="dark"] blocks, plus design-token-port.md's
+   2026-08-22 additions (which apply :root-only — no per-theme sizing/radius differences exist
+   in the real app either). */
+:root{
+  --bg:#0D0B09; --surf:#161210; --surf2:#1E1A16; --surf3:#252018;
+  --bdr:rgba(201,169,98,.18); --bdr2:rgba(201,169,98,.35); --bdr3:rgba(201,169,98,.55);
+  --gold:#C9A962; --gold2:#E0C47A;
+  --crim:#8B0000; --crim2:#A81010;
+  --txt:#E8E0D0; --txt2:#C4B49A; --txt3:#8A7A6A;
+  --accent:var(--gold2);
+  --accent-ink:#1a1208; /* accent is light (gold) here — needs dark text on top */
+  color-scheme: dark;
+
+  --fh:'Cinzel',serif; --fl:'Lato',sans-serif; --ft:'Libre Baskerville',serif;
+
+  --radius-sm:4px; --radius-md:8px; --radius-lg:12px; --radius-pill:999px;
+
+  --type-size-display-hero:64px;
+  --type-size-heading:16px; --type-size-subheading:14px;
+  --type-size-body:13px; --type-size-caption:12px;
+  --type-size-label:11px; --type-size-micro:10px;
+  --type-letter-spacing-label:.06em;
+  --type-weight-body:400; --type-weight-label:600; --type-weight-strong:700;
+
+  --control-height-sm:36px; --control-height-md:44px; --control-height-lg:52px;
+  --chip-tag-height:20px; --chip-status-height:30px;
+}
+
+/* The real Parchment default — TM Game's actual :root block, not an invented "light mode". */
+:root[data-theme="light"]{
+  --bg:#F4EFE4; --surf:#EDE7D8; --surf2:#E5DEC9; --surf3:#DBD3BC;
+  --bdr:rgba(120,90,40,.20); --bdr2:rgba(120,90,40,.38); --bdr3:rgba(120,90,40,.55);
+  --gold:#8B6010; --gold2:#7A5208;
+  --crim:#7A0000; --crim2:#8B1010;
+  --txt:#1C1410; --txt2:#4A3A28; --txt3:#6A5238;
+  --accent:var(--crim);
+  --accent-ink:#F4EFE4; /* accent is dark (crimson) here — needs light text on top */
+  color-scheme: light;
+}
+
+*{box-sizing:border-box;}
+html,body{margin:0; padding:0;}
+body{
+  min-height:100vh; background:var(--bg); color:var(--txt);
+  font-family:var(--ft);
+  display:flex; flex-direction:column; align-items:center;
+  padding-bottom:60px;
+}
+
+.devbar{
+  width:100%; box-sizing:border-box;
+  display:flex; align-items:center; gap:10px; justify-content:center; flex-wrap:wrap;
+  padding:8px 14px; background:var(--surf); border-bottom:1px solid var(--bdr2);
+  font-family:var(--fl); font-size:var(--type-size-label); color:var(--txt2);
+  text-align:center;
+}
+.devbar code{color:var(--accent); font-family:var(--fl); font-size:inherit;}
+.dev-dot{width:7px; height:7px; border-radius:50%; background:#6abf6a; box-shadow:0 0 6px #6abf6a; flex:none;}
+
+.theme-toggle{
+  all:unset; box-sizing:border-box; cursor:pointer;
+  display:inline-flex; align-items:center; gap:6px;
+  height:26px; padding:0 12px; border-radius:var(--radius-pill);
+  border:1px solid var(--bdr2); background:var(--surf2); color:var(--txt2);
+  font-family:var(--fl); font-size:var(--type-size-label); font-weight:var(--type-weight-label);
+  letter-spacing:var(--type-letter-spacing-label); text-transform:uppercase;
+  transition:border-color .15s ease, color .15s ease;
+}
+.theme-toggle:hover{border-color:var(--bdr3); color:var(--accent);}
+.theme-toggle:focus-visible{outline:2px solid var(--accent); outline-offset:2px;}
+
+.stage{width:100%; display:flex; justify-content:center; padding:30px 16px;}
+
+.phone{
+  width:100%; max-width:390px;
+  border:1px solid var(--bdr2); border-radius:28px;
+  padding:10px;
+  background:linear-gradient(180deg, #1a140f, #0a0806);
+  box-shadow:0 30px 60px -20px rgba(0,0,0,.6);
+}
+.app{
+  background:var(--bg);
+  border:1px solid var(--bdr);
+  border-radius:20px;
+  padding:16px 14px 20px;
+  display:flex; flex-direction:column; gap:14px;
+  position:relative;
+  min-height:400px;
+}
+
+.loading{
+  font-family:var(--fl); font-size:var(--type-size-body); color:var(--txt3);
+  padding:40px 0; text-align:center;
+}
+.error-box{
+  border:1px solid rgba(200,80,80,.4); background:rgba(200,80,80,.08); border-radius:var(--radius-md);
+  padding:14px; font-family:var(--fl); font-size:var(--type-size-body); color:#e0a0a0;
+}
+
+/* ── topbar ── */
+.topbar{display:flex; align-items:center; justify-content:space-between; gap:10px;}
+.char-chip{display:flex; align-items:center; gap:8px; min-width:0;}
+.char-avatar{
+  width:30px; height:30px; border-radius:50%; flex:none;
+  background:linear-gradient(145deg, var(--surf3), var(--surf2));
+  border:1px solid var(--bdr2);
+  display:flex; align-items:center; justify-content:center;
+  font-family:var(--fl); font-size:12px; font-weight:var(--type-weight-strong); color:var(--accent);
+}
+.char-name{
+  font-family:var(--fl); font-size:var(--type-size-subheading); font-weight:var(--type-weight-strong);
+  color:var(--txt); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+}
+.char-sub{
+  font-family:var(--fl); font-size:var(--type-size-micro); color:var(--txt3);
+}
+
+.pill-row{display:flex; align-items:center; gap:6px; flex-wrap:wrap;}
+.pill{
+  height:var(--chip-status-height); padding:0 10px; border-radius:var(--radius-pill);
+  display:inline-flex; align-items:center; gap:5px;
+  font-family:var(--fl); font-size:var(--type-size-label); font-weight:var(--type-weight-label);
+  letter-spacing:var(--type-letter-spacing-label); text-transform:uppercase;
+  border:1px solid var(--bdr2); background:var(--surf2); color:var(--txt2);
+  white-space:nowrap;
+}
+.pill-dot{width:6px; height:6px; border-radius:50%; flex:none;}
+.pill--build .pill-dot{background:#6abf6a;} .pill--build{color:#9fd79f; border-color:rgba(106,191,106,.35); background:rgba(106,191,106,.08);}
+.pill--ordeal .pill-dot{background:var(--accent);} .pill--ordeal{color:var(--accent); border-color:color-mix(in srgb, var(--accent) 40%, transparent);}
+
+/* ── Vitae / Willpower — live, at the top: Vitae in crimson (it's blood), Willpower in the
+     app's own accent (gold in dark, crimson in light — see .vital-card--wp override below for
+     the one place that needs a second colour so it never collides with Vitae's). ── */
+.vitals-row{display:flex; gap:10px;}
+.vital-card{
+  flex:1; display:flex; align-items:center; justify-content:space-between; gap:8px;
+  border:1px solid var(--bdr2); border-radius:var(--radius-lg); background:var(--surf2);
+  padding:10px 14px;
+}
+.vital-label{
+  font-family:var(--fl); font-size:var(--type-size-label); font-weight:var(--type-weight-label);
+  letter-spacing:var(--type-letter-spacing-label); text-transform:uppercase; color:var(--txt3);
+}
+.vital-value{
+  font-family:var(--fl); font-size:24px; font-weight:var(--type-weight-strong);
+  font-variant-numeric:tabular-nums;
+}
+.vital-max{font-size:14px; font-weight:var(--type-weight-label); color:var(--txt3);}
+.vital-card--vitae{border-color:color-mix(in srgb, var(--crim2) 45%, var(--bdr2)); background:linear-gradient(180deg, color-mix(in srgb, var(--crim2) 10%, var(--surf2)), var(--surf2));}
+.vital-card--vitae .vital-value{color:var(--crim2);}
+/* Willpower always reads gold, even in the light theme where --accent is crimson too — Vitae
+   already owns crimson on this screen, so this is a second, fixed colour, not the flipping
+   --accent token. */
+.vital-card--wp{border-color:rgba(122,90,8,.4); background:linear-gradient(180deg, rgba(122,90,8,.10), var(--surf2));}
+.vital-card--wp .vital-value{color:var(--gold);}
+
+/* ── picker sections ── */
+.picker{display:flex; flex-direction:column; gap:8px;}
+.picker-section{border:1px solid var(--bdr); border-radius:var(--radius-md); background:var(--surf); overflow:hidden;}
+.picker-head{
+  all:unset; box-sizing:border-box;
+  display:flex; align-items:center; justify-content:space-between; gap:8px;
+  width:100%; min-height:var(--control-height-sm); padding:0 12px; cursor:pointer;
+}
+.picker-head-label{font-family:var(--fl); font-size:var(--type-size-heading); font-weight:var(--type-weight-strong); color:var(--txt);}
+.picker-count{font-family:var(--fl); font-size:var(--type-size-micro); font-weight:var(--type-weight-label); color:var(--txt3); margin-left:6px;}
+.chevron{
+  width:9px; height:9px; border-right:2px solid var(--txt3); border-bottom:2px solid var(--txt3);
+  transform:rotate(45deg); transition:transform .18s ease; flex:none;
+}
+.picker-section[data-open="true"] .chevron{transform:rotate(-135deg);}
+.picker-body-wrap{display:grid; grid-template-rows:0fr; transition:grid-template-rows .22s ease;}
+.picker-section[data-open="true"] .picker-body-wrap{grid-template-rows:1fr;}
+.picker-body{overflow:hidden; min-height:0;}
+.picker-body-inner{display:flex; flex-direction:column; gap:7px; padding:0 10px 10px;}
+.picker-empty{
+  padding:14px 4px; text-align:center;
+  font-family:var(--fl); font-size:var(--type-size-caption); color:var(--txt3); font-style:italic;
+}
+
+/* ── CRD mockup: contested-roll queue + challenge panel (party-mode scoping, 2026-08-22).
+   Demonstrates specs/epic-crd-contested-roll-defence.md's routing mechanism across two real
+   devices (duo.html, or two tabs on ?as=<name>) — not a production surface. ── */
+.queue-row{
+  display:flex; align-items:center; justify-content:space-between; gap:10px;
+  padding:9px 12px; border-radius:var(--radius-md);
+  border:1px solid var(--bdr2); background:var(--surf2);
+}
+.queue-row.is-resolved{border-color:var(--bdr); background:var(--surf); opacity:.7;}
+.queue-row-text{
+  display:flex; flex-direction:column; gap:1px; min-width:0;
+  font-family:var(--fl); font-size:var(--type-size-body); color:var(--txt);
+}
+.queue-row-who{font-weight:var(--type-weight-label);}
+.queue-row-who b{color:var(--accent);}
+.queue-row-what{
+  font-size:var(--type-size-caption); color:var(--txt3);
+  overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+}
+.queue-resolve-btn{
+  all:unset; box-sizing:border-box; cursor:pointer; text-align:center; flex:none;
+  min-height:var(--control-height-sm); padding:0 14px; border-radius:var(--radius-pill);
+  border:1px solid var(--accent); background:color-mix(in srgb, var(--accent) 16%, transparent); color:var(--accent);
+  font-family:var(--fl); font-size:var(--type-size-label); font-weight:var(--type-weight-label);
+  letter-spacing:var(--type-letter-spacing-label); text-transform:uppercase;
+}
+.queue-resolve-btn:focus-visible{outline:2px solid var(--accent); outline-offset:2px;}
+.queue-resolved-badge{
+  flex:none; font-family:var(--fl); font-size:var(--type-size-label); font-weight:var(--type-weight-label);
+  letter-spacing:var(--type-letter-spacing-label); text-transform:uppercase; color:var(--txt3);
+}
+
+.challenge-panel{
+  display:flex; flex-direction:column; gap:6px;
+  padding:10px 12px; border:1px solid var(--bdr); border-radius:var(--radius-md); background:var(--surf);
+}
+.challenge-row{display:flex; gap:8px; align-items:center;}
+.challenge-select{
+  flex:1; min-width:0; min-height:var(--control-height-sm); border-radius:var(--radius-md);
+  border:1px solid var(--bdr2); background:var(--surf2); color:var(--txt);
+  font-family:var(--fl); font-size:var(--type-size-body); padding:0 10px;
+}
+.challenge-select:focus-visible{outline:2px solid var(--accent); outline-offset:2px;}
+.challenge-send-btn{
+  all:unset; box-sizing:border-box; cursor:pointer; text-align:center; flex:none;
+  min-height:var(--control-height-sm); padding:0 14px; border-radius:var(--radius-md);
+  border:1px solid var(--bdr2); background:var(--surf2); color:var(--txt2);
+  font-family:var(--fl); font-size:var(--type-size-label); font-weight:var(--type-weight-label);
+  letter-spacing:var(--type-letter-spacing-label); text-transform:uppercase;
+}
+.challenge-send-btn:hover{border-color:var(--accent); color:var(--accent);}
+.challenge-send-btn:focus-visible{outline:2px solid var(--accent); outline-offset:2px;}
+
+/* ── Free Build entry point — the compositional builder (attribute + skill + discipline),
+     distinct from the curated pool list above it. ── */
+.freebuild-btn{
+  all:unset; box-sizing:border-box; cursor:pointer; text-align:center;
+  min-height:var(--control-height-md); border-radius:var(--radius-md);
+  border:1px dashed var(--bdr3); background:transparent; color:var(--accent);
+  display:flex; align-items:center; justify-content:center;
+  font-family:var(--fl); font-size:var(--type-size-subheading); font-weight:var(--type-weight-strong);
+  letter-spacing:.02em; text-transform:uppercase;
+  transition:background .15s ease, border-style .15s ease;
+}
+.freebuild-btn:hover{background:color-mix(in srgb, var(--accent) 8%, transparent); border-style:solid;}
+.freebuild-btn:focus-visible{outline:2px solid var(--accent); outline-offset:2px;}
+
+/* ── Free Build modal — a true full-viewport overlay (position:fixed escapes the phone frame's
+     overflow:hidden on purpose, since neither ancestor sets a transform/filter that would trap
+     it), so it reads as a real modal rather than another in-page panel. ── */
+.fb-overlay{
+  position:fixed; inset:0; z-index:100;
+  background:rgba(0,0,0,.6);
+  display:flex; align-items:flex-end; justify-content:center;
+}
+.fb-modal{
+  width:100%; max-width:390px; max-height:85vh;
+  background:var(--bg); border:1px solid var(--bdr2); border-radius:20px 20px 0 0;
+  display:flex; flex-direction:column; overflow:hidden;
+  box-shadow:0 -20px 50px -10px rgba(0,0,0,.5);
+}
+.fb-modal-head{
+  display:flex; align-items:flex-start; justify-content:space-between; gap:10px;
+  padding:16px 16px 10px;
+}
+.fb-modal-step{
+  font-family:var(--fl); font-size:var(--type-size-label); font-weight:var(--type-weight-label);
+  letter-spacing:var(--type-letter-spacing-label); text-transform:uppercase; color:var(--accent);
+}
+.fb-modal-title{
+  margin:2px 0 0; font-family:var(--fl); font-size:20px; font-weight:var(--type-weight-strong); color:var(--txt);
+}
+.fb-close{
+  all:unset; box-sizing:border-box; cursor:pointer;
+  width:var(--control-height-sm); height:var(--control-height-sm); flex:none;
+  display:flex; align-items:center; justify-content:center;
+  font-family:var(--fl); font-size:22px; color:var(--txt3); border-radius:50%;
+}
+.fb-close:hover{color:var(--txt); background:var(--surf2);}
+.fb-close:focus-visible{outline:2px solid var(--accent); outline-offset:2px;}
+
+.fb-running{display:flex; flex-wrap:wrap; gap:6px; padding:0 16px 12px;}
+.fb-running span{
+  font-family:var(--fl); font-size:var(--type-size-caption); color:var(--txt2);
+  background:var(--surf2); border:1px solid var(--bdr); border-radius:var(--radius-pill);
+  padding:3px 10px;
+}
+
+.fb-body{overflow-y:auto; padding:4px 16px 16px;}
+.fb-grid{display:grid; gap:8px;}
+.fb-grid--3{grid-template-columns:repeat(3, 1fr);}
+.fb-grid--2{grid-template-columns:repeat(2, 1fr); margin-top:8px;}
+.fb-grid--flex{grid-template-columns:repeat(auto-fill, minmax(96px, 1fr));}
+.fb-cell{
+  all:unset; box-sizing:border-box; cursor:pointer;
+  min-height:72px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px;
+  border:1px solid var(--bdr2); border-radius:var(--radius-lg); background:var(--surf2);
+  transition:background .15s ease, border-color .15s ease, transform .08s ease;
+}
+.fb-cell:hover{border-color:var(--accent);}
+.fb-cell:active{transform:scale(.97);}
+.fb-cell:focus-visible{outline:2px solid var(--accent); outline-offset:2px;}
+.fb-cell-name{
+  font-family:var(--fl); font-size:var(--type-size-caption); font-weight:var(--type-weight-label);
+  color:var(--txt2); text-align:center; padding:0 4px;
+}
+.fb-cell-val{font-family:var(--fl); font-size:22px; font-weight:var(--type-weight-strong); color:var(--accent); font-variant-numeric:tabular-nums;}
+.fb-cell-val.is-text{font-size:13px; letter-spacing:.03em; text-transform:uppercase;}
+.fb-cell--skip{grid-column:1 / -1; min-height:52px; border-style:dashed;}
+.fb-cell--skip .fb-cell-name{color:var(--txt3); text-transform:uppercase; letter-spacing:.04em; font-size:var(--type-size-label);}
+/* Unskilled options — a real penalty, not a positive pick, so it reads as a distinct, muted
+   choice rather than competing visually with the character's own real trained skills above. */
+.fb-cell--unskilled{min-height:56px; border-style:dashed; background:transparent;}
+.fb-cell--unskilled .fb-cell-name{color:var(--txt3); font-size:var(--type-size-label); text-transform:uppercase; letter-spacing:.03em;}
+.fb-cell--unskilled .fb-cell-val{color:var(--crim2); font-size:18px;}
+
+/* A Breaking Point level above the character's current Humanity isn't a valid trigger
+   (p.107) — shown, not hidden, so the player can see why it's unavailable, but inert. */
+.fb-cell--disabled{opacity:.45; cursor:default; background:transparent;}
+.fb-cell--disabled .fb-cell-sub{color:var(--txt3); font-style:italic;}
+
+/* ── Humanity Breaking Point detail screen — full example list for the level plus Higher/
+     Lower to walk between levels without a round trip to the grid, then Back/Confirm. ── */
+.hc-examples{list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:8px;}
+.hc-examples li{
+  font-family:var(--ft); font-size:var(--type-size-body); color:var(--txt2); line-height:1.4;
+  padding-left:14px; position:relative;
+}
+.hc-examples li::before{content:'—'; position:absolute; left:0; color:var(--txt3);}
+.hc-level-nav{
+  display:flex; align-items:center; justify-content:center; gap:18px;
+  margin-top:14px; padding-top:14px; border-top:1px solid var(--bdr);
+}
+/* Chevrons, deliberately not the +/- glyph the app's own dice-pool steppers use elsewhere
+   (Base, Mod, Territory, Banes...) — this navigates between Breaking Point levels, it isn't
+   incrementing the pool number directly, and reusing +/- read as exactly that. */
+.hc-nav-btn{
+  all:unset; box-sizing:border-box; cursor:pointer;
+  width:40px; height:40px; flex:none; border-radius:50%;
+  display:flex; align-items:center; justify-content:center;
+  font-family:var(--fl); font-size:22px; line-height:1; color:var(--txt2);
+  border:1px solid var(--bdr2);
+}
+.hc-nav-btn:hover{color:var(--accent); border-color:var(--accent);}
+.hc-nav-btn:focus-visible{outline:2px solid var(--accent); outline-offset:2px;}
+.hc-nav-btn:disabled{opacity:.3; cursor:not-allowed; pointer-events:none;}
+.hc-level-display{display:flex; flex-direction:column; align-items:center; gap:1px; min-width:70px;}
+.hc-level-pool{
+  font-family:var(--fl); font-size:32px; font-weight:var(--type-weight-strong); color:var(--gold);
+  text-align:center; line-height:1; font-variant-numeric:tabular-nums;
+}
+.hc-level-pool.is-text{font-size:15px; letter-spacing:.02em; text-transform:uppercase;}
+.hc-level-pool-label{
+  font-family:var(--fl); font-size:10px; color:var(--txt3); text-transform:uppercase; letter-spacing:.05em;
+}
+.hc-footer{display:flex; align-items:center; justify-content:space-between; gap:10px;}
+.hc-footer .fb-back{flex:none;}
+.hc-confirm{
+  flex:1; all:unset; box-sizing:border-box; cursor:pointer; text-align:center;
+  min-height:var(--control-height-sm); padding:0 16px; border-radius:var(--radius-md);
+  background:linear-gradient(180deg, var(--crim2), var(--crim));
+  border:1px solid rgba(255,255,255,.06);
+  display:flex; align-items:center; justify-content:center;
+  color:#F4EFE4; font-family:var(--fl); font-size:var(--type-size-subheading); font-weight:var(--type-weight-strong);
+  letter-spacing:.02em; text-transform:uppercase;
+}
+.hc-confirm:hover{filter:brightness(1.08);}
+.hc-confirm:focus-visible{outline:2px solid var(--accent); outline-offset:2px;}
+
+/* ── Special roll launcher — opens a Free-Build-style picker for a branching special roll
+     (Lashing Out, later Frenzy resistance). Reuses .pool-btn's own shell (same card the built
+     Disciplines rolls sit in) so it reads as one more row in the list, not a different control;
+     the only override is centering the label since there's no number yet to anchor right. ── */
+.pool-btn.special-launcher{justify-content:center;}
+.special-launcher-label{
+  font-family:var(--fl); font-size:var(--type-size-subheading); font-weight:var(--type-weight-label);
+  color:var(--accent);
+}
+
+/* Lashing Out's aspect picker needs room for a one-line description under the name. */
+.fb-cell--tall{min-height:104px; padding:10px 8px;}
+.fb-cell-sub{
+  font-family:var(--fl); font-size:11px; color:var(--txt3);
+  text-align:center; padding:0 4px;
+}
+
+.fb-footer{padding:0 16px 16px;}
+.fb-back{
+  all:unset; box-sizing:border-box; cursor:pointer;
+  min-height:var(--control-height-sm); padding:0 16px; border-radius:var(--radius-md);
+  border:1px solid var(--bdr2); background:transparent; color:var(--txt2);
+  display:inline-flex; align-items:center;
+  font-family:var(--fl); font-size:var(--type-size-subheading); font-weight:var(--type-weight-label);
+}
+.fb-back:hover{border-color:var(--bdr3); color:var(--txt);}
+.fb-back:focus-visible{outline:2px solid var(--accent); outline-offset:2px;}
+
+.pool-btn{
+  all:unset; box-sizing:border-box; cursor:pointer;
+  display:flex; flex-direction:row; align-items:center; justify-content:space-between; gap:12px;
+  width:100%; min-height:66px; padding:10px 14px;
+  border-radius:var(--radius-md); border:1px solid var(--bdr2);
+  background:var(--surf2);
+  transition:background .15s ease, border-color .15s ease;
+}
+.pool-btn:hover{border-color:var(--bdr3);}
+.pool-btn:focus-visible{outline:2px solid var(--accent); outline-offset:2px;}
+.pool-btn-left{display:flex; flex-direction:column; gap:1px; min-width:0;}
+.pool-btn-right{display:flex; align-items:center; gap:8px; flex:none;}
+.pool-num{font-family:var(--fl); font-size:28px; font-weight:var(--type-weight-strong); color:var(--gold); line-height:1; font-variant-numeric:tabular-nums;}
+/* "Chance" (pool 0 or lower) is a word, not a digit — the 28px numeral size reads oversized
+   and can overflow the card on narrow phones, so it drops down and picks up letter-spacing
+   instead of trying to fill the same box a single glyph does. */
+.pool-num.is-text{font-size:13px; letter-spacing:.03em; text-transform:uppercase;}
+.pool-name{font-family:var(--fl); font-size:var(--type-size-subheading); font-weight:var(--type-weight-label); color:var(--txt);}
+.pool-formula{font-family:var(--fl); font-size:var(--type-size-caption); color:var(--txt2);}
+.pool-btn.selected{
+  background:linear-gradient(180deg, color-mix(in srgb, var(--accent) 16%, transparent), color-mix(in srgb, var(--accent) 7%, transparent));
+  border-color:var(--accent);
+}
+.pool-btn.selected .pool-num, .pool-btn.selected .pool-name{color:var(--accent);}
+/* A column of badges, immediately left of the number, not a corner overlay. */
+.pool-badges{display:flex; flex-direction:column; align-items:center; gap:4px;}
+.mini-badge{
+  width:20px; height:20px; border-radius:50%; flex:none;
+  display:flex; align-items:center; justify-content:center;
+  font-family:var(--fl); font-size:11px; font-weight:var(--type-weight-strong);
+}
+.mini-badge--merit{background:var(--accent); color:var(--accent-ink);}
+
+/* ── rules-summary accordion: real mechanical reference for whatever's selected, collapsed
+     by default. Not an identity card — the pool button above already shows name/formula/number,
+     so this panel earns its place only by disclosing something new (cost/action/duration/
+     resistance/effect for a power; the spelled-out pool composition for a skill). ── */
+.rules-summary{
+  border:1px solid var(--bdr2); border-radius:var(--radius-lg);
+  background:linear-gradient(180deg, var(--surf2), var(--surf));
+  overflow:hidden;
+}
+.rules-summary-head{
+  all:unset; box-sizing:border-box; cursor:pointer; list-style:none;
+  display:flex; align-items:center; justify-content:space-between; gap:8px;
+  min-height:var(--control-height-sm); padding:0 14px;
+}
+.rules-summary-head::-webkit-details-marker{display:none;}
+.rules-summary[open] .rules-summary-head{border-bottom:1px solid var(--bdr);}
+.rules-summary-head .chevron{margin-left:auto;}
+.rules-summary[open] .rules-summary-head .chevron{transform:rotate(-135deg);}
+.rules-summary-body{padding:10px 14px 14px; display:flex; flex-direction:column; gap:6px;}
+.power-name{font-family:var(--fl); font-size:var(--type-size-heading); font-weight:var(--type-weight-strong); color:var(--accent);}
+.power-cost{
+  font-family:var(--fl); font-size:var(--type-size-label); font-weight:var(--type-weight-label);
+  letter-spacing:var(--type-letter-spacing-label); text-transform:uppercase; color:var(--crim2);
+  white-space:nowrap;
+}
+.power-meta{display:flex; flex-wrap:wrap; gap:6px 10px; font-family:var(--fl); font-size:var(--type-size-caption); color:var(--txt2);}
+.power-meta span:not(:last-child)::after{content:'·'; margin-left:10px; color:var(--bdr3);}
+.power-desc{margin:2px 0 0; font-family:var(--ft); font-style:italic; font-size:var(--type-size-body); color:var(--txt2); line-height:1.55;}
+
+/* ── remembered mod chip(s), only shown when the loaded pool actually has one ── */
+.mods{display:flex; flex-direction:column; gap:6px;}
+.mods-label{
+  font-family:var(--fl); font-size:var(--type-size-label); font-weight:var(--type-weight-label);
+  letter-spacing:var(--type-letter-spacing-label); text-transform:uppercase; color:var(--txt3);
+}
+.mods-row{display:flex; flex-wrap:wrap; gap:7px;}
+.mod-chip{
+  all:unset; box-sizing:border-box; cursor:pointer;
+  min-height:var(--control-height-sm); padding:0 14px; border-radius:var(--radius-pill);
+  display:inline-flex; align-items:center; gap:5px;
+  border:1px solid var(--bdr2); background:transparent; color:var(--txt3);
+  font-family:var(--fl); font-size:var(--type-size-subheading); font-weight:var(--type-weight-label);
+  transition:background .15s ease, border-color .15s ease, color .15s ease;
+}
+.mod-chip:focus-visible{outline:2px solid var(--accent); outline-offset:2px;}
+.mod-chip.active{background:color-mix(in srgb, var(--accent) 14%, transparent); border-color:var(--accent); color:var(--accent);}
+
+/* ── the anchor ── */
+.anchor{display:flex; flex-direction:column; align-items:center; gap:2px; padding:10px 0 4px; text-align:center;}
+.anchor-num{
+  font-family:var(--fh); font-size:var(--type-size-display-hero); font-weight:var(--type-weight-strong);
+  color:var(--accent); line-height:1; text-shadow:0 0 22px color-mix(in srgb, var(--accent) 25%, transparent);
+  transition:transform .12s ease;
+}
+.anchor-num.bump{transform:scale(1.06);}
+/* Same reasoning as .pool-num.is-text — "Chance" at the 64px hero numeral size would blow out
+   the layout, so the headline pool display shrinks and switches to the label face for text. */
+.anchor-num.is-text{font-family:var(--fl); font-size:28px; letter-spacing:.03em; text-transform:uppercase; text-shadow:none;}
+.anchor-sub{font-family:var(--fl); font-size:var(--type-size-caption); color:var(--txt2); max-width:280px;}
+
+.roll-btn{
+  all:unset; box-sizing:border-box; cursor:pointer;
+  height:var(--control-height-lg); border-radius:var(--radius-md);
+  display:flex; align-items:center; justify-content:center; gap:8px;
+  background:linear-gradient(180deg, var(--crim2), var(--crim));
+  border:1px solid rgba(255,255,255,.06);
+  box-shadow:0 10px 24px -10px rgba(139,0,0,.55), inset 0 1px 0 rgba(255,255,255,.06);
+  color:#F4EFE4;
+  font-family:var(--fl); font-size:15px; font-weight:var(--type-weight-strong);
+  letter-spacing:.02em; text-transform:uppercase;
+  transition:filter .15s ease, transform .08s ease;
+}
+.roll-btn:hover{filter:brightness(1.08);}
+.roll-btn:active{transform:translateY(1px);}
+.roll-btn:focus-visible{outline:2px solid var(--accent); outline-offset:2px;}
+
+/* ── BASE / MOD steppers ── */
+.steppers{display:flex; gap:10px;}
+.stepper{flex:1; display:flex; flex-direction:column; gap:4px; align-items:center;}
+.stepper--resist{flex:none; align-self:flex-start; width:100%;}
+.stepper-label{
+  font-family:var(--fl); font-size:var(--type-size-label); font-weight:var(--type-weight-label);
+  letter-spacing:var(--type-letter-spacing-label); text-transform:uppercase; color:var(--txt3);
+}
+.stepper-row{
+  display:flex; align-items:center; justify-content:space-between; gap:4px;
+  width:100%; border:1px solid var(--bdr2); border-radius:var(--radius-md); background:var(--surf2);
+  padding:0 4px;
+}
+.stepper-btn{
+  all:unset; box-sizing:border-box; cursor:pointer;
+  width:var(--control-height-sm); height:var(--control-height-sm);
+  display:flex; align-items:center; justify-content:center;
+  font-family:var(--fl); font-size:18px; font-weight:var(--type-weight-strong); color:var(--txt3);
+  border-radius:var(--radius-sm);
+}
+.stepper-btn:hover{color:var(--accent); background:color-mix(in srgb, var(--accent) 10%, transparent);}
+.stepper-btn:focus-visible{outline:2px solid var(--accent); outline-offset:-2px;}
+.stepper-btn:disabled{opacity:.35; cursor:not-allowed; pointer-events:none;}
+.stepper-val{
+  flex:1; text-align:center; font-family:var(--fl); font-size:20px; font-weight:var(--type-weight-strong);
+  color:var(--txt); font-variant-numeric:tabular-nums;
+}
+
+/* ── Again rule (gated) + generic field styling ── */
+.field-group{display:flex; flex-direction:column; gap:10px;}
+.field{display:flex; flex-direction:column; gap:6px;}
+.field-label{
+  font-family:var(--fl); font-size:var(--type-size-label); font-weight:var(--type-weight-label);
+  letter-spacing:var(--type-letter-spacing-label); text-transform:uppercase; color:var(--txt3);
+}
+.field-note{
+  font-family:var(--fl); font-size:var(--type-size-caption); color:var(--txt2);
+  padding:8px 12px; border:1px solid var(--bdr); border-radius:var(--radius-md); background:var(--surf);
+}
+.field-note b{color:var(--accent);}
+.lock-note{color:var(--txt3); font-size:var(--type-size-micro);}
+
+.seg{
+  display:flex; border:1px solid var(--bdr2); border-radius:var(--radius-pill);
+  background:var(--surf); padding:3px;
+}
+.seg-btn{
+  all:unset; box-sizing:border-box; cursor:pointer; flex:1; text-align:center;
+  display:flex; align-items:center; justify-content:center;
+  min-height:var(--control-height-sm); border-radius:var(--radius-pill);
+  font-family:var(--fl); font-size:var(--type-size-subheading); font-weight:var(--type-weight-label);
+  color:var(--txt3); transition:background .15s ease, color .15s ease;
+}
+.seg-btn:focus-visible{outline:2px solid var(--accent); outline-offset:2px;}
+.seg-btn.active{background:var(--accent); color:var(--accent-ink); font-weight:var(--type-weight-strong);}
+
+/* ── Rote / WP(+3) toggles ── */
+.toggle-row{display:flex; gap:8px;}
+.wide-toggle{
+  all:unset; box-sizing:border-box; cursor:pointer; flex:1; text-align:center;
+  min-height:var(--control-height-sm); border-radius:var(--radius-md);
+  border:1px solid var(--bdr2); background:var(--surf2); color:var(--txt2);
+  display:flex; align-items:center; justify-content:center; gap:6px;
+  font-family:var(--fl); font-size:var(--type-size-subheading); font-weight:var(--type-weight-label);
+  letter-spacing:.02em; text-transform:uppercase;
+  transition:background .15s ease, border-color .15s ease, color .15s ease;
+}
+.wide-toggle:focus-visible{outline:2px solid var(--accent); outline-offset:2px;}
+.wide-toggle.active{background:color-mix(in srgb, var(--accent) 16%, transparent); border-color:var(--accent); color:var(--accent);}
+.wide-toggle:disabled{opacity:.45; cursor:not-allowed;}
+.wide-toggle-note{font-size:var(--type-size-micro); text-transform:none; letter-spacing:0; opacity:.8;}
+
+/* ── Contested roll ── */
+.contested-btn{
+  all:unset; box-sizing:border-box; cursor:pointer; text-align:center;
+  min-height:var(--control-height-sm); border-radius:var(--radius-md);
+  border:1px solid var(--bdr2); background:var(--surf2); color:var(--txt2);
+  display:flex; align-items:center; justify-content:center;
+  font-family:var(--fl); font-size:var(--type-size-subheading); font-weight:var(--type-weight-label);
+  letter-spacing:.02em; text-transform:uppercase;
+  transition:background .15s ease, border-color .15s ease, color .15s ease;
+}
+.contested-btn:focus-visible{outline:2px solid var(--accent); outline-offset:2px;}
+.contested-btn.active{background:color-mix(in srgb, var(--accent) 16%, transparent); border-color:var(--accent); color:var(--accent);}
+
+/* ── pool breakdown disclosure ── */
+.breakdown-details{border:1px solid var(--bdr); border-radius:var(--radius-md); background:var(--surf); overflow:hidden;}
+.breakdown-summary{
+  all:unset; box-sizing:border-box; cursor:pointer; list-style:none;
+  display:flex; align-items:center; gap:8px;
+  min-height:var(--control-height-sm); padding:0 12px;
+  font-family:var(--fl); font-size:var(--type-size-label); font-weight:var(--type-weight-label);
+  letter-spacing:var(--type-letter-spacing-label); text-transform:uppercase; color:var(--accent);
+}
+.breakdown-summary::-webkit-details-marker{display:none;}
+.breakdown-details[open] .breakdown-summary .chevron{transform:rotate(-135deg);}
+.breakdown{padding:0 12px 12px; display:flex; flex-direction:column; gap:5px;}
+.breakdown-row{
+  display:flex; justify-content:space-between; gap:10px;
+  font-family:var(--fl); font-size:var(--type-size-caption); color:var(--txt2);
+}
+.breakdown-row b{color:var(--txt); font-variant-numeric:tabular-nums;}
+
+/* ── result panel ── */
+.result{
+  border:1px solid var(--bdr); border-radius:var(--radius-md); background:var(--surf);
+  padding:12px 14px; display:flex; flex-direction:column; gap:4px;
+}
+.result--empty{
+  text-align:center; color:var(--txt3); font-family:var(--fl); font-size:var(--type-size-body);
+  padding:16px 14px;
+}
+.result-top{display:flex; align-items:baseline; gap:10px;}
+.result-count{font-family:var(--fl); font-size:24px; font-weight:var(--type-weight-strong); font-variant-numeric:tabular-nums;}
+.result-label{font-family:var(--fl); font-size:var(--type-size-subheading); font-weight:var(--type-weight-label);}
+.result--e .result-count, .result--e .result-label{color:var(--gold);}
+.result--s .result-count, .result--s .result-label{color:var(--accent);}
+.result--f .result-count, .result--f .result-label{color:var(--crim2);}
+.result-detail{font-family:var(--fl); font-size:var(--type-size-caption); color:var(--txt3);}
+
+/* ── individual dice results — the actual d10s rolled, not just the tallied count. Rerolls
+     from the again rule chain visually beneath the die that triggered them. Success dice use a
+     gold tint (never green — it clashes with the crimson/gold palette everywhere else). ── */
+.dice-group{display:flex; flex-direction:column; gap:5px; margin-top:8px;}
+.dice-group + .dice-group{margin-top:10px;}
+.dice-group-label{
+  font-family:var(--fl); font-size:var(--type-size-label); font-weight:var(--type-weight-label);
+  letter-spacing:var(--type-letter-spacing-label); text-transform:uppercase; color:var(--txt3);
+}
+.dice-cols{display:flex; flex-wrap:wrap; gap:8px; margin-top:8px;}
+.dice-group .dice-cols{margin-top:4px;}
+.die-col{display:flex; flex-direction:column; align-items:center; gap:2px;}
+.die-tile{
+  min-width:32px; height:32px; padding:0 4px; border-radius:8px; flex:none;
+  display:flex; align-items:center; justify-content:center;
+  border:1px solid var(--bdr2); background:var(--surf2); color:var(--txt2);
+  font-family:var(--fl); font-size:15px; font-weight:var(--type-weight-strong); font-variant-numeric:tabular-nums;
+}
+.die-tile--success{
+  background:color-mix(in srgb, var(--gold) 30%, var(--surf2));
+  border-color:var(--gold); color:var(--gold);
+}
+.die-tile--dram{
+  background:color-mix(in srgb, var(--crim2) 30%, var(--surf2));
+  border-color:var(--crim2); color:var(--crim2);
+}
+.die-tile--chained{min-width:26px; height:26px; font-size:13px; opacity:.92;}
+.die-connector{width:1px; height:6px; background:var(--bdr3);}
+
+/* ── history ── */
+.history{display:flex; flex-direction:column; gap:8px;}
+.history-head{
+  display:flex; align-items:center; justify-content:space-between;
+  font-family:var(--fl); font-size:var(--type-size-label); font-weight:var(--type-weight-label);
+  letter-spacing:var(--type-letter-spacing-label); text-transform:uppercase; color:var(--accent);
+}
+.clear-btn{
+  all:unset; box-sizing:border-box; cursor:pointer; color:var(--txt3);
+  font-family:var(--fl); font-size:var(--type-size-label); font-weight:var(--type-weight-label);
+  letter-spacing:var(--type-letter-spacing-label); text-transform:uppercase;
+}
+.clear-btn:hover{color:var(--accent);}
+.clear-btn:focus-visible{outline:2px solid var(--accent); outline-offset:2px;}
+.hist-empty{text-align:center; color:var(--txt3); font-family:var(--fl); font-size:var(--type-size-caption); padding:8px 0;}
+.hist-row{
+  display:flex; align-items:center; justify-content:space-between; gap:8px;
+  font-family:var(--fl); font-size:var(--type-size-caption); color:var(--txt2);
+  padding:6px 0; border-bottom:1px solid var(--bdr);
+}
+.hist-row:last-child{border-bottom:none;}
+.hist-row--e{color:var(--gold);} .hist-row--s{color:var(--accent);} .hist-row--f{color:var(--crim2);}
+
+@media (prefers-reduced-motion: reduce){ *{transition-duration:.001ms !important;} }
