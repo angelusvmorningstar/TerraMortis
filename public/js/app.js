@@ -2122,7 +2122,7 @@ const MORE_APPS = [
   { id: 'spheres',      label: 'Spheres',     icon: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><ellipse cx="12" cy="12" rx="4" ry="9"/><line x1="3" y1="12" x2="21" y2="12"/></svg>', section: 'st', stOnly: true },
   // Epic PRAX (2026-09-01): reuses admin/praxis-tab.js unmodified, same
   // lazy-import + on-demand stylesheet pattern as 'spheres' above.
-  { id: 'praxis',       label: 'Praxis',      icon: '<svg viewBox="0 0 24 24"><path d="M12 2l2.6 6.6L21 9l-5 4.4L17.4 21 12 17.3 6.6 21 8 13.4 3 9l6.4-.4z"/></svg>', section: 'st', stOnly: true },
+  { id: 'praxis',       label: 'Vote',        icon: '<svg viewBox="0 0 24 24"><path d="M12 2l2.6 6.6L21 9l-5 4.4L17.4 21 12 17.3 6.6 21 8 13.4 3 9l6.4-.4z"/></svg>', section: 'st', stOnly: true },
   { id: 'signin',       label: 'Check-In',    icon: _svg.signin,   section: 'st', coordinatorOnly: true },
   { id: 'emergency',    label: 'Emergency',   icon: _svg.emergency,section: 'st', coordinatorOnly: true },
   // ── Conditional apps (section determined by context) ──
