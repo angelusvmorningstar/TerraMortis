@@ -430,8 +430,12 @@ router.get('/:id', async (req, res) => {
   const oid = parseId(req.params.id);
   if (!oid) return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'Invalid character ID format' });
 
-  // Player: check they own this character
-  if (req.user.role === 'player') {
+  // 2026-09-01 general audit fix (found while implementing the P0 fix,
+  // not in the original audit's own finding): was role === 'player' — the
+  // one inconsistent spot in this file, which already uses !isStRole(req.user)
+  // everywhere else (lines ~247, ~809, ~866, ~1042). Let a coordinator-role
+  // account read any character's full sheet with no ownership check.
+  if (!isStRole(req.user)) {
     const owns = (req.user.character_ids || []).some(id => id.toString() === oid.toString());
     if (!owns) return res.status(403).json({ error: 'FORBIDDEN', message: 'Not your character' });
   }
