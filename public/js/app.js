@@ -640,6 +640,7 @@ function goTab(t, ctx) {
     if (el) initCombatTab(el);
   }
   if (t === 'spheres') initSpheresSurface(document.getElementById('t-spheres'));
+  if (t === 'praxis') initPraxisSurface(document.getElementById('t-praxis'));
   if (t === 'chars') {
     // Sheet tab: ST sees 3-col character picker; player sees their own sheet
     const role = getRole();
@@ -711,6 +712,39 @@ async function initSpheresSurface(el) {
     // destroy #spheres-content and a retry could then never find it.
     const target = el.querySelector('#spheres-content') || el;
     target.innerHTML = '<p class="placeholder-msg">Spheres failed to load. Reload the page or check your connection.</p>';
+  }
+}
+
+// Epic PRAX (2026-09-01): identical shape to initSpheresSurface above, reusing
+// admin/praxis-tab.js's real implementation unmodified rather than a rewrite -
+// that module is already a pure consumer of shared data/*.js helpers with no
+// admin.js dependency, and every rule its markup needs was extracted verbatim
+// into admin-praxis.css (checked against zero name collisions with this app's
+// own suite.css/components.css). `_gameAppPraxisUpdate` holds the loaded
+// module's own onPraxisUpdate so the WS callback wired in the boot sequence
+// below can reach it once this tab has been opened at least once this
+// session - the same "no-op until the domain has been opened" guard
+// admin.js's own onPraxisUpdate wiring already relies on.
+let _gameAppPraxisUpdate = null;
+
+async function initPraxisSurface(el) {
+  if (!el) return;
+  const role = getRole();
+  if (role !== 'st' && role !== 'dev') return;
+
+  try {
+    const [mod] = await Promise.all([
+      import('./admin/praxis-tab.js'),
+      loadSurfaceSheet('css/admin-praxis.css'),
+    ]);
+    _gameAppPraxisUpdate = mod.onPraxisUpdate;
+    await mod.initPraxisView(suiteState.chars || []); // reads #praxis-content itself
+  } catch (err) {
+    console.error('[praxis] surface failed to load:', err);
+    // Write into the inner container, not the tab: replacing the tab would
+    // destroy #praxis-content and a retry could then never find it.
+    const target = el.querySelector('#praxis-content') || el;
+    target.innerHTML = '<p class="placeholder-msg">Praxis failed to load. Reload the page or check your connection.</p>';
   }
 }
 
@@ -1953,6 +1987,12 @@ async function boot() {
           // `_fanOutRoles`), so a player socket never receives it and this
           // callback simply never fires for them.
           onPraxisResolved: () => { onOfficeTabPraxisResolved(); },
+          // Epic PRAX (2026-09-01): live board sync between multiple STs
+          // working the Praxis tab at once, mirroring admin.js's own
+          // onPraxisUpdate wiring. No-ops via the optional-chain call until
+          // initPraxisSurface has loaded the module at least once this
+          // session - nothing to repaint into before then.
+          onPraxisUpdate: (sessionId) => { _gameAppPraxisUpdate?.(sessionId); },
         });
 
         // Issue #425: install the STM popover delegated click handler for
@@ -2080,6 +2120,9 @@ const MORE_APPS = [
   { id: 'tracker',      label: 'Tracker',     icon: _svg.tracker,  section: 'st', stOnly: true },
   { id: 'combat',       label: 'Combat',      icon: '<svg viewBox="0 0 24 24"><path d="M14.5 17.5L3 6V3h3l11.5 11.5"/><path d="M13 19l6-6"/><path d="M2 2l20 20"/><path d="M3 14l7-7"/></svg>', section: 'st', stOnly: true },
   { id: 'spheres',      label: 'Spheres',     icon: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><ellipse cx="12" cy="12" rx="4" ry="9"/><line x1="3" y1="12" x2="21" y2="12"/></svg>', section: 'st', stOnly: true },
+  // Epic PRAX (2026-09-01): reuses admin/praxis-tab.js unmodified, same
+  // lazy-import + on-demand stylesheet pattern as 'spheres' above.
+  { id: 'praxis',       label: 'Praxis',      icon: '<svg viewBox="0 0 24 24"><path d="M12 2l2.6 6.6L21 9l-5 4.4L17.4 21 12 17.3 6.6 21 8 13.4 3 9l6.4-.4z"/></svg>', section: 'st', stOnly: true },
   { id: 'signin',       label: 'Check-In',    icon: _svg.signin,   section: 'st', coordinatorOnly: true },
   { id: 'emergency',    label: 'Emergency',   icon: _svg.emergency,section: 'st', coordinatorOnly: true },
   // ── Conditional apps (section determined by context) ──
