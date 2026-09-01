@@ -10,7 +10,7 @@ import { apiGet, apiPut, apiPost } from '../data/api.js';
 import state from '../data/state.js';
 import { calcTotalInfluence } from '../editor/domain.js';
 import { applyDerivedMerits } from '../editor/mci.js';
-import { displayName, cardName, dropdownName, sortName, clanIcon, covIcon } from '../data/helpers.js';
+import { displayName, cardName, dropdownName, sortName, clanIcon, covIcon, esc } from '../data/helpers.js';
 import { setStatusTerritories } from '../data/accessors.js';
 import { AMBIENCE_MODS } from '../tabs/downtime-data.js';
 import { invalidateCachedTerritories } from './downtime-views.js';
@@ -1007,8 +1007,6 @@ async function saveTerritory(terrId) {
   }
 }
 
-function esc(s) {
-  const d = document.createElement('div');
-  d.textContent = s;
-  return d.innerHTML;
-}
+// 2026-09-01 general audit fix: was a hand-duplicated copy of data/helpers.js's
+// canonical esc() — import it instead (strictly safer: it also escapes `"`,
+// which this DOM-based variant never did).

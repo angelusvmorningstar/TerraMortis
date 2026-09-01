@@ -253,10 +253,38 @@ function _alertBadge(lvl) {
  * `Math.max(0, purchased - n)` anywhere is the regression, not the fix.
  */
 
-/** The glyph run alone: solid purchased band, then hollow bonus band. */
-function _shDotGlyphs(purchased, bonus) {
+/** The glyph run alone: solid purchased band, then hollow bonus band.
+ *
+ *  2026-09-01 general audit (display-rendering dimension, verified): merit
+ *  dot-runs baked an active st_mod's bonus directly into the hollow-dot
+ *  COUNT with no per-dot distinction \u2014 the same "invisible mod" shape #408
+ *  fixed for attributes/skills/disciplines via shDotsWithBonus's
+ *  filledMod/hollowMod opts, just reintroduced for merits. Merits render
+ *  literal Unicode glyph characters as text (not the empty `.pointed` spans
+ *  attributes/skills/disciplines use), so the existing `.stm-modded-dot`
+ *  CSS class (background-color + outline \u2014 inert behind a text glyph) can't
+ *  be reused as-is; `.merit-modded-dot` below recolours the glyph's text
+ *  colour instead. Same opts shape as shDotsWithBonus (filledMod/hollowMod
+ *  each `{from, to, path, title}`, zero-based indices into their own band)
+ *  so callers can reuse the same offset-computation convention. */
+function _shDotGlyphs(purchased, bonus, opts) {
   if (!purchased && !bonus) return '';
-  return '\u25CF'.repeat(purchased) + '\u25CB'.repeat(bonus);
+  if (!opts || (!opts.filledMod && !opts.hollowMod)) {
+    return '\u25CF'.repeat(purchased) + '\u25CB'.repeat(bonus);
+  }
+  const fm = opts.filledMod, hm = opts.hollowMod;
+  let out = '';
+  for (let i = 0; i < purchased; i++) {
+    if (fm && i >= fm.from && i < fm.to) {
+      out += `<span class="merit-modded-dot" data-stm-marker-path="${esc(fm.path || '')}" title="${esc(fm.title || '')}">\u25CF</span>`;
+    } else out += '\u25CF';
+  }
+  for (let i = 0; i < bonus; i++) {
+    if (hm && i >= hm.from && i < hm.to) {
+      out += `<span class="merit-modded-dot" data-stm-marker-path="${esc(hm.path || '')}" title="${esc(hm.title || '')}">\u25CB</span>`;
+    } else out += '\u25CB';
+  }
+  return out;
 }
 
 /** The one place a suspension changes the bands. Solid shrinks; bonus never does. */
@@ -265,10 +293,14 @@ function _shSuspendBands(purchased, bonus, suspended) {
   return n ? [Math.max(0, purchased - n), bonus] : [purchased, bonus];
 }
 
-/** Suspended merit dots, wrapped in `.trait-dots` (for `.trait-right` rows). */
-function shDotsSuspended(purchased, bonus, suspended) {
+/** Suspended merit dots, wrapped in `.trait-dots` (for `.trait-right` rows).
+ *  Optional `opts` (filledMod/hollowMod) — see _shDotGlyphs. Note a
+ *  suspension shrinks the SOLID band (see _shSuspendBands), which does not
+ *  shift the hollow band's own indices, so a hollowMod sub-range computed
+ *  against the un-suspended bonus count stays valid here. */
+function shDotsSuspended(purchased, bonus, suspended, opts) {
   const [p, b] = _shSuspendBands(purchased, bonus, suspended);
-  return shDotsMixed(p, b);
+  return shDotsMixed(p, b, opts);
 }
 
 /**
@@ -285,9 +317,10 @@ function shSuspendedOf(m) {
   return (m && m._suspended_dots) || 0;
 }
 
-/** Render merit dots split into purchased (full gold) and bonus (empty circle). */
-function shDotsMixed(purchased, bonus) {
-  const g = _shDotGlyphs(purchased, bonus);
+/** Render merit dots split into purchased (full gold) and bonus (empty circle).
+ *  Optional `opts` (filledMod/hollowMod) — see _shDotGlyphs. */
+function shDotsMixed(purchased, bonus, opts) {
+  const g = _shDotGlyphs(purchased, bonus, opts);
   return g ? '<span class="trait-dots">' + g + '</span>' : '';
 }
 
@@ -758,10 +791,33 @@ export function shRenderDisciplines(c, editMode) {
     return powersForDisc(c.powers || [], discName, dots);
   }
 
+  // 2026-09-01 general audit (display-rendering dimension, verified): this
+  // view-mode row rendered discipline dots via a bare shDots(r) with no
+  // c._st_mod_overlay awareness at all \u2014 not even the pre-#408 markerFor()
+  // pip disciplines got elsewhere, ZERO indication an ST mod was applied.
+  // Attributes (line ~627) and Skills (line ~722) in this same file already
+  // build filledMod opts from the overlay for the identical recolour-in-place
+  // + click-to-audit treatment; disciplines only ever carry a `.dots` overlay
+  // path (server/routes/st_mods.js's dynamic whitelist \u2014 no `.bonus` field
+  // exists on the discipline schema), so only filledMod applies here.
+  function _stmDiscOpts(d) {
+    const ovDots = c._st_mod_overlay?.[`disciplines.${d}.dots`];
+    const opts = {};
+    if (ovDots) {
+      const sign = ovDots.delta >= 0 ? '+' : '';
+      opts.filledMod = {
+        from: ovDots.base, to: ovDots.final,
+        path: `disciplines.${d}.dots`,
+        title: `ST adjustment: ${d} (dots) ${sign}${ovDots.delta}. Click for details.`,
+      };
+    }
+    return opts;
+  }
+
   function renderDiscRow(d, r, nameClass) {
     const dp = _discPowers(d, r || 0), hasPow = dp.length > 0, id = 'disc-' + c.name.replace(/[^a-z]/gi, '') + d.replace(/[^a-z]/gi, '');
     let dr = ''; dp.forEach(p => { dr += '<div class="disc-power"><div class="disc-power-name">' + esc(p.name) + '</div>' + (p.stats ? '<div class="disc-power-stats">' + esc(p.stats) + '</div>' : '') + '<div class="disc-power-effect">' + esc(p.effect || '') + '</div></div>'; });
-    const nTag = '<span class="trait-name' + (nameClass ? ' ' + nameClass : '') + '">' + esc(d) + '</span>', dTag = r ? '<span class="trait-dots' + (nameClass ? ' ' + nameClass : '') + '">' + shDots(r) + '</span>' : '';
+    const nTag = '<span class="trait-name' + (nameClass ? ' ' + nameClass : '') + '">' + esc(d) + applyAffordance(c, `disciplines.${d}.dots`, d) + '</span>', dTag = r ? '<span class="trait-dots' + (nameClass ? ' ' + nameClass : '') + '">' + shDotsWithBonus(r, 0, _stmDiscOpts(d)) + '</span>' : '';
     const _trInner = '<div class="trait-row"><div class="trait-main">' + nTag + '<div class="trait-right">' + dTag + (hasPow ? '<span class="disc-tap-arr">\u203A</span>' : '') + '</div></div></div>';
     if (!hasPow) return '<div class="disc-tap-row">' + _trInner + '</div>';
     return '<div class="disc-tap-row" id="disc-row-' + id + '" onclick="toggleDisc(\'' + id + '\')">' + _trInner + '</div><div class="disc-drawer" id="disc-drawer-' + id + '">' + dr + '</div>';
@@ -1098,8 +1154,23 @@ export function shRenderInfluenceMerits(c, editMode) {
       const narrow = (m.name === 'Status' || m.name === 'Sway') && m.narrow && typeof m.narrow === 'string' ? m.narrow.trim() : '';
       const displayArea = narrow ? (area ? area + ' — ' + narrow : narrow) : area;
       const iRIdx = c.merits.indexOf(m);
-      const iPurch = (m.cp || 0) + (m.xp || 0), iBon = meritFreeSum(m) + attacheBonusDots(c, displayArea ? m.name + ' (' + displayArea + ')' : m.name) + (m.bonus || 0);
-      h += shRenderMeritRow((displayArea ? m.name + ' (' + displayArea + gt + ')' : m.name + gt) + gb, 'infl', idx, shDotsSuspended(iPurch, iBon, shSuspendedOf(m)), undefined, c, iRIdx);
+      const iFreeAndAttache = meritFreeSum(m) + attacheBonusDots(c, displayArea ? m.name + ' (' + displayArea + ')' : m.name);
+      const iPurch = (m.cp || 0) + (m.xp || 0), iBon = iFreeAndAttache + (m.bonus || 0);
+      // 2026-09-01 general audit (display-rendering dimension, verified):
+      // same "invisible mod" gap as the Domain merit row above — m.bonus
+      // baked into iBon with no per-dot distinction. It sits at the tail of
+      // the hollow band, after iFreeAndAttache.
+      const _ovInflBonus = c._st_mod_overlay?.[`merits.${iRIdx}.bonus`];
+      const _inflOpts = {};
+      if (_ovInflBonus) {
+        const sign = _ovInflBonus.delta >= 0 ? '+' : '';
+        _inflOpts.hollowMod = {
+          from: iFreeAndAttache + _ovInflBonus.base, to: iFreeAndAttache + _ovInflBonus.final,
+          path: `merits.${iRIdx}.bonus`,
+          title: `ST adjustment: ${m.name} (bonus) ${sign}${_ovInflBonus.delta}. Click for details.`,
+        };
+      }
+      h += shRenderMeritRow((displayArea ? m.name + ' (' + displayArea + gt + ')' : m.name + gt) + gb, 'infl', idx, shDotsSuspended(iPurch, iBon, shSuspendedOf(m), _inflOpts), undefined, c, iRIdx, !!_inflOpts.hollowMod);
     });
     const ce = inflM.filter(m => m.name === 'Contacts');
     if (ce.length) {
@@ -1618,6 +1689,12 @@ export function shRenderDomainMerits(c, editMode) {
       const _isCappedView = ['Haven', 'Mandragora Garden'].includes(m.name);
       // Dot display: for capped merits show solid up to eff, hollow for over-cap stored dots
       let dotHtml;
+      // Set true only by the branch below that already marks the modded dot
+      // in place — suppresses the redundant standalone markerFor() pip at
+      // _viewAfford so an active bonus mod isn't signalled twice. Stays
+      // false (pip keeps showing) for the other branches (_isCappedView,
+      // compound-target rows), which don't yet carry per-dot marking.
+      let _bonusMarkedOnDot = false;
       // COLLECTIVE-1 (issue #800): compound target rows take precedence —
       // own (the compound's free_grants slug) solid + cumulative-other
       // hollow. Bypasses _isCappedView / ssjB / etc. since target merits
@@ -1636,7 +1713,29 @@ export function shRenderDomainMerits(c, editMode) {
         dotHtml = shDotsMixed(_cPurch, Math.max(0, _viewStored - _cPurch));
       } else if (ssjB > 0 || flockB > 0 || fwbB > 0 || attB > 0 || mBon > 0 || carthB > 0) {
         const dPurch = _dRaw;
-        dotHtml = shDotsMixed(dPurch, Math.max(0, de - dPurch) + mBon);
+        // 2026-09-01 general audit (display-rendering dimension, verified):
+        // mBon (m.bonus, an st_mod-overlayable path via merits.N.bonus) was
+        // baked directly into the hollow-dot count with no per-dot
+        // distinction — the same "invisible mod" shape #408 fixed for
+        // attributes/skills. hollowMod's sub-range sits at the tail of the
+        // hollow band (after the ssjB/flockB/fwbB/attB/carthB contribution
+        // already folded into `de`), offset by the overlay's own pre-mod
+        // base within that band — same convention as _stmAttrOpts's
+        // autoBonus offset.
+        const _meritIdx = c.merits.indexOf(m);
+        const _ovMeritBonus = c._st_mod_overlay?.[`merits.${_meritIdx}.bonus`];
+        const _meritOpts = {};
+        if (_ovMeritBonus) {
+          const sign = _ovMeritBonus.delta >= 0 ? '+' : '';
+          const hollowBase = Math.max(0, de - dPurch);
+          _meritOpts.hollowMod = {
+            from: hollowBase + _ovMeritBonus.base, to: hollowBase + _ovMeritBonus.final,
+            path: `merits.${_meritIdx}.bonus`,
+            title: `ST adjustment: ${m.name} (bonus) ${sign}${_ovMeritBonus.delta}. Click for details.`,
+          };
+          _bonusMarkedOnDot = true;
+        }
+        dotHtml = shDotsMixed(dPurch, Math.max(0, de - dPurch) + mBon, _meritOpts);
       } else {
         dotHtml = '<span class="trait-dots">' + shDots(de) + '</span>';
       }
@@ -1688,8 +1787,13 @@ export function shRenderDomainMerits(c, editMode) {
       // edit-mode hideBonus: _isCompoundTarget suppression at meritBdRow's
       // own call site below) \u2014 no affordance on those rows either.
       const _viewStatPath = 'merits.' + _viewRealIdx + '.bonus';
+      // 2026-09-01 general audit: markerFor()'s standalone pip is redundant
+      // (and was the audit's own "signalled twice" finding) once
+      // _bonusMarkedOnDot is true — the active mod is already marked on the
+      // dot itself. Keep applyAffordance either way (it's the "+ apply a
+      // new bonus" control, unrelated to marking an existing one).
       const _viewAfford = _rowCompoundsView.length === 0
-        ? applyAffordance(c, _viewStatPath, m.name) + markerFor(c, _viewStatPath)
+        ? applyAffordance(c, _viewStatPath, m.name) + (_bonusMarkedOnDot ? '' : markerFor(c, _viewStatPath))
         : '';
       // Inner row body \u2014 trait-row + trait-main + trait-right + optional
       // shared trait-sub. Self-contained: opens 3 divs (trait-row,
@@ -2415,16 +2519,30 @@ export function shRenderGeneralMerits(c, editMode, showOvercommitIndicator = fal
     oM.slice().sort((a, b) => (a.name || '').localeCompare(b.name || '')).forEach((m, i) => {
       const qual = m.qualifier ? ' (' + m.qualifier + ')' : '';
       const pw = _prereqWarn(c, m.name, m);
-      const purch = (m.cp || 0) + (m.xp || 0), bon = meritFreeSum(m) + (m.bonus || 0);
-      const dotH = shDotsSuspended(purch, bon, shSuspendedOf(m));
       const rIdx = c.merits.indexOf(m);
+      const purch = (m.cp || 0) + (m.xp || 0), _gFree = meritFreeSum(m), bon = _gFree + (m.bonus || 0);
+      // 2026-09-01 general audit (display-rendering dimension, verified):
+      // same "invisible mod" gap as Domain/Influence above — m.bonus baked
+      // into `bon` with no per-dot distinction. Tail of the hollow band,
+      // after _gFree.
+      const _ovGenBonus = c._st_mod_overlay?.[`merits.${rIdx}.bonus`];
+      const _genOpts = {};
+      if (_ovGenBonus) {
+        const sign = _ovGenBonus.delta >= 0 ? '+' : '';
+        _genOpts.hollowMod = {
+          from: _gFree + _ovGenBonus.base, to: _gFree + _ovGenBonus.final,
+          path: `merits.${rIdx}.bonus`,
+          title: `ST adjustment: ${m.name} (bonus) ${sign}${_ovGenBonus.delta}. Click for details.`,
+        };
+      }
+      const dotH = shDotsSuspended(purch, bon, shSuspendedOf(m), _genOpts);
       if (m.granted_by) {
         const gb = m.granted_by === 'Mystery Cult Initiation' ? 'MCI' : m.granted_by === 'Professional Training' ? 'PT' : m.granted_by;
         const grantTag = '<span class="gen-granted-tag-view" title="Granted by ' + esc(m.granted_by) + '">' + esc(gb) + '</span>';
-        h += shRenderMeritRow(m.name + qual, 'gmerit', i, dotH, grantTag + _pledgeBadge(m) + _oathPledgeNote(m), c, rIdx);
+        h += shRenderMeritRow(m.name + qual, 'gmerit', i, dotH, grantTag + _pledgeBadge(m) + _oathPledgeNote(m), c, rIdx, !!_genOpts.hollowMod);
         h += _pledgeOvercommitNote(m);
         if (pw) h += pw;
-      } else { h += shRenderMeritRow(m.name + qual, 'merit', i, dotH, _pledgeBadge(m) + _oathPledgeNote(m), c, rIdx); h += _pledgeOvercommitNote(m); if (pw) h += pw; }
+      } else { h += shRenderMeritRow(m.name + qual, 'merit', i, dotH, _pledgeBadge(m) + _oathPledgeNote(m), c, rIdx, !!_genOpts.hollowMod); h += _pledgeOvercommitNote(m); if (pw) h += pw; }
     });
   }
   h += '</div></div>'; return h;
@@ -3133,7 +3251,7 @@ export function shRenderEquipment(c, editMode) {
   return h;
 }
 
-export function shRenderMeritRow(m, idPrefix, i, dotHtml, chipHtml, c, realIdx) {
+export function shRenderMeritRow(m, idPrefix, i, dotHtml, chipHtml, c, realIdx, bonusMarkedOnDot) {
   // Name parser: greedy prefix + final-paren-group capture that disallows
   // nested parens. Handles variant merit names that already contain parens
   // (e.g. "Attaché (Resources) (Nicole)") — splits to main "Attaché (Resources)"
@@ -3151,7 +3269,12 @@ export function shRenderMeritRow(m, idPrefix, i, dotHtml, chipHtml, c, realIdx) 
   // intentionally omit `c`/`realIdx` and get no affordance \u2014 matching the
   // real per-instance scope AC2 asks for, not a blanket addition.
   const _statPath = (c && Number.isInteger(realIdx)) ? `merits.${realIdx}.bonus` : null;
-  const _afford = _statPath ? applyAffordance(c, _statPath, mn) + markerFor(c, _statPath) : '';
+  // 2026-09-01 general audit: suppress the redundant standalone markerFor()
+  // pip when the caller's own dotHtml already marks the modded dot in
+  // place (bonusMarkedOnDot) — matches the same suppression in the Domain
+  // merit view row above. applyAffordance stays either way (it's the
+  // "+ apply a new bonus" control, unrelated to marking an existing one).
+  const _afford = _statPath ? applyAffordance(c, _statPath, mn) + (bonusMarkedOnDot ? '' : markerFor(c, _statPath)) : '';
   const _inner = (hasArr) => '<div class="trait-row"><div class="trait-main"><span class="trait-name">' + esc(mn) + '</span>' + _afford + '<div class="trait-right">' + (dt || '') + '<span class="exp-arr' + (hasArr ? '' : ' trait-arr-hidden') + '">\u203A</span></div></div>' + ((sn || chipHtml) ? '<div class="trait-sub">' + (chipHtml || '') + (sn ? '<span class="trait-qual">' + esc(sn) + '</span>' : '') + '</div>' : '') + '</div>';
   if (db && db.desc) {
     const id2 = idPrefix + i, pqStr = db.prereq ? prereqLabel(db.prereq) : '', body = '<div>' + esc(db.desc) + '</div>' + (pqStr ? '<div style="margin-top:5px;font-style:italic;color:var(--txt3)">Prerequisite: ' + esc(pqStr) + '</div>' : '');

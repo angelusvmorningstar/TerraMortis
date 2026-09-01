@@ -5,13 +5,11 @@
  */
 
 import { apiGet, apiPut } from '../data/api.js';
-import { displayName, cardName } from '../data/helpers.js';
+import { displayName, cardName, esc } from '../data/helpers.js';
 
-function esc(s) {
-  const d = document.createElement('div');
-  d.textContent = String(s ?? '');
-  return d.innerHTML;
-}
+// 2026-09-01 general audit fix: was a hand-duplicated copy of data/helpers.js's
+// canonical esc() — import it instead (strictly safer: it also escapes `"`,
+// which this DOM-based variant never did).
 
 const PLAYER_PREF_AXES = [
   { key: 'combat_action',            label: 'Combat & Action' },

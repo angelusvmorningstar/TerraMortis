@@ -19,14 +19,11 @@
  * `_`-prefixed so admin.js buildSaveBody strips them before PUT.
  */
 
-const API_BASE = location.hostname === 'localhost' ? 'http://localhost:3000' : '';
-
-function authHeaders() {
-  const h = { 'Content-Type': 'application/json' };
-  const token = localStorage.getItem('tm_auth_token');
-  if (token) h['Authorization'] = `Bearer ${token}`;
-  return h;
-}
+// 2026-09-01 general audit fix: was a hand-duplicated copy of api.js's
+// apiBase()/headers() (three more copies of this exact pattern found this
+// session besides the api.js/st-mods.js pair found earlier) — import the
+// canonical versions instead.
+import { apiBase, headers as authHeaders } from './api.js';
 
 /** GET /api/st_mods?character_id=:id. Returns an array of mod docs, ordered
  *  by created_at ascending (per STM-1 AC#4). Returns [] on network failure
@@ -34,7 +31,7 @@ function authHeaders() {
 export async function loadStMods(characterId) {
   try {
     const res = await fetch(
-      `${API_BASE}/api/st_mods?character_id=${encodeURIComponent(characterId)}`,
+      `${apiBase()}/api/st_mods?character_id=${encodeURIComponent(characterId)}`,
       { headers: authHeaders() },
     );
     if (!res.ok) return [];
@@ -54,7 +51,7 @@ export async function loadStModsBulk(characterIds) {
   try {
     const csv = characterIds.map(id => encodeURIComponent(String(id))).join(',');
     const res = await fetch(
-      `${API_BASE}/api/st_mods?character_ids=${csv}`,
+      `${apiBase()}/api/st_mods?character_ids=${csv}`,
       { headers: authHeaders() },
     );
     if (!res.ok) {

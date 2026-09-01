@@ -4,6 +4,7 @@
  */
 
 import { apiGet, apiPost, apiDelete } from '../data/api.js';
+import { esc } from '../data/helpers.js';
 
 let currentDate = new Date().toISOString().slice(0, 10);
 let entries = [];
@@ -139,8 +140,6 @@ async function createEntry() {
   }
 }
 
-function esc(s) {
-  const d = document.createElement('div');
-  d.textContent = s;
-  return d.innerHTML;
-}
+// 2026-09-01 general audit fix: was a hand-duplicated copy of data/helpers.js's
+// canonical esc() — import it instead (strictly safer: it also escapes `"`,
+// which this DOM-based variant never did).

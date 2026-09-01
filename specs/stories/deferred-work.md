@@ -686,3 +686,64 @@ real page, or direct source read) before deferral, not taken on a reviewer's wor
   request against the card's remaining headroom before calling `applyDmg`. Not fixed here — genuinely
   a `tracker.js` concern shared by any future feature that applies damage in bulk, not specific to
   this story's own Acceptance Criteria.
+
+## Deferred from: 2026-09-01 general-audit day (4-domain Workflow audit, 79 agents, adversarially verified; plus Kurtis W's own live bug reports)
+
+- **(High, security, NOT fixed)** Five route files gate ownership checks on the literal string
+  `req.user.role === 'player'` rather than excluding only `st`/`dev` — `server/routes/downtime.js`
+  (both GET and PUT), `history.js`, `questionnaire.js`, `ordeal-responses.js`, plus a related shape in
+  `game-sessions.js`'s DELETE (mount-level `requireRole('coordinator')` auto-expands to include
+  `st`/`dev`, and the handler adds no further check despite its own "(ST only)" comment). The real,
+  distinct `coordinator` role (scoped in this app's own model to check-in/finance/emergency only) was
+  never retrofitted into these checks when it was added, so a live coordinator-tier account (confirmed
+  via a real `tm_game.players` document, not hypothetical) can currently read every player's downtime
+  submissions unredacted (including private ST review notes), edit any player's submission and
+  force-publish ST review text, and read/edit any character's personal history/questionnaire/ordeal
+  responses with no ownership check at all. Proposed fix (not applied): swap the four ownership-gate
+  conditions from `role === 'player'` to `!isStRole(req.user)`; add `requireRole('st')` as route-level
+  middleware on `game-sessions.js`'s DELETE specifically. Full finding detail + live-account evidence
+  in this session's own audit output; not implemented this session — flagged as the most urgent
+  follow-up.
+- **(Medium, data integrity, prepared not applied)** `server/scripts/fix-p1-audit-data-hygiene.js`
+  (4 small targeted fixes: two characters' blank `player` fields, one bare-`{}` skill entry, one dead
+  `merits.N.dots`-shaped st_mod) and `server/scripts/cleanup-p1-orphaned-test-stmods.js` (75 orphaned
+  June load-test `st_mods`/`st_mod_audit` docs, 86% of the live collection). Both dry-run by default,
+  write a full-document JSON backup to `server/scripts/_backups/` before any write, both dry-run
+  verified this session. Not applied — Angelus runs destructive/mutating DB scripts himself via `!`,
+  per this repo's own established convention.
+- **(Low, display, deliberately out of scope this session)** `editor/sheet.js`'s Standing merit
+  plain-name view row (`shRenderStandingMerits`, the branch for any Standing merit other than
+  MCI/PT) still has no per-dot ST-mod marking, unlike the Domain/Influence/General rows this session
+  fixed. Its bonus band is built from `m.rating` directly rather than the `m.bonus` field the other
+  three rows read (and the one `merits.N.bonus` st_mods can actually target) — left alone rather than
+  guessed at, since it isn't confirmed whether an active `.bonus` overlay even flows into `m.rating`
+  for this merit category, and an incorrect marker would be worse than a missing one. Needs a real
+  trace of that data path before extending the same `_shDotGlyphs` opts mechanism here.
+- **(Investigate next session, per Angelus's own `/session-wrap` instruction "pick up the kurtis
+  issues in the morning")** Three live bug reports from Kurtis W, on his own character (Charlie
+  Ballsack, `_id` `69d73ea49162ece35897a482`):
+  - **Domain Merit shared-partner ID leak + CSS overlap.** `resolveSharedWithMember` (`data/helpers.js`)
+    only searches whatever character array the caller passes it — for a player's own view this is
+    their own role-scoped roster (their own character[s] only), which never contains a shared merit's
+    partner. The lookup fails, falls back to the raw 24-hex `shared_with` entry, and that ~50-character
+    ID string overflowing a layout built for short names is what produces the visible overlap with the
+    row below (confirmed: `.trait-sub`/`.dom-shared-lbl` in `components.css` carry no unusual
+    positioning of their own — this is a text-length symptom, not a separate CSS bug). Root-caused,
+    not fixed. Proposed fix: extend `server/routes/characters.js`'s existing player-scoped
+    `_partner_dots` enrichment (which already resolves domain-merit sharing partners server-side, but
+    only by name — silently failing for the ID-based `shared_with` entries this exact character has)
+    to also resolve by `_id` and attach each partner's display name (`m._partner_names`, or similar),
+    then have `editor/sheet.js`'s `_viewSharedSub` consult that enrichment when `resolveSharedWithMember`
+    can't resolve locally.
+  - **Missing Professional Training dot-4 Stealth bonus.** Charlie's `Professional Training` merit is
+    rating 5 with `dot4_skill: "Stealth"`; the live `rule_skill_bonus` doc requires tier ≥4 with
+    `target_skill: "dot4_skill"` — on paper the bonus should be granting +1 to Stealth via
+    `_pt_dot4_bonus_skills` (`editor/rule_engine/pt-evaluator.js`). Root cause not found this session;
+    next step is tracing whether `applyPTRulesFromDb`/the rules cache actually runs with the right
+    `skillBonus` rules array at render time for this character, or whether something upstream (rules
+    cache loading order, a `getRulesCache()` mock/staleness) is the real gap.
+  - **"Safe Place capped by Safe Place" confusing message.** Not investigated at all this session —
+    surfaced only as a screenshot artifact alongside the shared-partner ID leak above. Needs its own
+    look at the Domain merit cap-warning logic (`_isCappedView`'s `dom-cap-warn` derived-note in
+    `editor/sheet.js`) to confirm whether the message text itself is wrong, or whether it's correctly
+    describing a real cap that just reads confusingly.

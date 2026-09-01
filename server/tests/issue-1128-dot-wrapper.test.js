@@ -426,12 +426,18 @@ const BUCKET_A = [
 ];
 
 const BUCKET_B = [
-  'shDotsSuspended(iPurch, iBon, shSuspendedOf(m))',
+  // 2026-09-01 general audit fix: these two gained a 4th (opts) argument so
+  // an active st_mod on merits.N.bonus recolours the specific modded dot
+  // in place instead of baking silently into the hollow-dot count (same
+  // #408 shape as attributes/skills, previously missing for these two
+  // categories). Still Bucket B — still wrapped, still unchanged shape
+  // otherwise, so this census entry is updated, not removed.
+  'shDotsSuspended(iPurch, iBon, shSuspendedOf(m), _inflOpts)',
   'shDotsSuspended(cPurch, cBon, totalSusp)',
   'shDotsSuspended(_cmpOwn, _cmpPartner, shSuspendedOf(m))',
   'shDotsSuspended(_own, _partner, shSuspendedOf(m))',
   'shDotsSuspended(_stPurch, Math.max(0, (m.rating || 0) - _stPurch), shSuspendedOf(m))',
-  'shDotsSuspended(purch, bon, shSuspendedOf(m))',
+  'shDotsSuspended(purch, bon, shSuspendedOf(m), _genOpts)',
 ];
 
 /** sheet.js source with comment-only lines removed, so prose cannot inflate a count. */

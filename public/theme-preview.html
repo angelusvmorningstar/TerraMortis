@@ -4,7 +4,11 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>TM Game — Theme Preview</title>
-<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Cinzel+Decorative:wght@700&family=Lora:ital,wght@0,400;0,500;1,400&display=swap" rel="stylesheet">
+<!-- 2026-09-01 (general audit correction): was loading Lora as the body font,
+     which is not this app's real body font (that's Libre Baskerville — see
+     public/css/theme.css's --ft token, corrected in the 2026-08-22
+     design-token port; this preview page just never got the same fix). -->
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Cinzel+Decorative:wght@700&family=Libre+Baskerville:wght@400;700&display=swap" rel="stylesheet">
 <style>
 
 /* ── Parchment (default) ── */
@@ -41,7 +45,7 @@
 
   --fh:  'Cinzel', serif;
   --fhd: 'Cinzel Decorative', serif;
-  --fb:  'Lora', serif;
+  --fb:  'Libre Baskerville', serif;
 
   --shadow: rgba(60,40,10,.12);
 }
@@ -827,8 +831,8 @@ body {
           <!-- 1. txt-dim / txt1 undefined -->
           <div>
             <div style="font-size:10px;font-family:'Cinzel',serif;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:#8A7A6A;margin-bottom:5px">--txt-dim &amp; --txt1 — undefined variables</div>
-            <div style="font-size:12px;color:inherit;font-family:'Lora',serif">This hint text uses <code style="font-size:11px;background:rgba(255,255,255,.06);padding:1px 4px;border-radius:2px">var(--txt-dim)</code> — inherits by accident</div>
-            <div style="font-size:12px;color:inherit;font-family:'Lora',serif;margin-top:3px">Input colour uses <code style="font-size:11px;background:rgba(255,255,255,.06);padding:1px 4px;border-radius:2px">var(--txt1)</code> — also undefined</div>
+            <div style="font-size:12px;color:inherit;font-family:'Libre Baskerville',serif">This hint text uses <code style="font-size:11px;background:rgba(255,255,255,.06);padding:1px 4px;border-radius:2px">var(--txt-dim)</code> — inherits by accident</div>
+            <div style="font-size:12px;color:inherit;font-family:'Libre Baskerville',serif;margin-top:3px">Input colour uses <code style="font-size:11px;background:rgba(255,255,255,.06);padding:1px 4px;border-radius:2px">var(--txt1)</code> — also undefined</div>
             <div style="font-size:10px;color:#8A7A6A;margin-top:5px">Both fall back to inherited value — fragile, undocumented</div>
           </div>
 
@@ -878,8 +882,8 @@ body {
           <!-- 1. Add tokens -->
           <div>
             <div style="font-size:10px;font-family:'Cinzel',serif;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:#8A7A6A;margin-bottom:5px">Define: --txt-dim = --txt3 &nbsp;/&nbsp; --txt1 = --txt</div>
-            <div style="font-size:12px;color:#8A7A6A;font-family:'Lora',serif">Hint text now explicit via <code style="font-size:11px;background:rgba(255,255,255,.06);padding:1px 4px;border-radius:2px">--txt-dim</code> token</div>
-            <div style="font-size:12px;color:#E8E0D0;font-family:'Lora',serif;margin-top:3px">Input colour via <code style="font-size:11px;background:rgba(255,255,255,.06);padding:1px 4px;border-radius:2px">--txt1</code> — bright primary text</div>
+            <div style="font-size:12px;color:#8A7A6A;font-family:'Libre Baskerville',serif">Hint text now explicit via <code style="font-size:11px;background:rgba(255,255,255,.06);padding:1px 4px;border-radius:2px">--txt-dim</code> token</div>
+            <div style="font-size:12px;color:#E8E0D0;font-family:'Libre Baskerville',serif;margin-top:3px">Input colour via <code style="font-size:11px;background:rgba(255,255,255,.06);padding:1px 4px;border-radius:2px">--txt1</code> — bright primary text</div>
             <div style="font-size:10px;color:#8A7A6A;margin-top:5px">Behaviour explicit and theme-aware</div>
           </div>
 
@@ -944,7 +948,7 @@ body {
       <h1>Terra Mortis Game</h1>
       <h2>Domain Heading</h2>
       <h3>Section Title</h3>
-      <p>Body text rendered in Lora — the narrative response goes here. Edna spends this month dipping her toes back in to her sociable pre-fang self, visiting churches in The Port on quiet early-week nights. She speaks briefly with an attendee each time before leaving.</p>
+      <p>Body text rendered in Libre Baskerville — the narrative response goes here. Edna spends this month dipping her toes back in to her sociable pre-fang self, visiting churches in The Port on quiet early-week nights. She speaks briefly with an attendee each time before leaving.</p>
       <span class="label">Section label / metadata</span>
     </div>
 

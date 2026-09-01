@@ -30,6 +30,8 @@ vi.mock('../../public/js/data/api.js', () => ({
   apiPut: () => Promise.resolve(null),
   apiPatch: () => Promise.resolve(null),
   apiDelete: () => Promise.resolve(null),
+  apiBase: () => '',
+  headers: () => ({}),
 }));
 
 vi.mock('../../public/js/data/loader.js', () => ({

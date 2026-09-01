@@ -24,6 +24,8 @@ vi.mock('../../public/js/data/api.js', () => ({
   apiPatch: vi.fn(async () => ({})),
   apiDelete: vi.fn(async () => ({})),
   apiRaw: vi.fn(async () => ({})),
+  apiBase: () => '',
+  headers: () => ({}),
 }));
 vi.mock('../../public/js/admin/data-portability-import.js', () => ({
   validateRow: vi.fn(), writeRow: vi.fn(), parseCSV: vi.fn(),

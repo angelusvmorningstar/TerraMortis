@@ -2,6 +2,8 @@
    Searchable collapsible sections for roll mechanics, resistance, disciplines, merits.
    Used both in the Rules tab and as an overlay from the character sheet. */
 
+import { esc } from '../data/helpers.js';
+
 // ── Content ──────────────────────────────────────────────────────────────────
 
 const RULES = [
@@ -250,9 +252,6 @@ export function closeRulesOverlay() {
   if (_overlayEl) _overlayEl.style.display = 'none';
 }
 
-function esc(s) {
-  if (s === undefined || s === null) return '';
-  const d = document.createElement('div');
-  d.textContent = String(s);
-  return d.innerHTML;
-}
+// 2026-09-01 general audit fix: was a hand-duplicated copy of data/helpers.js's
+// canonical esc() — import it instead (strictly safer: it also escapes `"`,
+// which this DOM-based variant never did).

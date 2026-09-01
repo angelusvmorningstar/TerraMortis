@@ -3,7 +3,7 @@
 // ══════════════════════════════════════════════
 
 import state from './data.js';
-import { displayName, getWillpower, redactPlayer, shDotsWithBonus, formatSpecs, hasAoE, singleScrollEnabled } from '../data/helpers.js';
+import { displayName, getWillpower, redactPlayer, shDotsWithBonus, formatSpecs, hasAoE, singleScrollEnabled, esc } from '../data/helpers.js';
 // rlv.7 review fix: onSheetChar() below reassigns state.rollChar without a
 // loadPool() following — resetRollPool() clears the previous character's
 // stale POOL_NAME/powerChips/MOD so a leftover chip badge can't persist
@@ -973,10 +973,8 @@ function _wireAttrCarousel(container) {
   });
 }
 
-function esc(s) {
-  if (s == null) return '';
-  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-}
+// 2026-09-01 general audit fix: was a hand-duplicated copy of data/helpers.js's
+// canonical esc() (byte-for-byte identical behaviour) — import it instead.
 
 // ── TRACKER INFO POPOVER ──
 // (?) button shows influence breakdown; click outside dismisses.

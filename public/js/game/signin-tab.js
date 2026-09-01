@@ -194,7 +194,7 @@ async function doAutosave() {
     Object.assign(_session, updated);
     if (statusEl) statusEl.textContent = '';
   } catch {
-    if (statusEl) statusEl.textContent = 'Save failed — retrying…';
+    if (statusEl) statusEl.textContent = 'Save failed, retrying…';
     _saveTimer = setTimeout(doAutosave, 3000);
   }
 }
@@ -224,7 +224,7 @@ function render() {
     if (s.game_number != null) p.push(`Game ${s.game_number}`);
     if (s.session_date)        p.push(s.session_date);
     if (s.title)               p.push(s.title);
-    const lbl = p.join(' — ');
+    const lbl = p.join(' · ');
     const sel = String(s._id) === String(_session._id) ? ' selected' : '';
     return `<option value="${esc(String(s._id))}"${sel}>${esc(lbl)}</option>`;
   }).join('');

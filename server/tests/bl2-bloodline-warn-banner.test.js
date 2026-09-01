@@ -21,7 +21,7 @@ import fs from 'node:fs';
 // api.js reads `location` at module scope, which does not exist in this
 // runner. The banner never fetches, so stub the module out entirely rather
 // than faking a browser global (same approach as the ECM-1 tests).
-vi.mock('../../public/js/data/api.js', () => ({ apiGet: async () => [] }));
+vi.mock('../../public/js/data/api.js', () => ({ apiGet: async () => [], apiBase: () => '', headers: () => ({}) }));
 
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';

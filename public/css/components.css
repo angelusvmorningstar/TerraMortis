@@ -5609,6 +5609,22 @@ html:not([data-theme="dark"]) .char-picker__pill { font-weight: 600; }
   box-shadow: 0 0 6px var(--gold);
 }
 
+/* Merit dot-runs render literal Unicode glyph characters as text (●/○ via
+   _shDotGlyphs in editor/sheet.js), not the empty .pointed spans attributes/
+   skills/disciplines use — .stm-modded-dot's background-color is inert
+   behind a text glyph, so this recolours the glyph's text colour instead.
+   Same gold-tint-on-hover treatment as .stm-modded-dot above, applied via
+   `color` rather than `background-color`. 2026-09-01 general audit. */
+.merit-modded-dot {
+  cursor: pointer;
+  color: var(--gold2);
+  text-shadow: 0 0 2px var(--gold2-a25, rgba(122,82,8,.25));
+}
+.merit-modded-dot:hover {
+  color: var(--gold);
+  text-shadow: 0 0 6px var(--gold);
+}
+
 /* Standalone marker (still used by the stats strip for non-dot displays:
    blood_potency, humanity, current.*, derived.*). Dot-run paths (attributes /
    skills) use .stm-modded-dot above. */

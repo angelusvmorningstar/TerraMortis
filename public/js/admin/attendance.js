@@ -5,7 +5,7 @@
  */
 
 import { apiGet, apiPut, apiDelete } from '../data/api.js';
-import { displayName, cardName, dropdownName, sortName, redactPlayer } from '../data/helpers.js';
+import { displayName, cardName, dropdownName, sortName, redactPlayer, esc } from '../data/helpers.js';
 
 let chars = [];
 let sessions = [];
@@ -23,12 +23,9 @@ function resolvePlayerName(a, c) {
   return raw || '';
 }
 
-function esc(s) {
-  if (s == null) return '';
-  const d = document.createElement('div');
-  d.textContent = String(s);
-  return d.innerHTML;
-}
+// 2026-09-01 general audit fix: was a hand-duplicated copy of data/helpers.js's
+// canonical esc() — import it instead (strictly safer: it also escapes `"`,
+// which this DOM-based variant never did).
 
 const PAYMENT_METHODS = ['', 'Cash', 'PayPal', 'PayID (Symon)', 'Transfer', 'Exiles', 'Waived'];
 

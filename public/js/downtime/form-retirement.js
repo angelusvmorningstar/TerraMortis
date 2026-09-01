@@ -1,13 +1,15 @@
 // This site's downtime form kill switch. Mirrors TM Story's own
-// public/js/downtime-form/retirement.js, in the opposite direction. Imported
-// by three layers that must agree:
+// public/js/downtime-form/retirement.js, in the opposite direction.
 //
-//   - public/js/app.js               the Downtime nav tile + the "Downtime
-//                                     due" lifecycle card (both entry points)
-//   - public/js/tabs/downtime-tab.js the tab body itself, a notice instead
-//                                     of the form
-//   - server/routes/downtime.js      the write routes, refusing new
-//                                     player-initiated writes
+// 2026-09-01 (general audit correction): the 2026-08-29 Downtime + Ordeals
+// full removal (PR #1227) deleted the Downtime nav tile/tab dispatch from
+// app.js entirely, so app.js no longer imports this module at all — and
+// public/js/tabs/downtime-tab.js, this file's one remaining client
+// importer, is itself kept unrouted (reference only, per that removal's own
+// documented scope boundary), not reachable from the live app either. The
+// real, live importers today are all server-side: server/routes/downtime.js,
+// questionnaire.js, history.js and ordeal-responses.js's own POST guards
+// (see app.js's own boot-time comment, which already reflects this).
 //
 // WHY IT EXISTS. D6 (TM Story's specs/story-side-refactor.md, approved)
 // rules there is only ever one live downtime form, and TM Story is sole

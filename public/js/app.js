@@ -2698,7 +2698,9 @@ function renderSheetPicker(el) {
   for (const c of chars) {
     const name = displayName(c);
     const icon = covIcon(c.covenant, 40);
-    const esc = s => s ? s.replace(/&/g,'&amp;').replace(/"/g,'&quot;') : '';
+    // 2026-09-01 general audit fix: this used to shadow the already-imported
+    // canonical esc() (line 22) with a local, weaker copy that never escaped
+    // `<`/`>` — a real gap, not just duplication. Uses the import now.
     h += `<button class="sheet-char-chip" onclick="openSheetChar('${esc(c.name)}')" title="${esc(name)}">`;
     h += `<span class="sheet-char-chip-icon">${icon}</span>`;
     h += `<span class="sheet-char-chip-name">${esc(name)}</span>`;

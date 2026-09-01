@@ -45,7 +45,7 @@ const MIGRATED_DISCS = fixtureDiscsByName();
 const MIGRATED_CLANS = fixtureNamesByClan();
 
 const api = vi.hoisted(() => ({ get: null }));
-vi.mock('../../public/js/data/api.js', () => ({ apiGet: async (...a) => api.get(...a) }));
+vi.mock('../../public/js/data/api.js', () => ({ apiGet: async (...a) => api.get(...a), apiBase: () => '', headers: () => ({}) }));
 
 globalThis.location ??= { hostname: 'localhost', pathname: '/index.html' };
 globalThis.localStorage ??= { getItem: () => null, setItem() {}, removeItem() {} };
