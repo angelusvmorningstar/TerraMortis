@@ -28,6 +28,8 @@ vi.mock('../../public/js/data/api.js', () => ({
   apiPut:   () => Promise.resolve(null),
   apiPatch: () => Promise.resolve(null),
   apiDelete:() => Promise.resolve(null),
+  apiBase:  () => '',
+  headers:  () => ({}),
 }));
 
 // Control the cache state per test via the rule-engine loader.

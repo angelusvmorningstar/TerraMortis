@@ -17,14 +17,9 @@
  * `loadGlobalSettings()` directly after its own PATCH, so the writing ST
  * sees the change without waiting on its own WS echo. */
 
-const API_BASE = location.hostname === 'localhost' ? 'http://localhost:3000' : '';
-
-function authHeaders() {
-  const h = { 'Content-Type': 'application/json' };
-  const token = localStorage.getItem('tm_auth_token');
-  if (token) h['Authorization'] = `Bearer ${token}`;
-  return h;
-}
+// 2026-09-01 general audit fix: was a hand-duplicated copy of api.js's
+// apiBase()/headers() — import the canonical versions instead.
+import { apiBase, headers as authHeaders } from './api.js';
 
 let _settings = null;
 
@@ -35,7 +30,7 @@ let _settings = null;
  *  handles a null cache by treating st_mods_enabled as truthy. */
 export async function loadGlobalSettings() {
   try {
-    const res = await fetch(`${API_BASE}/api/settings`, { headers: authHeaders() });
+    const res = await fetch(`${apiBase()}/api/settings`, { headers: authHeaders() });
     if (!res.ok) return _settings;
     _settings = await res.json();
   } catch {

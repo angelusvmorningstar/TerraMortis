@@ -1,14 +1,16 @@
 // This site's Ordeals kill switch. Mirrors public/js/downtime/form-retirement.js,
-// same shape, same reasoning. Imported by three layers that must agree:
+// same shape, same reasoning.
 //
-//   - public/js/app.js              the Ordeals nav tile (bottom nav, the mobile
-//                                    "More" grid, and the desktop sidebar — all
-//                                    three render off the same MORE_APPS entry)
-//   - public/js/tabs/ordeals-view.js the tab body itself, a notice instead of
-//                                    the ordeal list/forms
-//   - server/routes/questionnaire.js, history.js, ordeal-responses.js
-//                                    the write routes, refusing new
-//                                    player-initiated writes
+// 2026-09-01 (general audit correction): the 2026-08-29 Downtime + Ordeals
+// full removal (PR #1227) deleted the Ordeals nav tile/tab dispatch from
+// app.js entirely, so app.js no longer imports this module at all — and
+// public/js/tabs/ordeals-view.js, this file's one remaining client
+// importer, is itself kept unrouted (reference only, per that removal's own
+// documented scope boundary), not reachable from the live app either. The
+// real, live importers today are all server-side:
+// server/routes/questionnaire.js, history.js, ordeal-responses.js's own
+// POST guards (see app.js's own boot-time comment, which already reflects
+// this).
 //
 // WHY IT EXISTS. Ordeals are moving to TM Story, same as downtime (2026-08-25,
 // Angelus). Leaving TM Game's own Ordeals tile live and clickable for players
@@ -19,8 +21,11 @@
 // STs are exempt from both the tile dimming and the write gate: they still
 // need to mark/correct Ordeal submissions filed before this cutover.
 //
-// TODO(copy): RETIRED_NOTICE below is placeholder text pending Angelus's own
-// pass on player-facing wording.
+// 2026-09-01 (general audit correction): the copy-pending TODO that used to
+// sit here is stale — RETIRED_NOTICE's own render surface (ordeals-view.js)
+// has been unrouted from the live app since 2026-08-29 (see the file header
+// above), so this text is harmless dead reference copy, not a live pending
+// task. Left as-is rather than polished further.
 export const ORDEALS_RETIRED = true;
 
 export const RETIRED_TILE_REASON = 'ordeals are filed on the sibling site';

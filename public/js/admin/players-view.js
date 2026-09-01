@@ -19,13 +19,11 @@
  */
 
 import { apiGet, apiPost, apiPut, apiDelete } from '../data/api.js';
-import { discordAvatarUrl, isRedactMode } from '../data/helpers.js';
+import { discordAvatarUrl, isRedactMode, esc } from '../data/helpers.js';
 
-function esc(s) {
-  const d = document.createElement('div');
-  d.textContent = String(s ?? '');
-  return d.innerHTML;
-}
+// 2026-09-01 general audit fix: was a hand-duplicated copy of data/helpers.js's
+// canonical esc() — import it instead (strictly safer: it also escapes `"`,
+// which this DOM-based variant never did).
 
 let players = [];
 let chars   = [];

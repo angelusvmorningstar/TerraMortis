@@ -36,6 +36,8 @@ const MIGRATED_CLANS = fixtureNamesByClan();
 const api = vi.hoisted(() => ({ get: null }));
 vi.mock('../../public/js/data/api.js', () => ({
   apiGet: async (...a) => api.get(...a),
+  apiBase: () => '',
+  headers: () => ({}),
 }));
 
 // The miss label goes through `displayName`, which honours redact mode (an ST

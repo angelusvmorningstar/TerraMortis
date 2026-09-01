@@ -19,6 +19,8 @@ vi.mock('../../public/js/data/api.js', () => ({
   apiPost: vi.fn().mockResolvedValue({}),
   apiPut: vi.fn().mockResolvedValue({}),
   apiPatch: vi.fn().mockResolvedValue({}),
+  apiBase: () => '',
+  headers: () => ({}),
 }));
 
 vi.mock('../../public/js/tabs/draft-persist.js', () => ({

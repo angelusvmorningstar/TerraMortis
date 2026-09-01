@@ -55,6 +55,8 @@ vi.mock('../../public/js/data/api.js', () => ({
   apiPut: vi.fn().mockResolvedValue({}),
   apiPatch: vi.fn().mockResolvedValue({}),
   apiRaw: vi.fn(), // crd.3b's own contested-resolve.js dependency
+  apiBase: () => '',
+  headers: () => ({}),
 }));
 
 vi.mock('../../public/js/data/helpers.js', () => ({

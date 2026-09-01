@@ -35,6 +35,8 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 vi.mock('../../public/js/data/api.js', () => ({
   apiGet: vi.fn(),   // pending-queue.js's own dependency, used only via refreshPendingQueueBadge() here
   apiRaw: vi.fn(),   // this story's own resolve/accept calls
+  apiBase: () => '',
+  headers: () => ({}),
 }));
 
 vi.mock('../../public/js/data/helpers.js', () => ({

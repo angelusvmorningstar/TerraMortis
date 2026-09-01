@@ -22,6 +22,8 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 const api = vi.hoisted(() => ({ get: null, calls: 0 }));
 vi.mock('../../public/js/data/api.js', () => ({
   apiGet: async (...args) => { api.calls += 1; return api.get(...args); },
+  apiBase: () => '',
+  headers: () => ({}),
 }));
 
 const DOCS = [

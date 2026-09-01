@@ -8,13 +8,21 @@
 // browser - which broke two existing vitest suites that import accessors.
 // Lazy resolution is behaviour-identical in the browser (`location` never
 // changes between load and first request) and costs one property read.
-function apiBase() {
+// 2026-09-01 general audit fix: exported so data/st-mods.js, data/app-settings.js
+// and game/tracker.js can import these instead of hand-duplicating them (three
+// more copies of exactly this pattern found this session, on top of the
+// api.js/st-mods.js duplication found earlier). Those three still had the
+// EAGER module-scope `const API_BASE = location.hostname === ...` shape this
+// file's own apiBase() was already rewritten away from (see the comment
+// above) — importing the lazy function form fixes that too, not just the
+// duplication.
+export function apiBase() {
   return (typeof location !== 'undefined' && location.hostname === 'localhost')
     ? 'http://localhost:3000'
     : '';
 }
 
-function headers() {
+export function headers() {
   const h = { 'Content-Type': 'application/json' };
   const token = localStorage.getItem('tm_auth_token');
   if (token) h['Authorization'] = `Bearer ${token}`;

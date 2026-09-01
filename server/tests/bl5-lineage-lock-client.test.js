@@ -37,6 +37,8 @@ vi.mock('../../public/js/data/api.js', () => ({
   apiPatch: async () => ({}),
   apiDelete: async () => ({}),
   apiRaw: async () => ({ status: 200, ok: true, body: null }),
+  apiBase: () => '',
+  headers: () => ({}),
 }));
 
 globalThis.location ??= { hostname: 'localhost', pathname: '/admin.html' };

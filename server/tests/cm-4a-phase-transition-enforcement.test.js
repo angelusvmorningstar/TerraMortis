@@ -64,6 +64,8 @@ vi.mock('../../public/js/data/api.js', () => ({
   apiPatch: vi.fn(async () => ({})),
   apiDelete: vi.fn(async () => ({})),
   apiRaw: vi.fn(async () => ({})),
+  apiBase: () => '',
+  headers: () => ({}),
 }));
 
 import { phaseToggleTarget } from '../../public/js/admin/cycle-views.js';

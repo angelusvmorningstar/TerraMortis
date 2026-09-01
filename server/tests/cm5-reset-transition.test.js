@@ -22,6 +22,8 @@ vi.mock('../../public/js/data/api.js', () => ({
   apiPatch: vi.fn(async () => ({})),
   apiDelete: vi.fn(async () => ({})),
   apiRaw: vi.fn(async () => ({})),
+  apiBase: () => '',
+  headers: () => ({}),
 }));
 
 import { resetOnTransition } from '../../public/js/downtime/cycle-phase.js';

@@ -738,15 +738,14 @@ real page, or direct source read) before deferral, not taken on a reviewer's wor
   findings: `specs/stories/code-review/p0-coordinator-role-ownership-bypass-pass{1,2,3}-findings.md`.
 - **(Medium, data integrity, prepared not applied)** `server/scripts/fix-p1-audit-data-hygiene.js` and
   `server/scripts/cleanup-p1-orphaned-test-stmods.js`. Both dry-run by default with a full-document
-  JSON backup before any write, both dry-run verified. Currently sitting stashed (`git stash@{0}` on
-  this checkout, message "P2/P3 audit fixes") alongside the rest of the P2/P3 work — see the
-  stash-recovery note in the session's own wrap history if this isn't restored by the time anyone
-  reads this. Not applied — Angelus runs destructive/mutating DB scripts himself via `!`.
+  JSON backup before any write, both dry-run verified. Restored from stash and **committed 2026-09-02**
+  (`ms/audit-2026-09-01-p2-p3-fixes`, commit `e953290e`, PR #1239) alongside the rest of the P2/P3 work.
+  Not applied — Angelus runs destructive/mutating DB scripts himself via `!`.
 - **(Low, display, deliberately out of scope)** `editor/sheet.js`'s Standing merit plain-name view row
   still has no per-dot ST-mod marking (unlike the Domain/Influence/General rows the P2 pass fixed) —
   its bonus band reads `m.rating` directly rather than `m.bonus`, and it isn't confirmed whether an
-  active `.bonus` overlay even flows into `m.rating` for this merit category. Also currently stashed
-  alongside the rest of P2/P3, not yet committed.
+  active `.bonus` overlay even flows into `m.rating` for this merit category. Committed alongside the
+  rest of P2/P3 (see above) as a documented gap, not a fix.
 - **(Investigate next, per Angelus's own standing instruction to pick these up)** Three live bug
   reports from Kurtis W, on his own character (Charlie Ballsack, `_id` `69d73ea49162ece35897a482`):
   - **Domain Merit shared-partner ID leak + CSS overlap.** `resolveSharedWithMember` (`data/helpers.js`)

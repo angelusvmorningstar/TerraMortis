@@ -10,14 +10,9 @@ import { CONDITIONS_DB } from '../data/conditions.js';
 import { getRole } from '../auth/discord.js';
 import { markLocalWrite } from '../data/ws.js';
 import { getFeedingCycle } from '../downtime/db.js';
-
-const API_BASE = location.hostname === 'localhost' ? 'http://localhost:3000' : '';
-function authHeaders() {
-  const h = { 'Content-Type': 'application/json' };
-  const token = localStorage.getItem('tm_auth_token');
-  if (token) h['Authorization'] = `Bearer ${token}`;
-  return h;
-}
+// 2026-09-01 general audit fix: was a hand-duplicated copy of api.js's
+// apiBase()/headers() — import the canonical versions instead.
+import { apiBase, headers as authHeaders } from '../data/api.js';
 
 const LOCAL_PREFIX = 'tm_tracker_local_';
 
@@ -69,7 +64,7 @@ function saveLocal(charId, fields) {
 
 async function loadFromApi(charId) {
   try {
-    const res = await fetch(`${API_BASE}/api/tracker_state/${charId}`, { headers: authHeaders() });
+    const res = await fetch(`${apiBase()}/api/tracker_state/${charId}`, { headers: authHeaders() });
     if (res.ok) return await res.json();
   } catch { /* network failure — fall through to null */ }
   return null;
@@ -80,7 +75,7 @@ function saveToApi(charId, fields) {
   _cache[charId] = { ...(_cache[charId] || {}), ...fields };
   // Mark as local write so WS echo is suppressed
   markLocalWrite(charId, fields);
-  fetch(`${API_BASE}/api/tracker_state/${charId}`, {
+  fetch(`${apiBase()}/api/tracker_state/${charId}`, {
     method: 'PUT',
     headers: authHeaders(),
     body: JSON.stringify(fields),
@@ -211,7 +206,7 @@ export async function reconcileInfluenceDT() {
     const cycleId = String(cycle._id);
     if (_reconciledCycles.has(cycleId)) return;   // already run this session
 
-    const subRes = await fetch(`${API_BASE}/api/downtime_submissions?chapter_id=${cycleId}`, { headers: authHeaders() });
+    const subRes = await fetch(`${apiBase()}/api/downtime_submissions?chapter_id=${cycleId}`, { headers: authHeaders() });
     if (!subRes.ok) { return; }   // transient failure — do not mark done; next initTracker retries
     const subs = await subRes.json();
 
