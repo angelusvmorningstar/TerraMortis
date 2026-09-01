@@ -625,3 +625,64 @@ real page, or direct source read) before deferral, not taken on a reviewer's wor
   importer without anyone noticing) is exactly what this test was written to catch, so the gap is in
   the test's own self-verification, not in its production coverage. A small fixture (a temporary file
   under `server/` importing the module, asserted to be caught, then removed) would close this.
+
+## Deferred from: independent review of cmb-1-card-tracker-shell (2026-09-01, orchestrator inline 3-lens)
+
+- **`combat-tab.js`'s new `_drag` gesture state (`{ active, charId }`) can get stuck `active: true`
+  indefinitely.** Its `pointerdown`/`pointerup`/`pointercancel` listeners are scoped to the `.cbt-grip`
+  element itself, not the document — a real drag gesture that starts on the grip and ends with the
+  pointer released somewhere else (off the card entirely, which is the whole point of a reorder drag)
+  never fires the grip's own `pointerup` handler, so `_drag.active` never resets. Currently harmless:
+  `cmb.1` only exposes this state for its own AC6 tests and gates no behaviour on it. **`cmb.2` (the
+  real drag-to-reorder story) must not build its tap-vs-drag disambiguation directly on this state
+  without first adding a document-level (or Pointer Capture-based) release listener** — otherwise the
+  exact "abandoned drag interferes with the next tap" failure mode this session's own party-mode
+  roundtable (Sally) flagged against Sally's collapse/expand design would reappear here instead, one
+  layer down.
+- **`_cardHtml`'s NPC tag (`c.is_npc || c.npc`) is currently dead code.** No character document in
+  this app's live data model carries either field — NPCs live in a separate `npcs` collection, never
+  merged into `suiteState.chars` the way opponent player-characters are (via `/api/characters/combat`).
+  Not a defect (the branch simply never renders today, matching AC3's letter), but it means the "NPC
+  tag" part of AC1/AC3 is verified only against a hypothetical shape, not real NPC data. Worth a
+  decision — likely surfacing during `cmb.3b`'s equipped-weapon work, which will hit the same "what is
+  an NPC combatant here, really" question — on whether NPC opponents should reach the Combat tab's
+  roster at all, and if so, through what real field.
+
+## Deferred from: independent review of cmb-3a-attack-modal-shell (2026-09-01, orchestrator inline 3-lens)
+
+- **(Low, informational, not a defect)** Rolling from the Attack modal now passes `loadPool` a
+  target-specific label (e.g. `"Unarmed Combat vs Reed"`) as `POOL_NAME`, where the retired
+  `combatQuickRoll` passed a bare skill name (e.g. `"Brawl"`). `public/js/game/power-mod-chips.js`
+  (rlv.7's persistent modifier chips) keys its `localStorage` entries on `(charId, POOL_NAME)`, so
+  this is a real, intentional side effect: any mod chips a player had already saved against a combat
+  roll under the old skill-name key become unreachable (not deleted, just orphaned under a
+  now-unused key), and going forward a chip added while attacking one target no longer carries over
+  to a different target with the identical attack type — each attacker/type/target combination gets
+  its own chip set rather than sharing one per skill. Not a bug against this story's own Acceptance
+  Criteria (nothing in `cmb.3a` promises mod-chip continuity), not caught by any existing test (
+  `rlv-7-persistent-mod-chips.spec.js` calls `loadPool` directly with its own test-chosen name and
+  never exercised combat's naming convention), and arguably a reasonable default (finer-grained
+  keying means less accidental cross-contamination between unrelated attack contexts) — but it is a
+  real behavioural change to a different, already-shipped feature, worth Angelus's own read rather
+  than assuming either direction is obviously correct.
+
+## Deferred from: independent review of cmb-3c-damage-split (2026-09-01, orchestrator inline 3-lens)
+
+- **(Low, pre-existing, newly reachable)** `public/js/game/tracker.js`'s `trackerAdj` only refuses a
+  positive damage delta when the track is *already* full (`if (delta > 0 && used >= maxHp) return;`)
+  — it does not clamp the size of the delta itself against remaining headroom. Every damage call site
+  before this story only ever sent `delta: 1` (one button click), so this never mattered in practice:
+  five individual `+1` clicks each re-check the guard and stop the moment the track fills. `cmb.3c`'s
+  Apply button is the first caller in this codebase to send a delta greater than 1 (the computed split
+  total), so a split that would overshoot a nearly-full health track (e.g. 2 boxes of headroom left,
+  a split totalling 5) can push the stored damage past `maxHp` in one call, where the equivalent
+  manual clicks would have stopped at the ceiling. Confirmed as pre-existing (not introduced or
+  worsened by this story — the guard's own logic is unchanged), and the practical effect is cosmetic
+  overshoot (the health box-track and `_isIncap`'s incapacitation check both already degrade
+  gracefully when `dmg > maxHp`), not data corruption or a crash. This story's own test fixtures were
+  deliberately built with headroom to avoid exercising the edge case rather than papering over it.
+  Two candidate fixes for whoever next touches either file: clamp the delta itself inside `trackerAdj`
+  (fixes every future multi-point caller, not just this one), or have `_splitApply` cap its own
+  request against the card's remaining headroom before calling `applyDmg`. Not fixed here — genuinely
+  a `tracker.js` concern shared by any future feature that applies damage in bulk, not specific to
+  this story's own Acceptance Criteria.

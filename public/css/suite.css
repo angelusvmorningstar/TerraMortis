@@ -1608,13 +1608,15 @@ html:not([data-theme="dark"]) .more-app-icon-svg svg {
 
 /* ── Combat tab ── */
 .cbt-wrap { display: flex; flex-direction: column; height: 100%; overflow: hidden; }
-.cbt-header { display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; border-bottom: 1px solid var(--bdr); flex-shrink: 0; background: var(--surf); }
+.cbt-header { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; padding: 10px 14px; border-bottom: 1px solid var(--bdr); flex-shrink: 0; background: var(--surf); }
 .cbt-round-lbl { font-family: var(--fl); font-size:0.8125rem; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--accent); }
-.cbt-actions { display: flex; gap: 6px; }
+/* cmb.1: wraps because the three toolbar buttons are now var(--tap-min) tall
+   and wide, which can outrun a narrow phone header on one line. */
+.cbt-actions { display: flex; gap: 6px; flex-wrap: wrap; }
 .cbt-next-btn,.cbt-round-btn { padding: 5px 10px; font-family: var(--fl); font-size: var(--fs-floor-micro); font-weight: 700; letter-spacing: .06em; text-transform: uppercase; border-radius: var(--radius-sm); cursor: pointer; border: 1px solid var(--bdr2); background: var(--surf2); color: var(--txt2); }
 .cbt-next-btn { background: var(--accent-a8); border-color: var(--accent-a40); color: var(--accent); }
 .cbt-end-btn { padding: 5px 10px; font-family: var(--fl); font-size: var(--fs-floor-micro); font-weight: 700; letter-spacing: .06em; text-transform: uppercase; border-radius: var(--radius-sm); cursor: pointer; border: 1px solid var(--crim-a40); background: var(--crim-a8); color: var(--err); }
-.cbt-list { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 2px; padding: 6px; }
+.cbt-list { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; padding: 8px; }
 .cbt-row { background: var(--surf); border: 1px solid var(--bdr); border-radius: var(--radius-md); padding: 8px 10px; display: flex; flex-direction: column; gap: 6px; transition: background .15s; }
 .cbt-row.cbt-active { border-left: 3px solid var(--accent); background: var(--accent-a8); }
 .cbt-row.cbt-incap { opacity: .5; }
@@ -1632,8 +1634,6 @@ html:not([data-theme="dark"]) .more-app-icon-svg svg {
 .cbt-def-used { font-family: var(--fl); font-size: var(--fs-floor-body); font-weight: 700; color: var(--txt3); opacity: .4; text-decoration: line-through; letter-spacing: .04em; }
 .cbt-def-toggle { background: none; border: 1px solid var(--bdr); border-radius: var(--radius-sm); padding: 2px 5px; cursor: pointer; font-size: var(--fs-floor-body); }
 .cbt-rm-btn { background: none; border: none; color: var(--txt3); cursor: pointer; font-size: 0.75rem; margin-left: auto; }
-.cbt-pool-btn { padding: 4px 8px; font-family: var(--fl); font-size: var(--fs-floor-body); font-weight: 700; letter-spacing: .04em; background: var(--gold-a8); border: 1px solid var(--gold-a30); border-radius: var(--radius-sm); color: var(--txt2); cursor: pointer; }
-.cbt-pool-btn:hover { background: var(--gold-a15); }
 .cbt-dmg-ctrl { display: flex; align-items: center; gap: 4px; margin-left: auto; }
 .cbt-dmg-lbl { font-family: var(--fl); font-size: var(--fs-floor-micro); letter-spacing: .08em; text-transform: uppercase; color: var(--txt3); }
 .cbt-dmg-btn { padding: 3px 7px; font-family: var(--fl); font-size: var(--fs-floor-body); font-weight: 700; border-radius: var(--radius-sm); cursor: pointer; border: 1px solid var(--bdr2); background: var(--surf2); color: var(--txt2); }
@@ -1650,6 +1650,207 @@ html:not([data-theme="dark"]) .more-app-icon-svg svg {
 .cbt-sel-chip button { background: none; border: none; cursor: pointer; color: var(--accent); font-size: var(--fs-floor-body); padding: 0; }
 .cbt-roll-init-btn { padding: 10px 18px; background: var(--crim); border: 1px solid var(--crim-a70); border-radius: var(--radius-md); color: var(--txt-on-dark); font-family: var(--fl); font-size: 0.75rem; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; cursor: pointer; }
 .cbt-hint { font-family: var(--ft); font-size: 0.75rem; color: var(--txt3); font-style: italic; margin: 0; }
+
+/* ── Combat cards (cmb.1) ──
+   The round view's combatant card: collapsed to Name / tags / Health with the
+   rolled initiative in its own rail, expanding on tap to the full detail. The
+   header is one real button and the drag handle is its sibling, never its
+   child, so the expand gesture and cmb.2's reorder gesture cannot fight.
+
+   Every control below is a real var(--tap-min) box - technique T1 from the
+   TOUCH TARGETS block further down this file, applied at every viewport rather
+   than phone-only. The T2 invisible-overlay technique is deliberately NOT used
+   here: it passes a hit test but a thumb cannot see it, which is the exact
+   failure this card was reshaped to fix. */
+.cbt-card { display: flex; gap: 10px; background: var(--surf); border: 1px solid var(--bdr); border-radius: var(--radius-md); padding: 10px; }
+.cbt-card.cbt-active { border-left: 3px solid var(--accent); background: var(--accent-a8); }
+.cbt-card.cbt-incap { opacity: .5; }
+.cbt-card-rail { display: flex; flex-direction: column; align-items: center; gap: 2px; flex-shrink: 0; width: var(--tap-min); }
+.cbt-grip { display: flex; align-items: center; justify-content: center; min-width: var(--tap-min); min-height: var(--tap-min); color: var(--txt3); font-size: 0.875rem; line-height: 1; letter-spacing: 2px; cursor: grab; user-select: none; touch-action: none; }
+.cbt-grip:active { cursor: grabbing; }
+.cbt-init-cap { font-family: var(--fl); font-size: var(--fs-floor-micro); font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--txt3); }
+.cbt-card-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 8px; }
+.cbt-card-hd { display: flex; align-items: center; gap: 8px; width: 100%; min-height: var(--tap-min); padding: 2px; background: none; border: none; text-align: left; cursor: pointer; font: inherit; color: inherit; }
+.cbt-npc-tag { font-family: var(--fl); font-size: var(--fs-floor-micro); font-weight: 700; letter-spacing: .08em; background: var(--surf3); color: var(--txt3); border-radius: var(--radius-sm); padding: 1px 5px; }
+.cbt-mini-hp { margin-left: auto; font-family: var(--fl); font-size: var(--fs-floor-body); font-weight: 700; color: var(--txt2); font-variant-numeric: tabular-nums; flex-shrink: 0; }
+.cbt-mini-hp-lbl { color: var(--txt3); font-size: var(--fs-floor-micro); letter-spacing: .06em; text-transform: uppercase; margin-right: 3px; }
+.cbt-chev { color: var(--txt3); font-size: var(--fs-floor-body); width: 14px; text-align: center; flex-shrink: 0; }
+.cbt-card-exp { display: flex; flex-direction: column; gap: 10px; padding-top: 8px; border-top: 1px solid var(--bdr); }
+.cbt-chips { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.cbt-chip { display: flex; align-items: center; gap: 4px; padding: 2px 8px; background: var(--surf2); border: 1px solid var(--bdr); border-radius: var(--radius-pill); font-family: var(--fl); font-size: var(--fs-floor-body); font-weight: 700; color: var(--txt2); }
+.cbt-chip b { color: var(--txt); font-variant-numeric: tabular-nums; }
+.cbt-chip.cbt-chip-used { opacity: .45; text-decoration: line-through; }
+.cbt-track { display: flex; flex-direction: column; gap: 5px; }
+.cbt-track-hd { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.cbt-track-lbl { font-family: var(--fl); font-size: var(--fs-floor-micro); font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--txt3); }
+.cbt-track-val { font-family: var(--fl); font-size: var(--fs-floor-body); font-weight: 700; color: var(--txt2); font-variant-numeric: tabular-nums; }
+.cbt-track-row { display: flex; align-items: center; gap: 8px; }
+/* cmb.3c's split steppers are grouped on here rather than given a duplicate
+   rule body: they are the same control at the same size on the same card. They
+   keep their own class name only so cmb.1's touch-target spec can go on
+   counting the four Vitae/Willpower buttons by class. */
+.cbt-track-btn,
+.cbt-split-step { display: flex; align-items: center; justify-content: center; min-width: var(--tap-min); min-height: var(--tap-min); flex-shrink: 0; background: var(--surf2); border: 1px solid var(--bdr); border-radius: var(--radius-sm); color: var(--txt2); font-family: var(--fl); font-size: 1.125rem; line-height: 1; cursor: pointer; }
+.cbt-track-btn:hover,
+.cbt-split-step:hover { background: var(--surf3); color: var(--txt); }
+.cbt-pips { display: flex; flex: 1; flex-wrap: wrap; align-items: center; gap: 3px; min-width: 0; }
+.cbt-pip { width: 10px; height: 10px; border: 1px solid var(--bdr2); border-radius: var(--radius-pill); background: var(--surf2); }
+.cbt-pip.cbt-pip-vitae { background: var(--crim); border-color: var(--crim2); }
+.cbt-pip.cbt-pip-wp { background: var(--accent); border-color: var(--accent); }
+/* cmb.3a: the Attack button, in place of cmb.1's preset pool buttons. Full
+   width because it is the card's one primary action, and because a lone button
+   floating at var(--tap-min) beside the damage row read as a chip rather than
+   the thing the whole card exists to do. */
+.cbt-atk-row { display: flex; }
+.cbt-atk-open-btn { flex: 1; min-width: var(--tap-min); min-height: var(--tap-min); padding: 6px 12px; font-family: var(--fl); font-size: var(--fs-floor-body); font-weight: 700; letter-spacing: .08em; text-transform: uppercase; background: var(--gold-a8); border: 1px solid var(--gold-a30); border-radius: var(--radius-sm); color: var(--txt2); cursor: pointer; }
+.cbt-atk-open-btn:hover { background: var(--gold-a15); color: var(--txt); }
+/* The damage row keeps its own classes from the pre-cmb.1 layout, where it sat
+   at the right-hand end of a row. Inside the card it is a full-width block. */
+.cbt-card-exp .cbt-dmg-ctrl { margin-left: 0; flex-wrap: wrap; }
+
+/* ── Kindred damage-split calculator (cmb.3c) ──
+   Sits BESIDE the raw +B/+L/+A/- controls above, never in place of them (Epic
+   CMB Decision 5): using it is optional, and the buttons it pre-computes for
+   stay independently usable whatever is typed here.
+
+   The two steppers are `.cbt-split-step`, grouped onto `.cbt-track-btn`'s own
+   rule further up rather than given a duplicated body (project-context section
+   4) - same control, same size, same card. Only what is genuinely new gets its
+   own rule below: the row layout, the numeral readout, the type toggle and the
+   Apply button. Every one of those carries its own var(--tap-min) box rather
+   than inheriting one from the retrofit block above (AC8).
+
+   The type toggle is shaped like the Attack modal's pills but keeps its own
+   class: it lives on a card, not in that dialog, and the modal's own two pill
+   rules (.cbt-atk-pill, .cbt-atk-weapon) were already separate from each other
+   before this story rather than a group to join.
+
+   Apply takes the crimson treatment the +L button already uses, not the Attack
+   button's gold - it writes damage, and it is the card's second action, not its
+   primary one. */
+.cbt-split { display: flex; flex-direction: column; gap: 8px; padding-top: 8px; border-top: 1px solid var(--bdr); }
+.cbt-split-lbl { font-family: var(--fl); font-size: var(--fs-floor-micro); font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: var(--txt3); }
+.cbt-split-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.cbt-split-row .cbt-track-lbl { flex: 1; min-width: 72px; }
+.cbt-split-num { min-width: var(--tap-min); font-family: var(--fl); font-size: 1.125rem; font-weight: 900; color: var(--accent); font-variant-numeric: tabular-nums; text-align: center; }
+.cbt-split-types { display: flex; gap: 6px; flex-wrap: wrap; }
+.cbt-split-type { display: inline-flex; align-items: center; justify-content: center; min-width: var(--tap-min); min-height: var(--tap-min); padding: 6px 12px; background: var(--surf2); border: 1px solid var(--bdr); border-radius: var(--radius-pill); font-family: var(--fl); font-size: var(--fs-floor-body); font-weight: 700; letter-spacing: .04em; color: var(--txt2); cursor: pointer; }
+.cbt-split-type:hover { background: var(--surf3); color: var(--txt); }
+.cbt-split-type-on { background: var(--accent-a8); border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); color: var(--accent); }
+.cbt-split-preview { margin: 0; font-family: var(--ft); font-size: var(--fs-floor-body); line-height: 1.45; color: var(--txt2); }
+.cbt-split-apply { min-width: var(--tap-min); min-height: var(--tap-min); padding: 8px 14px; background: var(--crim-a12); border: 1px solid var(--crim-a40); border-radius: var(--radius-sm); font-family: var(--fl); font-size: var(--fs-floor-body); font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--err); cursor: pointer; }
+.cbt-split-apply:hover { background: var(--crim-a30); }
+.cbt-split-apply[disabled] { opacity: .45; cursor: not-allowed; }
+
+/* ── Combat drag-to-reorder (cmb.2) ──
+   Only the card under the finger changes. Both states below are painted with
+   opacity and box-shadow alone - no width, height, padding, margin, border or
+   transform - so a card being dragged PAST keeps its exact collapsed height and
+   every word on it stays readable while the ST decides where to drop (cmb.2
+   AC3, this session's roundtable ruling that a row must never compress to a
+   sliver mid-drag). The drop ring is inset for the same reason: a real border
+   would add 2px and reflow the whole list under the pointer. */
+.cbt-card-dragging { opacity: .55; box-shadow: 0 6px 18px var(--overlay); cursor: grabbing; }
+.cbt-drop-target { box-shadow: inset 0 0 0 2px var(--accent); }
+/* Reset to Rolled Order sits with Next Turn / Next Round / End Combat and takes
+   the gold treatment the attack-pool buttons already use, so it reads as a
+   recovery action rather than a third turn-advancing one. */
+.cbt-reset-btn { padding: 5px 10px; font-family: var(--fl); font-size: var(--fs-floor-micro); font-weight: 700; letter-spacing: .06em; text-transform: uppercase; border-radius: var(--radius-sm); cursor: pointer; border: 1px solid var(--gold-a30); background: var(--gold-a8); color: var(--txt2); }
+.cbt-reset-btn:hover { background: var(--gold-a15); }
+
+/* Touch-target pass over the controls this tab already had (AC7). Sizes only -
+   the visual language of each button is unchanged. */
+.cbt-char-btn,
+.cbt-dmg-btn,
+.cbt-next-btn,
+.cbt-round-btn,
+.cbt-reset-btn,
+.cbt-end-btn,
+.cbt-roll-init-btn,
+.cbt-rm-btn { min-width: var(--tap-min); min-height: var(--tap-min); }
+.cbt-def-toggle { display: inline-flex; align-items: center; justify-content: center; width: var(--tap-min); height: var(--tap-min); flex-shrink: 0; }
+
+/* ── Combat Attack modal (cmb.3a) ──
+   Pick a target, pick an attack type, get an Errata-correct pool the ST can
+   still nudge to anything before rolling. Sized for a thumb from the start:
+   every control below carries its own var(--tap-min) box in its own rule
+   rather than inheriting one from the retrofit block above, which is what
+   cmb.1 had to do for controls that predated the touch-target standard.
+
+   The overlay is parented to <body> by combat-tab.js, not to the tab host, so
+   none of this is subject to .cbt-wrap's `overflow: hidden` or to render()
+   replacing the card list underneath it. */
+.cbt-atk-overlay { position: fixed; inset: 0; z-index: 1000; display: flex; align-items: center; justify-content: center; padding: 12px; background: var(--overlay2); }
+.cbt-atk-modal { display: flex; flex-direction: column; gap: 14px; width: 100%; max-width: 460px; max-height: 92vh; overflow-y: auto; overscroll-behavior: contain; padding: 14px; background: var(--surf); border: 1px solid var(--accent-a40); border-radius: var(--radius-md); box-shadow: 0 8px 32px var(--overlay2); }
+.cbt-atk-hd { display: flex; align-items: center; gap: 8px; padding-bottom: 8px; border-bottom: 1px solid var(--bdr); }
+.cbt-atk-title { flex: 1; min-width: 0; font-family: var(--fl); font-size: 0.875rem; font-weight: 700; letter-spacing: .06em; color: var(--accent); }
+.cbt-atk-close { display: flex; align-items: center; justify-content: center; min-width: var(--tap-min); min-height: var(--tap-min); flex-shrink: 0; background: none; border: 1px solid var(--bdr); border-radius: var(--radius-sm); color: var(--txt3); font-size: var(--fs-floor-body); cursor: pointer; }
+.cbt-atk-close:hover { background: var(--surf2); color: var(--txt); }
+.cbt-atk-sec { display: flex; flex-direction: column; gap: 8px; }
+.cbt-atk-sec-lbl { font-family: var(--fl); font-size: var(--fs-floor-micro); font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: var(--txt3); }
+
+/* Target pills. The Defence chip inside each one carries the state the pool
+   maths actually depends on, so it is never a bare number: struck through when
+   this combatant's Defence is already spent, and greyed with an explicit N/A
+   when Ranged is selected and Defence cannot apply at all. */
+.cbt-atk-pills { display: flex; flex-wrap: wrap; gap: 8px; }
+.cbt-atk-pill { display: inline-flex; align-items: center; gap: 8px; min-height: var(--tap-min); min-width: var(--tap-min); padding: 6px 12px; background: var(--surf2); border: 1px solid var(--bdr); border-radius: var(--radius-pill); cursor: pointer; }
+.cbt-atk-pill:hover { background: var(--surf3); border-color: var(--bdr2); }
+/* Selection is painted with a full-strength accent border plus an inset ring,
+   not a tint alone: a faint wash is not enough to answer "which target did I
+   pick" at a glance mid-round, and the ring is inset so switching selection
+   cannot reflow the pill row under the ST's thumb (same reasoning as cmb.2's
+   drop target). */
+.cbt-atk-pill-on { background: var(--accent-a8); border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+.cbt-atk-pill-on .cbt-atk-pill-name { color: var(--accent); }
+.cbt-atk-pill-name { font-family: var(--fl); font-size: var(--fs-floor-body); font-weight: 700; letter-spacing: .04em; color: var(--txt); }
+.cbt-atk-def { font-family: var(--fl); font-size: var(--fs-floor-micro); font-weight: 700; letter-spacing: .06em; color: var(--txt3); font-variant-numeric: tabular-nums; }
+.cbt-atk-def-used { text-decoration: line-through; opacity: .55; }
+.cbt-atk-def-na { text-decoration: line-through; opacity: .45; }
+
+/* Type rows. "Other" is the same row, same size, same reach as the four
+   formula-backed types (Epic CMB Decision 5) - it simply has no formula on its
+   sub-line. Nothing about it is styled as a fallback. */
+.cbt-atk-types { display: flex; flex-direction: column; gap: 6px; }
+.cbt-atk-type { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; width: 100%; min-height: var(--tap-min); padding: 8px 12px; background: var(--surf2); border: 1px solid var(--bdr); border-radius: var(--radius-sm); text-align: left; cursor: pointer; }
+.cbt-atk-type:hover { background: var(--surf3); border-color: var(--bdr2); }
+.cbt-atk-type-on { background: var(--accent-a8); border-color: var(--accent); box-shadow: inset 3px 0 0 var(--accent); }
+.cbt-atk-type-on .cbt-atk-type-lbl { color: var(--accent); }
+.cbt-atk-type-lbl { font-family: var(--fl); font-size: var(--fs-floor-body); font-weight: 700; letter-spacing: .04em; color: var(--txt); }
+.cbt-atk-type-sub { font-family: var(--ft); font-size: var(--fs-floor-micro); color: var(--txt3); }
+
+/* cmb.3b: the attacker's own equipped weapons for the selected type, one chip
+   each. Shaped as the target pills are, because they answer the same kind of
+   question ("which one of these?") with the same gesture - a second visual
+   language for the same interaction inside one modal would only be noise.
+
+   A chip is a REFERENCE display: the rating it carries affects damage (cmb.3c),
+   never the dice pool, and selecting one never gates the stepper or the Roll
+   button (Epic CMB Decision 5). There is deliberately no disabled or empty
+   state here - a type with no matching equipped weapon simply renders no chips
+   at all rather than an inert placeholder. Sized to var(--tap-min) from the
+   start, like every other control in this modal. */
+.cbt-atk-weapons-lbl { font-family: var(--fl); font-size: var(--fs-floor-micro); font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: var(--txt3); }
+.cbt-atk-weapons { display: flex; flex-wrap: wrap; gap: 8px; }
+.cbt-atk-weapon { display: inline-flex; align-items: center; gap: 8px; min-height: var(--tap-min); min-width: var(--tap-min); padding: 6px 12px; background: var(--surf2); border: 1px solid var(--bdr); border-radius: var(--radius-pill); cursor: pointer; }
+.cbt-atk-weapon:hover { background: var(--surf3); border-color: var(--bdr2); }
+.cbt-atk-weapon-on { background: var(--accent-a8); border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+.cbt-atk-weapon-on .cbt-atk-weapon-name { color: var(--accent); }
+.cbt-atk-weapon-name { font-family: var(--fl); font-size: var(--fs-floor-body); font-weight: 700; letter-spacing: .04em; color: var(--txt); }
+.cbt-atk-weapon-rating { font-family: var(--fl); font-size: var(--fs-floor-micro); font-weight: 700; letter-spacing: .06em; color: var(--txt3); font-variant-numeric: tabular-nums; }
+
+.cbt-atk-stepper { display: flex; align-items: center; justify-content: center; gap: 16px; }
+.cbt-atk-step { display: flex; align-items: center; justify-content: center; min-width: var(--tap-min); min-height: var(--tap-min); flex-shrink: 0; background: var(--surf2); border: 1px solid var(--bdr); border-radius: var(--radius-sm); color: var(--txt2); font-family: var(--fl); font-size: 1.25rem; line-height: 1; cursor: pointer; }
+.cbt-atk-step:hover { background: var(--surf3); color: var(--txt); }
+.cbt-atk-pool { font-family: var(--fl); font-size: 1.75rem; font-weight: 900; color: var(--accent); font-variant-numeric: tabular-nums; min-width: 56px; text-align: center; }
+.cbt-atk-pool-d { font-size: 0.875rem; font-weight: 700; color: var(--txt3); margin-left: 2px; }
+.cbt-atk-note { font-family: var(--ft); font-size: var(--fs-floor-body); color: var(--txt3); text-align: center; }
+
+.cbt-atk-actions { display: flex; gap: 8px; }
+.cbt-atk-cancel { flex: 1; min-width: var(--tap-min); min-height: var(--tap-min); padding: 8px 14px; background: var(--surf2); border: 1px solid var(--bdr); border-radius: var(--radius-sm); font-family: var(--fl); font-size: var(--fs-floor-body); font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--txt2); cursor: pointer; }
+.cbt-atk-cancel:hover { background: var(--surf3); color: var(--txt); }
+.cbt-atk-roll { flex: 2; min-width: var(--tap-min); min-height: var(--tap-min); padding: 8px 14px; background: var(--crim); border: 1px solid var(--crim-a70); border-radius: var(--radius-sm); font-family: var(--fl); font-size: var(--fs-floor-body); font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: var(--txt-on-dark); cursor: pointer; }
+.cbt-atk-roll[disabled] { opacity: .45; cursor: not-allowed; }
 
 /* ── Emergency tab ── */
 .emg-wrap { padding: 16px; }
