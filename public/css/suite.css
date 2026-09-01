@@ -1665,6 +1665,7 @@ html:not([data-theme="dark"]) .more-app-icon-svg svg {
 .cbt-card { display: flex; gap: 10px; background: var(--surf); border: 1px solid var(--bdr); border-radius: var(--radius-md); padding: 10px; }
 .cbt-card.cbt-active { border-left: 3px solid var(--accent); background: var(--accent-a8); }
 .cbt-card.cbt-incap { opacity: .5; }
+.cbt-card-preroll { align-items: center; gap: 8px; }
 .cbt-card-rail { display: flex; flex-direction: column; align-items: center; gap: 2px; flex-shrink: 0; width: var(--tap-min); }
 .cbt-grip { display: flex; align-items: center; justify-content: center; min-width: var(--tap-min); min-height: var(--tap-min); color: var(--txt3); font-size: 0.875rem; line-height: 1; letter-spacing: 2px; cursor: grab; user-select: none; touch-action: none; }
 .cbt-grip:active { cursor: grabbing; }
@@ -1696,7 +1697,7 @@ html:not([data-theme="dark"]) .more-app-icon-svg svg {
 .cbt-pips { display: flex; flex: 1; flex-wrap: wrap; align-items: center; gap: 3px; min-width: 0; }
 .cbt-pip { width: 10px; height: 10px; border: 1px solid var(--bdr2); border-radius: var(--radius-pill); background: var(--surf2); }
 .cbt-pip.cbt-pip-vitae { background: var(--crim); border-color: var(--crim2); }
-.cbt-pip.cbt-pip-wp { background: var(--accent); border-color: var(--accent); }
+.cbt-pip.cbt-pip-wp { background: var(--gold); border-color: var(--gdim); }
 /* cmb.3a: the Attack button, in place of cmb.1's preset pool buttons. Full
    width because it is the card's one primary action, and because a lone button
    floating at var(--tap-min) beside the damage row read as a chip rather than

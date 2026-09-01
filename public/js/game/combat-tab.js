@@ -318,13 +318,24 @@ function renderSetup() {
   _scene = { combatants: [], round: 0, activeIdx: 0 };
 }
 
+/* Reuses the round view's own .cbt-card look (border/background/radius) rather
+   than the pre-cmb.1 flat .cbt-row this screen used to render with - this was
+   the one screen in the park -> roll -> fight flow the epic's five stories
+   never touched, so it kept looking like the old app while everything either
+   side of it changed. No rail (nothing rolled yet to show) and no expand
+   (nothing to expand into before initiative exists) - just the card shell with
+   Name, Defence, and Remove, matching what this screen actually needs. */
 function renderPreRoll() {
   let h = '<div class="cbt-wrap">';
   h += `<div class="cbt-header"><span class="cbt-round-lbl">Combatants ready</span><div class="cbt-actions"><button class="cbt-roll-init-btn" onclick="combatRollInit()">Roll Initiative</button><button class="cbt-end-btn" onclick="combatEnd()">End Combat</button></div></div>`;
   h += '<div class="cbt-list">';
   _scene.combatants.forEach(cb => {
-    const c = (suiteState.chars || []).find(x => String(x._id) === cb.charId);
-    h += `<div class="cbt-row"><span class="cbt-init-slot">—</span><span class="cbt-name">${esc(cb.name)}</span><span class="cbt-def">DEF ${cb.defence}</span><button class="cbt-rm-btn" onclick="combatRemove('${esc(cb.charId)}')">✕</button></div>`;
+    const id = esc(cb.charId);
+    h += `<div class="cbt-card cbt-card-preroll">
+      <span class="cbt-name">${esc(cb.name)}</span>
+      <span class="cbt-chip">DEF <b>${cb.defence}</b></span>
+      <button class="cbt-rm-btn" onclick="combatRemove('${id}')" aria-label="Remove ${esc(cb.name)}">✕</button>
+    </div>`;
   });
   h += '</div></div>';
   _el.innerHTML = h;
