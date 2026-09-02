@@ -1,0 +1,35 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Roller Convergence — live data</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700&family=Lato:ital,wght@0,400;0,600;0,700;1,400&family=Libre+Baskerville:ital,wght@0,400;1,400&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/app.css">
+</head>
+<body>
+
+  <div class="devbar">
+    <span class="dev-dot"></span>
+    <span>LIVE — served from <code>data/dev-fixtures/characters.json</code>, computed with real attribute/skill/discipline dots, not typed in</span>
+    <button class="theme-toggle" id="themeToggle" type="button">
+      <span id="themeToggleLabel">Dark</span>
+    </button>
+    <button class="theme-toggle" id="roleToggle" type="button">
+      <span id="roleToggleLabel">Viewing as Player</span>
+    </button>
+  </div>
+
+  <div class="stage">
+    <div class="phone">
+      <div class="app" id="app">
+        <div class="loading">Loading character&hellip;</div>
+      </div>
+    </div>
+  </div>
+
+<script src="/app.js"></script>
+</body>
+</html>

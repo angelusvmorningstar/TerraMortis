@@ -1,0 +1,554 @@
+<title>Roller Convergence</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700&family=Lato:ital,wght@0,400;0,600;0,700;1,400&family=Libre+Baskerville:ital,wght@0,400;1,400&display=swap" rel="stylesheet">
+<style>
+  /* ── Real TM Game tokens, ported verbatim ──────────────────────────────
+     index.html (the Suite/game app the roller lives in) is HARDCODED to
+     dark mode per theme.css's own header comment — not a toggle, not a
+     preference. This mockup honours that: painted dark explicitly, no
+     light variant, exactly like the real screen it stands in for. Values
+     below are TM Game's actual [data-theme="dark"] block plus the new
+     tokens from design-token-port.md (2026-08-22), not invented. */
+  :root{
+    --bg:#0D0B09; --surf:#161210; --surf2:#1E1A16; --surf3:#252018;
+    --bdr:rgba(201,169,98,.18); --bdr2:rgba(201,169,98,.35); --bdr3:rgba(201,169,98,.55);
+    --gold:#C9A962; --gold2:#E0C47A;
+    --crim:#8B0000; --crim2:#A81010; --crim-a30:rgba(139,0,0,.35);
+    --txt:#E8E0D0; --txt2:#C4B49A; --txt3:#8A7A6A;
+    --accent:var(--gold2);
+
+    --fh:'Cinzel',serif; --fl:'Lato',sans-serif; --ft:'Libre Baskerville',serif;
+
+    --radius-sm:4px; --radius-md:8px; --radius-lg:12px; --radius-pill:999px;
+
+    --type-size-display-hero:64px;
+    --type-size-heading:16px; --type-size-subheading:14px;
+    --type-size-body:13px; --type-size-caption:12px;
+    --type-size-label:11px; --type-size-micro:10px;
+    --type-letter-spacing-label:.06em;
+    --type-weight-body:400; --type-weight-label:600; --type-weight-strong:700;
+
+    --control-height-sm:36px; --control-height-md:44px; --control-height-lg:52px;
+    --chip-tag-height:20px; --chip-status-height:30px;
+
+    color-scheme: dark;
+  }
+
+  *{box-sizing:border-box;}
+  body{
+    margin:0; min-height:100vh; background:var(--bg); color:var(--txt);
+    font-family:var(--ft);
+    display:flex; align-items:flex-start; justify-content:center;
+    padding:40px 16px 80px;
+  }
+
+  .stage{width:100%; max-width:900px; display:flex; flex-direction:column; align-items:center; gap:22px;}
+
+  .stage-head{width:100%; max-width:420px; display:flex; flex-direction:column; gap:6px;}
+  .stage-eyebrow{
+    font-family:var(--fl); font-size:var(--type-size-label); font-weight:var(--type-weight-label);
+    letter-spacing:var(--type-letter-spacing-label); text-transform:uppercase; color:var(--gold2);
+  }
+  .stage-title{
+    font-family:var(--fl); font-size:19px; font-weight:var(--type-weight-strong);
+    color:var(--txt); margin:0; text-wrap:balance;
+  }
+  .stage-sub{
+    font-family:var(--ft); font-size:var(--type-size-body); color:var(--txt3);
+    margin:0; max-width:60ch; line-height:1.5;
+  }
+
+  .src-toggle{
+    align-self:flex-start; margin-top:4px;
+    min-height:var(--control-height-sm); padding:0 16px; border-radius:var(--radius-pill);
+    background:transparent; border:1px solid var(--bdr2); color:var(--gold2);
+    font-family:var(--fl); font-size:var(--type-size-label); font-weight:var(--type-weight-label);
+    letter-spacing:var(--type-letter-spacing-label); text-transform:uppercase;
+    cursor:pointer; transition:background .15s ease, border-color .15s ease;
+    display:inline-flex; align-items:center;
+  }
+  .src-toggle:hover{background:rgba(224,196,122,.08); border-color:var(--bdr3);}
+  .src-toggle:focus-visible{outline:2px solid var(--gold2); outline-offset:2px;}
+
+  /* ── the phone stage ── */
+  .phone{
+    width:100%; max-width:390px;
+    border:1px solid var(--bdr2); border-radius:28px;
+    padding:10px;
+    background:linear-gradient(180deg, #1a140f, #0a0806);
+    box-shadow:0 30px 60px -20px rgba(0,0,0,.6);
+  }
+  .app{
+    background:var(--bg);
+    border:1px solid var(--bdr);
+    border-radius:20px;
+    padding:16px 14px 20px;
+    display:flex; flex-direction:column; gap:14px;
+    position:relative;
+    overflow:hidden;
+  }
+
+  /* ── topbar ── */
+  .topbar{display:flex; align-items:center; justify-content:space-between; gap:10px;}
+  .char-chip{display:flex; align-items:center; gap:8px; min-width:0;}
+  .char-avatar{
+    width:30px; height:30px; border-radius:50%; flex:none;
+    background:linear-gradient(145deg, var(--surf3), var(--surf2));
+    border:1px solid var(--bdr2);
+    display:flex; align-items:center; justify-content:center;
+    font-family:var(--fl); font-size:12px; font-weight:var(--type-weight-strong); color:var(--gold2);
+  }
+  .char-name{
+    font-family:var(--fl); font-size:var(--type-size-subheading); font-weight:var(--type-weight-strong);
+    color:var(--txt); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+  }
+
+  /* ── status pill row (the new AC2 build badge, per tm-admin-02's guidance:
+       built off the existing status-pill vocabulary, never Cinzel) ── */
+  .pill-row{display:flex; align-items:center; gap:6px; flex-wrap:wrap;}
+  .pill{
+    height:var(--chip-status-height); padding:0 10px; border-radius:var(--radius-pill);
+    display:inline-flex; align-items:center; gap:5px;
+    font-family:var(--fl); font-size:var(--type-size-label); font-weight:var(--type-weight-label);
+    letter-spacing:var(--type-letter-spacing-label); text-transform:uppercase;
+    border:1px solid var(--bdr2); background:var(--surf2); color:var(--txt2);
+    white-space:nowrap;
+  }
+  .pill-dot{width:6px; height:6px; border-radius:50%; flex:none;}
+  .pill--build .pill-dot{background:#6abf6a;}
+  .pill--build{color:#9fd79f; border-color:rgba(106,191,106,.35); background:rgba(106,191,106,.08);}
+  .pill--vitae .pill-dot{background:var(--crim2);}
+  .pill--vitae{color:#e0a0a0;}
+  .pill--wp .pill-dot{background:var(--gold2);}
+  .pill--wp{color:var(--gold2);}
+
+  /* ── picker sections (char-pools.js's real collapsible model, extended) ── */
+  .picker{display:flex; flex-direction:column; gap:8px;}
+  .picker-section{border:1px solid var(--bdr); border-radius:var(--radius-md); background:var(--surf); overflow:hidden;}
+  .picker-head{
+    all:unset; box-sizing:border-box;
+    display:flex; align-items:center; justify-content:space-between; gap:8px;
+    width:100%; min-height:var(--control-height-sm); padding:0 12px; cursor:pointer;
+  }
+  .picker-head-label{
+    font-family:var(--fl); font-size:var(--type-size-heading); font-weight:var(--type-weight-strong);
+    color:var(--txt);
+  }
+  .picker-count{
+    font-family:var(--fl); font-size:var(--type-size-micro); font-weight:var(--type-weight-label);
+    color:var(--txt3); margin-left:6px;
+  }
+  .chevron{
+    width:9px; height:9px; border-right:2px solid var(--txt3); border-bottom:2px solid var(--txt3);
+    transform:rotate(45deg); transition:transform .18s ease; flex:none;
+  }
+  .picker-section[data-open="true"] .chevron{transform:rotate(-135deg);}
+
+  .picker-body-wrap{display:grid; grid-template-rows:0fr; transition:grid-template-rows .22s ease;}
+  .picker-section[data-open="true"] .picker-body-wrap{grid-template-rows:1fr;}
+  .picker-body{overflow:hidden; min-height:0;}
+  .picker-body-inner{
+    display:flex; flex-direction:column; gap:7px;
+    padding:0 10px 10px;
+  }
+
+  /* Number first, always — the pool total is the single most important fact
+     on this card and has to be readable before the player taps anything,
+     same as the real char-pools.js grid this section is extending. */
+  .pool-btn{
+    all:unset; box-sizing:border-box; cursor:pointer; position:relative;
+    display:flex; flex-direction:column; align-items:flex-start; gap:1px;
+    width:100%; min-height:66px; padding:10px 46px 10px 13px;
+    border-radius:var(--radius-md); border:1px solid var(--bdr2);
+    background:var(--surf2);
+    transition:background .15s ease, border-color .15s ease;
+  }
+  .pool-btn:hover{border-color:var(--bdr3);}
+  .pool-btn:focus-visible{outline:2px solid var(--gold2); outline-offset:2px;}
+  .pool-num{
+    font-family:var(--fl); font-size:22px; font-weight:var(--type-weight-strong);
+    color:var(--gold); line-height:1.1; font-variant-numeric:tabular-nums;
+  }
+  .pool-name{
+    font-family:var(--fl); font-size:var(--type-size-subheading); font-weight:var(--type-weight-label);
+    color:var(--txt); margin-top:2px;
+  }
+  .pool-formula{
+    font-family:var(--fl); font-size:var(--type-size-caption); color:var(--txt2);
+  }
+  .pool-btn.selected{
+    background:linear-gradient(180deg, rgba(224,196,122,.16), rgba(224,196,122,.07));
+    border-color:var(--gold2);
+  }
+  .pool-btn.selected .pool-num, .pool-btn.selected .pool-name{color:var(--gold2);}
+  .pool-badges{
+    position:absolute; top:9px; right:9px;
+    display:flex; align-items:center; gap:4px;
+  }
+  /* Solid fills, not tinted outlines — a 20px badge only reads at a glance
+     with real contrast, not a low-opacity tint on a dark card. */
+  .mini-badge{
+    width:20px; height:20px; border-radius:50%; flex:none;
+    display:flex; align-items:center; justify-content:center;
+    font-family:var(--fl); font-size:11px; font-weight:var(--type-weight-strong);
+  }
+  .mini-badge--again{background:var(--gold2); color:#1a1208;}
+  .mini-badge--rote{background:#8a5cd6; color:#fff;}
+
+  /* ── power info banner (dice-engine.js's pattern — the idea Sally
+       specifically called "the best one nobody's seen yet") ── */
+  .power-banner{
+    border:1px solid var(--bdr2); border-radius:var(--radius-lg);
+    background:linear-gradient(180deg, var(--surf2), var(--surf));
+    padding:12px 14px 14px;
+    display:flex; flex-direction:column; gap:6px;
+  }
+  .power-banner-top{display:flex; align-items:baseline; justify-content:space-between; gap:8px;}
+  .power-name{
+    font-family:var(--fl); font-size:var(--type-size-heading); font-weight:var(--type-weight-strong);
+    color:var(--gold2);
+  }
+  .power-cost{
+    font-family:var(--fl); font-size:var(--type-size-label); font-weight:var(--type-weight-label);
+    letter-spacing:var(--type-letter-spacing-label); text-transform:uppercase; color:var(--crim2);
+    white-space:nowrap;
+  }
+  .power-meta{
+    display:flex; flex-wrap:wrap; gap:6px 10px;
+    font-family:var(--fl); font-size:var(--type-size-caption); color:var(--txt2);
+  }
+  .power-meta span:not(:last-child)::after{content:'·'; margin-left:10px; color:var(--bdr3);}
+  .power-desc{
+    margin:2px 0 0; font-family:var(--ft); font-style:italic; font-size:var(--type-size-body);
+    color:var(--txt2); line-height:1.55;
+  }
+
+  /* ── remembered mod chips, scoped to the selected power (#1039 net-new,
+       anchored to the power banner per Sally's recommendation) ── */
+  .mods{display:flex; flex-direction:column; gap:6px;}
+  .mods-label{
+    font-family:var(--fl); font-size:var(--type-size-label); font-weight:var(--type-weight-label);
+    letter-spacing:var(--type-letter-spacing-label); text-transform:uppercase; color:var(--txt3);
+  }
+  .mods-row{display:flex; flex-wrap:wrap; gap:7px;}
+  /* Tappable modifier toggles, NOT the static Tag chip (--chip-tag-height:20px
+     is for display-only badges like .mini-badge below — a real touch target
+     needs the --control-height-sm floor instead, same fix class as the audit's
+     own .dt-feed-chip finding). */
+  .mod-chip{
+    all:unset; box-sizing:border-box; cursor:pointer;
+    min-height:var(--control-height-sm); padding:0 14px; border-radius:var(--radius-pill);
+    display:inline-flex; align-items:center; gap:5px;
+    border:1px solid var(--bdr2); background:transparent; color:var(--txt3);
+    font-family:var(--fl); font-size:var(--type-size-subheading); font-weight:var(--type-weight-label);
+    transition:background .15s ease, border-color .15s ease, color .15s ease;
+  }
+  .mod-chip:focus-visible{outline:2px solid var(--gold2); outline-offset:2px;}
+  .mod-chip.active{background:rgba(224,196,122,.14); border-color:var(--gold2); color:var(--gold2);}
+  .mod-chip.add{color:var(--txt3); border-style:dashed;}
+  .mod-chip.add:hover{border-color:var(--bdr3); color:var(--txt2);}
+
+  /* ── segmented Again pill (roll-v2's #1024 slice D) ── */
+  .again{display:flex; align-items:center; gap:10px;}
+  .again-label{
+    font-family:var(--fl); font-size:var(--type-size-label); font-weight:var(--type-weight-label);
+    letter-spacing:var(--type-letter-spacing-label); text-transform:uppercase; color:var(--txt3);
+    white-space:nowrap;
+  }
+  .again-seg{
+    display:inline-flex; border:1px solid var(--bdr2); border-radius:var(--radius-pill);
+    background:var(--surf); padding:3px; flex:1;
+  }
+  .again-seg button{
+    all:unset; box-sizing:border-box; cursor:pointer; flex:1; text-align:center;
+    display:flex; align-items:center; justify-content:center;
+    min-height:var(--control-height-sm); border-radius:var(--radius-pill);
+    font-family:var(--fl); font-size:var(--type-size-subheading); font-weight:var(--type-weight-label);
+    color:var(--txt3); transition:background .15s ease, color .15s ease;
+  }
+  .again-seg button:focus-visible{outline:2px solid var(--gold2); outline-offset:2px;}
+  .again-seg button.active{background:var(--gold2); color:#1a1208; font-weight:var(--type-weight-strong);}
+
+  /* ── the anchor (roll-v2's effective-pool number; --type-size-display-hero
+       is the one confirmed, locked Cinzel usage in this whole screen) ── */
+  .anchor{
+    display:flex; flex-direction:column; align-items:center; gap:2px;
+    padding:10px 0 4px; text-align:center;
+  }
+  .anchor-num{
+    font-family:var(--fh); font-size:var(--type-size-display-hero); font-weight:var(--type-weight-strong);
+    color:var(--gold2); line-height:1; text-shadow:0 0 22px rgba(224,196,122,.25);
+    transition:transform .12s ease;
+  }
+  .anchor-num.bump{transform:scale(1.06);}
+  .anchor-sub{
+    font-family:var(--fl); font-size:var(--type-size-caption); color:var(--txt2);
+    max-width:280px;
+  }
+  details.anchor-detail{margin-top:2px;}
+  details.anchor-detail summary{
+    cursor:pointer; list-style:none;
+    display:inline-flex; align-items:center; min-height:var(--control-height-sm); padding:0 6px;
+    font-family:var(--fl); font-size:var(--type-size-label); font-weight:var(--type-weight-label);
+    letter-spacing:var(--type-letter-spacing-label); text-transform:uppercase; color:var(--gold2);
+  }
+  details.anchor-detail summary:focus-visible{outline:2px solid var(--gold2); outline-offset:2px; border-radius:var(--radius-sm);}
+  details.anchor-detail summary::-webkit-details-marker{display:none;}
+  .breakdown{
+    margin-top:8px; padding:10px 12px; border:1px solid var(--bdr); border-radius:var(--radius-md);
+    background:var(--surf); text-align:left;
+    font-family:var(--fl); font-size:var(--type-size-caption); color:var(--txt2);
+    display:flex; flex-direction:column; gap:4px;
+  }
+  .breakdown-row{display:flex; justify-content:space-between; gap:10px;}
+  .breakdown-row b{color:var(--gold2); font-variant-numeric:tabular-nums;}
+
+  /* ── roll button — crimson, deliberately: this is the one place the
+       accent shifts off gold, because this action spends Vitae (blood) ── */
+  .roll-btn{
+    all:unset; box-sizing:border-box; cursor:pointer;
+    height:var(--control-height-lg); border-radius:var(--radius-md);
+    display:flex; align-items:center; justify-content:center; gap:8px;
+    background:linear-gradient(180deg, var(--crim2), var(--crim));
+    border:1px solid rgba(255,255,255,.06);
+    box-shadow:0 10px 24px -10px rgba(139,0,0,.55), inset 0 1px 0 rgba(255,255,255,.06);
+    color:#F4EFE4;
+    font-family:var(--fl); font-size:15px; font-weight:var(--type-weight-strong);
+    letter-spacing:.02em; text-transform:uppercase;
+    transition:filter .15s ease, transform .08s ease;
+  }
+  .roll-btn:hover{filter:brightness(1.08);}
+  .roll-btn:active{transform:translateY(1px);}
+  .roll-btn:focus-visible{outline:2px solid var(--gold2); outline-offset:2px;}
+
+  /* ── provenance overlay ("show sources") ── */
+  [data-source]{position:relative;}
+  .src-tag{
+    display:none; position:absolute; top:-9px; left:10px; z-index:5;
+    padding:2px 8px; border-radius:var(--radius-pill);
+    background:#0a0806; border:1px solid var(--bdr3);
+    font-family:var(--fl); font-size:9px; font-weight:var(--type-weight-label);
+    letter-spacing:.04em; color:var(--gold2); white-space:nowrap;
+  }
+  body.show-sources [data-source] .src-tag{display:inline-block;}
+  body.show-sources [data-source]{outline:1px dashed var(--bdr3); outline-offset:4px; border-radius:var(--radius-lg);}
+
+  .legend{
+    width:100%; max-width:420px;
+    display:none;
+    border:1px solid var(--bdr); border-radius:var(--radius-md); background:var(--surf);
+    padding:12px 14px; margin-top:-6px;
+    font-family:var(--fl); font-size:var(--type-size-caption); color:var(--txt2);
+  }
+  body.show-sources .legend{display:block;}
+  .legend h3{
+    margin:0 0 8px; font-size:var(--type-size-label); font-weight:var(--type-weight-strong);
+    letter-spacing:var(--type-letter-spacing-label); text-transform:uppercase; color:var(--gold2);
+  }
+  .legend ul{margin:0; padding-left:18px; display:flex; flex-direction:column; gap:5px;}
+  .legend b{color:var(--txt);}
+
+  @media (prefers-reduced-motion: reduce){
+    *{transition-duration:.001ms !important;}
+  }
+
+  @media (max-width:460px){
+    .stage{gap:16px;}
+  }
+</style>
+
+<div class="stage">
+  <div class="stage-head">
+    <span class="stage-eyebrow">Epic RLV — dice roller harmonisation</span>
+    <h1 class="stage-title">One pool builder, drawn from three real implementations</h1>
+    <p class="stage-sub">
+      The anchor number and Again pill are roll-v2's. The collapsible sections are char-pools.js's.
+      The power banner and its cost line are dice-engine.js's, ported over for the first time.
+      The mod chips are the one genuinely new piece #1039 asked for.
+    </p>
+    <button class="src-toggle" id="srcToggle" type="button" aria-pressed="false">Show sources</button>
+  </div>
+
+  <div class="phone">
+    <div class="app">
+
+      <div class="topbar">
+        <div class="char-chip">
+          <div class="char-avatar">MU</div>
+          <div class="char-name">Màibh Urquhart</div>
+        </div>
+      </div>
+
+      <div class="pill-row" data-source="new — AC2">
+        <span class="src-tag">new · AC2, status-pill vocabulary</span>
+        <span class="pill pill--build"><span class="pill-dot"></span>Roller v2</span>
+        <span class="pill pill--vitae"><span class="pill-dot"></span>Vitae 6/10</span>
+        <span class="pill pill--wp"><span class="pill-dot"></span>WP 3/5</span>
+      </div>
+
+      <div class="picker" data-source="char-pools.js">
+        <span class="src-tag" style="position:static; display:inline-block; margin-bottom:-2px; width:fit-content;">from char-pools.js</span>
+
+        <div class="picker-section" data-open="false" id="secSkills">
+          <button class="picker-head" data-toggle="secSkills" type="button" aria-expanded="false">
+            <span class="picker-head-label">Skills <span class="picker-count">14</span></span>
+            <span class="chevron"></span>
+          </button>
+          <div class="picker-body-wrap"><div class="picker-body"><div class="picker-body-inner">
+            <button class="pool-btn">
+              <span class="pool-num">5</span><span class="pool-name">Intimidation</span><span class="pool-formula">Pre+Itm</span>
+            </button>
+            <button class="pool-btn">
+              <span class="pool-num">4</span><span class="pool-name">Persuasion</span><span class="pool-formula">Man+Per</span>
+            </button>
+            <button class="pool-btn">
+              <span class="pool-num">3</span><span class="pool-name">Stealth</span><span class="pool-formula">Dex+Ste</span>
+            </button>
+          </div></div></div>
+        </div>
+
+        <div class="picker-section" data-open="true" id="secDisc">
+          <button class="picker-head" data-toggle="secDisc" type="button" aria-expanded="true">
+            <span class="picker-head-label">Disciplines <span class="picker-count">6</span></span>
+            <span class="chevron"></span>
+          </button>
+          <div class="picker-body-wrap"><div class="picker-body"><div class="picker-body-inner">
+            <button class="pool-btn selected">
+              <span class="pool-badges"><span class="mini-badge mini-badge--again">9</span></span>
+              <span class="pool-num">5</span><span class="pool-name">Nightmare</span><span class="pool-formula">Pre+Itm</span>
+            </button>
+            <button class="pool-btn">
+              <span class="pool-badges"><span class="mini-badge mini-badge--rote">R</span></span>
+              <span class="pool-num">4</span><span class="pool-name">Nemesis</span><span class="pool-formula">Man+Occ</span>
+            </button>
+            <button class="pool-btn">
+              <span class="pool-num">3</span><span class="pool-name">Cloak of Night</span><span class="pool-formula">Wits+Obf</span>
+            </button>
+          </div></div></div>
+        </div>
+      </div>
+
+      <div class="power-banner" data-source="dice-engine.js">
+        <span class="src-tag">from dice-engine.js — never reached the player app until now</span>
+        <div class="power-banner-top">
+          <span class="power-name">Nightmare</span>
+          <span class="power-cost">Costs 1 Vitae</span>
+        </div>
+        <div class="power-meta">
+          <span>Presence + Intimidation</span><span>Instant</span><span>Resisted: Composure + Resolve</span>
+        </div>
+        <p class="power-desc">A wave of primal terror rolls off the vampire, aging every mortal
+          shadow in the room into something with teeth.</p>
+      </div>
+
+      <div class="mods" data-source="new — #1039">
+        <span class="src-tag">new · #1039's own ask, scoped to the selected power</span>
+        <span class="mods-label">Remembered for Nightmare</span>
+        <div class="mods-row">
+          <button class="mod-chip active" id="modAir" type="button" aria-pressed="true">Air of Menace +2</button>
+          <button class="mod-chip add" type="button">+ Add modifier</button>
+        </div>
+      </div>
+
+      <div class="again" data-source="roll-v2.js — #1024 slice D">
+        <span class="src-tag">from roll-v2.js — replaces three separate toggle buttons</span>
+        <span class="again-label">Again</span>
+        <div class="again-seg" role="group" aria-label="Again threshold">
+          <button data-v="10" type="button">10</button>
+          <button data-v="9" class="active" type="button" aria-pressed="true">9</button>
+          <button data-v="8" type="button">8</button>
+          <button data-v="none" type="button">None</button>
+        </div>
+      </div>
+
+      <div class="anchor" data-source="roll-v2.js — #1024 slice A">
+        <span class="src-tag">from roll-v2.js — the one Cinzel use on this whole screen</span>
+        <div class="anchor-num" id="anchorNum">7</div>
+        <div class="anchor-sub" id="anchorSub">Presence 3 + Intimidation 2 + Air of Menace 2, 9-again</div>
+        <details class="anchor-detail">
+          <summary>Full breakdown</summary>
+          <div class="breakdown">
+            <div class="breakdown-row"><span>Presence</span><b>3</b></div>
+            <div class="breakdown-row"><span>Intimidation</span><b>2</b></div>
+            <div class="breakdown-row"><span>Air of Menace</span><b id="brkAir">+2</b></div>
+            <div class="breakdown-row"><span>Again threshold</span><b id="brkAgain">9-again</b></div>
+            <div class="breakdown-row"><span>Resistance</span><b>&#8212;</b></div>
+          </div>
+        </details>
+      </div>
+
+      <button class="roll-btn" type="button">
+        Roll &amp; Spend 1 Vitae
+      </button>
+
+    </div>
+  </div>
+
+  <div class="legend">
+    <h3>Where each piece comes from</h3>
+    <ul>
+      <li><b>Skills / Disciplines sections</b> &#8212; char-pools.js already ships this, collapsible and badge-annotated. Not rebuilt, extended.</li>
+      <li><b>Nightmare's power banner</b> &#8212; dice-engine.js's attribute+skill+discipline+power builder, ST-only until now. The single best idea nobody outside the admin app had seen.</li>
+      <li><b>Air of Menace chip</b> &#8212; the one genuinely new piece #1039 asked for: a per-power modifier the player curates once and the app remembers, scoped to the power's own banner rather than a generic always-visible tray.</li>
+      <li><b>Again segment &amp; the anchor number</b> &#8212; roll-v2.js's #1024 slice A+D, already shipped and reviewed, carried forward unchanged.</li>
+      <li><b>Roller v2 / Vitae / WP pills</b> &#8212; new for this convergence (AC2), built off the app's own existing status-pill vocabulary rather than inventing a new one.</li>
+    </ul>
+  </div>
+</div>
+
+<script>
+(function(){
+  var body = document.body;
+  var toggle = document.getElementById('srcToggle');
+  toggle.addEventListener('click', function(){
+    var on = body.classList.toggle('show-sources');
+    toggle.setAttribute('aria-pressed', on ? 'true' : 'false');
+    toggle.textContent = on ? 'Hide sources' : 'Show sources';
+  });
+
+  document.querySelectorAll('[data-toggle]').forEach(function(head){
+    head.addEventListener('click', function(){
+      var sec = document.getElementById(head.getAttribute('data-toggle'));
+      var open = sec.getAttribute('data-open') === 'true';
+      sec.setAttribute('data-open', open ? 'false' : 'true');
+      head.setAttribute('aria-expanded', open ? 'false' : 'true');
+    });
+  });
+
+  document.querySelectorAll('.again-seg button').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      document.querySelectorAll('.again-seg button').forEach(function(b){
+        b.classList.remove('active'); b.setAttribute('aria-pressed', 'false');
+      });
+      btn.classList.add('active'); btn.setAttribute('aria-pressed', 'true');
+      var label = btn.getAttribute('data-v') === 'none' ? 'no again' : (btn.getAttribute('data-v') + '-again');
+      document.getElementById('brkAgain').textContent = label;
+      refreshSub();
+    });
+  });
+
+  var airOn = true;
+  var modAir = document.getElementById('modAir');
+  var anchorNum = document.getElementById('anchorNum');
+  var brkAir = document.getElementById('brkAir');
+
+  function refreshSub(){
+    var again = document.querySelector('.again-seg button.active').getAttribute('data-v');
+    var againLabel = again === 'none' ? 'no again' : (again + '-again');
+    var airLabel = airOn ? '+ Air of Menace 2, ' : '';
+    document.getElementById('anchorSub').textContent =
+      'Presence 3 + Intimidation 2' + (airOn ? ' + Air of Menace 2' : '') + ', ' + againLabel;
+  }
+
+  modAir.addEventListener('click', function(){
+    airOn = !airOn;
+    modAir.classList.toggle('active', airOn);
+    modAir.setAttribute('aria-pressed', airOn ? 'true' : 'false');
+    brkAir.textContent = airOn ? '+2' : '+0 (off)';
+    anchorNum.textContent = airOn ? '7' : '5';
+    anchorNum.classList.remove('bump'); void anchorNum.offsetWidth; anchorNum.classList.add('bump');
+    refreshSub();
+  });
+})();
+</script>

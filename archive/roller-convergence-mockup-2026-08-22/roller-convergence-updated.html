@@ -1,0 +1,639 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Roller Convergence</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700&family=Lato:ital,wght@0,400;0,600;0,700;1,400&family=Libre+Baskerville:ital,wght@0,400;1,400&display=swap" rel="stylesheet">
+<style>
+  /* ── Real TM Game tokens, ported verbatim ──────────────────────────────
+     public/index.html (the Suite/game app the roller lives in) is HARDCODED
+     to dark mode per theme.css's own header comment — not a toggle, not a
+     preference. This mockup honours that: painted dark explicitly, no light
+     variant, exactly like the real screen it stands in for. */
+  :root{
+    --bg:#0D0B09; --surf:#161210; --surf2:#1E1A16; --surf3:#252018;
+    --bdr:rgba(201,169,98,.18); --bdr2:rgba(201,169,98,.35); --bdr3:rgba(201,169,98,.55);
+    --gold:#C9A962; --gold2:#E0C47A;
+    --crim:#8B0000; --crim2:#A81010; --crim-a30:rgba(139,0,0,.35);
+    --txt:#E8E0D0; --txt2:#C4B49A; --txt3:#8A7A6A; --txt-on-dark:#F4EFE4;
+    --accent:var(--gold2);
+    --overlay:rgba(0,0,0,.65);
+
+    --fh:'Cinzel',serif; --fl:'Lato',sans-serif; --ft:'Libre Baskerville',serif;
+
+    --radius-sm:4px; --radius-md:8px; --radius-lg:12px; --radius-pill:999px;
+
+    --type-size-display-hero:60px;
+    --type-size-heading:16px; --type-size-subheading:14px;
+    --type-size-body:13px; --type-size-caption:12px;
+    --type-size-label:11px; --type-size-micro:10px;
+    --type-letter-spacing-label:.06em;
+    --type-weight-body:400; --type-weight-label:600; --type-weight-strong:700;
+
+    --control-height-sm:36px; --control-height-md:44px; --control-height-lg:52px;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; min-height:100vh; background:var(--bg); color:var(--txt);
+    font-family:var(--ft);
+    display:flex; align-items:flex-start; justify-content:center;
+    padding:40px 16px 80px;
+  }
+
+  .stage{width:100%; max-width:900px; display:flex; flex-direction:column; align-items:center; gap:22px;}
+
+  .stage-head{width:100%; max-width:460px; display:flex; flex-direction:column; gap:6px;}
+  .stage-eyebrow{
+    font-family:var(--fl); font-size:var(--type-size-label); font-weight:var(--type-weight-label);
+    letter-spacing:var(--type-letter-spacing-label); text-transform:uppercase; color:var(--gold2);
+  }
+  .stage-title{font-family:var(--fl); font-size:19px; font-weight:var(--type-weight-strong); color:var(--txt); margin:0; text-wrap:balance;}
+  .stage-sub{font-family:var(--ft); font-size:var(--type-size-body); color:var(--txt3); margin:0; max-width:60ch; line-height:1.5;}
+  .revision-note{
+    font-family:var(--fl); font-size:var(--type-size-caption); color:var(--txt2); line-height:1.6;
+    background:rgba(201,169,98,.08); border:1px solid var(--bdr2); border-radius:var(--radius-md);
+    padding:10px 12px; margin-top:2px;
+  }
+  .revision-note b{color:var(--gold2);}
+
+  .src-toggle{
+    align-self:flex-start; margin-top:4px;
+    min-height:var(--control-height-sm); padding:0 16px; border-radius:var(--radius-pill);
+    background:transparent; border:1px solid var(--bdr2); color:var(--gold2);
+    font-family:var(--fl); font-size:var(--type-size-label); font-weight:var(--type-weight-label);
+    letter-spacing:var(--type-letter-spacing-label); text-transform:uppercase;
+    cursor:pointer; transition:background .15s ease, border-color .15s ease;
+    display:inline-flex; align-items:center;
+  }
+  .src-toggle:hover{background:rgba(224,196,122,.08); border-color:var(--bdr3);}
+  .src-toggle:focus-visible{outline:2px solid var(--gold2); outline-offset:2px;}
+
+  .variant-label{
+    align-self:flex-start; width:100%; max-width:390px;
+    font-family:var(--fl); font-size:11px; font-weight:700; letter-spacing:.08em; text-transform:uppercase;
+    color:var(--txt3); margin:26px 0 -6px; padding-top:22px; border-top:1px dashed var(--bdr2);
+  }
+  .variant-label:first-of-type{margin-top:0; padding-top:0; border-top:none;}
+  .variant-note{
+    align-self:flex-start; width:100%; max-width:390px;
+    font-family:var(--fl); font-size:12px; color:var(--txt3); line-height:1.55; margin:0;
+  }
+
+  /* ── the phone stage ── */
+  .phone{
+    width:100%; max-width:390px;
+    border:1px solid var(--bdr2); border-radius:28px;
+    padding:10px;
+    background:linear-gradient(180deg, #1a140f, #0a0806);
+    box-shadow:0 30px 60px -20px rgba(0,0,0,.6);
+    position:relative;
+  }
+  .app{
+    background:var(--bg);
+    border:1px solid var(--bdr);
+    border-radius:20px;
+    padding:16px 14px 20px;
+    display:flex; flex-direction:column; gap:14px;
+    position:relative;
+    overflow:hidden;
+    min-height:120px;
+  }
+
+  /* ── topbar ── */
+  .topbar{display:flex; align-items:center; justify-content:space-between; gap:10px;}
+  .char-chip{display:flex; align-items:center; gap:8px; min-width:0;}
+  .char-avatar{
+    width:30px; height:30px; border-radius:50%; flex:none;
+    background:linear-gradient(145deg, var(--surf3), var(--surf2));
+    border:1px solid var(--bdr2);
+    display:flex; align-items:center; justify-content:center;
+    font-family:var(--fl); font-size:12px; font-weight:var(--type-weight-strong); color:var(--gold2);
+  }
+  .char-name{
+    font-family:var(--fl); font-size:var(--type-size-subheading); font-weight:var(--type-weight-strong);
+    color:var(--txt); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+  }
+
+  /* ── status pill row + Vitae/WP resource cards ── */
+  .pill-row{display:flex; align-items:center; gap:6px; flex-wrap:wrap;}
+  .pill{
+    height:26px; padding:0 10px; border-radius:var(--radius-pill);
+    display:inline-flex; align-items:center; gap:5px;
+    font-family:var(--fl); font-size:var(--type-size-label); font-weight:var(--type-weight-label);
+    letter-spacing:var(--type-letter-spacing-label); text-transform:uppercase;
+    border:1px solid var(--bdr2); background:var(--surf2); color:var(--txt2);
+    white-space:nowrap;
+  }
+  .pill-dot{width:6px; height:6px; border-radius:50%; flex:none;}
+  .pill--build .pill-dot{background:#6abf6a;}
+  .pill--build{color:#9fd79f; border-color:rgba(106,191,106,.35); background:rgba(106,191,106,.08);}
+
+  .vitals-row{display:grid; grid-template-columns:1fr 1fr; gap:8px;}
+  .vital-card{display:flex; flex-direction:column; gap:1px; padding:8px 10px; border-radius:var(--radius-sm); border:1px solid var(--bdr);}
+  .vital-card--vitae{background:rgba(139,0,0,.10); border-color:var(--crim-a30);}
+  .vital-card--wp{background:rgba(224,196,122,.08); border-color:var(--bdr2);}
+  .vital-label{font-family:var(--fl); font-size:9.5px; font-weight:700; letter-spacing:.1em; text-transform:uppercase; color:var(--txt3);}
+  .vital-value{font-family:var(--fl); font-size:16px; font-weight:700; color:var(--txt); font-variant-numeric:tabular-nums;}
+  .vital-card--vitae .vital-value{color:#e0a0a0;}
+  .vital-card--wp .vital-value{color:var(--gold2);}
+  .vital-max{font-size:11px; font-weight:400; color:var(--txt3);}
+
+  /* ── picker sections: THREE independent accordions (Skills / Disciplines /
+       Special), char-pools.js's real localStorage-collapse idea extended to
+       per-category rather than one all-or-nothing toggle. ── */
+  .picker{display:flex; flex-direction:column; gap:8px;}
+  .picker-section{border:1px solid var(--bdr); border-radius:var(--radius-md); background:var(--surf); overflow:hidden;}
+  .picker-head{all:unset; box-sizing:border-box; display:flex; align-items:center; justify-content:space-between; gap:8px; width:100%; min-height:var(--control-height-sm); padding:0 12px; cursor:pointer;}
+  .picker-head-label{font-family:var(--fl); font-size:var(--type-size-heading); font-weight:var(--type-weight-strong); color:var(--txt);}
+  .picker-count{font-family:var(--fl); font-size:var(--type-size-micro); font-weight:var(--type-weight-label); color:var(--txt3); margin-left:6px;}
+  .chevron{width:9px; height:9px; border-right:2px solid var(--txt3); border-bottom:2px solid var(--txt3); transform:rotate(45deg); transition:transform .18s ease; flex:none;}
+  .picker-section[data-open="true"] .chevron{transform:rotate(-135deg);}
+  .picker-body-wrap{display:grid; grid-template-rows:0fr; transition:grid-template-rows .22s ease;}
+  .picker-section[data-open="true"] .picker-body-wrap{grid-template-rows:1fr;}
+  .picker-body{overflow:hidden; min-height:0;}
+  .picker-body-inner{display:flex; flex-direction:column; gap:7px; padding:0 10px 10px;}
+
+  .pool-btn{
+    all:unset; box-sizing:border-box; cursor:pointer; position:relative;
+    display:flex; flex-direction:column; align-items:flex-start; gap:1px;
+    width:100%; min-height:66px; padding:10px 46px 10px 13px;
+    border-radius:var(--radius-md); border:1px solid var(--bdr2);
+    background:var(--surf2);
+  }
+  .pool-btn:hover{border-color:var(--bdr3);}
+  .pool-btn:focus-visible{outline:2px solid var(--gold2); outline-offset:2px;}
+  .pool-num{font-family:var(--fl); font-size:22px; font-weight:var(--type-weight-strong); color:var(--gold); line-height:1.1; font-variant-numeric:tabular-nums;}
+  .pool-name{font-family:var(--fl); font-size:var(--type-size-subheading); font-weight:var(--type-weight-label); color:var(--txt); margin-top:2px;}
+  .pool-formula{font-family:var(--fl); font-size:var(--type-size-caption); color:var(--txt2);}
+
+  /* Choice-launcher: real markup is a centred label ONLY, no arrow, no number,
+     reusing .pool-btn's own shell so it reads as one more row in the list
+     rather than a different control (app.css's own comment). */
+  .pool-btn.special-launcher{align-items:center; justify-content:center; min-height:52px; padding:0 14px; border-style:dashed;}
+  .special-launcher-label{font-family:var(--fl); font-size:var(--type-size-subheading); font-weight:var(--type-weight-label); color:var(--accent);}
+
+  /* ── the rules-explanation accordion (your own name for it — the real
+       build's own <details class="rules-summary">) ── */
+  details.rules-summary{border:1px solid var(--bdr2); border-radius:var(--radius-lg); background:linear-gradient(180deg, var(--surf2), var(--surf)); overflow:hidden;}
+  .rules-summary-head{cursor:pointer; list-style:none; display:flex; align-items:baseline; justify-content:space-between; gap:8px; padding:12px 14px;}
+  .rules-summary-head::-webkit-details-marker{display:none;}
+  .rules-summary-head .power-name{font-family:var(--fl); font-size:var(--type-size-heading); font-weight:var(--type-weight-strong); color:var(--gold2);}
+  .rules-summary-head .power-cost{font-family:var(--fl); font-size:var(--type-size-label); font-weight:var(--type-weight-label); letter-spacing:var(--type-letter-spacing-label); text-transform:uppercase; color:var(--crim2); white-space:nowrap;}
+  .rules-summary-body{padding:0 14px 14px; display:flex; flex-direction:column; gap:6px;}
+  .power-meta{display:flex; flex-wrap:wrap; gap:6px 10px; font-family:var(--fl); font-size:var(--type-size-caption); color:var(--txt2);}
+  .power-meta span:not(:last-child)::after{content:'·'; margin-left:10px; color:var(--bdr3);}
+  .power-desc{margin:2px 0 0; font-family:var(--ft); font-style:italic; font-size:var(--type-size-body); color:var(--txt2); line-height:1.55;}
+
+  .mods{display:flex; flex-direction:column; gap:6px;}
+  .mods-label{font-family:var(--fl); font-size:var(--type-size-label); font-weight:var(--type-weight-label); letter-spacing:var(--type-letter-spacing-label); text-transform:uppercase; color:var(--txt3);}
+  .mods-row{display:flex; flex-wrap:wrap; gap:7px;}
+  .mod-chip{
+    all:unset; box-sizing:border-box; cursor:pointer;
+    min-height:var(--control-height-sm); padding:0 14px; border-radius:var(--radius-pill);
+    display:inline-flex; align-items:center; gap:5px;
+    border:1px solid var(--bdr2); background:transparent; color:var(--txt3);
+    font-family:var(--fl); font-size:var(--type-size-subheading); font-weight:var(--type-weight-label);
+  }
+  .mod-chip.active{background:rgba(224,196,122,.14); border-color:var(--gold2); color:var(--gold2);}
+  .mod-chip.add{color:var(--txt3); border-style:dashed;}
+
+  .again{display:flex; align-items:center; gap:10px;}
+  .again-label{font-family:var(--fl); font-size:var(--type-size-label); font-weight:var(--type-weight-label); letter-spacing:var(--type-letter-spacing-label); text-transform:uppercase; color:var(--txt3); white-space:nowrap;}
+  .again-seg{display:inline-flex; border:1px solid var(--bdr2); border-radius:var(--radius-pill); background:var(--surf); padding:3px; flex:1;}
+  .again-seg button{all:unset; box-sizing:border-box; cursor:pointer; flex:1; text-align:center; display:flex; align-items:center; justify-content:center; min-height:var(--control-height-sm); border-radius:var(--radius-pill); font-family:var(--fl); font-size:var(--type-size-subheading); font-weight:var(--type-weight-label); color:var(--txt3);}
+  .again-seg button.active{background:var(--gold2); color:#1a1208; font-weight:var(--type-weight-strong);}
+
+  .anchor{display:flex; flex-direction:column; align-items:center; gap:2px; padding:10px 0 4px; text-align:center;}
+  .anchor-num{font-family:var(--fh); font-size:var(--type-size-display-hero); font-weight:var(--type-weight-strong); color:var(--gold2); line-height:1; text-shadow:0 0 22px rgba(224,196,122,.25);}
+  .anchor-sub{font-family:var(--fl); font-size:var(--type-size-caption); color:var(--txt2); max-width:280px;}
+
+  .roll-btn{
+    all:unset; box-sizing:border-box; cursor:pointer; height:var(--control-height-lg); border-radius:var(--radius-md);
+    display:flex; align-items:center; justify-content:center; gap:8px;
+    background:linear-gradient(180deg, var(--crim2), var(--crim)); border:1px solid rgba(255,255,255,.06);
+    box-shadow:0 10px 24px -10px rgba(139,0,0,.55), inset 0 1px 0 rgba(255,255,255,.06);
+    color:#F4EFE4; font-family:var(--fl); font-size:15px; font-weight:var(--type-weight-strong); letter-spacing:.02em; text-transform:uppercase;
+  }
+
+  /* ══════════════════════════════════════════════════════════════════
+     THE .fb- FAMILY — real classes, ported verbatim from the recovered
+     roller-live/public/app.css. All FIVE choice-shaped specials (Lashing
+     Out, Detecting Blood Sympathy, Resist Blood Bond, Humanity Breaking
+     Point, Clash of Wills) share this ONE wizard-modal component — a
+     bottom-anchored sheet, not the app's OTHER (also real) #panel sheet
+     used for the Character/Discipline picker. Two different real sheets,
+     not one — this file previously conflated them.
+     ══════════════════════════════════════════════════════════════════ */
+  .fb-overlay{position:absolute; inset:0; z-index:20; background:var(--overlay); display:flex; align-items:flex-end; justify-content:center; border-radius:20px; overflow:hidden;}
+  .fb-modal{width:100%; max-height:88%; background:var(--bg); border:1px solid var(--bdr2); border-radius:20px 20px 0 0; display:flex; flex-direction:column; overflow:hidden; box-shadow:0 -20px 50px -10px rgba(0,0,0,.5);}
+  .fb-modal-head{display:flex; align-items:flex-start; justify-content:space-between; gap:10px; padding:16px 16px 10px;}
+  .fb-modal-step{font-family:var(--fl); font-size:var(--type-size-label); font-weight:var(--type-weight-label); letter-spacing:var(--type-letter-spacing-label); text-transform:uppercase; color:var(--accent);}
+  .fb-modal-title{margin:2px 0 0; font-family:var(--fl); font-size:19px; font-weight:var(--type-weight-strong); color:var(--txt);}
+  .fb-close{all:unset; box-sizing:border-box; cursor:pointer; width:var(--control-height-sm); height:var(--control-height-sm); flex:none; display:flex; align-items:center; justify-content:center; font-family:var(--fl); font-size:22px; color:var(--txt3); border-radius:50%;}
+  .fb-running{display:flex; flex-wrap:wrap; gap:6px; padding:0 16px 12px;}
+  .fb-running span{font-family:var(--fl); font-size:var(--type-size-caption); color:var(--txt2); background:var(--surf2); border:1px solid var(--bdr); border-radius:var(--radius-pill); padding:3px 10px;}
+  .fb-body{overflow-y:auto; padding:4px 16px 16px;}
+  .fb-grid{display:grid; gap:8px;}
+  .fb-grid--2{grid-template-columns:repeat(2, 1fr); margin-top:8px;}
+  .fb-grid--3{grid-template-columns:repeat(3, 1fr);}
+  .fb-grid--flex{grid-template-columns:repeat(auto-fill, minmax(96px, 1fr));}
+  .fb-cell{all:unset; box-sizing:border-box; cursor:pointer; min-height:72px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px; border:1px solid var(--bdr2); border-radius:var(--radius-lg); background:var(--surf2); text-align:center;}
+  .fb-cell:hover{border-color:var(--accent);}
+  .fb-cell--tall{min-height:104px; padding:10px 8px;}
+  .fb-cell-name{font-family:var(--fl); font-size:var(--type-size-caption); font-weight:var(--type-weight-label); color:var(--txt2); text-align:center; padding:0 4px;}
+  .fb-cell-sub{font-family:var(--fl); font-size:11px; color:var(--txt3); text-align:center; padding:0 4px;}
+  .fb-cell-val{font-family:var(--fl); font-size:22px; font-weight:var(--type-weight-strong); color:var(--accent); font-variant-numeric:tabular-nums;}
+  .fb-cell--disabled{opacity:.45; cursor:default; background:transparent;}
+  .fb-cell--disabled .fb-cell-sub{color:var(--txt3); font-style:italic;}
+  .fb-footer{padding:0 16px 16px;}
+  .fb-back{all:unset; box-sizing:border-box; cursor:pointer; min-height:var(--control-height-sm); padding:0 16px; border-radius:var(--radius-md); border:1px solid var(--bdr2); background:transparent; color:var(--txt2); display:inline-flex; align-items:center; font-family:var(--fl); font-size:var(--type-size-subheading); font-weight:var(--type-weight-label);}
+
+  /* ── Humanity Breaking Point's own detail-screen bits ── */
+  .hc-examples{list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:8px;}
+  .hc-examples li{font-family:var(--ft); font-size:var(--type-size-body); color:var(--txt2); line-height:1.4; padding-left:14px; position:relative;}
+  .hc-examples li::before{content:'—'; position:absolute; left:0; color:var(--txt3);}
+  .hc-level-nav{display:flex; align-items:center; justify-content:center; gap:18px; margin-top:14px; padding-top:14px; border-top:1px solid var(--bdr);}
+  .hc-nav-btn{all:unset; box-sizing:border-box; cursor:pointer; width:40px; height:40px; flex:none; border-radius:50%; display:flex; align-items:center; justify-content:center; font-family:var(--fl); font-size:22px; line-height:1; color:var(--txt2); border:1px solid var(--bdr2);}
+  .hc-nav-btn:hover{color:var(--accent); border-color:var(--accent);}
+  .hc-nav-btn[disabled]{opacity:.3; cursor:not-allowed;}
+  .hc-level-display{display:flex; flex-direction:column; align-items:center; gap:1px; min-width:70px;}
+  .hc-level-pool{font-family:var(--fl); font-size:32px; font-weight:var(--type-weight-strong); color:var(--gold); text-align:center; line-height:1; font-variant-numeric:tabular-nums;}
+  .hc-level-pool-label{font-family:var(--fl); font-size:10px; color:var(--txt3); text-transform:uppercase; letter-spacing:.05em;}
+  .hc-footer{display:flex; align-items:center; justify-content:space-between; gap:10px; padding:0 16px 16px;}
+  .hc-confirm{flex:1; all:unset; box-sizing:border-box; cursor:pointer; text-align:center; min-height:var(--control-height-sm); padding:0 16px; border-radius:var(--radius-md); background:linear-gradient(180deg, var(--crim2), var(--crim)); border:1px solid rgba(255,255,255,.06); display:flex; align-items:center; justify-content:center; color:#F4EFE4; font-family:var(--fl); font-size:var(--type-size-subheading); font-weight:var(--type-weight-strong); letter-spacing:.02em; text-transform:uppercase;}
+
+  /* ── provenance overlay ("show sources") ── */
+  [data-source]{position:relative;}
+  .src-tag{display:none; position:absolute; top:-9px; left:10px; z-index:5; padding:2px 8px; border-radius:var(--radius-pill); background:#0a0806; border:1px solid var(--bdr3); font-family:var(--fl); font-size:9px; font-weight:var(--type-weight-label); letter-spacing:.04em; color:var(--gold2); white-space:nowrap;}
+  body.show-sources [data-source] .src-tag{display:inline-block;}
+  body.show-sources [data-source]{outline:1px dashed var(--bdr3); outline-offset:4px; border-radius:var(--radius-lg);}
+
+  .legend{width:100%; max-width:460px; display:none; border:1px solid var(--bdr); border-radius:var(--radius-md); background:var(--surf); padding:14px 16px; margin-top:-6px; font-family:var(--fl); font-size:var(--type-size-caption); color:var(--txt2);}
+  body.show-sources .legend{display:block;}
+  .legend h3{margin:0 0 8px; font-size:var(--type-size-label); font-weight:var(--type-weight-strong); letter-spacing:var(--type-letter-spacing-label); text-transform:uppercase; color:var(--gold2);}
+  .legend ul{margin:0; padding-left:18px; display:flex; flex-direction:column; gap:5px;}
+  .legend b{color:var(--txt);}
+
+  .callout{width:100%; max-width:460px; background:rgba(224,196,122,.08); border:1px dashed var(--bdr2); border-radius:var(--radius-md); padding:12px 14px; font-family:var(--fl); font-size:12px; color:var(--txt2); line-height:1.6; margin-top:6px;}
+  .callout b{color:var(--gold2);}
+  .callout.open-question{background:rgba(139,0,0,.10); border-color:var(--crim-a30);}
+  .callout.open-question b{color:#e0a0a0;}
+
+  @media (prefers-reduced-motion: reduce){ *{transition-duration:.001ms !important;} }
+</style>
+</head>
+<body>
+<div class="stage">
+
+  <div class="stage-head">
+    <span class="stage-eyebrow">Epic RLV — Roll tab, consolidated</span>
+    <h1 class="stage-title">Skills, Disciplines and Special — one accordion each, every choice pool's real pop-up</h1>
+    <p class="stage-sub">
+      Sourced from the recovered <code>roller-live/</code> build (a local dev server run against
+      live character data, recovered from that session's own transcript after the files were lost).
+      Every choice-shaped special — Lashing Out, Detecting Blood Sympathy, Resist Blood Bond, Humanity
+      Breaking Point, Clash of Wills — opens the SAME wizard-style bottom sheet. Frenzy Resistance and
+      Surprise/Perception are single-button immediate rolls with no pop-up at all.
+    </p>
+    <div class="revision-note">
+      <b>Two corrections from the previous version.</b> First: that pass showed Lashing Out and
+      Humanity Breaking Point using the app's OTHER real modal — the bottom sheet the Character/
+      Discipline picker uses (<code>#panel</code>/<code>#panel-overlay</code>). The recovered code
+      shows all five choice specials sharing a DIFFERENT real component instead — the wizard-style
+      <code>.fb-modal</code> family, reused from the app's own Free Build picker. Fixed throughout,
+      and the three specials missing before are added: Clash of Wills, Resist Blood Bond, Detecting
+      Blood Sympathy. Second: <b>Riding the Wave is not its own roll.</b> The live app's own
+      <code>char-pools.js</code> lists it as a separate Wits+Composure tile, but that's a rules
+      error — the recovered build's own <code>server.mjs</code> only ever builds a single "Resisting
+      Frenzy" special, and the core rule (p.103–104) has Riding the Wave as a Willpower spend made
+      ABOUT a frenzy already triggered by a failed resistance roll, not a pool of its own. Corrected
+      below: Frenzy Resistance is the one tile, with Riding the Wave named as the option that follows
+      a failed roll.
+    </div>
+    <button class="src-toggle" id="srcToggle" type="button" aria-pressed="false">Show sources</button>
+  </div>
+
+  <div class="variant-label">1 — Default view, Special expanded</div>
+  <div class="variant-note">
+    Skills and Disciplines start closed, same as today — shown closed here so the pattern reads
+    clearly. Special is opened for this mockup only; in the real build all three start closed.
+    Frenzy Resistance and Surprise/Perception roll immediately, a number already computed. The five
+    dashed tiles below them open a pop-up first — centred label only, no arrow, no number yet.
+    Riding the Wave is deliberately NOT a tile — see Frenzy Resistance's own subtitle.
+  </div>
+  <div class="phone">
+    <div class="app">
+      <div class="topbar"><div class="char-chip"><div class="char-avatar">MU</div><div class="char-name">Màibh Urquhart</div></div></div>
+
+      <div class="pill-row" data-source="already shipped"><span class="src-tag">already shipped — gdx.7, rlv.2</span><span class="pill pill--build"><span class="pill-dot"></span>Roller v2</span></div>
+
+      <div class="vitals-row" data-source="already shipped">
+        <span class="src-tag">already shipped — roll-v2.js's own resource cards</span>
+        <div class="vital-card vital-card--vitae"><span class="vital-label">Vitae</span><span class="vital-value">6<span class="vital-max">/10</span></span></div>
+        <div class="vital-card vital-card--wp"><span class="vital-label">Willpower</span><span class="vital-value">3<span class="vital-max">/5</span></span></div>
+      </div>
+
+      <div class="picker" data-source="char-pools.js, extended">
+        <span class="src-tag" style="position:static; display:inline-block; margin-bottom:-2px; width:fit-content;">char-pools.js's real picker — ONE toggle today, split to three here</span>
+
+        <div class="picker-section" data-open="false" id="secSkills">
+          <button class="picker-head" data-toggle="secSkills" type="button" aria-expanded="false"><span class="picker-head-label">Skills <span class="picker-count">14</span></span><span class="chevron"></span></button>
+          <div class="picker-body-wrap"><div class="picker-body"><div class="picker-body-inner"></div></div></div>
+        </div>
+
+        <div class="picker-section" data-open="false" id="secDisc">
+          <button class="picker-head" data-toggle="secDisc" type="button" aria-expanded="false"><span class="picker-head-label">Disciplines <span class="picker-count">6</span></span><span class="chevron"></span></button>
+          <div class="picker-body-wrap"><div class="picker-body"><div class="picker-body-inner"></div></div></div>
+        </div>
+
+        <div class="picker-section" data-open="true" id="secSpecial" data-source="new — the missing third accordion">
+          <span class="src-tag" style="top:-9px;">new — char-pools.js's own "Vampire Mechanics" heading, made collapsible + peer to Skills/Disciplines</span>
+          <button class="picker-head" data-toggle="secSpecial" type="button" aria-expanded="true"><span class="picker-head-label">Special <span class="picker-count">7</span></span><span class="chevron"></span></button>
+          <div class="picker-body-wrap"><div class="picker-body"><div class="picker-body-inner">
+            <button class="pool-btn" data-source="corrected — no separate Riding the Wave tile">
+              <span class="src-tag">char-pools.js today wrongly lists Riding the Wave as ITS OWN Wits+Composure tile — it's a Willpower spend on a frenzy this roll already triggered, not a second pool</span>
+              <span class="pool-num">6</span><span class="pool-name">Frenzy Resistance</span><span class="pool-formula">Resolve+Composure — immediate, no pop-up. Failed? Spend 1 WP to Ride the Wave.</span>
+            </button>
+            <button class="pool-btn"><span class="pool-num">4</span><span class="pool-name">Surprise / Perception</span><span class="pool-formula">Wits+Composure — immediate, no pop-up</span></button>
+            <button class="pool-btn special-launcher"><span class="special-launcher-label">Humanity Breaking Point</span></button>
+            <button class="pool-btn special-launcher"><span class="special-launcher-label">Lashing Out with the Beast</span></button>
+            <button class="pool-btn special-launcher"><span class="special-launcher-label">Detecting Blood Sympathy</span></button>
+            <button class="pool-btn special-launcher"><span class="special-launcher-label">Resist Blood Bond</span></button>
+            <button class="pool-btn special-launcher"><span class="special-launcher-label">Clash of Wills</span></button>
+          </div></div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="variant-label">2 — A Discipline selected: Rules explanation, mod chips, Again, anchor</div>
+  <div class="variant-note">
+    "Rules explanation" is a real disclosure, open here for visibility — the cost/action/duration/
+    resistance line and flavour text were already sitting in every pool's own data, just never
+    rendered. Mod chips sit directly beneath it now, not inside a second collapsed disclosure.
+  </div>
+  <div class="phone">
+    <div class="app">
+      <details class="rules-summary" open data-source="data already existed, never rendered">
+        <span class="src-tag">cost/action/duration/resistance/flavour already in every pool's own data (public/js/shared/pools.js) — this box just displays it</span>
+        <summary class="rules-summary-head"><span class="power-name">Nightmare</span><span class="power-cost">Costs 1 Vitae</span></summary>
+        <div class="rules-summary-body">
+          <div class="power-meta"><span>Presence + Intimidation</span><span>Instant</span><span>Resisted: Composure + Resolve</span></div>
+          <p class="power-desc">A wave of primal terror rolls off the vampire, aging every mortal shadow in the room into something with teeth.</p>
+        </div>
+      </details>
+      <div class="mods" data-source="already shipped — rlv.7, moved">
+        <span class="src-tag">already shipped (rlv.7) — only the POSITION is new</span>
+        <span class="mods-label">Remembered for Nightmare</span>
+        <div class="mods-row"><button class="mod-chip active">Air of Menace +2</button><button class="mod-chip add">+ Add modifier</button></div>
+      </div>
+      <div class="again" data-source="already shipped">
+        <span class="src-tag">already shipped — roll-v2.js, #1024 slice D</span>
+        <span class="again-label">Again</span>
+        <div class="again-seg" role="group" aria-label="Again threshold"><button data-v="10">10</button><button data-v="9" class="active">9</button><button data-v="8">8</button><button data-v="none">None</button></div>
+      </div>
+      <div class="anchor" data-source="already shipped">
+        <span class="src-tag">already shipped — roll-v2.js, #1024 slice A</span>
+        <div class="anchor-num">7</div>
+        <div class="anchor-sub">Presence 3 + Intimidation 2 + Air of Menace 2, 9-again</div>
+      </div>
+      <button class="roll-btn" type="button">Roll &amp; Spend 1 Vitae</button>
+    </div>
+  </div>
+
+  <div class="variant-label">3 — Lashing Out with the Beast — step 1, aspect</div>
+  <div class="variant-note">
+    The pop-up pattern you confirmed — but the correct component: a bottom-anchored wizard sheet
+    (<code>.fb-modal</code>), not the Character-picker's sheet. Each aspect names its own attribute
+    pairing and carries the Bestial/Wanton/Competitive Condition it causes.
+  </div>
+  <div class="phone">
+    <div class="app" style="min-height:480px;">
+      <div class="topbar" style="opacity:.3;"><div class="char-chip"><div class="char-avatar">MU</div><div class="char-name">Màibh Urquhart</div></div></div>
+      <div class="fb-overlay">
+        <div class="fb-modal">
+          <div class="fb-modal-head">
+            <div><span class="fb-modal-step">Lashing Out with the Beast</span><h2 class="fb-modal-title">Which aspect?</h2></div>
+            <button class="fb-close" type="button" aria-label="Close">&times;</button>
+          </div>
+          <div class="fb-body">
+            <div class="fb-grid fb-grid--3">
+              <button class="fb-cell fb-cell--tall"><span class="fb-cell-name">Monstrous</span><span class="fb-cell-sub">BP + Strength</span><span class="fb-cell-val">6</span></button>
+              <button class="fb-cell fb-cell--tall"><span class="fb-cell-name">Seductive</span><span class="fb-cell-sub">BP + Presence</span><span class="fb-cell-val">4</span></button>
+              <button class="fb-cell fb-cell--tall"><span class="fb-cell-name">Competitive</span><span class="fb-cell-sub">BP + Intelligence</span><span class="fb-cell-val">5</span></button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="variant-label">4 — Humanity Breaking Point — step 1, which level ("the sin rating")</div>
+  <div class="variant-note">
+    All ten Sample Breaking Points from p.107, correct .fb-cell grid. Levels above the character's
+    own current Humanity are shown disabled, not hidden — Màibh sits at Humanity 6, so 7–10 are
+    struck out as not applicable to her right now.
+  </div>
+  <div class="phone">
+    <div class="app" style="min-height:600px;">
+      <div class="topbar" style="opacity:.3;"><div class="char-chip"><div class="char-avatar">MU</div><div class="char-name">Màibh Urquhart</div></div></div>
+      <div class="fb-overlay">
+        <div class="fb-modal">
+          <div class="fb-modal-head">
+            <div><span class="fb-modal-step">Humanity Breaking Point</span><h2 class="fb-modal-title">Which Breaking Point?</h2></div>
+            <button class="fb-close" type="button" aria-label="Close">&times;</button>
+          </div>
+          <div class="fb-running"><span>Humanity 6</span><span>Touchstone +2</span></div>
+          <div class="fb-body">
+            <div class="fb-grid fb-grid--2">
+              <button class="fb-cell fb-cell--tall fb-cell--disabled"><span class="fb-cell-name">Breaking Point 10</span><span class="fb-cell-sub">Above your Humanity — not applicable</span></button>
+              <button class="fb-cell fb-cell--tall fb-cell--disabled"><span class="fb-cell-name">Breaking Point 9</span><span class="fb-cell-sub">Above your Humanity — not applicable</span></button>
+              <button class="fb-cell fb-cell--tall fb-cell--disabled"><span class="fb-cell-name">Breaking Point 8</span><span class="fb-cell-sub">Above your Humanity — not applicable</span></button>
+              <button class="fb-cell fb-cell--tall fb-cell--disabled"><span class="fb-cell-name">Breaking Point 7</span><span class="fb-cell-sub">Above your Humanity — not applicable</span></button>
+              <button class="fb-cell fb-cell--tall"><span class="fb-cell-name">Breaking Point 6</span><span class="fb-cell-sub">Falling into torpor…</span></button>
+              <button class="fb-cell fb-cell--tall"><span class="fb-cell-name">Breaking Point 5</span><span class="fb-cell-sub">Death of a mortal family member…</span></button>
+              <button class="fb-cell fb-cell--tall"><span class="fb-cell-name">Breaking Point 4</span><span class="fb-cell-sub">Accidentally killing…</span></button>
+              <button class="fb-cell fb-cell--tall"><span class="fb-cell-name">Breaking Point 3</span><span class="fb-cell-sub">Impassioned killing…</span></button>
+              <button class="fb-cell fb-cell--tall"><span class="fb-cell-name">Breaking Point 2</span><span class="fb-cell-sub">Premeditated killing…</span></button>
+              <button class="fb-cell fb-cell--tall"><span class="fb-cell-name">Breaking Point 1</span><span class="fb-cell-sub">Heinous, spree, or mass murder…</span></button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="variant-label">5 — Humanity Breaking Point — step 2, the chosen level</div>
+  <div class="variant-note">
+    ‹ and › walk between adjacent levels rather than +/− a number — your own correction from that
+    session ("+/− reads as increase or decrease the dice pool, which this isn't"). Back returns to
+    the grid; Confirm locks the pool in and submits.
+  </div>
+  <div class="phone">
+    <div class="app" style="min-height:560px;">
+      <div class="topbar" style="opacity:.3;"><div class="char-chip"><div class="char-avatar">MU</div><div class="char-name">Màibh Urquhart</div></div></div>
+      <div class="fb-overlay">
+        <div class="fb-modal">
+          <div class="fb-modal-head">
+            <div><span class="fb-modal-step">Humanity Breaking Point</span><h2 class="fb-modal-title">Breaking Point 6</h2></div>
+            <button class="fb-close" type="button" aria-label="Close">&times;</button>
+          </div>
+          <div class="fb-running"><span>Humanity 6</span><span>Touchstone +2</span></div>
+          <div class="fb-body">
+            <ul class="hc-examples">
+              <li>Falling into torpor</li>
+              <li>Feeding from a child</li>
+              <li>Reading your own obituary</li>
+              <li>Experiencing a car crash or other immense physical trauma</li>
+            </ul>
+            <div class="hc-level-nav">
+              <button class="hc-nav-btn" type="button" aria-label="Lower Breaking Point level">&lsaquo;</button>
+              <div class="hc-level-display"><span class="hc-level-pool">4</span><span class="hc-level-pool-label">dice pool</span></div>
+              <button class="hc-nav-btn" type="button" aria-label="Higher Breaking Point level">&rsaquo;</button>
+            </div>
+          </div>
+          <div class="hc-footer"><button class="fb-back" type="button">Back</button><button class="hc-confirm" type="button">Confirm</button></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="variant-label">6 — Clash of Wills — step 1, which power</div>
+  <div class="variant-note">
+    NOT built in the live app today, only in the recovered build. Pool is Blood Potency + the
+    picked Discipline's own dots; step 2 (not shown) asks how long the contest lasts, +0 to +4 dice
+    on a duration ladder from instant to a year or more.
+  </div>
+  <div class="phone">
+    <div class="app" style="min-height:420px;">
+      <div class="topbar" style="opacity:.3;"><div class="char-chip"><div class="char-avatar">MU</div><div class="char-name">Màibh Urquhart</div></div></div>
+      <div class="fb-overlay">
+        <div class="fb-modal">
+          <div class="fb-modal-head">
+            <div><span class="fb-modal-step">Clash of Wills</span><h2 class="fb-modal-title">Which power?</h2></div>
+            <button class="fb-close" type="button" aria-label="Close">&times;</button>
+          </div>
+          <div class="fb-body">
+            <div class="fb-grid fb-grid--flex">
+              <button class="fb-cell"><span class="fb-cell-name">Nightmare</span><span class="fb-cell-val">7</span></button>
+              <button class="fb-cell"><span class="fb-cell-name">Nemesis</span><span class="fb-cell-val">6</span></button>
+              <button class="fb-cell"><span class="fb-cell-name">Cloak of Night</span><span class="fb-cell-val">5</span></button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="variant-label">7 — Resist Blood Bond — one step, how much Vitae</div>
+  <div class="variant-note">
+    NOT built in the live app today. Pool is Blood Potency minus Vitae ingested THIS drinking
+    experience — a running count of PRIOR attempts is tracked separately once the roll is built,
+    not asked here.
+  </div>
+  <div class="phone">
+    <div class="app" style="min-height:340px;">
+      <div class="topbar" style="opacity:.3;"><div class="char-chip"><div class="char-avatar">MU</div><div class="char-name">Màibh Urquhart</div></div></div>
+      <div class="fb-overlay">
+        <div class="fb-modal">
+          <div class="fb-modal-head">
+            <div><span class="fb-modal-step">Resist Blood Bond</span><h2 class="fb-modal-title">How much Vitae, this drinking experience?</h2></div>
+            <button class="fb-close" type="button" aria-label="Close">&times;</button>
+          </div>
+          <div class="fb-body">
+            <div class="fb-grid fb-grid--3">
+              <button class="fb-cell"><span class="fb-cell-name">1 Vitae</span><span class="fb-cell-val">3</span></button>
+              <button class="fb-cell"><span class="fb-cell-name">2 Vitae</span><span class="fb-cell-val">2</span></button>
+              <button class="fb-cell"><span class="fb-cell-name">3 Vitae</span><span class="fb-cell-val">1</span></button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="variant-label">8 — Detecting Blood Sympathy — step 1, which relation</div>
+  <div class="variant-note">
+    NOT built in the live app today. Pool is Wits + Blood Potency, each of the four "steps removed"
+    (p.98–99) adding its own flat bonus. Step 2 (not shown) asks passive detection (free) or forcing
+    a target to reveal themselves (costs 1 Willpower).
+  </div>
+  <div class="phone">
+    <div class="app" style="min-height:420px;">
+      <div class="topbar" style="opacity:.3;"><div class="char-chip"><div class="char-avatar">MU</div><div class="char-name">Màibh Urquhart</div></div></div>
+      <div class="fb-overlay">
+        <div class="fb-modal">
+          <div class="fb-modal-head">
+            <div><span class="fb-modal-step">Detecting Blood Sympathy</span><h2 class="fb-modal-title">Which relation?</h2></div>
+            <button class="fb-close" type="button" aria-label="Close">&times;</button>
+          </div>
+          <div class="fb-body">
+            <div class="fb-grid fb-grid--2">
+              <button class="fb-cell fb-cell--tall"><span class="fb-cell-name">Once Removed</span><span class="fb-cell-sub">Sire or childe</span><span class="fb-cell-val">7</span></button>
+              <button class="fb-cell fb-cell--tall"><span class="fb-cell-name">Twice Removed</span><span class="fb-cell-sub">Sibling, grandsire, or grandchilde</span><span class="fb-cell-val">6</span></button>
+              <button class="fb-cell fb-cell--tall"><span class="fb-cell-name">Thrice Removed</span><span class="fb-cell-sub">Cousin, sire's sibling, or great-grandsire/childe</span><span class="fb-cell-val">5</span></button>
+              <button class="fb-cell fb-cell--tall"><span class="fb-cell-name">Four Times Removed</span><span class="fb-cell-sub">Clanmate</span><span class="fb-cell-val">4</span></button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="legend">
+    <h3>Where each piece comes from, precisely</h3>
+    <ul>
+      <li><b>Skills / Disciplines / Special accordions</b> — the collapse mechanism is real (char-pools.js), but today it is ONE toggle over Skills+Disciplines combined, and Special ("Vampire Mechanics") is a fixed heading that never collapses. Splitting all three into independent peers is new work proposed here.</li>
+      <li><b>Frenzy Resistance</b> — already live as an immediate-roll tile, no pop-up. Its subtitle
+      now names Riding the Wave as the follow-up option on a failed roll — the live app currently
+      lists Riding the Wave as a wrongly-separate Wits+Composure tile of its own, which this mockup
+      does not carry forward.</li>
+      <li><b>Surprise / Perception</b> — NOT live. Also an immediate-roll tile with no pop-up in the recovered build; just not ported into the real app yet.</li>
+      <li><b>Lashing Out, Resist Blood Bond</b> — already live today, each its own <code>.fb-modal</code> wizard.</li>
+      <li><b>Clash of Wills</b> — the real app has a version today (limitation: can't pick the opposing Discipline itself). The recovered build's own two-step version (power, then a duration ladder) is not live.</li>
+      <li><b>Detecting Blood Sympathy</b> — NOT live in any form. Built and working only in the recovered build.</li>
+      <li><b>Humanity Breaking Point, player-side picker</b> — NOT live. What shipped (gdx.12) has the player submit blind and the ST choose the level in the admin Approval Queue. This mockup shows the player-side flow you built afterwards — see the callout below.</li>
+      <li><b>Rules explanation box</b> — the data is already computed and passed to every pool today; only the rendering is new.</li>
+      <li><b>Remembered modifier chips</b> — already shipped (rlv.7), only relocated here.</li>
+      <li><b>Again segment, anchor number, Vitae/WP resource cards</b> — already shipped, carried forward unchanged.</li>
+    </ul>
+  </div>
+
+  <div class="callout open-question">
+    <b>Open decision, not yet resolved:</b> who picks the Humanity Breaking Point level — the player
+    (shown above) or the ST (what shipped in gdx.12, via the admin Approval Queue)? Shown this way
+    because that's what you asked to see, not as a recommendation — it needs a ruling before variants
+    4 or 5 get built for real.
+  </div>
+
+  <div class="callout">
+    <b>Also recovered, not shown above:</b> a Queue accordion (contested-roll inbox, from the CRD
+    work) sits alongside these three in the real recovered build. Left out here to keep the focus on
+    Skills/Disciplines/Special — it's a separate concern with its own epic already covering it.
+  </div>
+
+</div>
+<script>
+(function(){
+  var body = document.body;
+  var toggle = document.getElementById('srcToggle');
+  toggle.addEventListener('click', function(){
+    var on = body.classList.toggle('show-sources');
+    toggle.setAttribute('aria-pressed', on ? 'true' : 'false');
+    toggle.textContent = on ? 'Hide sources' : 'Show sources';
+  });
+  document.querySelectorAll('[data-toggle]').forEach(function(head){
+    head.addEventListener('click', function(){
+      var sec = document.getElementById(head.getAttribute('data-toggle'));
+      var open = sec.getAttribute('data-open') === 'true';
+      sec.setAttribute('data-open', open ? 'false' : 'true');
+      head.setAttribute('aria-expanded', open ? 'false' : 'true');
+    });
+  });
+})();
+</script>
+</body>
+</html>
