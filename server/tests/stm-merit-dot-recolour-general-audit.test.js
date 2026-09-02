@@ -36,6 +36,10 @@ globalThis.document = globalThis.document || {
   getElementById: () => null,
   createElement: () => ({ style: {}, classList: { add() {}, remove() {}, toggle() {} } }),
 };
+// applyAffordance() (st-mod-popover.js) is ST-gated via window._getRole, mirroring
+// app.js's real global — this audit renders the ST-only apply-bonus button, so simulate
+// an ST viewer.
+globalThis.window._getRole = () => 'st';
 
 import { describe, it, expect, beforeAll, vi } from 'vitest';
 import path from 'node:path';

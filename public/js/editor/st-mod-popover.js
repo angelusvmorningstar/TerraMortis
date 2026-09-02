@@ -110,15 +110,33 @@ export function markersFor(c, paths) {
  *  Callers (editor/sheet.js's shRenderAttributes/shRenderSkills) only
  *  render this in the non-edit-mode branch — the base-value editor
  *  strips the overlay on entry (ADR-004 §D8/§D9), so an st_mod created
- *  there would be invisible. Both consumers of shRenderAttributes/Skills
- *  (admin.js, and app.js's embedded ST editor) are already ST-gated, so
- *  no additional role check is needed here.
+ *  there would be invisible.
+ *
+ *  FIX (2026-09-02, real live bug — Jamie H/Eve Lockridge, role:'player',
+ *  reported seeing this button and the Apply ST bonus modal on her own
+ *  read-only sheet view; the same symptom Michael VDK reported earlier and
+ *  was never root-caused). The doc comment used to claim "Both consumers of
+ *  shRenderAttributes/Skills (admin.js, and app.js's embedded ST editor)
+ *  are already ST-gated, so no additional role check is needed here" — that
+ *  was false: shRenderAttributes/Skills/Disciplines/merit renderers are the
+ *  SAME functions used to render a normal player's own read-only view of
+ *  their own sheet (editMode=false is the ordinary player state, not an
+ *  ST-only one), so the affordance rendered for every viewer regardless of
+ *  role. NOT independently exploitable — POST /api/st_mods already requires
+ *  requireRole('st') server-side (server/routes/st_mods.js:148), so no
+ *  write ever succeeded from a player click — but the button and modal
+ *  themselves had no business being visible. Gated the same way
+ *  suite/sheet.js:1006 already gates its own ST-only affordance, via the
+ *  same window._getRole() global app.js exposes — the established pattern
+ *  for a client-side role check in this codebase, not a new mechanism.
  *
  *  The character id travels in the DOM (data-stm-apply-char-id) rather
  *  than via _resolveActiveCharacter(), so the create flow doesn't depend
  *  on window.chars/window.editIdx being populated. */
 export function applyAffordance(c, path, label) {
   if (!c?._id) return '';
+  const role = (window._getRole || (() => 'player'))();
+  if (role !== 'st' && role !== 'dev') return '';
   const title = `Apply an ST bonus to ${label}`;
   return `<button type="button" class="stm-mod-btn stm-apply-btn" data-stm-apply-path="${esc(path)}" data-stm-apply-label="${esc(label)}" data-stm-apply-char-id="${esc(String(c._id))}" title="${esc(title)}">+</button>`;
 }
