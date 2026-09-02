@@ -187,6 +187,20 @@ From `specs/architecture-st-admin.md` and `specs/architecture-player-access.md`:
 
 ## Epic List — Active
 
+### Epic ADH: Accessor Drift & Data Hygiene Remediation — READY FOR DEV
+Scopes the real, verified findings from two 2026-09-02 audits (`specs/audit-drift-map-2026-09-02.md`,
+a code-duplication re-run, and `specs/data-hygiene-audit-2026-09-02.md`, a live-Mongo hygiene sweep)
+into stories. Priority items: ADH.1 (destructive-path `character_id` ObjectId-only cascade delete)
+and ADH.2 (`normalize-character.js`'s write-path merit-channel-sum gap, NEW-1) — both flagged ahead
+of the rest regardless of story numbering; see the epic file's own priority note.
+**Stories:** adh.1 characters.js delete-cascade dual-typing, adh.2 normalize-character.js
+merit-channel write-path (NEW-1), adh.3 contested-rolls.js `_attrEffective` formula (NEW-3),
+adh.4 `discDots()` bonus-channel propagation incl. `getPool()` (NEW-2), adh.5 contested-roll.js
+double-count + prereq.js base-only reads (items 5 & 6), adh.6 batched MED cleanup (items 8, 9, 14, 31)
+**Epic file:** `specs/epic-adh-accessor-drift-hygiene.md`
+
+---
+
 ### Epic FIN: Finance & Coordinator Access — READY FOR DEV
 Replaces the Google Sheet as SSOT for game finances. Introduces `coordinator` role for Lyn (door check-in, payment recording, finance summary). No ST storytelling access.
 **Stories:** fin.1 Coordinator role, fin.2 Finance schema, fin.3 Check-in tab (game app), fin.4 Finance tab (game app)
