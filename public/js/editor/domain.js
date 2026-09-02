@@ -372,11 +372,52 @@ export function meritEffectiveRating(c, m) {
       const effectiveStored = (cap > 0 && ownDots >= cap)
         ? ownDots
         : stored;
-      // OATH-B (#1111): no partner term on this path, so the suspension
-      // applies to the capped figure. The zero floor is REQUIRED rather than
-      // defensive — a capped merit can already return fewer dots than the
-      // character owns, so cap-minus-pledge is routinely negative.
-      return applySuspensionTo(m, Math.min(effectiveStored, cap || stored));
+      // Kurtis W follow-up (2026-09, Charlie's Haven — confirmed live: his
+      // own Haven investment is 1, so it read "capped at 1" regardless of
+      // what the shared Safe Place actually totalled). Haven's own rules
+      // text is explicit: "a coterie may share a Haven Merit... each member
+      // that wishes to benefit must invest Merit dots in both the Safe
+      // Place and the Haven" — same shared-pool shape as Safe Place itself,
+      // which this branch never implemented; it only ever read the viewing
+      // character's own investment. Mandragora Garden is deliberately
+      // EXCLUDED — it can no longer be shared at all (Angelus's ruling,
+      // 2026-09; existing shared_with data on it is legacy/inert, same
+      // "preserve but don't act on it" treatment this file already gives
+      // non-shareable merits elsewhere) — so it stays on the pre-existing
+      // own-only path below, byte-identical to before this fix.
+      //
+      // Mirrors domMeritTotalSingle's own partner-combining pattern
+      // (by-name lookup in state.chars, falling back to the server's
+      // _partner_dots enrichment when the partner isn't in this viewer's
+      // own roster — e.g. a player's own scoped character fetch), and
+      // (ADR-010 D2/OATH-B) suspends OWN dots BEFORE combining with the
+      // partner term rather than after — the ordering D2 proved wrong for
+      // exactly this "combine, then cap" shape. The ownership gate below
+      // (`stored >= 1`, UNSUSPENDED) mirrors domMeritTotalSingle's own
+      // gate: you must hold at least one dot yourself to benefit from a
+      // partner's, matching the rules text's "must invest ... in both".
+      let partnerTotal = 0;
+      if (m.name === 'Haven' && stored >= 1) {
+        const partners = m.shared_with || [];
+        const key = domKey(m);
+        for (const pName of partners) {
+          const p = (state.chars || []).find(ch => ch.name === pName);
+          if (p) {
+            const pm = (p.merits || []).find(pm2 =>
+              pm2.category === 'domain' && pm2.name === m.name && domKey(pm2) === key
+            );
+            if (pm) partnerTotal += domMeritShareableSingle(pm);
+          }
+        }
+        if (partners.length > 0 && partnerTotal === 0 && m._partner_dots > 0) {
+          partnerTotal = m._partner_dots;
+        }
+      }
+      const combined = applySuspensionTo(m, effectiveStored) + partnerTotal;
+      // The zero floor (via applySuspensionTo, above) is REQUIRED rather
+      // than defensive — a capped merit can already return fewer dots than
+      // the character owns, so cap-minus-pledge is routinely negative.
+      return Math.min(combined, cap || combined);
     }
     if (MULTI_INSTANCE_DOMAIN.has(m.name)) {
       return domMeritTotalSingle(c, m);
