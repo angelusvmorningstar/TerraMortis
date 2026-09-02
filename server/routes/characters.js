@@ -259,23 +259,47 @@ router.get('/', async (req, res) => {
   // Enrich shared domain merits with partner contributions so the
   // player portal can render filled/hollow dots without needing the
   // full partner character objects (which it can't access).
+  //
+  // Kurtis W bug report (2026-09): shared_with entries come in two formats
+  // (resolveSharedWithMember's own doc comment) — a legacy character name,
+  // or a 24-hex ObjectId string (the current format, written by
+  // shAddDomainPartner). This enrichment used to resolve by name only, so
+  // an ID-format entry silently matched nothing here — no partner dots,
+  // and (client-side, editor/sheet.js's _viewSharedSub) no display name
+  // either, since resolveSharedWithMember also only searches the player's
+  // own role-scoped roster, which never contains the shared partner. The
+  // raw ~50-character ID string then rendered in place of a name, long
+  // enough to overflow the row and visually overlap the one below it.
+  // Now resolves both formats and additionally attaches `_partner_names`
+  // (entry -> {name, honorific, moniker}, everything displayName() needs)
+  // so the client can render a real name for an ID-format entry it can't
+  // resolve locally, not just the dots.
   const partnerNames = new Set();
+  const partnerIds = new Set();
   for (const c of chars) {
     for (const m of (c.merits || [])) {
       if (m.category === 'domain' && m.shared_with) {
-        for (const pn of m.shared_with) partnerNames.add(pn);
+        for (const pn of m.shared_with) {
+          if (/^[a-f0-9]{24}$/i.test(pn)) partnerIds.add(pn);
+          else partnerNames.add(pn);
+        }
       }
     }
   }
-  if (partnerNames.size > 0) {
+  if (partnerNames.size > 0 || partnerIds.size > 0) {
+    const or = [];
+    if (partnerNames.size > 0) or.push({ name: { $in: [...partnerNames] } });
+    if (partnerIds.size > 0) or.push({ _id: { $in: [...partnerIds].map(id => new ObjectId(id)) } });
     const partners = await col()
       .find(
-        { name: { $in: [...partnerNames] } },
-        { projection: { name: 1, merits: 1 } }
+        { $or: or },
+        { projection: { name: 1, honorific: 1, moniker: 1, merits: 1 } }
       )
       .toArray();
-    // Build map: partner name → { meritName → shareable dots }
+    // Build map: shared_with entry (name OR id hex string) → { meritName → shareable dots }
     const partnerMap = new Map();
+    // Build map: shared_with entry → display fields (name/honorific/moniker)
+    const partnerDisplay = new Map();
     for (const p of partners) {
       const meritDots = {};
       for (const m of (p.merits || [])) {
@@ -286,18 +310,30 @@ router.get('/', async (req, res) => {
         meritDots[m.name] = (m.cp || 0) + freeOf(m, 'mci') + freeOf(m, 'bloodline')
                           + freeOf(m, 'retainer') + (m.xp || 0);
       }
+      const display = { name: p.name, honorific: p.honorific || null, moniker: p.moniker || null };
       partnerMap.set(p.name, meritDots);
+      partnerDisplay.set(p.name, display);
+      const idStr = String(p._id);
+      partnerMap.set(idStr, meritDots);
+      partnerDisplay.set(idStr, display);
     }
-    // Attach _partner_dots on each shared domain merit
+    // Attach _partner_dots and _partner_names on each shared domain merit
     for (const c of chars) {
       for (const m of (c.merits || [])) {
         if (m.category !== 'domain' || !m.shared_with || !m.shared_with.length) continue;
         let pd = 0;
+        let names = null;
         for (const pn of m.shared_with) {
           const pm = partnerMap.get(pn);
           if (pm && pm[m.name]) pd += pm[m.name];
+          const disp = partnerDisplay.get(pn);
+          if (disp) {
+            if (!names) names = {};
+            names[pn] = disp;
+          }
         }
         if (pd > 0) m._partner_dots = pd;
+        if (names) m._partner_names = names;
       }
     }
   }

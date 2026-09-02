@@ -118,11 +118,12 @@ describe('GET /api/rules/aggregate', () => {
     expect(Array.isArray(res.body.rule_bonus_success)).toBe(true);
   });
 
-  it('player role gets 403 (matches ST-only auth on individual rules-engine endpoints)', async () => {
+  it('player role can read (Kurtis W bug report: the player-facing app needs this to compute derived merit bonuses)', async () => {
     const res = await request(app)
       .get('/api/rules/aggregate?categories=grant')
       .set('X-Test-User', playerUser([new ObjectId().toHexString()]));
-    expect(res.status).toBe(403);
+    expect(res.status).toBe(200);
+    expect(Array.isArray(res.body.rule_grant)).toBe(true);
   });
 
   it('returns 401 when no auth header is supplied', async () => {
