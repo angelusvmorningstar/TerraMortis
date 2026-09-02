@@ -811,3 +811,34 @@ real page, or direct source read) before deferral, not taken on a reviewer's wor
   addition, `oxp-1-office-seats.test.js`'s concurrent-apply race test — confirmed a full-suite
   contention flake, not a regression, by re-running it alone (50/50 clean). Zero failures traced to
   anything this branch touches.
+- **(RESOLVED 2026-09-02, branch `ms/haven-collective-sharing`, commit `e22e31ea`, PR #1243)** Live
+  follow-up from Kurtis W after the fixes above went out: Haven read "capped at 1" regardless of the
+  coterie's real shared Safe Place total. Root cause: `meritEffectiveRating`'s `CAP_DOMAIN` branch
+  never summed partner contributions the way Safe Place's own `domMeritTotalSingle` does — it only
+  ever read the viewing character's own Haven investment. Confirmed against the merit's own rules
+  text ("Like a Safe Place, a coterie may share a Haven Merit... Each member that wishes to benefit
+  must invest Merit dots in both the Safe Place and the Haven") — this was never a display bug, Haven
+  was genuinely never wired up as a collectively-summed merit. Fixed by mirroring
+  `domMeritTotalSingle`'s combining pattern (own + partners' own Haven dots, by-name lookup falling
+  back to the server's `_partner_dots` enrichment, gated on owning ≥1 dot yourself, suspending own
+  dots before combining per ADR-010 D2/OATH-B). **Mandragora Garden deliberately excluded** — per
+  Angelus's ruling it can no longer be shared at all (it used to be; legacy `shared_with` data on it
+  stays inert, same treatment this file already gives elsewhere), verified byte-identical via two
+  dedicated regression tests. 6 new tests (`haven-collective-sharing.test.js`), prove-discriminated.
+  458/459 across the 29 directly-relevant domain-merit/oath test files (the 1 failure is the same
+  pre-existing stale-literal-match test noted above).
+- **(Investigated, NOT a bug, 2026-09-02)** Kurtis W reported his Resilience discipline (an
+  Oath-of-Serfdom `st_mods` bonus, base `dots:0`) still not showing after a hard reset. Exhaustively
+  verified live against real production data (local server against live Atlas, both ST and Kurtis's
+  own real player account/character_ids): the API returns identical, correct data for both roles: the
+  composition function correctly produces `{dots:1}`, and the render function correctly produces a
+  genuinely solid gold-filled, ring-marked dot (confirmed via actual computed DOM styles, not just
+  the HTML string). Cross-checked the identical pattern on Ryan Ambrose's own Celerity (also an
+  Oath-sourced `dots:0` discipline, the subject of last night's `e99b6c13` fix) — same result, composes
+  and renders correctly right now. No code defect found on either character after two independent,
+  real-data verification passes. Likely remaining explanation: client-side staleness (service
+  worker/PWA cache) on the affected devices that a normal hard-reset doesn't clear — not something
+  this session could reproduce or fix. Mid-investigation, briefly (and wrongly) concluded this was a
+  role-specific bug (player fetch missing the discipline entirely) — that was an artifact of a stale
+  local test server still running pre-edit code, corrected once caught; recorded here so the false
+  lead doesn't get rediscovered.
