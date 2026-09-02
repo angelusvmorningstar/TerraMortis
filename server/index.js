@@ -169,19 +169,30 @@ app.use('/api/cyoa', requireAuth, noCache(), cyoaRouter);
 // — STs editing rules see their own writes via the client's in-memory
 // cache invalidation; other users see new values within one max-age
 // window after a server-side change.
-const RE_ST = [requireAuth, requireRole('st')];
+// Kurtis W bug report (2026-09): these were ST-only for READS too (RE_ST
+// applied to the whole mount, GET included), but this is reference
+// rule-definition data, not a player secret — and the player-facing app's
+// own preloadRules()/applyDerivedMerits pipeline needs read access to
+// compute merit-granted bonuses (e.g. Professional Training's dot-4 skill
+// bonus) for a PLAYER's own sheet. A player got a 403 on every load, so
+// derived-merit values silently never appeared, masked by app.js's own
+// Promise.allSettled + the #249 null-cache guard. Reads now open to any
+// authenticated user, matching rules.js's own established pattern
+// (purchasable_powers: public GET, requireRole('st') on writes only) —
+// writes are now protected at the route level inside rules-engine.js
+// instead, so this cannot also open up write access.
 const CACHE_5MIN = cacheControl(300);
-app.use('/api/rules/grant',                  ...RE_ST, CACHE_5MIN, grantRouter);
-app.use('/api/rules/speciality_grant',       ...RE_ST, CACHE_5MIN, specialityGrantRouter);
-app.use('/api/rules/skill_bonus',            ...RE_ST, CACHE_5MIN, skillBonusRouter);
-app.use('/api/rules/nine_again',             ...RE_ST, CACHE_5MIN, nineAgainRouter);
-app.use('/api/rules/disc_attr',              ...RE_ST, CACHE_5MIN, discAttrRouter);
-app.use('/api/rules/derived_stat_modifier',  ...RE_ST, CACHE_5MIN, derivedStatModRouter);
-app.use('/api/rules/tier_budget',            ...RE_ST, CACHE_5MIN, tierBudgetRouter);
-app.use('/api/rules/status_floor',           ...RE_ST, CACHE_5MIN, statusFloorRouter);
+app.use('/api/rules/grant',                  requireAuth, CACHE_5MIN, grantRouter);
+app.use('/api/rules/speciality_grant',       requireAuth, CACHE_5MIN, specialityGrantRouter);
+app.use('/api/rules/skill_bonus',            requireAuth, CACHE_5MIN, skillBonusRouter);
+app.use('/api/rules/nine_again',             requireAuth, CACHE_5MIN, nineAgainRouter);
+app.use('/api/rules/disc_attr',              requireAuth, CACHE_5MIN, discAttrRouter);
+app.use('/api/rules/derived_stat_modifier',  requireAuth, CACHE_5MIN, derivedStatModRouter);
+app.use('/api/rules/tier_budget',            requireAuth, CACHE_5MIN, tierBudgetRouter);
+app.use('/api/rules/status_floor',           requireAuth, CACHE_5MIN, statusFloorRouter);
 // dtlt.1: roll-time bonus successes (Stronger Than You and any future
 // "+N successes when X" house rule).
-app.use('/api/rules/bonus_success',          ...RE_ST, CACHE_5MIN, bonusSuccessRouter);
+app.use('/api/rules/bonus_success',          requireAuth, CACHE_5MIN, bonusSuccessRouter);
 // Issue #256 (perf): aggregated rules-engine endpoint — coalesces the
 // 7 per-category endpoints into a single round-trip for `preloadRules`.
 // Mounted before `/api/rules` (purchasable powers) so Express routes
@@ -191,7 +202,7 @@ app.use('/api/rules/bonus_success',          ...RE_ST, CACHE_5MIN, bonusSuccessR
 // same rule-doc content the 7 per-category endpoints do, just merged
 // into one response — so it gets the same CACHE_5MIN treatment.
 // Closes #265's one-line follow-up as part of this rebase.
-app.use('/api/rules/aggregate',              ...RE_ST, CACHE_5MIN, rulesAggregateRouter);
+app.use('/api/rules/aggregate',              requireAuth, CACHE_5MIN, rulesAggregateRouter);
 app.use('/api/rules', requireAuth, CACHE_5MIN, rulesRouter);
 app.use('/api/contested_roll_requests', requireAuth, contestedRollsRouter);
 // gdx.12: Humanity Check submit/accept/decline — shares the

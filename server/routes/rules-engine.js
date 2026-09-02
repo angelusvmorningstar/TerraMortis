@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { ObjectId } from 'mongodb';
 import { getCollection } from '../db.js';
+import { requireRole } from '../middleware/auth.js';
 import { validate } from '../middleware/validate.js';
 import { ruleGrantSchema } from '../schemas/rules/rule-grant.schema.js';
 import { ruleSpecialityGrantSchema } from '../schemas/rules/rule-speciality-grant.schema.js';
@@ -16,6 +17,21 @@ function makeRulesRouter(collectionName, schema, { postCheck } = {}) {
   const router = Router();
   const col = () => getCollection(collectionName);
 
+  // Kurtis W bug report (2026-09): reads were only reachable ST-only at the
+  // mount level in index.js (`RE_ST`), same as writes — but this is reference
+  // rule-definition data (grant/skill-bonus/nine-again/etc.), not a player
+  // secret, and the player-facing app's own client-side derivation pipeline
+  // (applyDerivedMerits -> preloadRules -> this router's GET /, via the
+  // aggregate endpoint) needs to read it to compute merit-granted bonuses
+  // (e.g. Professional Training's dot-4 skill bonus) for a PLAYER's own
+  // sheet. The 403 was silently swallowed by app.js's own Promise.allSettled
+  // + the #249 null-cache guard, so derived-merit values just never appeared
+  // for any player, with only a console.error and an easy-to-miss banner.
+  // Reads are now open to any authenticated user, matching the established
+  // pattern in rules.js (purchasable_powers: public GET, requireRole('st')
+  // on writes only) — mount-level auth in index.js drops to plain
+  // `requireAuth`, and writes are protected here instead so this loosening
+  // cannot also open up write access.
   router.get('/', async (req, res) => {
     const docs = await col().find({}).sort({ _id: 1 }).toArray();
     res.json(docs);
@@ -29,7 +45,7 @@ function makeRulesRouter(collectionName, schema, { postCheck } = {}) {
     res.json(doc);
   });
 
-  router.post('/', validate(schema), async (req, res) => {
+  router.post('/', requireRole('st'), validate(schema), async (req, res) => {
     if (postCheck) {
       const checkErr = postCheck(req.body);
       if (checkErr) return res.status(400).json({ error: 'VALIDATION_ERROR', message: checkErr });
@@ -40,7 +56,7 @@ function makeRulesRouter(collectionName, schema, { postCheck } = {}) {
     res.status(201).json(created);
   });
 
-  router.put('/:id', validate(schema), async (req, res) => {
+  router.put('/:id', requireRole('st'), validate(schema), async (req, res) => {
     let oid;
     try { oid = new ObjectId(req.params.id); } catch { return res.status(404).json({ error: 'NOT_FOUND' }); }
     if (postCheck) {
@@ -58,7 +74,7 @@ function makeRulesRouter(collectionName, schema, { postCheck } = {}) {
     res.json(result);
   });
 
-  router.delete('/:id', async (req, res) => {
+  router.delete('/:id', requireRole('st'), async (req, res) => {
     let oid;
     try { oid = new ObjectId(req.params.id); } catch { return res.status(404).json({ error: 'NOT_FOUND' }); }
     const result = await col().deleteOne({ _id: oid });

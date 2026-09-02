@@ -746,24 +746,68 @@ real page, or direct source read) before deferral, not taken on a reviewer's wor
   its bonus band reads `m.rating` directly rather than `m.bonus`, and it isn't confirmed whether an
   active `.bonus` overlay even flows into `m.rating` for this merit category. Committed alongside the
   rest of P2/P3 (see above) as a documented gap, not a fix.
-- **(Investigate next, per Angelus's own standing instruction to pick these up)** Three live bug
-  reports from Kurtis W, on his own character (Charlie Ballsack, `_id` `69d73ea49162ece35897a482`):
-  - **Domain Merit shared-partner ID leak + CSS overlap.** `resolveSharedWithMember` (`data/helpers.js`)
-    only searches whatever character array the caller passes it — for a player's own view this is
-    their own role-scoped roster, which never contains a shared merit's partner. The lookup fails,
-    falls back to the raw 24-hex `shared_with` entry, and that ~50-character ID string overflowing a
-    layout built for short names is what produces the visible overlap with the row below. Root-caused,
-    not fixed. Proposed fix: extend `server/routes/characters.js`'s existing player-scoped
-    `_partner_dots` enrichment (already resolves domain-merit sharing partners server-side, but only by
-    name — silently failing for the ID-based `shared_with` entries this exact character has) to also
-    resolve by `_id` and attach each partner's display name, then have `editor/sheet.js`'s
-    `_viewSharedSub` consult that enrichment when `resolveSharedWithMember` can't resolve locally.
-  - **Missing Professional Training dot-4 Stealth bonus.** Charlie's PT merit is rating 5 with
-    `dot4_skill: "Stealth"`; the live `rule_skill_bonus` doc requires tier ≥4 with
-    `target_skill: "dot4_skill"` — on paper the bonus should be granting +1 to Stealth via
-    `_pt_dot4_bonus_skills` (`editor/rule_engine/pt-evaluator.js`). Root cause not found; next step is
-    tracing whether `applyPTRulesFromDb`/the rules cache actually runs with the right `skillBonus`
-    rules array at render time for this character.
-  - **"Safe Place capped by Safe Place" confusing message.** Not investigated at all — surfaced only
-    as a screenshot artifact. Needs a look at the Domain merit cap-warning logic (`_isCappedView`'s
-    `dom-cap-warn` derived-note in `editor/sheet.js`).
+- **(RESOLVED 2026-09-02, branch `ms/kurtis-w-charlie-ballsack-bugs`)** Three live bug reports from
+  Kurtis W, on his own character (Charlie Ballsack, `_id` `69d73ea49162ece35897a482`), all fixed:
+  - **Domain Merit shared-partner ID leak + CSS overlap.** Confirmed live: Charlie's Safe Place/Haven
+    `shared_with` arrays hold 24-hex `_id` entries (`69d73ea49162ece35897a48b`,
+    `69f98167ed740b3098dc56ff`), not names. `resolveSharedWithMember` only searches whatever roster the
+    caller passes it — for a player's own view that's their own role-scoped roster, which never
+    contains the shared partner, so the raw ID string rendered in its place and overflowed the row.
+    Fixed both ends: `server/routes/characters.js`'s player-scoped `_partner_dots` enrichment now
+    resolves `shared_with` entries by `_id` as well as by name (mixed arrays included), and attaches a
+    new `_partner_names` field (entry → `{name, honorific, moniker}`, everything `displayName()` needs)
+    for whatever it resolved. `editor/sheet.js`'s `_viewSharedSub` (view-mode) and the edit-mode
+    `dom-partners-row` (same leak, second instance found while fixing the first) both fall back to
+    `_partner_names` when local resolution fails, instead of the raw entry string. No per-partner dot
+    breakdown for a remotely-resolved partner (the enrichment only has a per-merit summed total,
+    `_partner_dots`, used elsewhere) — the name renders correctly; that partner's own dot count is
+    omitted rather than guessed at. New suite:
+    `server/tests/kurtis-w-domain-partner-id-resolution.test.js` (4 tests: name-format regression
+    guard, id-format — the fix, mixed array, unresolvable entry). Prove-discriminated by reverting the
+    server enrichment and confirming 3 of 4 fail.
+  - **Missing Professional Training dot-4 Stealth bonus.** Root cause: `preloadRules()`
+    (`editor/rule_engine/load-rules.js`) hits `/api/rules/aggregate`, which was mounted `RE_ST` —
+    `requireRole('st')` on the WHOLE mount, reads included — so a player got a 403 on every load. This
+    is app.js's own already-documented failure mode (`loadAllData`'s comment literally says "preloadRules
+    403 for a player against the ST-only rules-engine endpoint"): the 403 is swallowed by
+    `Promise.allSettled`, `applyDerivedMerits` then bails out via the #249 null-cache guard, and
+    *every* grant-pool-derived bonus for *every* player silently never renders — PT dot-4, MCI
+    grants, OHM, bloodline rules, K-9/Falconry retainer auto-creation, all of it — not just Charlie's
+    Stealth bonus; he's just the report that named a concrete, visible symptom. The 9 rule-engine
+    routes (`grant`, `speciality_grant`, `skill_bonus`, `nine_again`, `disc_attr`,
+    `derived_stat_modifier`, `tier_budget`, `status_floor`, `bonus_success`) plus the aggregate
+    endpoint are pure reference/rule-definition data, not a player secret — same shape as
+    `purchasable_powers` (`rules.js`), which is already public-GET/ST-write. Fixed to match: reads open
+    to any authenticated user at the `server/index.js` mount level; writes now protected inside
+    `rules-engine.js`'s own `makeRulesRouter` (`requireRole('st')` on POST/PUT/DELETE specifically),
+    so loosening the mount cannot also open write access. `server/tests/helpers/test-app.js` updated
+    to match (it mirrors prod's mounts, not a live import of them). Existing coverage
+    (`api-rules-engine.test.js`, `api-rules-aggregate.test.js`) had "player blocked → 403" on GET for
+    all 9 categories + aggregate — flipped to "player can read" (200 + shape check) with a new
+    companion "player still blocked from POST" (403) added alongside every one, so the write-side
+    tightening this fix depends on has its own explicit regression guard, not just an absence of a
+    stale assertion.
+  - **"Safe Place capped by Safe Place" confusing message.** Root cause: NOT a logic bug — Haven really
+    is capped by its attached Safe Place, correctly. The wording was the problem, on two counts. (1)
+    Neither the "needs an attached anchor" nor the "capped at N" derived-note named the merit it was
+    describing, so a Haven row's own cap-warning read as a bare "Safe Place limits effective dots"
+    sitting directly under a subtitle that ALSO reads "Attached to: Safe Place (...)" — easy to misread
+    as self-referential. (2) View-mode copy (`editor/sheet.js` `_viewCappedNote`) hardcoded "Safe
+    Place" even for Mandragora Garden, which (N-8, issue #761) can anchor to a Necropolis Sepulcher
+    instead — a genuinely WRONG message in that case (confirmed by reproducing it: a Sepulcher-anchored
+    Mandragora Garden rendered "Capped at 1 — Safe Place limits effective dots" pre-fix), not just
+    unclear copy. Edit-mode already generalised this correctly; view-mode had not. Fixed: both
+    messages now name the merit (`"Haven needs an attached Safe Place (0 effective dots)"`, `"Haven
+    capped at 1 by its attached Safe Place"`) and Mandragora Garden's copy generalises to "Safe Place
+    or Sepulcher" / "anchor" like edit-mode already did. New suite:
+    `server/tests/kurtis-w-cap-warning-copy.test.js` (4 tests covering both merits × both message
+    shapes). Prove-discriminated by reverting the copy and confirming all 4 fail — the failure output
+    itself reproduces the Sepulcher-mislabelled-as-Safe-Place bug verbatim.
+
+  267/267 across the 17 directly-relevant test files (characters/rules-engine/domain-merit-render
+  suites). Full untargeted server run: 4897 passed / 30 failed / 76 skipped across 263 files — every
+  failure accounted for: the repo's own documented pre-existing set (CLAUDE.md), the 8
+  `*-parallel-write.test.js` files (documented Atlas-contention flake class), plus one this run's own
+  addition, `oxp-1-office-seats.test.js`'s concurrent-apply race test — confirmed a full-suite
+  contention flake, not a regression, by re-running it alone (50/50 clean). Zero failures traced to
+  anything this branch touches.

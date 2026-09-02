@@ -1496,7 +1496,10 @@ export function shRenderDomainMerits(c, editMode) {
       // the DB as inert (no destructive migration in this scope); the gate
       // below suppresses display + add-partner UI on the editor surface.
       const _canShare = ['Safe Place', 'Haven'];
-      if (_canShare.includes(m.name) && parts.length) { h += '<div class="dom-partners-row">'; parts.forEach(pEntry => { const p = resolveSharedWithMember(chars, pEntry); const pN = p ? displayName(p) : pEntry; const pD = p ? domMeritShareable(p, m.name) : 0; h += '<span class="dom-partner-tag">' + esc(pN) + (pD ? ' ' + shDots(pD) : ' \u25CB') + '<button class="dom-partner-rm" onclick="shRemoveDomainPartner(' + di + ',\'' + pEntry.replace(/'/g, "\\'") + '\')">\u00D7</button></span>'; }); h += '</div>'; }
+      // Kurtis W bug report (2026-09): same ID-leak shape as the view-mode
+      // _viewSharedSub row above \u2014 falls back to the server's _partner_names
+      // enrichment rather than the raw shared_with entry.
+      if (_canShare.includes(m.name) && parts.length) { h += '<div class="dom-partners-row">'; parts.forEach(pEntry => { const p = resolveSharedWithMember(chars, pEntry); const remote = !p && m._partner_names && m._partner_names[pEntry]; const pN = p ? displayName(p) : (remote ? displayName(remote) : pEntry); const pD = p ? domMeritShareable(p, m.name) : 0; h += '<span class="dom-partner-tag">' + esc(pN) + (pD ? ' ' + shDots(pD) : ' \u25CB') + '<button class="dom-partner-rm" onclick="shRemoveDomainPartner(' + di + ',\'' + pEntry.replace(/'/g, "\\'") + '\')">\u00D7</button></span>'; }); h += '</div>'; }
       if (_canShare.includes(m.name) && avP.length) h += '<div class="dom-add-partner-row"><select class="dom-partner-sel" onchange="if(this.value){shAddDomainPartner(' + di + ',this.value);this.value=\'\';}"><option value="">+ Add shared partner\u2026</option>' + avP.map(p => '<option value="' + esc(String(p._id)) + '">' + esc(dropdownName(p)) + '</option>').join('') + '</select></div>';
       // Issue #832: exp-body sibling at the end of dom-edit-block holds the
       // collapsible description + prereq. Only emitted when the merit has a
@@ -1771,8 +1774,26 @@ export function shRenderDomainMerits(c, editMode) {
       const _viewDesc = _viewDb && _viewDb.desc ? esc(_viewDb.desc) : '';
       const _viewPrereq = _viewDb && _viewDb.prereq ? prereqLabel(_viewDb.prereq) : '';
       const _viewHasExp = !!_viewDesc;
+      // Kurtis W bug report (2026-09): resolveSharedWithMember only searches
+      // `chars` (this viewer's own role-scoped roster), which never contains
+      // a shared merit's partner for a player's own view \u2014 the raw 24-hex
+      // shared_with entry rendered instead of a name, long enough to
+      // overflow the row and overlap the one below. Falls back to the
+      // server's own _partner_names enrichment (server/routes/characters.js)
+      // when local resolution fails; that enrichment has no per-partner dot
+      // breakdown (only the merit's own summed _partner_dots, used
+      // elsewhere), so a server-resolved partner's own dot count is omitted
+      // here rather than guessed at.
       const _viewSharedSub = dp
-        ? '<div class="trait-sub"><span class="trait-qual dom-shared-lbl">Shared \u00B7 ' + dp.map(entry => { const p = resolveSharedWithMember(chars, entry); const pd = p ? domMeritShareable(p, m.name) : 0; const label = p ? displayName(p) : entry; return esc(label) + (pd ? ' ' + shDots(pd) : ''); }).join(', ') + '</span></div>'
+        ? '<div class="trait-sub"><span class="trait-qual dom-shared-lbl">Shared \u00B7 ' + dp.map(entry => {
+            const p = resolveSharedWithMember(chars, entry);
+            if (p) {
+              const pd = domMeritShareable(p, m.name);
+              return esc(displayName(p)) + (pd ? ' ' + shDots(pd) : '');
+            }
+            const remote = m._partner_names && m._partner_names[entry];
+            return esc(remote ? displayName(remote) : entry);
+          }).join(', ') + '</span></div>'
         : '';
       const _viewArr = _viewHasExp ? '<span class="exp-arr">\u203A</span>' : '';
       // TM Admin Story tm-admin.10.1b AC2 (extended): shRenderDomainMerits'
@@ -1803,11 +1824,26 @@ export function shRenderDomainMerits(c, editMode) {
       // siblings after the exp-body. Hoisted out so both branches share.
       let _viewCappedNote = '';
       if (_isCappedView) {
+        // Kurtis W bug report (2026-09, "Safe Place capped by Safe Place"
+        // confusing message): the underlying cap logic is correct (Haven/
+        // Mandragora Garden really is capped by its attached anchor) \u2014 the
+        // wording was the problem, on two counts:
+        //   1. Neither message named the merit it was describing, so a
+        //      Haven row's own note read as a bare "Safe Place limits..."
+        //      sitting directly under a subtitle that ALSO reads "Attached
+        //      to: Safe Place (...)" \u2014 easy to misread as self-referential.
+        //   2. This view-mode copy hardcoded "Safe Place" even for
+        //      Mandragora Garden, which (N-8, issue #761) can anchor to a
+        //      Necropolis Sepulcher instead \u2014 genuinely wrong wording in
+        //      that case, not just unclear. Edit-mode already generalised
+        //      this correctly (line ~1433 above); view-mode had not.
+        const _isMandragoraView = m.name === 'Mandragora Garden';
+        const _viewAnchorLabel = _isMandragoraView ? 'Safe Place or Sepulcher' : 'Safe Place';
         const _viewAt = normaliseAttachedTo(m.attached_to);
         if (!_viewAt) {
-          _viewCappedNote = '<div class="derived-note dom-cap-warn">Needs an attached Safe Place (0 effective dots)</div>';
+          _viewCappedNote = '<div class="derived-note dom-cap-warn">' + esc(m.name) + ' needs an attached ' + _viewAnchorLabel + ' (0 effective dots)</div>';
         } else if (_viewStored > de) {
-          _viewCappedNote = '<div class="derived-note">Capped at ' + de + ' \u2014 Safe Place limits effective dots</div>';
+          _viewCappedNote = '<div class="derived-note">' + esc(m.name) + ' capped at ' + de + ' by its attached ' + (_isMandragoraView ? 'anchor' : 'Safe Place') + '</div>';
         }
       }
       if (_viewHasExp) {

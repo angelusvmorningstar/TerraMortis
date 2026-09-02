@@ -117,20 +117,22 @@ export function createTestApp() {
   // RETIRED, Story 31-5 (TM Wiki) - the route moved to TM Wiki along with its data.
   // See the matching note in server/index.js.
   // Rules engine — must mount before /api/rules (purchasable_powers)
-  const reRoleST = requireRole('st');
-  app.use('/api/rules/grant',                 mockAuth, reRoleST, CACHE_5MIN, grantRouter);
-  app.use('/api/rules/speciality_grant',      mockAuth, reRoleST, CACHE_5MIN, specialityGrantRouter);
-  app.use('/api/rules/skill_bonus',           mockAuth, reRoleST, CACHE_5MIN, skillBonusRouter);
-  app.use('/api/rules/nine_again',            mockAuth, reRoleST, CACHE_5MIN, nineAgainRouter);
-  app.use('/api/rules/disc_attr',             mockAuth, reRoleST, CACHE_5MIN, discAttrRouter);
-  app.use('/api/rules/derived_stat_modifier', mockAuth, reRoleST, CACHE_5MIN, derivedStatModRouter);
-  app.use('/api/rules/tier_budget',           mockAuth, reRoleST, CACHE_5MIN, tierBudgetRouter);
-  app.use('/api/rules/status_floor',          mockAuth, reRoleST, CACHE_5MIN, statusFloorRouter);
+  // Kurtis W bug report (2026-09): reads open to any authenticated user now
+  // (writes stay ST-only, enforced at the route level inside
+  // rules-engine.js) — mirrors prod's own mount in server/index.js.
+  app.use('/api/rules/grant',                 mockAuth, CACHE_5MIN, grantRouter);
+  app.use('/api/rules/speciality_grant',      mockAuth, CACHE_5MIN, specialityGrantRouter);
+  app.use('/api/rules/skill_bonus',           mockAuth, CACHE_5MIN, skillBonusRouter);
+  app.use('/api/rules/nine_again',            mockAuth, CACHE_5MIN, nineAgainRouter);
+  app.use('/api/rules/disc_attr',             mockAuth, CACHE_5MIN, discAttrRouter);
+  app.use('/api/rules/derived_stat_modifier', mockAuth, CACHE_5MIN, derivedStatModRouter);
+  app.use('/api/rules/tier_budget',           mockAuth, CACHE_5MIN, tierBudgetRouter);
+  app.use('/api/rules/status_floor',          mockAuth, CACHE_5MIN, statusFloorRouter);
   // dtlt.1: roll-time bonus successes.
-  app.use('/api/rules/bonus_success',         mockAuth, reRoleST, CACHE_5MIN, bonusSuccessRouter);
+  app.use('/api/rules/bonus_success',         mockAuth, CACHE_5MIN, bonusSuccessRouter);
   // Issue #265 (rebase): aggregate endpoint same content as per-category
   // routes — mounted with the same CACHE_5MIN wiring.
-  app.use('/api/rules/aggregate',             mockAuth, reRoleST, CACHE_5MIN, rulesAggregateRouter);
+  app.use('/api/rules/aggregate',             mockAuth, CACHE_5MIN, rulesAggregateRouter);
   app.use('/api/rules', mockAuth, CACHE_5MIN, rulesRouter);
   app.use('/api/relationships', mockAuth, noCache(), relationshipsRouter);
   app.use('/api/npcs', mockAuth, noCache(), npcsRouter);

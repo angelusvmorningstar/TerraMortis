@@ -1,8 +1,14 @@
 /**
- * API tests — /api/rules/<family> endpoints (rules engine, ST-only).
+ * API tests — /api/rules/<family> endpoints (rules engine).
  *
- * Covers: valid create, extra-field rejection, player blocked, unauthenticated,
- * list empty collection, update non-existent 404, delete existing.
+ * Kurtis W bug report (2026-09): reads are open to any authenticated user
+ * (the player-facing app's own preloadRules()/applyDerivedMerits pipeline
+ * needs them to compute merit-granted bonuses like Professional Training's
+ * dot-4 skill bonus); writes stay ST-only, enforced at the route level.
+ *
+ * Covers: valid create, extra-field rejection, player can read, player
+ * blocked from writing, unauthenticated, list empty collection, update
+ * non-existent 404, delete existing.
  * Plus cyclic-reference rejections on rule_grant and short-budgets on rule_tier_budget.
  */
 
@@ -68,8 +74,14 @@ describe('rule_grant', () => {
     expect(r.status).toBe(401);
   });
 
-  it('player blocked returns 403', async () => {
+  it('player can read (reads are open to any authenticated user)', async () => {
     const r = await request(app).get(BASE).set('X-Test-User', player());
+    expect(r.status).toBe(200);
+    expect(Array.isArray(r.body)).toBe(true);
+  });
+
+  it('player still blocked from POST (writes stay ST-only)', async () => {
+    const r = await request(app).post(BASE).set('X-Test-User', player()).send({});
     expect(r.status).toBe(403);
   });
 
@@ -173,8 +185,14 @@ describe('rule_grant', () => {
 describe('rule_speciality_grant', () => {
   const BASE = '/api/rules/speciality_grant';
 
-  it('player blocked → 403', async () => {
+  it('player can read (reads are open to any authenticated user)', async () => {
     const r = await request(app).get(BASE).set('X-Test-User', player());
+    expect(r.status).toBe(200);
+    expect(Array.isArray(r.body)).toBe(true);
+  });
+
+  it('player still blocked from POST (writes stay ST-only)', async () => {
+    const r = await request(app).post(BASE).set('X-Test-User', player()).send({});
     expect(r.status).toBe(403);
   });
 
@@ -225,8 +243,15 @@ describe('rule_speciality_grant', () => {
 describe('rule_skill_bonus', () => {
   const BASE = '/api/rules/skill_bonus';
 
-  it('player blocked → 403', async () => {
-    expect((await request(app).get(BASE).set('X-Test-User', player())).status).toBe(403);
+  it('player can read (reads are open to any authenticated user)', async () => {
+    const r = await request(app).get(BASE).set('X-Test-User', player());
+    expect(r.status).toBe(200);
+    expect(Array.isArray(r.body)).toBe(true);
+  });
+
+  it('player still blocked from POST (writes stay ST-only)', async () => {
+    const r = await request(app).post(BASE).set('X-Test-User', player()).send({});
+    expect(r.status).toBe(403);
   });
 
   it('ST creates valid doc → 201', async () => {
@@ -268,8 +293,15 @@ describe('rule_skill_bonus', () => {
 describe('rule_nine_again', () => {
   const BASE = '/api/rules/nine_again';
 
-  it('player blocked → 403', async () => {
-    expect((await request(app).get(BASE).set('X-Test-User', player())).status).toBe(403);
+  it('player can read (reads are open to any authenticated user)', async () => {
+    const r = await request(app).get(BASE).set('X-Test-User', player());
+    expect(r.status).toBe(200);
+    expect(Array.isArray(r.body)).toBe(true);
+  });
+
+  it('player still blocked from POST (writes stay ST-only)', async () => {
+    const r = await request(app).post(BASE).set('X-Test-User', player()).send({});
+    expect(r.status).toBe(403);
   });
 
   it('ST creates valid doc with skills array → 201', async () => {
@@ -320,8 +352,15 @@ describe('rule_nine_again', () => {
 describe('rule_disc_attr', () => {
   const BASE = '/api/rules/disc_attr';
 
-  it('player blocked → 403', async () => {
-    expect((await request(app).get(BASE).set('X-Test-User', player())).status).toBe(403);
+  it('player can read (reads are open to any authenticated user)', async () => {
+    const r = await request(app).get(BASE).set('X-Test-User', player());
+    expect(r.status).toBe(200);
+    expect(Array.isArray(r.body)).toBe(true);
+  });
+
+  it('player still blocked from POST (writes stay ST-only)', async () => {
+    const r = await request(app).post(BASE).set('X-Test-User', player()).send({});
+    expect(r.status).toBe(403);
   });
 
   it('ST creates valid doc → 201', async () => {
@@ -375,8 +414,15 @@ describe('rule_bonus_success', () => {
     expect((await request(app).get(BASE)).status).toBe(401);
   });
 
-  it('player blocked → 403', async () => {
-    expect((await request(app).get(BASE).set('X-Test-User', player())).status).toBe(403);
+  it('player can read (reads are open to any authenticated user)', async () => {
+    const r = await request(app).get(BASE).set('X-Test-User', player());
+    expect(r.status).toBe(200);
+    expect(Array.isArray(r.body)).toBe(true);
+  });
+
+  it('player still blocked from POST (writes stay ST-only)', async () => {
+    const r = await request(app).post(BASE).set('X-Test-User', player()).send({});
+    expect(r.status).toBe(403);
   });
 
   it('ST creates the Stronger Than You doc → 201', async () => {
@@ -441,8 +487,15 @@ describe('rule_bonus_success', () => {
 describe('rule_derived_stat_modifier', () => {
   const BASE = '/api/rules/derived_stat_modifier';
 
-  it('player blocked → 403', async () => {
-    expect((await request(app).get(BASE).set('X-Test-User', player())).status).toBe(403);
+  it('player can read (reads are open to any authenticated user)', async () => {
+    const r = await request(app).get(BASE).set('X-Test-User', player());
+    expect(r.status).toBe(200);
+    expect(Array.isArray(r.body)).toBe(true);
+  });
+
+  it('player still blocked from POST (writes stay ST-only)', async () => {
+    const r = await request(app).post(BASE).set('X-Test-User', player()).send({});
+    expect(r.status).toBe(403);
   });
 
   it('ST creates valid flat modifier → 201', async () => {
@@ -493,8 +546,15 @@ describe('rule_derived_stat_modifier', () => {
 describe('rule_tier_budget', () => {
   const BASE = '/api/rules/tier_budget';
 
-  it('player blocked → 403', async () => {
-    expect((await request(app).get(BASE).set('X-Test-User', player())).status).toBe(403);
+  it('player can read (reads are open to any authenticated user)', async () => {
+    const r = await request(app).get(BASE).set('X-Test-User', player());
+    expect(r.status).toBe(200);
+    expect(Array.isArray(r.body)).toBe(true);
+  });
+
+  it('player still blocked from POST (writes stay ST-only)', async () => {
+    const r = await request(app).post(BASE).set('X-Test-User', player()).send({});
+    expect(r.status).toBe(403);
   });
 
   it('ST creates valid doc → 201', async () => {
@@ -545,8 +605,15 @@ describe('rule_tier_budget', () => {
 describe('rule_status_floor', () => {
   const BASE = '/api/rules/status_floor';
 
-  it('player blocked → 403', async () => {
-    expect((await request(app).get(BASE).set('X-Test-User', player())).status).toBe(403);
+  it('player can read (reads are open to any authenticated user)', async () => {
+    const r = await request(app).get(BASE).set('X-Test-User', player());
+    expect(r.status).toBe(200);
+    expect(Array.isArray(r.body)).toBe(true);
+  });
+
+  it('player still blocked from POST (writes stay ST-only)', async () => {
+    const r = await request(app).post(BASE).set('X-Test-User', player()).send({});
+    expect(r.status).toBe(403);
   });
 
   it('ST creates valid doc → 201', async () => {
